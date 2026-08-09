@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum ContestStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  FINISHED
+  CANCELLED
+}
+
+enum ClueType {
+  TEXT
+  IMAGE
+  PDF
+  AUDIO
+  VIDEO
+  WEB_PAGE
+}
+
+model User {
+  id           String @id @default(cuid())
+  email        String @unique
+  username     String @unique
+  passwordHash String
+
+  role UserRole @default(USER)
+
+  submissions Submission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Contest {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  status      ContestStatus @default(DRAFT)
+
+  startsAt DateTime?
+  endsAt   DateTime?
+
+  clues       ContestClue[]
+  submissions Submission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([startsAt])
+  @@map("contests")
+}
+
+model ContestClue {
+  id        String @id @default(cuid())
+  contestId String
+  sequence  Int
+
+  type          ClueType @default(TEXT)
+  content       String
+  correctAnswer String
+
+  publishedAt DateTime?
+
+  contest     Contest      @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  submissions Submission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([contestId, sequence])
+  @@index([contestId])
+  @@index([publishedAt])
+  @@map("contest_clues")
+}
+
+model Submission {
+  id String @id @default(cuid())
+
+  userId    String
+  contestId String
+  clueId    String
+
+  answer    String
+  isCorrect Boolean @default(false)
+
+  submittedAt    DateTime @default(now())
+  responseTimeMs BigInt?
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contest Contest     @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  clue    ContestClue @relation(fields: [clueId], references: [id], onDelete: Cascade)
+
+  @@index([userId, contestId])
+  @@index([contestId, clueId])
+  @@index([contestId, userId])
+  @@map("submissions")
+}

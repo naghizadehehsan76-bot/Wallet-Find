@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Prisma generated client
+backend/src/generated/prisma/
+
+# IDE
+.vscode/
+.idea/
+
+# AI / IDE generated skill files
+backend/.agents/
+backend/.claude/
+backend/.windsurf/
+backend/skills-lock.json
