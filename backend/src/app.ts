@@ -1,7 +1,9 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+
 import authRoutes from "./modules/auth/auth.routes.js";
+import contestRoutes from "./modules/contest/contest.routes.js";
 
 const app = express();
 
@@ -20,5 +22,6 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/contests", contestRoutes);
 
 export default app;
