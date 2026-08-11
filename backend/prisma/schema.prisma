@@ -52,6 +52,27 @@ enum ContentProcessingStatus {
   FAILED
 }
 
+enum AdvertisementStatus {
+  DRAFT
+  PENDING_PAYMENT
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum AdvertisementMetricType {
+  VIEW
+  CLICK
+  PARTICIPATION
+}
+
 model User {
   id           String @id @default(cuid())
   email        String @unique
@@ -60,8 +81,10 @@ model User {
 
   role UserRole @default(USER)
 
-  submissions       Submission[]
-  advertiserContent AdvertiserContent[]
+  submissions         Submission[]
+  advertiserContent   AdvertiserContent[]
+  advertisementOrders AdvertisementOrder[]
+  auditLogs           AuditLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -81,6 +104,10 @@ model Contest {
 
   clues       ContestClue[]
   submissions Submission[]
+
+  setting ContestSetting?
+
+  advertisementOrders AdvertisementOrder[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -115,6 +142,8 @@ model AdvertiserContent {
   advertiser User @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
 
   clues ContestClue[]
+
+  advertisementOrders AdvertisementOrder[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -170,14 +199,181 @@ model Submission {
   submittedAt    DateTime @default(now())
   responseTimeMs BigInt?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  contest Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
-
-  clue ContestClue @relation(fields: [clueId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contest Contest     @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  clue    ContestClue @relation(fields: [clueId], references: [id], onDelete: Cascade)
 
   @@index([userId, contestId])
   @@index([contestId, clueId])
   @@index([contestId, userId])
   @@map("submissions")
+}
+
+model SystemSetting {
+  key String @id
+
+  value String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+model ContestSetting {
+  id String @id @default(cuid())
+
+  contestId String @unique
+
+  clueCount Int @default(12)
+
+  publishIntervalMinutes Int @default(15)
+
+  firstPrizePercent  Int @default(70)
+  secondPrizePercent Int @default(20)
+  thirdPrizePercent  Int @default(10)
+
+  maxParticipants Int?
+
+  contest Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("contest_settings")
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+
+  userId String?
+
+  action String
+
+  entity   String
+  entityId String?
+
+  metadata Json?
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@map("audit_logs")
+}
+
+model AdvertisementOrder {
+  id String @id @default(cuid())
+
+  advertiserId String
+  contentId    String
+
+  contestId String?
+
+  status AdvertisementStatus @default(DRAFT)
+
+  basePrice        Int
+  participantPrice Int @default(0)
+  viewPrice        Int @default(0)
+
+  totalPrice Int
+
+  targetParticipants Int?
+  targetViews        Int?
+
+  startsAt DateTime?
+  endsAt   DateTime?
+
+  paidAt DateTime?
+
+  advertiser User              @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+  content    AdvertiserContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  contest    Contest?          @relation(fields: [contestId], references: [id], onDelete: SetNull)
+
+  payments AdvertisementPayment[]
+  metrics  AdvertisementMetric[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([advertiserId])
+  @@index([contentId])
+  @@index([contestId])
+  @@index([status])
+  @@index([startsAt])
+  @@index([endsAt])
+  @@map("advertisement_orders")
+}
+
+model AdvertisementPayment {
+  id String @id @default(cuid())
+
+  advertisementOrderId String
+
+  amount Int
+
+  status PaymentStatus @default(PENDING)
+
+  provider      String?
+  transactionId String?
+
+  paidAt DateTime?
+
+  advertisementOrder AdvertisementOrder @relation(fields: [advertisementOrderId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([advertisementOrderId])
+  @@index([status])
+  @@index([transactionId])
+  @@map("advertisement_payments")
+}
+
+model AdvertisementPricing {
+  id String @id @default(cuid())
+
+  name String
+
+  basePrice Int
+
+  participantUnit  Int @default(100)
+  participantPrice Int @default(0)
+
+  viewUnit  Int @default(1000)
+  viewPrice Int @default(0)
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@map("advertisement_pricing")
+}
+
+model AdvertisementMetric {
+  id String @id @default(cuid())
+
+  advertisementOrderId String
+
+  type AdvertisementMetricType
+
+  value Int @default(1)
+
+  ipHash String?
+  userId String?
+
+  createdAt DateTime @default(now())
+
+  advertisementOrder AdvertisementOrder @relation(fields: [advertisementOrderId], references: [id], onDelete: Cascade)
+
+  @@index([advertisementOrderId])
+  @@index([type])
+  @@index([createdAt])
+  @@index([userId])
+  @@map("advertisement_metrics")
 }

@@ -26,3 +26,29 @@ export async function createContest(
     },
   });
 }
+import type { CreateClueInput } from "./contest.schema.js";
+
+export async function createClue(
+  contestId: string,
+  data: CreateClueInput
+) {
+  return prisma.contestClue.create({
+    data: {
+      contestId,
+      sequence: data.sequence,
+      content: data.content,
+      correctAnswer: data.correctAnswer,
+      type: data.type,
+    },
+
+    select: {
+      id: true,
+      contestId: true,
+      sequence: true,
+      type: true,
+      content: true,
+      publishedAt: true,
+      createdAt: true,
+    },
+  });
+}

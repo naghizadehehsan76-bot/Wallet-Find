@@ -1,0 +1,1 @@
+{"version":3,"file":"contest.schema.d.ts","sourceRoot":"","sources":["contest.schema.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,CAAC,EAAE,MAAM,KAAK,CAAC;AAExB,eAAO,MAAM,mBAAmB;;;;;iBAoB9B,CAAC;AAEH,MAAM,MAAM,kBAAkB,GAC5B,CAAC,CAAC,KAAK,CAAC,OAAO,mBAAmB,CAAC,CAAC;AACpC,eAAO,MAAM,gBAAgB;;;;;;;;;;;;;iBAiB7B,CAAC;AAEH,MAAM,MAAM,eAAe,GACzB,CAAC,CAAC,KAAK,CAAC,OAAO,gBAAgB,CAAC,CAAC"}
