@@ -10,6 +10,7 @@ datasource db {
 enum UserRole {
   USER
   ADMIN
+  ADVERTISER
 }
 
 enum ContestStatus {
@@ -29,6 +30,28 @@ enum ClueType {
   WEB_PAGE
 }
 
+enum ClueSource {
+  SYSTEM
+  ADVERTISER
+}
+
+enum AdvertiserContentType {
+  TEXT
+  LINK
+  FILE
+  IMAGE
+  PDF
+  AUDIO
+  VIDEO
+}
+
+enum ContentProcessingStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
 model User {
   id           String @id @default(cuid())
   email        String @unique
@@ -37,11 +60,13 @@ model User {
 
   role UserRole @default(USER)
 
-  submissions Submission[]
+  submissions       Submission[]
+  advertiserContent AdvertiserContent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([role])
   @@map("users")
 }
 
@@ -65,18 +90,60 @@ model Contest {
   @@map("contests")
 }
 
+model AdvertiserContent {
+  id String @id @default(cuid())
+
+  advertiserId String
+
+  type AdvertiserContentType
+
+  title       String?
+  description String?
+
+  url      String?
+  fileName String?
+  filePath String?
+  mimeType String?
+
+  textContent String?
+
+  processingStatus ContentProcessingStatus @default(PENDING)
+  processingError  String?
+
+  processedAt DateTime?
+
+  advertiser User @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+
+  clues ContestClue[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([advertiserId])
+  @@index([processingStatus])
+  @@map("advertiser_contents")
+}
+
 model ContestClue {
   id        String @id @default(cuid())
   contestId String
   sequence  Int
 
-  type          ClueType @default(TEXT)
-  content       String
+  type   ClueType   @default(TEXT)
+  source ClueSource @default(SYSTEM)
+
+  content String
+
   correctAnswer String
+
+  advertiserContentId String?
 
   publishedAt DateTime?
 
-  contest     Contest      @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  contest Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
+
+  advertiserContent AdvertiserContent? @relation(fields: [advertiserContentId], references: [id], onDelete: SetNull)
+
   submissions Submission[]
 
   createdAt DateTime @default(now())
@@ -85,6 +152,8 @@ model ContestClue {
   @@unique([contestId, sequence])
   @@index([contestId])
   @@index([publishedAt])
+  @@index([source])
+  @@index([advertiserContentId])
   @@map("contest_clues")
 }
 
@@ -101,9 +170,11 @@ model Submission {
   submittedAt    DateTime @default(now())
   responseTimeMs BigInt?
 
-  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  contest Contest     @relation(fields: [contestId], references: [id], onDelete: Cascade)
-  clue    ContestClue @relation(fields: [clueId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  contest Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
+
+  clue ContestClue @relation(fields: [clueId], references: [id], onDelete: Cascade)
 
   @@index([userId, contestId])
   @@index([contestId, clueId])
