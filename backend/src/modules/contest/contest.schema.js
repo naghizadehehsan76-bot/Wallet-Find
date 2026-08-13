@@ -18,17 +18,36 @@ export const createContestSchema = z.object({
         .optional(),
 });
 export const createClueSchema = z.object({
-    contestId: z.string().min(1),
-    sequence: z.number().int().min(1).max(12),
-    content: z.string().min(1),
-    correctAnswer: z.string().min(1),
-    type: z.enum([
+    sequence: z
+        .number()
+        .int()
+        .min(1)
+        .max(12),
+    content: z
+        .string()
+        .min(1),
+    correctAnswer: z
+        .string()
+        .min(1),
+    type: z
+        .enum([
         "TEXT",
         "IMAGE",
         "PDF",
         "AUDIO",
         "VIDEO",
         "WEB_PAGE",
-    ]).default("TEXT"),
+    ])
+        .default("TEXT"),
+});
+export const submitAnswerSchema = z.object({
+    clueId: z
+        .string()
+        .min(1),
+    answer: z
+        .string()
+        .trim()
+        .min(1)
+        .max(2000),
 });
 //# sourceMappingURL=contest.schema.js.map

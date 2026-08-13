@@ -8,6 +8,7 @@ import {
 import {
   createContestHandler,
   createClueHandler,
+  submitAnswerHandler,
 } from "./contest.controller.js";
 
 const router = Router();
@@ -24,6 +25,12 @@ router.post(
   requireAuth,
   requireAdmin,
   createClueHandler
+);
+
+router.post(
+  "/:contestId/submit",
+  requireAuth,
+  submitAnswerHandler
 );
 
 export default router;

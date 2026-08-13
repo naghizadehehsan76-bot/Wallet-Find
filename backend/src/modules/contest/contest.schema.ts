@@ -24,24 +24,48 @@ export const createContestSchema = z.object({
 
 export type CreateContestInput =
   z.infer<typeof createContestSchema>;
-  export const createClueSchema = z.object({
-  contestId: z.string().min(1),
 
-  sequence: z.number().int().min(1).max(12),
+export const createClueSchema = z.object({
+  sequence: z
+    .number()
+    .int()
+    .min(1)
+    .max(12),
 
-  content: z.string().min(1),
+  content: z
+    .string()
+    .min(1),
 
-  correctAnswer: z.string().min(1),
+  correctAnswer: z
+    .string()
+    .min(1),
 
-  type: z.enum([
-    "TEXT",
-    "IMAGE",
-    "PDF",
-    "AUDIO",
-    "VIDEO",
-    "WEB_PAGE",
-  ]).default("TEXT"),
+  type: z
+    .enum([
+      "TEXT",
+      "IMAGE",
+      "PDF",
+      "AUDIO",
+      "VIDEO",
+      "WEB_PAGE",
+    ])
+    .default("TEXT"),
 });
 
 export type CreateClueInput =
   z.infer<typeof createClueSchema>;
+
+export const submitAnswerSchema = z.object({
+  clueId: z
+    .string()
+    .min(1),
+
+  answer: z
+    .string()
+    .trim()
+    .min(1)
+    .max(2000),
+});
+
+export type SubmitAnswerInput =
+  z.infer<typeof submitAnswerSchema>;

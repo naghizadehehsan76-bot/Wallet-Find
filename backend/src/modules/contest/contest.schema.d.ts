@@ -7,7 +7,6 @@ export declare const createContestSchema: z.ZodObject<{
 }, z.core.$strip>;
 export type CreateContestInput = z.infer<typeof createContestSchema>;
 export declare const createClueSchema: z.ZodObject<{
-    contestId: z.ZodString;
     sequence: z.ZodNumber;
     content: z.ZodString;
     correctAnswer: z.ZodString;
@@ -21,4 +20,9 @@ export declare const createClueSchema: z.ZodObject<{
     }>>;
 }, z.core.$strip>;
 export type CreateClueInput = z.infer<typeof createClueSchema>;
+export declare const submitAnswerSchema: z.ZodObject<{
+    clueId: z.ZodString;
+    answer: z.ZodString;
+}, z.core.$strip>;
+export type SubmitAnswerInput = z.infer<typeof submitAnswerSchema>;
 //# sourceMappingURL=contest.schema.d.ts.map
