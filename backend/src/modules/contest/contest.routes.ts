@@ -12,6 +12,7 @@ import {
   getCurrentClueHandler,
   submitAnswerHandler,
 } from "./contest.controller.js";
+import { getLeaderboardHandler } from "./leaderboard.controller.js";
 
 const router = Router();
 
@@ -19,32 +20,38 @@ router.post(
   "/",
   requireAuth,
   requireAdmin,
-  createContestHandler
+  createContestHandler,
 );
 
 router.get(
   "/active",
   requireAuth,
-  getActiveContestHandler
+  getActiveContestHandler,
 );
 
 router.post(
   "/:contestId/clues",
   requireAuth,
   requireAdmin,
-  createClueHandler
+  createClueHandler,
 );
 
 router.get(
   "/:contestId/current-clue",
   requireAuth,
-  getCurrentClueHandler
+  getCurrentClueHandler,
+);
+
+router.get(
+  "/:contestId/leaderboard",
+  requireAuth,
+  getLeaderboardHandler,
 );
 
 router.post(
   "/:contestId/submit",
   requireAuth,
-  submitAnswerHandler
+  submitAnswerHandler,
 );
 
 export default router;
