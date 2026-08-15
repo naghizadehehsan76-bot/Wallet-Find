@@ -78,6 +78,42 @@ export async function createClue(
   });
 }
 
+export async function getActiveContest() {
+  const contest = await prisma.contest.findFirst({
+    where: {
+      status: "ACTIVE",
+    },
+    orderBy: [
+      { startsAt: "asc" },
+      { createdAt: "asc" },
+    ],
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      status: true,
+      startsAt: true,
+      endsAt: true,
+    },
+  });
+
+  if (!contest) {
+    throw new Error("ACTIVE_CONTEST_NOT_FOUND");
+  }
+
+  const now = new Date();
+
+  if (contest.startsAt && now < contest.startsAt) {
+    throw new Error("CONTEST_NOT_STARTED");
+  }
+
+  if (contest.endsAt && now > contest.endsAt) {
+    throw new Error("CONTEST_FINISHED");
+  }
+
+  return contest;
+}
+
 export async function getCurrentClue(
   userId: string,
   contestId: string
@@ -159,14 +195,7 @@ export async function getCurrentClue(
   if (!currentClue) {
     return {
       status: "CONTEST_COMPLETED" as const,
-      contest: {
-        id: contest.id,
-        title: contest.title,
-        description: contest.description,
-        status: contest.status,
-        startsAt: contest.startsAt,
-        endsAt: contest.endsAt,
-      },
+      contest,
       clue: null,
       currentSequence: null,
       solvedCount: clues.length,
@@ -179,14 +208,7 @@ export async function getCurrentClue(
   ) {
     return {
       status: "WAITING_FOR_CLUE" as const,
-      contest: {
-        id: contest.id,
-        title: contest.title,
-        description: contest.description,
-        status: contest.status,
-        startsAt: contest.startsAt,
-        endsAt: contest.endsAt,
-      },
+      contest,
       clue: null,
       currentSequence: currentClue.sequence,
       solvedCount: solvedClueIds.size,
@@ -196,14 +218,7 @@ export async function getCurrentClue(
 
   return {
     status: "READY" as const,
-    contest: {
-      id: contest.id,
-      title: contest.title,
-      description: contest.description,
-      status: contest.status,
-      startsAt: contest.startsAt,
-      endsAt: contest.endsAt,
-    },
+    contest,
     clue: {
       id: currentClue.id,
       sequence: currentClue.sequence,
