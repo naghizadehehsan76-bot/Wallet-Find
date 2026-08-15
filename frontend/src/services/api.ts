@@ -21,16 +21,57 @@ export type AuthResult = {
   token: string;
 };
 
+export type ActiveContest = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  startsAt: string | null;
+  endsAt: string | null;
+};
+
+export type CurrentClueResult = {
+  status: "READY" | "WAITING_FOR_CLUE" | "CONTEST_COMPLETED";
+  contest: ActiveContest;
+  clue: {
+    id: string;
+    sequence: number;
+    type: string;
+    content: string;
+    publishedAt: string | null;
+  } | null;
+  currentSequence: number | null;
+  solvedCount: number;
+  publishedAt?: string;
+};
+
+export type SubmitAnswerResult = {
+  status: "CORRECT" | "INCORRECT" | "CONTEST_COMPLETED";
+  isCorrect: boolean;
+  responseTimeMs: number;
+  currentSequence: number;
+  nextSequence: number | null;
+};
+
 async function request<T>(
   endpoint: string,
   options: RequestInit = {},
+  authenticated = false,
 ): Promise<T> {
+  const token = localStorage.getItem("walletFindToken");
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...(options.headers ?? {}),
+  };
+
+  if (authenticated && token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers ?? {}),
-    },
+    headers,
   });
 
   let result: ApiResponse<T>;
@@ -57,35 +98,61 @@ export async function register(
   username: string,
   password: string,
 ): Promise<AuthResult> {
-  const data = await request<{ user: AuthUser; token: string }>(
-    "/auth/register",
-    {
-      method: "POST",
-      body: JSON.stringify({
-        email,
-        username,
-        password,
-      }),
-    },
-  );
-
-  return data;
+  return request<AuthResult>("/auth/register", {
+    method: "POST",
+    body: JSON.stringify({
+      email,
+      username,
+      password,
+    }),
+  });
 }
 
 export async function login(
   email: string,
   password: string,
 ): Promise<AuthResult> {
-  const data = await request<{ user: AuthUser; token: string }>(
-    "/auth/login",
+  return request<AuthResult>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({
+      email,
+      password,
+    }),
+  });
+}
+
+export async function getActiveContest(): Promise<ActiveContest> {
+  return request<ActiveContest>(
+    "/contests/active",
+    {},
+    true,
+  );
+}
+
+export async function getCurrentClue(
+  contestId: string,
+): Promise<CurrentClueResult> {
+  return request<CurrentClueResult>(
+    `/contests/${encodeURIComponent(contestId)}/current-clue`,
+    {},
+    true,
+  );
+}
+
+export async function submitAnswer(
+  contestId: string,
+  clueId: string,
+  answer: string,
+): Promise<SubmitAnswerResult> {
+  return request<SubmitAnswerResult>(
+    `/contests/${encodeURIComponent(contestId)}/submit`,
     {
       method: "POST",
       body: JSON.stringify({
-        email,
-        password,
+        clueId,
+        answer,
       }),
     },
+    true,
   );
-
-  return data;
 }
