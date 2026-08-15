@@ -8,6 +8,8 @@ import {
 import {
   createContestHandler,
   createClueHandler,
+  getActiveContestHandler,
+  getCurrentClueHandler,
   submitAnswerHandler,
 } from "./contest.controller.js";
 
@@ -20,11 +22,23 @@ router.post(
   createContestHandler
 );
 
+router.get(
+  "/active",
+  requireAuth,
+  getActiveContestHandler
+);
+
 router.post(
   "/:contestId/clues",
   requireAuth,
   requireAdmin,
   createClueHandler
+);
+
+router.get(
+  "/:contestId/current-clue",
+  requireAuth,
+  getCurrentClueHandler
 );
 
 router.post(
