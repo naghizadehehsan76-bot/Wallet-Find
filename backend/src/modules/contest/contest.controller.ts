@@ -10,15 +10,20 @@ import {
 import {
   createContest,
   createClue,
+  getActiveContest,
+  getCurrentClue,
   submitAnswer,
 } from "./contest.service.js";
+
+function isError(error: unknown): error is Error {
+  return error instanceof Error;
+}
 
 export async function createContestHandler(
   req: AuthenticatedRequest,
   res: Response
 ) {
-  const parsed =
-    createContestSchema.safeParse(req.body);
+  const parsed = createContestSchema.safeParse(req.body);
 
   if (!parsed.success) {
     return res.status(400).json({
@@ -29,14 +34,11 @@ export async function createContestHandler(
   }
 
   try {
-    const contest =
-      await createContest(parsed.data);
+    const contest = await createContest(parsed.data);
 
     return res.status(201).json({
       success: true,
-      data: {
-        contest,
-      },
+      data: { contest },
     });
   } catch (error) {
     console.error(error);
@@ -52,21 +54,16 @@ export async function createClueHandler(
   req: AuthenticatedRequest,
   res: Response
 ) {
-  const contestId =
-    req.params.contestId;
+  const contestId = req.params.contestId;
 
-  if (
-    !contestId ||
-    Array.isArray(contestId)
-  ) {
+  if (!contestId || Array.isArray(contestId)) {
     return res.status(400).json({
       success: false,
       error: "INVALID_CONTEST_ID",
     });
   }
 
-  const parsed =
-    createClueSchema.safeParse(req.body);
+  const parsed = createClueSchema.safeParse(req.body);
 
   if (!parsed.success) {
     return res.status(400).json({
@@ -77,24 +74,18 @@ export async function createClueHandler(
   }
 
   try {
-    const clue = await createClue(
-      contestId,
-      parsed.data
-    );
+    const clue = await createClue(contestId, parsed.data);
 
     return res.status(201).json({
       success: true,
-      data: {
-        clue,
-      },
+      data: { clue },
     });
   } catch (error) {
     console.error(error);
 
     if (
-      error instanceof Error &&
-      error.message ===
-        "CONTEST_NOT_FOUND"
+      isError(error) &&
+      error.message === "CONTEST_NOT_FOUND"
     ) {
       return res.status(404).json({
         success: false,
@@ -109,17 +100,71 @@ export async function createClueHandler(
   }
 }
 
-export async function submitAnswerHandler(
+export async function getActiveContestHandler(
   req: AuthenticatedRequest,
   res: Response
 ) {
-  const contestId =
-    req.params.contestId;
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      error: "AUTHENTICATION_REQUIRED",
+    });
+  }
 
-  if (
-    !contestId ||
-    Array.isArray(contestId)
-  ) {
+  try {
+    const contest = await getActiveContest();
+
+    return res.status(200).json({
+      success: true,
+      data: contest,
+    });
+  } catch (error) {
+    if (
+      isError(error) &&
+      error.message === "ACTIVE_CONTEST_NOT_FOUND"
+    ) {
+      return res.status(404).json({
+        success: false,
+        error: "ACTIVE_CONTEST_NOT_FOUND",
+      });
+    }
+
+    if (
+      isError(error) &&
+      error.message === "CONTEST_FINISHED"
+    ) {
+      return res.status(409).json({
+        success: false,
+        error: "CONTEST_FINISHED",
+      });
+    }
+
+    if (
+      isError(error) &&
+      error.message === "CONTEST_NOT_STARTED"
+    ) {
+      return res.status(409).json({
+        success: false,
+        error: "CONTEST_NOT_STARTED",
+      });
+    }
+
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      error: "INTERNAL_SERVER_ERROR",
+    });
+  }
+}
+
+export async function getCurrentClueHandler(
+  req: AuthenticatedRequest,
+  res: Response
+) {
+  const contestId = req.params.contestId;
+
+  if (!contestId || Array.isArray(contestId)) {
     return res.status(400).json({
       success: false,
       error: "INVALID_CONTEST_ID",
@@ -133,8 +178,76 @@ export async function submitAnswerHandler(
     });
   }
 
-  const parsed =
-    submitAnswerSchema.safeParse(req.body);
+  try {
+    const result = await getCurrentClue(
+      req.user.userId,
+      contestId,
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    if (!isError(error)) {
+      console.error(error);
+      return res.status(500).json({
+        success: false,
+        error: "INTERNAL_SERVER_ERROR",
+      });
+    }
+
+    const conflictErrors = new Set([
+      "CONTEST_NOT_ACTIVE",
+      "CONTEST_NOT_STARTED",
+      "CONTEST_FINISHED",
+      "NO_CLUES_AVAILABLE",
+    ]);
+
+    if (error.message === "CONTEST_NOT_FOUND") {
+      return res.status(404).json({
+        success: false,
+        error: error.message,
+      });
+    }
+
+    if (conflictErrors.has(error.message)) {
+      return res.status(409).json({
+        success: false,
+        error: error.message,
+      });
+    }
+
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      error: "INTERNAL_SERVER_ERROR",
+    });
+  }
+}
+
+export async function submitAnswerHandler(
+  req: AuthenticatedRequest,
+  res: Response
+) {
+  const contestId = req.params.contestId;
+
+  if (!contestId || Array.isArray(contestId)) {
+    return res.status(400).json({
+      success: false,
+      error: "INVALID_CONTEST_ID",
+    });
+  }
+
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      error: "AUTHENTICATION_REQUIRED",
+    });
+  }
+
+  const parsed = submitAnswerSchema.safeParse(req.body);
 
   if (!parsed.success) {
     return res.status(400).json({
@@ -148,7 +261,7 @@ export async function submitAnswerHandler(
     const result = await submitAnswer(
       req.user.userId,
       contestId,
-      parsed.data
+      parsed.data,
     );
 
     return res.status(200).json({
@@ -176,14 +289,9 @@ export async function submitAnswerHandler(
       "CLUE_ALREADY_SOLVED",
     ]);
 
-    if (
-      clientErrors.has(error.message)
-    ) {
+    if (clientErrors.has(error.message)) {
       const status =
-        error.message ===
-        "CONTEST_NOT_FOUND"
-          ? 404
-          : 409;
+        error.message === "CONTEST_NOT_FOUND" ? 404 : 409;
 
       return res.status(status).json({
         success: false,
