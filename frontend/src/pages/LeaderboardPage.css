@@ -1,0 +1,65 @@
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: 34px 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--ink-2);
+}
+
+.leaderboard-row--top {
+  border-color: rgba(198, 161, 91, 0.42);
+  background: linear-gradient(
+    160deg,
+    rgba(198, 161, 91, 0.12),
+    var(--ink-2)
+  );
+}
+
+.leaderboard-rank {
+  color: var(--brass);
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.leaderboard-avatar {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--ink-3);
+  color: var(--brass-light);
+  font-weight: 800;
+}
+
+.leaderboard-player {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.leaderboard-player strong {
+  overflow: hidden;
+  color: var(--paper);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-player span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.leaderboard-time {
+  color: var(--brass-light);
+  font-size: 12px;
+  font-weight: 700;
+}
