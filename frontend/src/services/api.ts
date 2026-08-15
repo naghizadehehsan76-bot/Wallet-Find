@@ -81,6 +81,17 @@ export type ProfileResult = {
   bestRank: number | null;
 };
 
+export type AdminContest = ActiveContest & {
+  createdAt: string;
+};
+
+export type AdminClueInput = {
+  sequence: number;
+  content: string;
+  correctAnswer: string;
+  type?: "TEXT" | "IMAGE" | "PDF" | "AUDIO" | "VIDEO" | "WEB_PAGE";
+};
+
 async function request<T>(
   endpoint: string,
   options: RequestInit = {},
@@ -179,4 +190,50 @@ export async function getLeaderboard(
 
 export async function getProfile(): Promise<ProfileResult> {
   return request<ProfileResult>("/profile/me", {}, true);
+}
+
+export async function createContest(input: {
+  title: string;
+  description?: string;
+  startsAt?: string;
+  endsAt?: string;
+}): Promise<{ contest: AdminContest }> {
+  return request<{ contest: AdminContest }>("/contests", {
+    method: "POST",
+    body: JSON.stringify(input),
+  }, true);
+}
+
+export async function createClue(
+  contestId: string,
+  input: AdminClueInput,
+): Promise<{ clue: { id: string; sequence: number } }> {
+  return request<{ clue: { id: string; sequence: number } }>(
+    `/contests/${encodeURIComponent(contestId)}/clues`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+    true,
+  );
+}
+
+export async function activateContest(
+  contestId: string,
+): Promise<{ contest: AdminContest }> {
+  return request<{ contest: AdminContest }>(
+    `/admin/contests/${encodeURIComponent(contestId)}/activate`,
+    { method: "POST" },
+    true,
+  );
+}
+
+export async function finishContest(
+  contestId: string,
+): Promise<{ contest: AdminContest }> {
+  return request<{ contest: AdminContest }>(
+    `/admin/contests/${encodeURIComponent(contestId)}/finish`,
+    { method: "POST" },
+    true,
+  );
 }
