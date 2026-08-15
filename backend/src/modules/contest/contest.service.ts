@@ -16,13 +16,16 @@ function normalizeAnswer(value: string): string {
 export async function createContest(
   data: CreateContestInput
 ) {
+  const startsAt = data.startsAt
+    ? new Date(data.startsAt)
+    : null;
+
   return prisma.contest.create({
     data: {
       title: data.title,
       description: data.description ?? null,
-      startsAt: data.startsAt
-        ? new Date(data.startsAt)
-        : null,
+      status: startsAt ? "SCHEDULED" : "DRAFT",
+      startsAt,
       endsAt: data.endsAt
         ? new Date(data.endsAt)
         : null,
