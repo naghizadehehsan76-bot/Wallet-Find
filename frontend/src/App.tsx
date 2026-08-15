@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import AuthPage from "./pages/AuthPage";
 import CompetitionPage from "./pages/CompetitionPage";
 import KeyStagePage from "./pages/KeyStagePage";
+import LeaderboardPage from "./pages/LeaderboardPage";
 import { useI18n, type Language } from "./i18n";
 import "./App.css";
 
@@ -9,7 +10,8 @@ type Page =
   | "home"
   | "auth"
   | "competition"
-  | "key";
+  | "key"
+  | "leaderboard";
 
 function LanguageSwitcher({
   language,
@@ -160,15 +162,12 @@ function HomePage({
             {Array.from({ length: 12 }).map((_, index) => {
               const angle = (index / 12) * 360 - 90;
               const radius = 118;
-
               const x =
                 130 +
                 radius * Math.cos((angle * Math.PI) / 180);
-
               const y =
                 130 +
                 radius * Math.sin((angle * Math.PI) / 180);
-
               const state =
                 index < 4
                   ? "solved"
@@ -180,10 +179,7 @@ function HomePage({
                 <div
                   key={index}
                   className={`keyhole ${state}`}
-                  style={{
-                    left: `${x}px`,
-                    top: `${y}px`,
-                  }}
+                  style={{ left: `${x}px`, top: `${y}px` }}
                 >
                   {(index + 1).toLocaleString(
                     isPersian ? "fa-IR" : "en-US",
@@ -197,7 +193,6 @@ function HomePage({
             <div className="dial-label">
               {isPersian ? "تا شروع بعدی" : "NEXT START"}
             </div>
-
             <div className="dial-time mono">
               {isPersian ? "۰۳:۵۹:۰۲" : "03:59:02"}
             </div>
@@ -220,18 +215,13 @@ function HomePage({
             type="button"
             onClick={() => onNavigate("auth")}
           >
-            {isPersian
-              ? "ثبت‌نام / ورود"
-              : "Sign Up / Login"}
+            {isPersian ? "ثبت‌نام / ورود" : "Sign Up / Login"}
           </button>
         </section>
 
         <section className="stat-row">
           {stats.map((stat) => (
-            <div
-              className="stat-card"
-              key={stat.label}
-            >
+            <div className="stat-card" key={stat.label}>
               <strong>{stat.value}</strong>
               <span>{stat.label}</span>
             </div>
@@ -247,14 +237,10 @@ function HomePage({
 
           <div className="steps">
             {steps.map((step) => (
-              <article
-                className="step"
-                key={step.number}
-              >
+              <article className="step" key={step.number}>
                 <div className="step-number mono">
                   {step.number}
                 </div>
-
                 <div className="step-content">
                   <p>{step.title}</p>
                   <small>{step.description}</small>
@@ -269,17 +255,11 @@ function HomePage({
 }
 
 function App() {
-  const {
-    language,
-    changeLanguage,
-    isRTL,
-  } = useI18n();
+  const { language, changeLanguage, isRTL } = useI18n();
 
   useEffect(() => {
     document.documentElement.lang = language;
-    document.documentElement.dir = isRTL
-      ? "rtl"
-      : "ltr";
+    document.documentElement.dir = isRTL ? "rtl" : "ltr";
   }, [language, isRTL]);
 
   const [page, setPage] = useState<Page>(() =>
@@ -289,11 +269,7 @@ function App() {
   );
 
   function handleAuthenticated(token: string) {
-    localStorage.setItem(
-      "walletFindToken",
-      token,
-    );
-
+    localStorage.setItem("walletFindToken", token);
     setPage("competition");
   }
 
@@ -309,17 +285,37 @@ function App() {
   if (page === "competition") {
     return (
       <CompetitionPage
-        onNavigate={(nextPage) =>
-          setPage(
-            nextPage === "key"
-              ? "key"
-              : nextPage === "auth"
-                ? "auth"
-                : nextPage === "home"
-                  ? "home"
-                  : "competition",
-          )
-        }
+        onNavigate={(nextPage) => {
+          if (nextPage === "leaderboard") {
+            setPage("leaderboard");
+          } else if (nextPage === "key") {
+            setPage("key");
+          } else if (nextPage === "auth") {
+            setPage("auth");
+          } else if (nextPage === "home") {
+            setPage("home");
+          } else {
+            setPage("competition");
+          }
+        }}
+      />
+    );
+  }
+
+  if (page === "leaderboard") {
+    return (
+      <LeaderboardPage
+        onNavigate={(nextPage) => {
+          if (nextPage === "leaderboard") {
+            setPage("leaderboard");
+          } else if (nextPage === "competition") {
+            setPage("competition");
+          } else if (nextPage === "auth") {
+            setPage("auth");
+          } else {
+            setPage("home");
+          }
+        }}
       />
     );
   }
