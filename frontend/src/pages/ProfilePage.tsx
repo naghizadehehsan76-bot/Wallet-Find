@@ -10,7 +10,8 @@ type Page =
   | "key"
   | "leaderboard"
   | "profile"
-  | "wallet";
+  | "wallet"
+  | "admin";
 
 type ProfilePageProps = {
   onNavigate: (page: Page) => void;
@@ -110,6 +111,16 @@ function ProfilePage({ onNavigate }: ProfilePageProps) {
                 </small>
               </div>
             </div>
+
+            {profile.role === "ADMIN" && (
+              <button
+                className="cta-button cta-button--ghost"
+                type="button"
+                onClick={() => onNavigate("admin")}
+              >
+                {isPersian ? "پنل مدیریت مسابقه" : "Contest Admin"}
+              </button>
+            )}
           </>
         ) : null}
       </main>
