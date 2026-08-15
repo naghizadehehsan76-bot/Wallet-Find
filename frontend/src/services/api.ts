@@ -53,6 +53,21 @@ export type SubmitAnswerResult = {
   nextSequence: number | null;
 };
 
+export type LeaderboardEntry = {
+  rank: number;
+  userId: string;
+  username: string;
+  solvedCount: number;
+  totalResponseTimeMs: number;
+  incorrectAttempts: number;
+  completed: boolean;
+};
+
+export type LeaderboardResult = {
+  contestId: string;
+  entries: LeaderboardEntry[];
+};
+
 async function request<T>(
   endpoint: string,
   options: RequestInit = {},
@@ -137,6 +152,16 @@ export async function submitAnswer(
       method: "POST",
       body: JSON.stringify({ clueId, answer }),
     },
+    true,
+  );
+}
+
+export async function getLeaderboard(
+  contestId: string,
+): Promise<LeaderboardResult> {
+  return request<LeaderboardResult>(
+    `/contests/${encodeURIComponent(contestId)}/leaderboard`,
+    {},
     true,
   );
 }
