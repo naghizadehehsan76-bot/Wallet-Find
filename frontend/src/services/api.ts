@@ -60,13 +60,11 @@ async function request<T>(
 ): Promise<T> {
   const token = localStorage.getItem("walletFindToken");
 
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-    ...(options.headers ?? {}),
-  };
+  const headers = new Headers(options.headers);
+  headers.set("Content-Type", "application/json");
 
   if (authenticated && token) {
-    headers.Authorization = `Bearer ${token}`;
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -100,11 +98,7 @@ export async function register(
 ): Promise<AuthResult> {
   return request<AuthResult>("/auth/register", {
     method: "POST",
-    body: JSON.stringify({
-      email,
-      username,
-      password,
-    }),
+    body: JSON.stringify({ email, username, password }),
   });
 }
 
@@ -114,19 +108,12 @@ export async function login(
 ): Promise<AuthResult> {
   return request<AuthResult>("/auth/login", {
     method: "POST",
-    body: JSON.stringify({
-      email,
-      password,
-    }),
+    body: JSON.stringify({ email, password }),
   });
 }
 
 export async function getActiveContest(): Promise<ActiveContest> {
-  return request<ActiveContest>(
-    "/contests/active",
-    {},
-    true,
-  );
+  return request<ActiveContest>("/contests/active", {}, true);
 }
 
 export async function getCurrentClue(
@@ -148,10 +135,7 @@ export async function submitAnswer(
     `/contests/${encodeURIComponent(contestId)}/submit`,
     {
       method: "POST",
-      body: JSON.stringify({
-        clueId,
-        answer,
-      }),
+      body: JSON.stringify({ clueId, answer }),
     },
     true,
   );
