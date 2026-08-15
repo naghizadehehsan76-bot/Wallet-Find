@@ -4,6 +4,7 @@ import CompetitionPage from "./pages/CompetitionPage";
 import KeyStagePage from "./pages/KeyStagePage";
 import LeaderboardPage from "./pages/LeaderboardPage";
 import ProfilePage from "./pages/ProfilePage";
+import AdminPage from "./pages/AdminPage";
 import { useI18n, type Language } from "./i18n";
 import "./App.css";
 
@@ -14,7 +15,8 @@ type Page =
   | "key"
   | "leaderboard"
   | "profile"
-  | "wallet";
+  | "wallet"
+  | "admin";
 
 function LanguageSwitcher({
   language,
@@ -138,6 +140,10 @@ function App() {
     document.documentElement.dir = isRTL ? "rtl" : "ltr";
   }, [language, isRTL]);
 
+  const savedUser = localStorage.getItem("walletFindUser");
+  const savedRole = savedUser ? (JSON.parse(savedUser) as { role?: string }).role : undefined;
+  const isAdmin = savedRole === "ADMIN";
+
   const [page, setPage] = useState<Page>(() => localStorage.getItem("walletFindToken") ? "competition" : "home");
 
   function handleAuthenticated(token: string) {
@@ -147,6 +153,10 @@ function App() {
 
   if (page === "auth") {
     return <AuthPage onAuthenticated={handleAuthenticated} onBack={() => setPage("home")} />;
+  }
+
+  if (page === "admin" && isAdmin) {
+    return <AdminPage onNavigate={setPage} />;
   }
 
   if (page === "competition") {
