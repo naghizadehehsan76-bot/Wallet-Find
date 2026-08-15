@@ -12,37 +12,38 @@ import {
   updateContestSettingsHandler,
   getAuditLogsHandler,
 } from "./admin.controller.js";
+import {
+  activateContestHandler,
+  finishContestHandler,
+} from "./contest-management.controller.js";
 
 const router = Router();
 
-router.use(
-  requireAuth,
-  requireAdmin
-);
+router.use(requireAuth, requireAdmin);
 
-router.get(
-  "/settings",
-  getSystemSettingsHandler
-);
-
-router.post(
-  "/settings",
-  upsertSystemSettingHandler
-);
+router.get("/settings", getSystemSettingsHandler);
+router.post("/settings", upsertSystemSettingHandler);
 
 router.get(
   "/contest-settings/:contestId",
-  getContestSettingsHandler
+  getContestSettingsHandler,
 );
 
 router.put(
   "/contest-settings/:contestId",
-  updateContestSettingsHandler
+  updateContestSettingsHandler,
 );
 
-router.get(
-  "/audit-logs",
-  getAuditLogsHandler
+router.post(
+  "/contests/:contestId/activate",
+  activateContestHandler,
 );
+
+router.post(
+  "/contests/:contestId/finish",
+  finishContestHandler,
+);
+
+router.get("/audit-logs", getAuditLogsHandler);
 
 export default router;
