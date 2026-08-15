@@ -8,7 +8,6 @@ import contestRoutes from "./modules/contest/contest.routes.js";
 import adminRoutes from "./modules/admin/admin.routes.js";
 
 const app = express();
-
 const corsOrigin = process.env.CORS_ORIGIN?.trim();
 
 app.use(helmet());
@@ -45,13 +44,13 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/api/auth", authLimiter, authRoutes);
-app.use("/api/contests", contestRoutes);
 app.use("/api/contests", (req, res, next) => {
   if (req.method === "POST" && req.path.endsWith("/submit")) {
     return answerLimiter(req, res, next);
   }
   return next();
 });
+app.use("/api/contests", contestRoutes);
 app.use("/api/admin", adminRoutes);
 
 export default app;
