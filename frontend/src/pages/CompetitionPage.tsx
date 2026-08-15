@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import BottomNav from "../components/BottomNav";
-import { getActiveContest, getCurrentClue, submitAnswer } from "../services/api";
+import {
+  getActiveContest,
+  getCurrentClue,
+  submitAnswer,
+} from "../services/api";
 import { useI18n } from "../i18n";
 
- type Page =
+type Page =
   | "home"
   | "auth"
   | "competition"
@@ -36,56 +40,74 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [error, setError] = useState("");
   const [completed, setCompleted] = useState(false);
 
-  async function loadContest() {
-    setLoading(true);
-    setError("");
-
-    try {
-      const contest = await getActiveContest();
-      setContestId(contest.id);
-      setContestTitle(contest.title);
-      setContestDate(contest.startsAt);
-
-      const current = await getCurrentClue(contest.id);
-
-      setSolvedCount(current.solvedCount);
-      setCurrentSequence(current.currentSequence);
-      setCurrentClueId(current.clue?.id ?? null);
-      setClueContent(current.clue?.content ?? "");
-      setCompleted(current.status === "CONTEST_COMPLETED");
-
-      if (current.status === "WAITING_FOR_CLUE") {
-        setFeedback(
-          isPersian
-            ? "سرنخ بعدی هنوز منتشر نشده است."
-            : "The next clue has not been published yet.",
-        );
-      }
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : isPersian
-            ? "خطا در دریافت مسابقه"
-            : "Unable to load the contest.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
-    void loadContest();
-  }, []);
+    let cancelled = false;
+
+    void getActiveContest()
+      .then(async (contest) => {
+        if (cancelled) return;
+
+        setContestId(contest.id);
+        setContestTitle(contest.title);
+        setContestDate(contest.startsAt);
+
+        const current = await getCurrentClue(contest.id);
+        if (cancelled) return;
+
+        setSolvedCount(current.solvedCount);
+        setCurrentSequence(current.currentSequence);
+        setCurrentClueId(current.clue?.id ?? null);
+        setClueContent(current.clue?.content ?? "");
+        setCompleted(current.status === "CONTEST_COMPLETED");
+
+        if (current.status === "WAITING_FOR_CLUE") {
+          setFeedback(
+            isPersian
+              ? "سرنخ بعدی هنوز منتشر نشده است."
+              : "The next clue has not been published yet.",
+          );
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : isPersian
+              ? "خطا در دریافت مسابقه"
+              : "Unable to load the contest.",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isPersian]);
+
+  async function refreshCurrentClue() {
+    if (!contestId) return;
+
+    const current = await getCurrentClue(contestId);
+
+    setSolvedCount(current.solvedCount);
+    setCurrentSequence(current.currentSequence);
+    setCurrentClueId(current.clue?.id ?? null);
+    setClueContent(current.clue?.content ?? "");
+    setCompleted(current.status === "CONTEST_COMPLETED");
+  }
 
   async function handleSubmit() {
     const value = answer.trim();
 
     if (!value) {
       setFeedback(
-        isPersian
-          ? "پاسخ را وارد کن."
-          : "Enter your answer.",
+        isPersian ? "پاسخ را وارد کن." : "Enter your answer.",
       );
       return;
     }
@@ -136,7 +158,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           ? "پاسخ صحیح است. کلید بعدی باز شد."
           : "Correct answer. The next key is unlocked.",
       );
-      await loadContest();
+      await refreshCurrentClue();
     } catch (err) {
       setError(
         err instanceof Error
@@ -151,25 +173,16 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   }
 
   const statusFor = (sequence: number): KeyStatus => {
-    if (sequence <= solvedCount) {
-      return "solved";
-    }
-
-    if (currentSequence === sequence) {
-      return "current";
-    }
-
+    if (sequence <= solvedCount) return "solved";
+    if (currentSequence === sequence) return "current";
     return "locked";
   };
 
   const formattedDate = contestDate
-    ? new Intl.DateTimeFormat(
-        isPersian ? "fa-IR" : "en-US",
-        {
-          dateStyle: "medium",
-          timeStyle: "short",
-        },
-      ).format(new Date(contestDate))
+    ? new Intl.DateTimeFormat(isPersian ? "fa-IR" : "en-US", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(new Date(contestDate))
     : "";
 
   return (
@@ -190,7 +203,6 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
               {contestTitle ||
                 (isPersian ? "مسابقه امشب" : "Tonight's Contest")}
             </h2>
-
             <div className="date">
               {formattedDate ||
                 (isPersian ? "مسابقه فعال" : "Active contest")}
@@ -208,9 +220,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
             {isPersian ? "در حال دریافت مسابقه..." : "Loading contest..."}
           </div>
         ) : error ? (
-          <div className="inline-feedback">
-            {error}
-          </div>
+          <div className="inline-feedback">{error}</div>
         ) : (
           <>
             <section className="keys-grid keys-grid--3x4">
@@ -234,21 +244,14 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                       </div>
 
                       <div className="keycell-status">
-                        {isSolved &&
-                          (isPersian ? "حل‌شده" : "Solved")}
-
-                        {isCurrent &&
-                          (isPersian ? "در حال حل" : "In Progress")}
-
-                        {isLocked &&
-                          (isPersian ? "قفل" : "Locked")}
+                        {isSolved && (isPersian ? "حل‌شده" : "Solved")}
+                        {isCurrent && (isPersian ? "در حال حل" : "In Progress")}
+                        {isLocked && (isPersian ? "قفل" : "Locked")}
                       </div>
                     </div>
 
                     {isSolved && (
-                      <div className="keycell-answer solved-answer">
-                        ✓
-                      </div>
+                      <div className="keycell-answer solved-answer">✓</div>
                     )}
 
                     {isCurrent && (
@@ -261,17 +264,13 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                           <input
                             type="text"
                             value={answer}
-                            onChange={(event) =>
-                              setAnswer(event.target.value)
-                            }
+                            onChange={(event) => setAnswer(event.target.value)}
                             onKeyDown={(event) => {
                               if (event.key === "Enter") {
                                 void handleSubmit();
                               }
                             }}
-                            placeholder={
-                              isPersian ? "کلمه..." : "Word..."
-                            }
+                            placeholder={isPersian ? "کلمه..." : "Word..."}
                             autoComplete="off"
                             disabled={submitting || completed}
                           />
@@ -299,9 +298,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
             </section>
 
             {feedback && (
-              <div className="inline-feedback">
-                {feedback}
-              </div>
+              <div className="inline-feedback">{feedback}</div>
             )}
 
             <div className="section-title">
@@ -333,10 +330,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
         )}
       </main>
 
-      <BottomNav
-        activePage="competition"
-        onNavigate={onNavigate}
-      />
+      <BottomNav activePage="competition" onNavigate={onNavigate} />
     </div>
   );
 }
