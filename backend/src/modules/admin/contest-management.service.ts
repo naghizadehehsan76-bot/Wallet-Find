@@ -120,7 +120,7 @@ export async function finishContest(
       action: "CONTEST_FINISHED",
       entity: "Contest",
       entityId: contestId,
-      metadata: null,
+      metadata: {},
     },
   });
 
