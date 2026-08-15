@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import BottomNav from "../components/BottomNav";
-import { getActiveContest, getLeaderboard, type LeaderboardEntry } from "../services/api";
+import {
+  getActiveContest,
+  getLeaderboard,
+  type LeaderboardEntry,
+} from "../services/api";
 import { useI18n } from "../i18n";
+import "./LeaderboardPage.css";
 
 type Page =
   | "home"
@@ -22,7 +27,9 @@ function formatTime(milliseconds: number, isPersian: boolean) {
   const seconds = totalSeconds % 60;
   const value = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 
-  return isPersian ? value.replace(/\d/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"[Number(digit)]) : value;
+  return isPersian
+    ? value.replace(/\d/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"[Number(digit)])
+    : value;
 }
 
 function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
@@ -80,34 +87,47 @@ function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
               {isPersian ? "رتبه‌بندی" : "Leaderboard"}
             </h2>
             <div className="date">
-              {contestTitle || (isPersian ? "مسابقه امشب" : "Tonight's contest")}
+              {contestTitle ||
+                (isPersian ? "مسابقه امشب" : "Tonight's contest")}
             </div>
           </div>
         </section>
 
         {loading ? (
           <div className="inline-feedback">
-            {isPersian ? "در حال دریافت رتبه‌بندی..." : "Loading leaderboard..."}
+            {isPersian
+              ? "در حال دریافت رتبه‌بندی..."
+              : "Loading leaderboard..."}
           </div>
         ) : error ? (
           <div className="inline-feedback">{error}</div>
         ) : entries.length === 0 ? (
           <div className="inline-feedback">
-            {isPersian ? "هنوز رتبه‌ای ثبت نشده است." : "No rankings yet."}
+            {isPersian
+              ? "هنوز رتبه‌ای ثبت نشده است."
+              : "No rankings yet."}
           </div>
         ) : (
           <section>
             {entries.map((entry) => (
               <div
-                className={`leaderboard-row ${entry.rank === 1 ? "leaderboard-row--top" : ""}`}
+                className={`leaderboard-row ${
+                  entry.rank === 1
+                    ? "leaderboard-row--top"
+                    : ""
+                }`}
                 key={entry.userId}
               >
                 <div className="leaderboard-rank mono">
-                  {entry.rank.toLocaleString(isPersian ? "fa-IR" : "en-US")}
+                  {entry.rank.toLocaleString(
+                    isPersian ? "fa-IR" : "en-US",
+                  )}
                 </div>
 
                 <div className="leaderboard-avatar">
-                  {entry.username.slice(0, 1).toUpperCase()}
+                  {entry.username
+                    .slice(0, 1)
+                    .toUpperCase()}
                 </div>
 
                 <div className="leaderboard-player">
@@ -121,7 +141,10 @@ function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
 
                 <div className="leaderboard-time mono">
                   {entry.completed
-                    ? formatTime(entry.totalResponseTimeMs, isPersian)
+                    ? formatTime(
+                        entry.totalResponseTimeMs,
+                        isPersian,
+                      )
                     : "—"}
                 </div>
               </div>
@@ -130,7 +153,10 @@ function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
         )}
       </main>
 
-      <BottomNav activePage="leaderboard" onNavigate={onNavigate} />
+      <BottomNav
+        activePage="leaderboard"
+        onNavigate={onNavigate}
+      />
     </div>
   );
 }
