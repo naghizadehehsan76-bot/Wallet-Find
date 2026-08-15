@@ -68,13 +68,25 @@ export type LeaderboardResult = {
   entries: LeaderboardEntry[];
 };
 
+export type ProfileResult = {
+  id: string;
+  email: string;
+  username: string;
+  role: string;
+  createdAt: string;
+  contestsParticipated: number;
+  completedContests: number;
+  solvedKeys: number;
+  incorrectAttempts: number;
+  bestRank: number | null;
+};
+
 async function request<T>(
   endpoint: string,
   options: RequestInit = {},
   authenticated = false,
 ): Promise<T> {
   const token = localStorage.getItem("walletFindToken");
-
   const headers = new Headers(options.headers);
   headers.set("Content-Type", "application/json");
 
@@ -88,7 +100,6 @@ async function request<T>(
   });
 
   let result: ApiResponse<T>;
-
   try {
     result = (await response.json()) as ApiResponse<T>;
   } catch {
@@ -164,4 +175,8 @@ export async function getLeaderboard(
     {},
     true,
   );
+}
+
+export async function getProfile(): Promise<ProfileResult> {
+  return request<ProfileResult>("/profile/me", {}, true);
 }
