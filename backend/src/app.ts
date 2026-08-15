@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 
+import prisma from "./config/prisma.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import contestRoutes from "./modules/contest/contest.routes.js";
 import adminRoutes from "./modules/admin/admin.routes.js";
@@ -10,11 +11,17 @@ import profileRoutes from "./modules/profile/profile.routes.js";
 
 const app = express();
 const corsOrigin = process.env.CORS_ORIGIN?.trim();
+const isProduction = process.env.NODE_ENV === "production";
 
+if (isProduction && !corsOrigin) {
+  throw new Error("CORS_ORIGIN must be defined in production");
+}
+
+app.disable("x-powered-by");
 app.use(helmet());
 app.use(
   cors({
-    origin: corsOrigin || true,
+    origin: corsOrigin || "http://localhost:5173",
     credentials: true,
   }),
 );
@@ -35,13 +42,29 @@ const answerLimiter = rateLimit({
 });
 
 app.get("/health", (_req, res) => {
-  res.json({
+  res.status(200).json({
     success: true,
     data: {
       status: "ok",
-      project: "Wallet Hunt",
+      project: "Wallet-Find",
     },
   });
+});
+
+app.get("/ready", async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return res.status(200).json({
+      success: true,
+      data: { status: "ready" },
+    });
+  } catch (error) {
+    console.error("Readiness check failed", error);
+    return res.status(503).json({
+      success: false,
+      error: "DATABASE_UNAVAILABLE",
+    });
+  }
 });
 
 app.use("/api/auth", authLimiter, authRoutes);

@@ -1,12 +1,13 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "Wallet Hunt Backend",
+  "description": "Wallet-Find Backend",
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx src/server.ts",
     "build": "tsc",
+    "test": "tsx --test test/**/*.test.ts",
     "start": "node dist/server.js"
   },
   "keywords": [],
