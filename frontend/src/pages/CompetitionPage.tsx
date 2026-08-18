@@ -5,6 +5,12 @@ import {
   getCurrentClue,
   submitAnswer,
 } from "../services/api";
+import {
+  loadDemoContest,
+  resetDemoContest,
+  submitDemoAnswer,
+  type DemoContestState,
+} from "../services/demo";
 import { useI18n } from "../i18n";
 
 type Page =
@@ -21,6 +27,8 @@ type CompetitionPageProps = {
 };
 
 type KeyStatus = "solved" | "current" | "locked";
+
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE !== "false";
 
 function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const { language } = useI18n();
@@ -39,8 +47,27 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [completed, setCompleted] = useState(false);
+  const [demoState, setDemoState] = useState<DemoContestState | null>(null);
 
   useEffect(() => {
+    if (DEMO_MODE) {
+      const state = loadDemoContest();
+      setDemoState(state);
+      setContestId(state.contestId);
+      setContestTitle(state.title);
+      setContestDate(new Date().toISOString());
+      setSolvedCount(state.solvedCount);
+      setCurrentSequence(state.currentSequence);
+      setCompleted(state.status === "COMPLETED");
+      setClueContent(
+        state.currentSequence
+          ? state.keys[state.currentSequence - 1]?.clue ?? ""
+          : "",
+      );
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     void getActiveContest()
@@ -90,7 +117,24 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     };
   }, [isPersian]);
 
+  function applyDemoState(state: DemoContestState) {
+    setDemoState(state);
+    setSolvedCount(state.solvedCount);
+    setCurrentSequence(state.currentSequence);
+    setCompleted(state.status === "COMPLETED");
+    setClueContent(
+      state.currentSequence
+        ? state.keys[state.currentSequence - 1]?.clue ?? ""
+        : "",
+    );
+  }
+
   async function refreshCurrentClue() {
+    if (DEMO_MODE) {
+      applyDemoState(loadDemoContest());
+      return;
+    }
+
     if (!contestId) return;
 
     const current = await getCurrentClue(contestId);
@@ -109,6 +153,33 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       setFeedback(
         isPersian ? "پاسخ را وارد کن." : "Enter your answer.",
       );
+      return;
+    }
+
+    if (DEMO_MODE) {
+      if (!currentSequence || submitting) return;
+
+      setSubmitting(true);
+      setFeedback("");
+      setError("");
+
+      try {
+        const result = submitDemoAnswer(currentSequence, value);
+        applyDemoState(result.state);
+        setAnswer("");
+        setFeedback(
+          isPersian
+            ? result.message
+            : result.isCorrect
+              ? result.state.status === "COMPLETED"
+                ? "Congratulations! You solved all 12 keys."
+                : "Correct answer. The next key is unlocked."
+              : "Incorrect answer. The current key remains active.",
+        );
+      } finally {
+        setSubmitting(false);
+      }
+
       return;
     }
 
@@ -172,7 +243,20 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     }
   }
 
+  function handleResetDemo() {
+    if (!DEMO_MODE) return;
+    const state = resetDemoContest();
+    setFeedback(isPersian ? "مسابقه آزمایشی از ابتدا شروع شد." : "Demo contest reset.");
+    setAnswer("");
+    setError("");
+    applyDemoState(state);
+  }
+
   const statusFor = (sequence: number): KeyStatus => {
+    if (DEMO_MODE && demoState) {
+      return demoState.keys[sequence - 1]?.status ?? "locked";
+    }
+
     if (sequence <= solvedCount) return "solved";
     if (currentSequence === sequence) return "current";
     return "locked";
@@ -215,6 +299,14 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           </div>
         </section>
 
+        {DEMO_MODE && (
+          <div className="inline-feedback demo-banner">
+            {isPersian
+              ? "حالت آزمایشی فعال است — داده‌ها فقط در مرورگر شما ذخیره می‌شوند."
+              : "Demo mode is active — data is stored only in this browser."}
+          </div>
+        )}
+
         {loading ? (
           <div className="inline-feedback">
             {isPersian ? "در حال دریافت مسابقه..." : "Loading contest..."}
@@ -251,7 +343,11 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                     </div>
 
                     {isSolved && (
-                      <div className="keycell-answer solved-answer">✓</div>
+                      <div className="keycell-answer solved-answer">
+                        {DEMO_MODE
+                          ? demoState?.keys[keyNumber - 1]?.enteredWord || "✓"
+                          : "✓"}
+                      </div>
                     )}
 
                     {isCurrent && (
@@ -299,6 +395,16 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
 
             {feedback && (
               <div className="inline-feedback">{feedback}</div>
+            )}
+
+            {DEMO_MODE && (
+              <button
+                className="cta-button cta-button--ghost"
+                type="button"
+                onClick={handleResetDemo}
+              >
+                {isPersian ? "شروع دوباره مسابقه آزمایشی" : "Reset Demo Contest"}
+              </button>
             )}
 
             <div className="section-title">
