@@ -1,24 +1,370 @@
 import prisma from "../../config/prisma.js";
 import { hasCompleteClueSequence } from "./contest.logic.js";
 
-const MVP_CLUES = [
-  { content: "عدد بعدی در این دنباله چیست؟ 2، 4، 6، 8، ؟", correctAnswer: "10" },
-  { content: "کدام سیاره به نام سیاره سرخ شناخته می‌شود؟", correctAnswer: "مریخ" },
-  { content: "یک هفته چند روز دارد؟", correctAnswer: "7" },
-  { content: "حاصل 5 ضربدر 3 چند است؟", correctAnswer: "15" },
-  { content: "کدام جانور به عنوان پادشاه جنگل شناخته می‌شود؟", correctAnswer: "شیر" },
-  { content: "آب در فشار معمولی در چند درجه سانتی‌گراد یخ می‌زند؟", correctAnswer: "0" },
-  { content: "حرف بعدی در الگوی الف، ب، پ، ت چیست؟", correctAnswer: "ث" },
-  { content: "یک مثلث چند ضلع دارد؟", correctAnswer: "3" },
-  { content: "بزرگ‌ترین اقیانوس زمین کدام است؟", correctAnswer: "اقیانوس آرام" },
-  { content: "حاصل 12 منهای 5 چند است؟", correctAnswer: "7" },
-  { content: "کدام ستاره به زمین نزدیک‌تر است؟", correctAnswer: "خورشید" },
-  { content: "در یک ساعت چند دقیقه وجود دارد؟", correctAnswer: "60" },
-] as const;
+type SourceDocument = {
+  title: string;
+  url: string;
+  text: string;
+};
+
+type GeneratedRound = {
+  content: string;
+  correctAnswer: string;
+  sourceUrl: string;
+  hintAnchor: string;
+  options: string[];
+};
+
+type WordMatch = {
+  word: string;
+  raw: string;
+  index: number;
+};
+
+const COMMON_WORDS = new Set([
+  "about", "above", "after", "again", "against", "almost", "along", "already",
+  "also", "although", "always", "among", "another", "around", "because",
+  "before", "being", "below", "between", "both", "could", "during", "each",
+  "early", "every", "first", "found", "from", "have", "having", "into",
+  "itself", "later", "least", "less", "many", "might", "more", "most",
+  "never", "other", "often", "once", "only", "over", "same", "since",
+  "some", "such", "than", "that", "their", "there", "these", "they",
+  "thing", "those", "through", "under", "until", "upon", "using", "very",
+  "were", "what", "when", "where", "which", "while", "whose", "will",
+  "with", "within", "without", "would", "your", "been", "does", "doing",
+  "make", "made", "like", "just", "well", "then", "them", "this", "much",
+  "back", "even", "still", "take", "time", "years", "year", "part", "parts",
+  "chapter", "volume", "project", "gutenberg", "ebook", "copyright",
+]);
+
+const FALLBACK_WORD_BANK = [
+  "system", "water", "light", "energy", "planet", "animal", "forest", "ocean",
+  "mountain", "river", "climate", "gravity", "chemical", "surface", "nature",
+  "element", "digital", "network", "structure", "language", "history", "science",
+  "biology", "material", "texture", "feature", "culture", "movement", "organism",
+  "temperature", "pressure", "substance", "distance", "pattern", "memory", "signal",
+  "matter", "natural", "process", "inorganic", "satellite", "machine", "smallest",
+  "barren", "rupture", "chemical", "body", "star", "region", "species", "oxygen",
+  "earth", "sunlight", "surface", "habitat", "mineral", "weather", "current",
+  "magnetic", "metal", "cellular", "sequence", "variable", "function", "primary",
+];
+
+const FALLBACK_ROUNDS: Array<Omit<GeneratedRound, "options">> = [
+  {
+    content: "Find the English word immediately after the phrase shown in the hint.",
+    correctAnswer: "inorganic",
+    sourceUrl: "https://en.wikipedia.org/wiki/Water",
+    hintAnchor: "Water is an",
+  },
+  {
+    content: "Find the English word immediately after the phrase shown in the hint.",
+    correctAnswer: "process",
+    sourceUrl: "https://en.wikipedia.org/wiki/Photosynthesis",
+    hintAnchor: "Photosynthesis is a",
+  },
+  {
+    content: "Find the English word immediately after the phrase shown in the hint.",
+    correctAnswer: "natural",
+    sourceUrl: "https://en.wikipedia.org/wiki/Gravity",
+    hintAnchor: "Gravity is a",
+  },
+  {
+    content: "Find the English word immediately after the phrase shown in the hint.",
+    correctAnswer: "rupture",
+    sourceUrl: "https://en.wikipedia.org/wiki/Volcano",
+    hintAnchor: "A volcano is a",
+  },
+  {
+    content: "Find the English word immediately after the phrase shown in the hint.",
+    correctAnswer: "body",
+    sourceUrl: "https://en.wikipedia.org/wiki/Ocean",
+    hintAnchor: "An ocean is a",
+  },
+  {
+    content: "Find the English word immediately after the phrase shown in the hint.",
+    correctAnswer: "satellite",
+    sourceUrl: "https://en.wikipedia.org/wiki/Moon",
+    hintAnchor: "The Moon is Earth's only natural",
+  },
+  {
+    content: "Find the English word immediately after the phrase shown in the hint.",
+    correctAnswer: "machine",
+    sourceUrl: "https://en.wikipedia.org/wiki/Computer",
+    hintAnchor: "A computer is a",
+  },
+  {
+    content: "Find the English word immediately after the phrase shown in the hint.",
+    correctAnswer: "chemical",
+    sourceUrl: "https://en.wikipedia.org/wiki/Oxygen",
+    hintAnchor: "Oxygen is a",
+  },
+  {
+    content: "Find the English word immediately after the phrase shown in the hint.",
+    correctAnswer: "star",
+    sourceUrl: "https://en.wikipedia.org/wiki/Sun",
+    hintAnchor: "The Sun is the",
+  },
+  {
+    content: "Find the English word immediately after the phrase shown in the hint.",
+    correctAnswer: "smallest",
+    sourceUrl: "https://en.wikipedia.org/wiki/Atom",
+    hintAnchor: "An atom is the",
+  },
+  {
+    content: "Find the English word immediately after the phrase shown in the hint.",
+    correctAnswer: "barren",
+    sourceUrl: "https://en.wikipedia.org/wiki/Desert",
+    hintAnchor: "A desert is a",
+  },
+  {
+    content: "Find the English word immediately after the phrase shown in the hint.",
+    correctAnswer: "area",
+    sourceUrl: "https://en.wikipedia.org/wiki/Forest",
+    hintAnchor: "A forest is an",
+  },
+];
+
+const GUTENBERG_BOOKS = [
+  {
+    title: "Alice's Adventures in Wonderland",
+    textUrl: "https://www.gutenberg.org/cache/epub/11/pg11.txt",
+    pageUrl: "https://www.gutenberg.org/cache/epub/11/pg11-images.html",
+  },
+  {
+    title: "Pride and Prejudice",
+    textUrl: "https://www.gutenberg.org/cache/epub/1342/pg1342.txt",
+    pageUrl: "https://www.gutenberg.org/cache/epub/1342/pg1342-images.html",
+  },
+  {
+    title: "Frankenstein",
+    textUrl: "https://www.gutenberg.org/cache/epub/84/pg84.txt",
+    pageUrl: "https://www.gutenberg.org/cache/epub/84/pg84-images.html",
+  },
+  {
+    title: "The Adventures of Sherlock Holmes",
+    textUrl: "https://www.gutenberg.org/cache/epub/1661/pg1661.txt",
+    pageUrl: "https://www.gutenberg.org/cache/epub/1661/pg1661-images.html",
+  },
+];
+
+function shuffle<T>(items: readonly T[]): T[] {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const otherIndex = Math.floor(Math.random() * (index + 1));
+    const current = result[index];
+    const other = result[otherIndex];
+    if (current === undefined || other === undefined) continue;
+    result[index] = other;
+    result[otherIndex] = current;
+  }
+  return result;
+}
+
+function getWordMatches(text: string): WordMatch[] {
+  return Array.from(text.matchAll(/\b[A-Za-z]{4,12}\b/g)).map((match) => ({
+    word: match[0].toLowerCase(),
+    raw: match[0],
+    index: match.index ?? 0,
+  }));
+}
+
+function getOptions(text: string, answer: string): string[] {
+  const candidates = [...new Set(
+    getWordMatches(text)
+      .map((match) => match.word)
+      .filter((word) => word !== answer && !COMMON_WORDS.has(word)),
+  )];
+
+  if (candidates.length < 11) return [];
+
+  return shuffle([answer, ...shuffle(candidates).slice(0, 11)]);
+}
+
+function buildRoundFromSource(
+  source: SourceDocument,
+  usedAnswers: ReadonlySet<string>,
+): GeneratedRound | null {
+  const matches = getWordMatches(source.text);
+  if (matches.length < 20) return null;
+
+  const candidateIndexes = shuffle(
+    matches.map((_, index) => index).filter((index) => index >= 2),
+  );
+
+  for (const index of candidateIndexes) {
+    const match = matches[index];
+    const previous = matches[index - 1];
+    const previousPrevious = matches[index - 2];
+
+    if (!match || !previous || !previousPrevious) continue;
+    if (COMMON_WORDS.has(match.word) || usedAnswers.has(match.word)) continue;
+    if (match.raw[0] !== match.raw[0]?.toLowerCase()) continue;
+
+    const anchor = source.text
+      .slice(previousPrevious.index, match.index)
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!anchor || anchor.length > 100) continue;
+
+    const options = getOptions(source.text, match.word);
+    if (options.length !== 12) continue;
+
+    return {
+      content: "Find the English word immediately after the phrase shown in the hint.",
+      correctAnswer: match.word,
+      sourceUrl: source.url,
+      hintAnchor: anchor,
+      options,
+    };
+  }
+
+  return null;
+}
+
+async function fetchWikipediaDocuments(limit: number): Promise<SourceDocument[]> {
+  const url = new URL("https://en.wikipedia.org/w/api.php");
+  url.searchParams.set("action", "query");
+  url.searchParams.set("format", "json");
+  url.searchParams.set("generator", "random");
+  url.searchParams.set("grnnamespace", "0");
+  url.searchParams.set("grnlimit", String(limit));
+  url.searchParams.set("prop", "extracts|info");
+  url.searchParams.set("inprop", "url");
+  url.searchParams.set("explaintext", "1");
+  url.searchParams.set("exchars", "9000");
+
+  const response = await fetch(url, {
+    headers: { "User-Agent": "WalletFind/1.0 (English word-round generator)" },
+    signal: AbortSignal.timeout(10_000),
+  });
+
+  if (!response.ok) {
+    throw new Error("WIKIPEDIA_SOURCE_UNAVAILABLE");
+  }
+
+  const data = await response.json() as {
+    query?: {
+      pages?: Record<string, {
+        title?: string;
+        fullurl?: string;
+        extract?: string;
+      }>;
+    };
+  };
+
+  return Object.values(data.query?.pages ?? {})
+    .filter((page) => typeof page.extract === "string" && page.extract.length > 300)
+    .map((page) => ({
+      title: page.title ?? "Wikipedia article",
+      url: page.fullurl
+        ?? "https://en.wikipedia.org/wiki/" + encodeURIComponent((page.title ?? "").replace(/ /g, "_")),
+      text: page.extract ?? "",
+    }));
+}
+
+async function fetchGutenbergDocument(book: {
+  title: string;
+  textUrl: string;
+  pageUrl: string;
+}): Promise<SourceDocument | null> {
+  try {
+    const response = await fetch(book.textUrl, {
+      headers: { "User-Agent": "WalletFind/1.0 (English word-round generator)" },
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (!response.ok) return null;
+
+    let text = await response.text();
+    text = text
+      .replace(/\r/g, "")
+      .replace(/^[\s\S]*?\*\*\* START OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[^\n]*\n/i, "")
+      .replace(/\n\*\*\* END OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[\s\S]*$/i, "");
+
+    if (text.length < 1000) return null;
+
+    return { title: book.title, url: book.pageUrl, text };
+  } catch {
+    return null;
+  }
+}
+
+function buildFallbackRounds(existingAnswers: ReadonlySet<string>): GeneratedRound[] {
+  const usedAnswers = new Set(existingAnswers);
+  const rounds: GeneratedRound[] = [];
+
+  for (const fallback of FALLBACK_ROUNDS) {
+    if (usedAnswers.has(fallback.correctAnswer)) continue;
+
+    const distractors = shuffle(
+      FALLBACK_WORD_BANK.filter((word) => word !== fallback.correctAnswer),
+    ).slice(0, 11);
+
+    const options = shuffle([fallback.correctAnswer, ...distractors]);
+    if (options.length !== 12) continue;
+
+    rounds.push({ ...fallback, options });
+    usedAnswers.add(fallback.correctAnswer);
+  }
+
+  return rounds;
+}
+
+/**
+ * Generate each round from live English-language source text.
+ * Wikipedia provides current article text; Project Gutenberg supplies
+ * public-domain book text from a second domain. Curated clues keep the MVP
+ * playable if either external source is temporarily unavailable.
+ */
+async function generateMvpRounds(): Promise<GeneratedRound[]> {
+  const [wikipediaDocuments, gutenbergResults] = await Promise.all([
+    fetchWikipediaDocuments(20).catch((error: unknown) => {
+      console.warn("Wikipedia word source unavailable; using fallback material.", error);
+      return [] as SourceDocument[];
+    }),
+    Promise.all(GUTENBERG_BOOKS.map((book) => fetchGutenbergDocument(book))),
+  ]);
+
+  const sources = [
+    ...gutenbergResults.filter((source): source is SourceDocument => source !== null),
+    ...wikipediaDocuments,
+  ];
+  const rounds: GeneratedRound[] = [];
+  const usedAnswers = new Set<string>();
+  const usedUrls = new Set<string>();
+
+  for (const source of sources) {
+    if (rounds.length >= 12) break;
+    if (usedUrls.has(source.url)) continue;
+
+    const round = buildRoundFromSource(source, usedAnswers);
+    if (!round) continue;
+
+    rounds.push(round);
+    usedAnswers.add(round.correctAnswer);
+    usedUrls.add(source.url);
+  }
+
+  if (rounds.length < 12) {
+    const existingFallbackRounds = buildFallbackRounds(usedAnswers);
+    for (const round of existingFallbackRounds) {
+      if (rounds.length >= 12) break;
+      rounds.push(round);
+    }
+  }
+
+  if (rounds.length < 12) {
+    throw new Error("MVP_ROUND_GENERATION_FAILED");
+  }
+
+  return rounds.slice(0, 12);
+}
 
 /**
  * Keep a playable MVP contest available without requiring an admin to seed it.
- * Safe to call on every server start: it reuses an existing playable active contest.
+ * Safe to call on every server start: a contest is reused only when all twelve
+ * rounds have a source URL, a hint anchor, and twelve word choices.
  */
 export async function ensureMvpActiveContest() {
   const activeContests = await prisma.contest.findMany({
@@ -27,13 +373,26 @@ export async function ensureMvpActiveContest() {
       id: true,
       startsAt: true,
       endsAt: true,
-      clues: { select: { sequence: true } },
+      clues: {
+        select: {
+          sequence: true,
+          sourceUrl: true,
+          hintAnchor: true,
+          options: true,
+        },
+      },
     },
   });
 
   const now = new Date();
   const playableContest = activeContests.find((contest) =>
     hasCompleteClueSequence(contest.clues.map((clue) => clue.sequence)) &&
+    contest.clues.every((clue) =>
+      Boolean(clue.sourceUrl) &&
+      Boolean(clue.hintAnchor) &&
+      Array.isArray(clue.options) &&
+      clue.options.length === 12
+    ) &&
     (!contest.startsAt || contest.startsAt <= now) &&
     (!contest.endsAt || contest.endsAt > now),
   );
@@ -43,7 +402,7 @@ export async function ensureMvpActiveContest() {
     return playableContest.id;
   }
 
-  // Retire broken/incomplete active records so the player API cannot select one.
+  // Retire previous active records that don't follow the new round format.
   if (activeContests.length > 0) {
     await prisma.contest.updateMany({
       where: {
@@ -54,19 +413,23 @@ export async function ensureMvpActiveContest() {
     });
   }
 
+  const clues = await generateMvpRounds();
   const contest = await prisma.contest.create({
     data: {
-      title: "مسابقه آزمایشی Wallet Find",
-      description: "مسابقه آزمایشی MVP؛ هر ۱۲ سرنخ را به ترتیب حل کن.",
+      title: "مسابقه واژه‌یابی انگلیسی Wallet Find",
+      description: "۱۲ راند واژه‌یابی؛ راهنما را بخوان، لینک منبع را باز کن و کلمه را از میان ۱۲ گزینه انتخاب کن.",
       status: "ACTIVE",
       startsAt: now,
       clues: {
-        create: MVP_CLUES.map((clue, index) => ({
+        create: clues.map((clue, index) => ({
           sequence: index + 1,
-          type: "TEXT",
+          type: "WEB_PAGE",
           source: "SYSTEM",
           content: clue.content,
           correctAnswer: clue.correctAnswer,
+          sourceUrl: clue.sourceUrl,
+          hintAnchor: clue.hintAnchor,
+          options: clue.options,
         })),
       },
     },
@@ -78,10 +441,14 @@ export async function ensureMvpActiveContest() {
       action: "MVP_CONTEST_AUTO_CREATED",
       entity: "Contest",
       entityId: contest.id,
-      metadata: { clueCount: MVP_CLUES.length, createdAt: now.toISOString() },
+      metadata: {
+        clueCount: clues.length,
+        sourceDomains: [...new Set(clues.map((clue) => new URL(clue.sourceUrl).hostname))],
+        createdAt: now.toISOString(),
+      },
     },
   });
 
-  console.log("Created playable MVP contest:", contest.id);
+  console.log("Created playable English word-finding contest:", contest.id);
   return contest.id;
 }
