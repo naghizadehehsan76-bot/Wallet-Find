@@ -93,6 +93,16 @@ export async function createClueHandler(
       });
     }
 
+    if (
+      isError(error) &&
+      error.message === "CONTEST_CLUES_LOCKED"
+    ) {
+      return res.status(409).json({
+        success: false,
+        error: "CONTEST_CLUES_LOCKED",
+      });
+    }
+
     return res.status(500).json({
       success: false,
       error: "INTERNAL_SERVER_ERROR",
@@ -202,6 +212,7 @@ export async function getCurrentClueHandler(
       "CONTEST_NOT_STARTED",
       "CONTEST_FINISHED",
       "NO_CLUES_AVAILABLE",
+      "CONTEST_REQUIRES_12_CLUES",
     ]);
 
     if (error.message === "CONTEST_NOT_FOUND") {
@@ -284,6 +295,7 @@ export async function submitAnswerHandler(
       "CONTEST_NOT_STARTED",
       "CONTEST_FINISHED",
       "NO_CLUES_AVAILABLE",
+      "CONTEST_REQUIRES_12_CLUES",
       "CLUE_NOT_CURRENT",
       "CLUE_NOT_PUBLISHED",
       "CLUE_ALREADY_SOLVED",

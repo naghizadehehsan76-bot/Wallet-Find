@@ -11,6 +11,13 @@ Backend:
 - `npm ci`
 - `DATABASE_URL=<test-value> npx prisma generate`
 - `npm run build`
+- `npm test`
+
+## Automated domain tests
+
+Run `npm test` inside `backend/`. The test suite covers answer normalization,
+the complete twelve-position sequence, contiguous player progression, and
+selection of the latest authoritative timestamp for response timing.
 
 ## Critical contest behavior to test
 

@@ -1,26 +1,42 @@
 import { z } from "zod";
 
-export const createContestSchema = z.object({
-  title: z
-    .string()
-    .min(3, "Title must be at least 3 characters")
-    .max(200),
+export const createContestSchema = z
+  .object({
+    title: z
+      .string()
+      .trim()
+      .min(3, "Title must be at least 3 characters")
+      .max(200),
 
-  description: z
-    .string()
-    .max(2000)
-    .optional(),
+    description: z
+      .string()
+      .trim()
+      .max(2000)
+      .optional(),
 
-  startsAt: z
-    .string()
-    .datetime()
-    .optional(),
+    startsAt: z
+      .string()
+      .datetime()
+      .optional(),
 
-  endsAt: z
-    .string()
-    .datetime()
-    .optional(),
-});
+    endsAt: z
+      .string()
+      .datetime()
+      .optional(),
+  })
+  .superRefine((data, context) => {
+    if (
+      data.startsAt &&
+      data.endsAt &&
+      new Date(data.endsAt).getTime() <= new Date(data.startsAt).getTime()
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["endsAt"],
+        message: "END_TIME_MUST_BE_AFTER_START_TIME",
+      });
+    }
+  });
 
 export type CreateContestInput =
   z.infer<typeof createContestSchema>;
@@ -34,11 +50,15 @@ export const createClueSchema = z.object({
 
   content: z
     .string()
-    .min(1),
+    .trim()
+    .min(1)
+    .max(10_000),
 
   correctAnswer: z
     .string()
-    .min(1),
+    .trim()
+    .min(1)
+    .max(2_000),
 
   type: z
     .enum([

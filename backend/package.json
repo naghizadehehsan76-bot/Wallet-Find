@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "tsx src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "test": "tsx --test src/modules/contest/contest.logic.test.ts"
   },
   "keywords": [],
   "author": "",

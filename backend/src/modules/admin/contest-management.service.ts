@@ -1,4 +1,5 @@
 import prisma from "../../config/prisma.js";
+import { hasCompleteClueSequence } from "../contest/contest.logic.js";
 
 export async function activateContest(
   contestId: string,
@@ -26,12 +27,28 @@ export async function activateContest(
     throw new Error("CONTEST_CANNOT_BE_ACTIVATED");
   }
 
-  const clueCount = await prisma.contestClue.count({
+  const now = new Date();
+
+  if (contest.startsAt && now < contest.startsAt) {
+    throw new Error("CONTEST_SCHEDULED_FOR_FUTURE");
+  }
+
+  if (contest.endsAt && now >= contest.endsAt) {
+    throw new Error("CONTEST_END_ALREADY_PASSED");
+  }
+
+  const clues = await prisma.contestClue.findMany({
     where: { contestId },
+    select: { sequence: true },
+    orderBy: { sequence: "asc" },
   });
 
-  if (clueCount !== 12) {
-    throw new Error("CONTEST_REQUIRES_12_CLUES");
+  if (!hasCompleteClueSequence(clues.map((clue) => clue.sequence))) {
+    throw new Error(
+      clues.length === 12
+        ? "CONTEST_CLUES_MUST_BE_SEQUENTIAL"
+        : "CONTEST_REQUIRES_12_CLUES",
+    );
   }
 
   const existingActive = await prisma.contest.findFirst({
@@ -46,11 +63,7 @@ export async function activateContest(
     throw new Error("ANOTHER_CONTEST_ALREADY_ACTIVE");
   }
 
-  const now = new Date();
-
-  if (contest.endsAt && now >= contest.endsAt) {
-    throw new Error("CONTEST_END_ALREADY_PASSED");
-  }
+  const clueCount = clues.length;
 
   const updated = await prisma.contest.update({
     where: { id: contestId },

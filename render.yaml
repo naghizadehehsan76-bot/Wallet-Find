@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: wallet-find
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: cd backend && npm ci && npx prisma generate && npm run build && cd ../frontend && npm ci && npm run build
+    preDeployCommand: cd backend && npx prisma migrate deploy
+    startCommand: cd backend && npm start
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: "24.21.0"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: wallet-find-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CONTEST_SCHEDULER_INTERVAL_MS
+        value: "30000"
+
+databases:
+  - name: wallet-find-db
+    plan: free
+    region: frankfurt
+    databaseName: wallet_find
+    user: wallet_find

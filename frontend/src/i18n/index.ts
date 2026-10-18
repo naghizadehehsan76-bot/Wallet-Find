@@ -1,4 +1,13 @@
-import { useState } from "react";
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { fa } from "./translations/fa";
 import { en } from "./translations/en";
 
@@ -8,12 +17,18 @@ export const languages = {
 } as const;
 
 export type Language = keyof typeof languages;
-
 export type Translation = typeof fa;
 
-export function getTranslation(
-  language: Language,
-): Translation {
+type I18nContextValue = {
+  language: Language;
+  translation: Translation;
+  changeLanguage: (language: Language) => void;
+  isRTL: boolean;
+};
+
+const I18nContext = createContext<I18nContextValue | null>(null);
+
+export function getTranslation(language: Language): Translation {
   return languages[language] as Translation;
 }
 
@@ -21,31 +36,45 @@ export function isRTL(language: Language): boolean {
   return language === "fa";
 }
 
-export function useI18n() {
-  const [language, setLanguage] = useState<Language>(() => {
-    const saved = localStorage.getItem("walletFindLanguage");
+function getInitialLanguage(): Language {
+  if (typeof window === "undefined") return "fa";
 
-    return saved === "en" || saved === "fa"
-      ? saved
-      : "fa";
-  });
+  const saved = window.localStorage.getItem("walletFindLanguage");
+  return saved === "en" || saved === "fa" ? saved : "fa";
+}
 
-  const translation = getTranslation(language);
+export function I18nProvider({ children }: { children: ReactNode }) {
+  const [language, setLanguage] = useState<Language>(getInitialLanguage);
 
-  function changeLanguage(
-    nextLanguage: Language,
-  ) {
+  const changeLanguage = useCallback((nextLanguage: Language) => {
     setLanguage(nextLanguage);
-    localStorage.setItem(
-      "walletFindLanguage",
-      nextLanguage,
-    );
+    window.localStorage.setItem("walletFindLanguage", nextLanguage);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+    document.documentElement.dir = isRTL(language) ? "rtl" : "ltr";
+  }, [language]);
+
+  const value = useMemo<I18nContextValue>(
+    () => ({
+      language,
+      translation: getTranslation(language),
+      changeLanguage,
+      isRTL: isRTL(language),
+    }),
+    [language, changeLanguage],
+  );
+
+  return createElement(I18nContext.Provider, { value }, children);
+}
+
+export function useI18n(): I18nContextValue {
+  const context = useContext(I18nContext);
+
+  if (!context) {
+    throw new Error("useI18n must be used within I18nProvider");
   }
 
-  return {
-    language,
-    translation,
-    changeLanguage,
-    isRTL: isRTL(language),
-  };
+  return context;
 }

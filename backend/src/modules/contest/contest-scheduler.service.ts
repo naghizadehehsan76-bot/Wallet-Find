@@ -1,4 +1,5 @@
 import prisma from "../../config/prisma.js";
+import { hasCompleteClueSequence } from "./contest.logic.js";
 
 const DEFAULT_PUBLISH_INTERVAL_MINUTES = 15;
 
@@ -75,11 +76,17 @@ export async function runContestScheduler(now = new Date()) {
       continue;
     }
 
-    const clueCount = await prisma.contestClue.count({
+    const clueSequences = await prisma.contestClue.findMany({
       where: { contestId: contest.id },
+      select: { sequence: true },
+      orderBy: { sequence: "asc" },
     });
 
-    if (clueCount !== 12) {
+    if (
+      !hasCompleteClueSequence(
+        clueSequences.map((clue) => clue.sequence),
+      )
+    ) {
       continue;
     }
 
