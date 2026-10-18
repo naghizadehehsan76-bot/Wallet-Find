@@ -366,14 +366,14 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
 
                 <div className="word-grid-title">
                   <span>{isPersian ? "کلمه‌ی پاسخ را در یک کادر خالی تایپ کن" : "Type your answer in an empty box"}</span>
-                  <span className="word-grid-count mono">12 EMPTY BOXES</span>
+                  <span className="word-grid-count mono">{isPersian ? "کادر راند " + displayedRound : "ROUND BOX " + displayedRound}</span>
                 </div>
 
                 <section className="word-options-grid" aria-label={isPersian ? "دوازده کادر پاسخ خالی" : "Twelve empty answer boxes"}>
                   {answerSlots.map((value, index) => (
                     <label
                       key={index}
-                      className={"word-entry " + (activeAnswerIndex === index ? "word-entry--active" : "")}
+                      className={"word-entry " + (activeAnswerIndex === index ? "word-entry--active" : "") + (solvedSlots[index] ? " word-entry--solved" : "") + (incorrectSlots[index] ? " word-entry--incorrect" : "")}
                     >
                       <span className="word-option__index mono">
                         {(index + 1).toString().padStart(2, "0")}
@@ -420,7 +420,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
               </>
             )}
 
-            {feedback && <div className="inline-feedback">{feedback}</div>}
+            {feedback && <div className={"inline-feedback round-notice round-notice--" + feedbackTone} role="status" aria-live="polite">{feedback}</div>}
             {error && <div className="inline-feedback round-error">{error}</div>}
 
             <div className="section-title">
