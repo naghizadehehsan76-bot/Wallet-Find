@@ -169,7 +169,7 @@ export async function getCurrentClue(
     throw new Error("CONTEST_NOT_STARTED");
   }
 
-  if (contest.endsAt && now > contest.endsAt) {
+  if (contest.endsAt && now >= contest.endsAt) {
     throw new Error("CONTEST_FINISHED");
   }
 
@@ -246,7 +246,7 @@ export async function getCurrentClue(
       publishedAt: currentClue.publishedAt,
     },
     currentSequence: currentClue.sequence,
-    solvedCount: solvedClueIds.size,
+    solvedCount: progress.solvedCount,
   };
 }
 
