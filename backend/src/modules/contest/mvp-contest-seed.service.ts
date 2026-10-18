@@ -54,7 +54,7 @@ const FALLBACK_ROUNDS: Array<Omit<GeneratedRound, "options">> = [
     content: "Find the English word immediately after the phrase shown in the hint.",
     correctAnswer: "inorganic",
     sourceUrl: "https://en.wikipedia.org/wiki/Water",
-    hintAnchor: "Water is an",
+    hintAnchor: "Water (H2O) is an",
   },
   {
     content: "Find the English word immediately after the phrase shown in the hint.",
@@ -78,7 +78,7 @@ const FALLBACK_ROUNDS: Array<Omit<GeneratedRound, "options">> = [
     content: "Find the English word immediately after the phrase shown in the hint.",
     correctAnswer: "body",
     sourceUrl: "https://en.wikipedia.org/wiki/Ocean",
-    hintAnchor: "An ocean is a",
+    hintAnchor: "An ocean is a large",
   },
   {
     content: "Find the English word immediately after the phrase shown in the hint.",
