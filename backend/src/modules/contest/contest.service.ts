@@ -202,8 +202,12 @@ export async function getCurrentClue(
       contestId,
       isCorrect: true,
     },
+    orderBy: {
+      submittedAt: "asc",
+    },
     select: {
       clueId: true,
+      answer: true,
     },
   });
 
@@ -211,6 +215,14 @@ export async function getCurrentClue(
     correctSubmissions.map((submission) => submission.clueId),
   );
   const progress = getContestProgress(clues, solvedClueIds);
+  const sequenceByClueId = new Map(clues.map((clue) => [clue.id, clue.sequence]));
+  const seenSolvedSequences = new Set<number>();
+  const solvedAnswers = correctSubmissions.flatMap((submission) => {
+    const sequence = sequenceByClueId.get(submission.clueId);
+    if (sequence === undefined || seenSolvedSequences.has(sequence)) return [];
+    seenSolvedSequences.add(sequence);
+    return [{ sequence, answer: submission.answer }];
+  });
 
   if (progress.completed || !progress.currentClue) {
     return {
@@ -219,6 +231,7 @@ export async function getCurrentClue(
       clue: null,
       currentSequence: null,
       solvedCount: progress.solvedCount,
+      solvedAnswers,
     };
   }
 
@@ -234,6 +247,7 @@ export async function getCurrentClue(
       clue: null,
       currentSequence: currentClue.sequence,
       solvedCount: progress.solvedCount,
+      solvedAnswers,
       publishedAt: currentClue.publishedAt,
     };
   }
@@ -255,6 +269,7 @@ export async function getCurrentClue(
     },
     currentSequence: currentClue.sequence,
     solvedCount: progress.solvedCount,
+    solvedAnswers,
   };
 }
 
