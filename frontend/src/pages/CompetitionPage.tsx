@@ -33,8 +33,9 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [clueContent, setClueContent] = useState("");
   const [hintAnchor, setHintAnchor] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
-  const [wordOptions, setWordOptions] = useState<string[]>([]);
-  const [answer, setAnswer] = useState("");
+  const [answerSlots, setAnswerSlots] = useState<string[]>(Array(12).fill(""));
+  const [activeAnswerIndex, setActiveAnswerIndex] = useState(0);
+  const answer = answerSlots[activeAnswerIndex] ?? "";
   const [feedback, setFeedback] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -62,7 +63,6 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
         setClueContent(current.clue?.content ?? "");
         setHintAnchor(current.clue?.hintAnchor ?? "");
         setSourceUrl(current.clue?.sourceUrl ?? "");
-        setWordOptions(current.clue?.options ?? []);
         setCompleted(current.status === "CONTEST_COMPLETED");
         setWaitingForClue(current.status === "WAITING_FOR_CLUE");
 
@@ -109,12 +109,11 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           setClueContent(current.clue?.content ?? "");
           setHintAnchor(current.clue?.hintAnchor ?? "");
           setSourceUrl(current.clue?.sourceUrl ?? "");
-          setWordOptions(current.clue?.options ?? []);
           setCompleted(current.status === "CONTEST_COMPLETED");
           setWaitingForClue(current.status === "WAITING_FOR_CLUE");
 
           if (current.status === "READY") {
-            setAnswer("");
+            setAnswerSlots(Array(12).fill(""));
             setFeedback(
               isPersian
                 ? "راند جدید آماده است؛ راهنما را بخوان و کلمه را پیدا کن."
@@ -157,7 +156,6 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     setClueContent(current.clue?.content ?? "");
     setHintAnchor(current.clue?.hintAnchor ?? "");
     setSourceUrl(current.clue?.sourceUrl ?? "");
-    setWordOptions(current.clue?.options ?? []);
     setCompleted(current.status === "CONTEST_COMPLETED");
     setWaitingForClue(current.status === "WAITING_FOR_CLUE");
   }
@@ -168,8 +166,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     if (!value) {
       setFeedback(
         isPersian
-          ? "ابتدا یکی از ۱۲ کلمه را انتخاب کن."
-          : "Choose one of the twelve words first.",
+          ? "کلمه‌ی انگلیسی را در یکی از کادرهای خالی وارد کن."
+          : "Type the English word into one of the empty boxes.",
       );
       return;
     }
@@ -189,7 +187,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
             ? "این کلمه درست نیست. راهنما و لینک را دوباره بررسی کن."
             : "That word is not correct. Check the hint and source link again.",
         );
-        setAnswer("");
+        setAnswerSlots(Array(12).fill(""));
         return;
       }
 
@@ -200,9 +198,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
         setClueContent("");
         setHintAnchor("");
         setSourceUrl("");
-        setWordOptions([]);
         setCompleted(true);
-        setAnswer("");
+        setAnswerSlots(Array(12).fill(""));
         setFeedback(
           isPersian
             ? "تبریک! هر ۱۲ راند را کامل کردی."
@@ -211,7 +208,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
         return;
       }
 
-      setAnswer("");
+      setAnswerSlots(Array(12).fill(""));
       setFeedback(
         isPersian
           ? "آفرین! کلمه درست بود؛ راند بعدی باز شد."
@@ -368,50 +365,57 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                 )}
 
                 <div className="word-grid-title">
-                  <span>{isPersian ? "یکی از ۱۲ کلمه را انتخاب کن" : "Choose one of the 12 words"}</span>
-                  <span className="word-grid-count mono">12 WORDS</span>
+                  <span>{isPersian ? "کلمه‌ی پاسخ را در یک کادر خالی تایپ کن" : "Type your answer in an empty box"}</span>
+                  <span className="word-grid-count mono">12 EMPTY BOXES</span>
                 </div>
 
-                {wordOptions.length === 12 ? (
-                  <section className="word-options-grid" aria-label={isPersian ? "گزینه‌های کلمه" : "Word options"}>
-                    {wordOptions.map((word, index) => (
-                      <button
-                        key={word}
-                        type="button"
-                        className={"word-option " + (answer === word ? "word-option--selected" : "")}
-                        aria-pressed={answer === word}
+                <section className="word-options-grid" aria-label={isPersian ? "دوازده کادر پاسخ خالی" : "Twelve empty answer boxes"}>
+                  {answerSlots.map((value, index) => (
+                    <label
+                      key={index}
+                      className={"word-entry " + (activeAnswerIndex === index ? "word-entry--active" : "")}
+                    >
+                      <span className="word-option__index mono">
+                        {(index + 1).toString().padStart(2, "0")}
+                      </span>
+                      <input
+                        type="text"
+                        value={value}
+                        dir="ltr"
+                        autoComplete="off"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        aria-label={(isPersian ? "کادر پاسخ " : "Answer box ") + (index + 1)}
+                        placeholder={isPersian ? "کلمه..." : "Type word..."}
                         disabled={submitting}
-                        onClick={() => {
-                          setAnswer(word);
+                        onFocus={() => setActiveAnswerIndex(index)}
+                        onChange={(event) => {
+                          const next = [...answerSlots];
+                          next[index] = event.target.value;
+                          setAnswerSlots(next);
+                          setActiveAnswerIndex(index);
                           setFeedback("");
                         }}
-                      >
-                        <span className="word-option__index mono">
-                          {(index + 1).toString().padStart(2, "0")}
-                        </span>
-                        <span className="word-option__word" dir="ltr">
-                          {word}
-                        </span>
-                      </button>
-                    ))}
-                  </section>
-                ) : (
-                  <div className="inline-feedback">
-                    {isPersian
-                      ? "گزینه‌های این راند دریافت نشدند؛ صفحه را دوباره بارگذاری کن."
-                      : "The word options did not load. Please reload the page."}
-                  </div>
-                )}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void handleSubmit();
+                          }
+                        }}
+                      />
+                    </label>
+                  ))}
+                </section>
 
                 <button
                   type="button"
                   className="cta-button word-submit-button"
                   onClick={() => void handleSubmit()}
-                  disabled={!answer || submitting || completed || wordOptions.length !== 12}
+                  disabled={!answer.trim() || submitting || completed}
                 >
                   {submitting
                     ? (isPersian ? "در حال بررسی..." : "Checking...")
-                    : (isPersian ? "ثبت کلمه‌ی انتخاب‌شده" : "Submit selected word")}
+                    : (isPersian ? "بررسی کلمه‌ی واردشده" : "Check typed word")}
                 </button>
               </>
             )}
@@ -438,8 +442,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
               <div className="step-content">
                 <p>
                   {isPersian
-                    ? "کلمه‌ی انگلیسی بلافاصله بعد از عبارت را از شبکه‌ی ۳ در ۴ انتخاب کن."
-                    : "Select the English word immediately after that phrase from the 3-by-4 grid."}
+                    ? "کلمه‌ی انگلیسی بلافاصله بعد از عبارت را پیدا کن و خودت در یکی از کادرهای خالی تایپ کن."
+                    : "Find the English word immediately after the phrase and type it yourself into an empty box."}
                 </p>
               </div>
             </div>
