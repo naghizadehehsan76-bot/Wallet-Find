@@ -13,7 +13,16 @@ import profileRoutes from "./modules/profile/profile.routes.js";
 const app = express();
 const corsOrigin = process.env.CORS_ORIGIN?.trim();
 
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "style-src-attr": ["'unsafe-inline'"],
+      },
+    },
+  }),
+);
 app.use(
   cors({
     origin: corsOrigin || true,
