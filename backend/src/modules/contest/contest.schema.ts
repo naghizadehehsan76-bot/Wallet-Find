@@ -69,7 +69,7 @@ export const createClueSchema = z.object({
   hintAnchor: z
     .string()
     .trim()
-    .min(15, "HINT_ANCHOR_TOO_SHORT")
+    .min(25, "HINT_ANCHOR_TOO_SHORT")
     .max(1_000),
 
   type: z
