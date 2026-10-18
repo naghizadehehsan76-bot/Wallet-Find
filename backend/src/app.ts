@@ -1,4 +1,6 @@
 import express from "express";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -54,5 +56,19 @@ app.use("/api/contests", (req, res, next) => {
 app.use("/api/contests", contestRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/profile", profileRoutes);
+
+const frontendDist = path.resolve(process.cwd(), "../frontend/dist");
+if (existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+  app.get(/.*/, (req, res, next) => {
+    if (req.path.startsWith("/api/")) {
+      return next();
+    }
+
+    return res.sendFile(path.join(frontendDist, "index.html"), (error) => {
+      if (error) next(error);
+    });
+  });
+}
 
 export default app;
