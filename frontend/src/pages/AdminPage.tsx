@@ -24,6 +24,8 @@ type AdminPageProps = {
 type ClueDraft = {
   content: string;
   correctAnswer: string;
+  sourceUrl: string;
+  hintAnchor: string;
 };
 
 type ContestStatus = "draft" | "scheduled" | "active" | "finished";
@@ -31,6 +33,8 @@ type ContestStatus = "draft" | "scheduled" | "active" | "finished";
 const emptyClue = (): ClueDraft => ({
   content: "",
   correctAnswer: "",
+  sourceUrl: "",
+  hintAnchor: "",
 });
 
 function toIsoOrUndefined(value: string) {
@@ -61,7 +65,11 @@ function AdminPage({ onNavigate }: AdminPageProps) {
   const validClues = useMemo(
     () =>
       clues.filter(
-        (clue) => clue.content.trim() && clue.correctAnswer.trim(),
+        (clue) =>
+          clue.content.trim() &&
+          clue.correctAnswer.trim() &&
+          clue.sourceUrl.trim() &&
+          clue.hintAnchor.trim().length >= 15,
       ).length,
     [clues],
   );
@@ -143,7 +151,9 @@ function AdminPage({ onNavigate }: AdminPageProps) {
           sequence: index + 1,
           content: clue.content.trim(),
           correctAnswer: clue.correctAnswer.trim(),
-          type: "TEXT",
+          sourceUrl: clue.sourceUrl.trim(),
+          hintAnchor: clue.hintAnchor.trim(),
+          type: "WEB_PAGE",
         });
       }
 
@@ -224,7 +234,7 @@ function AdminPage({ onNavigate }: AdminPageProps) {
           <div>
             <h1 className="page-title">ماشین ساخت مسابقه</h1>
             <div className="date">
-              ساخت، زمان‌بندی، ثبت ۱۲ سرنخ و اجرای خودکار
+              ساخت مسابقه با ۱۲ سرنخ قابل بررسی؛ عبارت راهنما باید یکتا باشد و پاسخ دقیقاً بعد از آن بیاید
             </div>
           </div>
           <div className="prize">
@@ -314,10 +324,29 @@ function AdminPage({ onNavigate }: AdminPageProps) {
                   />
                   <input
                     type="text"
-                    placeholder="پاسخ صحیح"
+                    placeholder="پاسخ صحیح (کلمهٔ بلافاصله بعد از عبارت)"
                     value={clue.correctAnswer}
                     onChange={(event) =>
                       updateClue(index, "correctAnswer", event.target.value)
+                    }
+                    disabled={loading || status !== "draft"}
+                  />
+                  <input
+                    type="url"
+                    placeholder="لینک کامل صفحهٔ منبع (https://...)"
+                    value={clue.sourceUrl}
+                    onChange={(event) =>
+                      updateClue(index, "sourceUrl", event.target.value)
+                    }
+                    disabled={loading || status !== "draft"}
+                  />
+                  <textarea
+                    rows={2}
+                    minLength={15}
+                    placeholder="عبارت دقیق و یکتا که درست قبل از پاسخ در صفحه آمده است (حداقل ۱۵ نویسه)"
+                    value={clue.hintAnchor}
+                    onChange={(event) =>
+                      updateClue(index, "hintAnchor", event.target.value)
                     }
                     disabled={loading || status !== "draft"}
                   />
