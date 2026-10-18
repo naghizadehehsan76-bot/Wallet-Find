@@ -52,10 +52,11 @@ export function getContestProgress<T extends SequencedClue>(
   const ordered = [...clues].sort((a, b) => a.sequence - b.sequence);
   let solvedCount = 0;
 
-  while (
-    solvedCount < ordered.length &&
-    solvedClueIds.has(ordered[solvedCount].id)
-  ) {
+  while (solvedCount < ordered.length) {
+    const clue = ordered[solvedCount];
+    if (!clue || !solvedClueIds.has(clue.id)) {
+      break;
+    }
     solvedCount += 1;
   }
 
