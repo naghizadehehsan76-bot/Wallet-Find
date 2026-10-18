@@ -80,6 +80,8 @@ export async function createClue(
     update: {
       content: data.content,
       correctAnswer: data.correctAnswer,
+      sourceUrl: data.sourceUrl,
+      hintAnchor: data.hintAnchor,
       type: data.type,
     },
     create: {
@@ -87,6 +89,8 @@ export async function createClue(
       sequence: data.sequence,
       content: data.content,
       correctAnswer: data.correctAnswer,
+      sourceUrl: data.sourceUrl,
+      hintAnchor: data.hintAnchor,
       type: data.type,
     },
     select: {
@@ -95,6 +99,8 @@ export async function createClue(
       sequence: true,
       type: true,
       content: true,
+      sourceUrl: true,
+      hintAnchor: true,
       publishedAt: true,
       createdAt: true,
     },
