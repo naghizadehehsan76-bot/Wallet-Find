@@ -93,6 +93,8 @@ export type AdminClueInput = {
   sequence: number;
   content: string;
   correctAnswer: string;
+  sourceUrl: string;
+  hintAnchor: string;
   type?: "TEXT" | "IMAGE" | "PDF" | "AUDIO" | "VIDEO" | "WEB_PAGE";
 };
 
