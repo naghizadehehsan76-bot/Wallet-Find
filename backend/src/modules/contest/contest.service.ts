@@ -286,7 +286,7 @@ export async function submitAnswer(
 
   if (
     contest.endsAt &&
-    now > contest.endsAt
+    now >= contest.endsAt
   ) {
     throw new Error("CONTEST_FINISHED");
   }
