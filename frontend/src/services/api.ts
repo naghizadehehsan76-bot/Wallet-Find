@@ -45,6 +45,7 @@ export type CurrentClueResult = {
   } | null;
   currentSequence: number | null;
   solvedCount: number;
+  solvedAnswers: { sequence: number; answer: string }[];
   publishedAt?: string;
 };
 
