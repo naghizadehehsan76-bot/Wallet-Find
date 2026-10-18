@@ -29,6 +29,8 @@ function handleContestError(error: unknown, res: Response) {
     "CONTEST_REQUIRES_12_CLUES",
     "ANOTHER_CONTEST_ALREADY_ACTIVE",
     "CONTEST_END_ALREADY_PASSED",
+    "CONTEST_SCHEDULED_FOR_FUTURE",
+    "CONTEST_CLUES_MUST_BE_SEQUENTIAL",
     "CONTEST_NOT_ACTIVE",
   ]);
 
