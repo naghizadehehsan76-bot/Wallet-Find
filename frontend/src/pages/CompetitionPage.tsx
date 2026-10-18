@@ -39,6 +39,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [completed, setCompleted] = useState(false);
+  const [waitingForClue, setWaitingForClue] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,6 +60,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
         setCurrentClueId(current.clue?.id ?? null);
         setClueContent(current.clue?.content ?? "");
         setCompleted(current.status === "CONTEST_COMPLETED");
+        setWaitingForClue(current.status === "WAITING_FOR_CLUE");
 
         if (current.status === "WAITING_FOR_CLUE") {
           setFeedback(
@@ -90,6 +92,54 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     };
   }, [isPersian]);
 
+  useEffect(() => {
+    if (!contestId || !waitingForClue) return;
+
+    let cancelled = false;
+    const pollForClue = () => {
+      void getCurrentClue(contestId)
+        .then((current) => {
+          if (cancelled) return;
+
+          setSolvedCount(current.solvedCount);
+          setCurrentSequence(current.currentSequence);
+          setCurrentClueId(current.clue?.id ?? null);
+          setClueContent(current.clue?.content ?? "");
+          setCompleted(current.status === "CONTEST_COMPLETED");
+          setWaitingForClue(current.status === "WAITING_FOR_CLUE");
+
+          if (current.status === "READY") {
+            setFeedback(
+              isPersian
+                ? "سرنخ جدید آماده است؛ می‌توانی ادامه بدهی."
+                : "The next clue is ready. You can continue.",
+            );
+          } else if (current.status === "CONTEST_COMPLETED") {
+            setFeedback(
+              isPersian
+                ? "تبریک! هر ۱۲ کلید را حل کردی."
+                : "Congratulations! You solved all 12 keys.",
+            );
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setFeedback(
+              isPersian
+                ? "ارتباط موقتاً قطع شده؛ دوباره تلاش می‌کنیم."
+                : "Connection interrupted. Retrying automatically.",
+            );
+          }
+        });
+    };
+
+    const intervalId = window.setInterval(pollForClue, 10_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [contestId, waitingForClue, isPersian]);
+
   async function refreshCurrentClue() {
     if (!contestId) return;
 
@@ -100,6 +150,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     setCurrentClueId(current.clue?.id ?? null);
     setClueContent(current.clue?.content ?? "");
     setCompleted(current.status === "CONTEST_COMPLETED");
+    setWaitingForClue(current.status === "WAITING_FOR_CLUE");
   }
 
   async function handleSubmit() {
@@ -254,7 +305,15 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                       <div className="keycell-answer solved-answer">✓</div>
                     )}
 
-                    {isCurrent && (
+                    {isCurrent && !currentClueId && (
+                      <div className="key-clue-preview">
+                        {isPersian
+                          ? "در انتظار انتشار سرنخ..."
+                          : "Waiting for the clue to be published..."}
+                      </div>
+                    )}
+
+                    {isCurrent && currentClueId && (
                       <>
                         <div className="key-clue-preview">
                           {clueContent}
