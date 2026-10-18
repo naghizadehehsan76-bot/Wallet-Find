@@ -81,9 +81,11 @@ function getWordMatches(text: string): WordMatch[] {
   }));
 }
 
-function getOptions(text: string, answer: string): string[] {
+function getOptions(corpusText: string, answer: string): string[] {
+  // Use the combined source corpus for distractors. Short articles often do
+  // not contain 11 distinct suitable words, even when their clue is valid.
   const candidates = [...new Set(
-    getWordMatches(text)
+    getWordMatches(corpusText)
       .map((match) => match.word)
       .filter((word) => word !== answer && !COMMON_WORDS.has(word)),
   )];
@@ -96,6 +98,7 @@ function getOptions(text: string, answer: string): string[] {
 function buildRoundFromSource(
   source: SourceDocument,
   usedAnswers: ReadonlySet<string>,
+  optionCorpus: string,
 ): GeneratedRound | null {
   const matches = getWordMatches(source.text);
   if (matches.length < 20) return null;
@@ -111,7 +114,7 @@ function buildRoundFromSource(
     if (COMMON_WORDS.has(match.word) || usedAnswers.has(match.word)) continue;
     if (match.raw[0] !== match.raw[0]?.toLowerCase()) continue;
 
-    const options = getOptions(source.text, match.word);
+    const options = getOptions(optionCorpus, match.word);
     if (options.length !== 12) continue;
 
     // Expand the exact phrase until it occurs only once in the source text.
@@ -243,18 +246,34 @@ async function generateMvpRounds(): Promise<GeneratedRound[]> {
   const rounds: GeneratedRound[] = [];
   const usedAnswers = new Set<string>();
   const usedUrls = new Set<string>();
+  const optionCorpus = sources.map((source) => source.text).join("\n");
 
   for (const source of sources) {
     if (rounds.length >= 12) break;
     if (usedUrls.has(source.url)) continue;
 
-    const round = buildRoundFromSource(source, usedAnswers);
-    if (!round) continue;
+    const round = buildRoundFromSource(source, usedAnswers, optionCorpus);
+    if (!round) {
+      console.info("Skipped source: no valid unique clue could be generated", {
+        title: source.title,
+        url: source.url,
+        textLength: source.text.length,
+      });
+      continue;
+    }
 
     rounds.push(round);
     usedAnswers.add(round.correctAnswer);
     usedUrls.add(source.url);
   }
+
+  console.info("MVP clue generation summary", {
+    sourceCount: sources.length,
+    wikipediaSourceCount: wikipediaDocuments.length,
+    gutenbergSourceCount: gutenbergResults.filter(Boolean).length,
+    generatedRoundCount: rounds.length,
+    uniqueAnswerCount: usedAnswers.size,
+  });
 
   // Never fill missing rounds with static clues: their source pages can change,
   // making the saved answer disagree with the word after the displayed anchor.
