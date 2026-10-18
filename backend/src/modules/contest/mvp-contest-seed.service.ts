@@ -126,7 +126,7 @@ function buildRoundFromSource(
       }
 
       const candidateAnchor = rawAnchor.replace(/\s+/g, " ").trim();
-      if (!candidateAnchor || candidateAnchor.length > 160) continue;
+      if (!candidateAnchor || candidateAnchor.length < 25 || candidateAnchor.length > 160) continue;
 
       const searchableAnchor = candidateAnchor.toLowerCase();
       const firstOccurrence = normalizedSource.indexOf(searchableAnchor);
@@ -295,6 +295,7 @@ export async function ensureMvpActiveContest() {
     contest.clues.every((clue) =>
       Boolean(clue.sourceUrl) &&
       Boolean(clue.hintAnchor) &&
+      clue.hintAnchor.trim().length >= 25 &&
       Array.isArray(clue.options) &&
       clue.options.length === 12
     ) &&
