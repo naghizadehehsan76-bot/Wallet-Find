@@ -298,7 +298,7 @@ function buildFallbackRounds(existingAnswers: ReadonlySet<string>): GeneratedRou
     if (usedAnswers.has(fallback.correctAnswer)) continue;
 
     const distractors = shuffle(
-      FALLBACK_WORD_BANK.filter((word) => word !== fallback.correctAnswer),
+      [...new Set(FALLBACK_WORD_BANK)].filter((word) => word !== fallback.correctAnswer),
     ).slice(0, 11);
 
     const options = shuffle([fallback.correctAnswer, ...distractors]);
