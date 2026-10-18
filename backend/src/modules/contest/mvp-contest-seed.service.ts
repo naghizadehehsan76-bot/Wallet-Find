@@ -308,17 +308,8 @@ export async function ensureMvpActiveContest() {
     return playableContest.id;
   }
 
-  // Retire previous active records that don't follow the new round format.
-  if (activeContests.length > 0) {
-    await prisma.contest.updateMany({
-      where: {
-        id: { in: activeContests.map((contest) => contest.id) },
-        status: "ACTIVE",
-      },
-      data: { status: "FINISHED" },
-    });
-  }
-
+  // Generate and validate all rounds before changing the current contest.
+  // If an external source fails, the existing contest remains active.
   const clues = await generateMvpRounds();
   const contest = await prisma.contest.create({
     data: {
@@ -341,6 +332,20 @@ export async function ensureMvpActiveContest() {
     },
     select: { id: true },
   });
+
+  // Retire previous active records only after the replacement contest exists.
+  const previousActiveIds = activeContests
+    .map((activeContest) => activeContest.id)
+    .filter((id) => id !== contest.id);
+  if (previousActiveIds.length > 0) {
+    await prisma.contest.updateMany({
+      where: {
+        id: { in: previousActiveIds },
+        status: "ACTIVE",
+      },
+      data: { status: "FINISHED" },
+    });
+  }
 
   await prisma.auditLog.create({
     data: {
