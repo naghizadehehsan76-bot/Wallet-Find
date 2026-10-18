@@ -294,7 +294,7 @@ export async function ensureMvpActiveContest() {
     hasCompleteClueSequence(contest.clues.map((clue) => clue.sequence)) &&
     contest.clues.every((clue) =>
       Boolean(clue.sourceUrl) &&
-      Boolean(clue.hintAnchor) &&
+      typeof clue.hintAnchor === "string" &&
       clue.hintAnchor.trim().length >= 25 &&
       Array.isArray(clue.options) &&
       clue.options.length === 12
