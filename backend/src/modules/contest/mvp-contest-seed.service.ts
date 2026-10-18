@@ -26,12 +26,16 @@ export async function ensureMvpActiveContest() {
     select: {
       id: true,
       startsAt: true,
+      endsAt: true,
       clues: { select: { sequence: true } },
     },
   });
 
+  const now = new Date();
   const playableContest = activeContests.find((contest) =>
-    hasCompleteClueSequence(contest.clues.map((clue) => clue.sequence)),
+    hasCompleteClueSequence(contest.clues.map((clue) => clue.sequence)) &&
+    (!contest.startsAt || contest.startsAt <= now) &&
+    (!contest.endsAt || contest.endsAt > now),
   );
 
   if (playableContest) {
@@ -50,7 +54,6 @@ export async function ensureMvpActiveContest() {
     });
   }
 
-  const now = new Date();
   const contest = await prisma.contest.create({
     data: {
       title: "مسابقه آزمایشی Wallet Find",
