@@ -37,93 +37,6 @@ const COMMON_WORDS = new Set([
   "chapter", "volume", "project", "gutenberg", "ebook", "copyright",
 ]);
 
-const FALLBACK_WORD_BANK = [
-  "system", "water", "light", "energy", "planet", "animal", "forest", "ocean",
-  "mountain", "river", "climate", "gravity", "chemical", "surface", "nature",
-  "element", "digital", "network", "structure", "language", "history", "science",
-  "biology", "material", "texture", "feature", "culture", "movement", "organism",
-  "temperature", "pressure", "substance", "distance", "pattern", "memory", "signal",
-  "matter", "natural", "process", "inorganic", "satellite", "machine", "smallest",
-  "barren", "rupture", "chemical", "body", "star", "region", "species", "oxygen",
-  "earth", "sunlight", "surface", "habitat", "mineral", "weather", "current",
-  "magnetic", "metal", "cellular", "sequence", "variable", "function", "primary",
-];
-
-const FALLBACK_ROUNDS: Array<Omit<GeneratedRound, "options">> = [
-  {
-    content: "Find the English word immediately after the phrase shown in the hint.",
-    correctAnswer: "inorganic",
-    sourceUrl: "https://en.wikipedia.org/wiki/Water",
-    hintAnchor: "Water (H2O) is an",
-  },
-  {
-    content: "Find the English word immediately after the phrase shown in the hint.",
-    correctAnswer: "process",
-    sourceUrl: "https://en.wikipedia.org/wiki/Photosynthesis",
-    hintAnchor: "Photosynthesis is a",
-  },
-  {
-    content: "Find the English word immediately after the phrase shown in the hint.",
-    correctAnswer: "fundamental",
-    sourceUrl: "https://en.wikipedia.org/wiki/Gravity",
-    hintAnchor: "Gravity (from Latin gravitas 'weight') is a",
-  },
-  {
-    content: "Find the English word immediately after the phrase shown in the hint.",
-    correctAnswer: "rupture",
-    sourceUrl: "https://en.wikipedia.org/wiki/Volcano",
-    hintAnchor: "A volcano is a",
-  },
-  {
-    content: "Find the English word immediately after the phrase shown in the hint.",
-    correctAnswer: "water",
-    sourceUrl: "https://en.wikipedia.org/wiki/Ocean",
-    hintAnchor: "body of salty",
-  },
-  {
-    content: "Find the English word immediately after the phrase shown in the hint.",
-    correctAnswer: "satellite",
-    sourceUrl: "https://en.wikipedia.org/wiki/Moon",
-    hintAnchor: "The Moon is Earth's only natural",
-  },
-  {
-    content: "Find the English word immediately after the phrase shown in the hint.",
-    correctAnswer: "machine",
-    sourceUrl: "https://en.wikipedia.org/wiki/Computer",
-    hintAnchor: "A computer is a",
-  },
-  {
-    content: "Find the English word immediately after the phrase shown in the hint.",
-    correctAnswer: "chemical",
-    sourceUrl: "https://en.wikipedia.org/wiki/Oxygen",
-    hintAnchor: "Oxygen is a",
-  },
-  {
-    content: "Find the English word immediately after the phrase shown in the hint.",
-    correctAnswer: "star",
-    sourceUrl: "https://en.wikipedia.org/wiki/Sun",
-    hintAnchor: "The Sun is the",
-  },
-  {
-    content: "Find the English word immediately after the phrase shown in the hint.",
-    correctAnswer: "smallest",
-    sourceUrl: "https://en.wikipedia.org/wiki/Atom",
-    hintAnchor: "An atom is the",
-  },
-  {
-    content: "Find the English word immediately after the phrase shown in the hint.",
-    correctAnswer: "barren",
-    sourceUrl: "https://en.wikipedia.org/wiki/Desert",
-    hintAnchor: "A desert is a",
-  },
-  {
-    content: "Find the English word immediately after the phrase shown in the hint.",
-    correctAnswer: "area",
-    sourceUrl: "https://en.wikipedia.org/wiki/Forest",
-    hintAnchor: "A forest is an",
-  },
-];
-
 const GUTENBERG_BOOKS = [
   {
     title: "Alice's Adventures in Wonderland",
@@ -308,27 +221,6 @@ async function fetchGutenbergDocument(book: {
   }
 }
 
-function buildFallbackRounds(existingAnswers: ReadonlySet<string>): GeneratedRound[] {
-  const usedAnswers = new Set(existingAnswers);
-  const rounds: GeneratedRound[] = [];
-
-  for (const fallback of FALLBACK_ROUNDS) {
-    if (usedAnswers.has(fallback.correctAnswer)) continue;
-
-    const distractors = shuffle(
-      [...new Set(FALLBACK_WORD_BANK)].filter((word) => word !== fallback.correctAnswer),
-    ).slice(0, 11);
-
-    const options = shuffle([fallback.correctAnswer, ...distractors]);
-    if (options.length !== 12) continue;
-
-    rounds.push({ ...fallback, options });
-    usedAnswers.add(fallback.correctAnswer);
-  }
-
-  return rounds;
-}
-
 /**
  * Generate each round from live English-language source text.
  * Wikipedia provides current article text; Project Gutenberg supplies
@@ -337,7 +229,7 @@ function buildFallbackRounds(existingAnswers: ReadonlySet<string>): GeneratedRou
  */
 async function generateMvpRounds(): Promise<GeneratedRound[]> {
   const [wikipediaDocuments, gutenbergResults] = await Promise.all([
-    fetchWikipediaDocuments(10).catch((error: unknown) => {
+    fetchWikipediaDocuments(40).catch((error: unknown) => {
       console.warn("Wikipedia word source unavailable; using fallback material.", error);
       return [] as SourceDocument[];
     }),
@@ -364,14 +256,9 @@ async function generateMvpRounds(): Promise<GeneratedRound[]> {
     usedUrls.add(source.url);
   }
 
-  if (rounds.length < 12) {
-    const existingFallbackRounds = buildFallbackRounds(usedAnswers);
-    for (const round of existingFallbackRounds) {
-      if (rounds.length >= 12) break;
-      rounds.push(round);
-    }
-  }
-
+  // Never fill missing rounds with static clues: their source pages can change,
+  // making the saved answer disagree with the word after the displayed anchor.
+  // Every published clue must be generated from the exact source text it links to.
   if (rounds.length < 12) {
     throw new Error("MVP_ROUND_GENERATION_FAILED");
   }
