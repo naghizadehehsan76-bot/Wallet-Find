@@ -60,6 +60,18 @@ export const createClueSchema = z.object({
     .min(1)
     .max(2_000),
 
+  sourceUrl: z
+    .string()
+    .trim()
+    .url()
+    .max(2_000),
+
+  hintAnchor: z
+    .string()
+    .trim()
+    .min(15, "HINT_ANCHOR_TOO_SHORT")
+    .max(1_000),
+
   type: z
     .enum([
       "TEXT",
