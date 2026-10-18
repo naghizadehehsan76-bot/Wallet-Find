@@ -34,9 +34,12 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [hintAnchor, setHintAnchor] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
   const [answerSlots, setAnswerSlots] = useState<string[]>(Array(12).fill(""));
-  const [activeAnswerIndex, setActiveAnswerIndex] = useState(0);
+  const [solvedSlots, setSolvedSlots] = useState<boolean[]>(Array(12).fill(false));
+  const [incorrectSlots, setIncorrectSlots] = useState<boolean[]>(Array(12).fill(false));
+  const activeAnswerIndex = currentSequence === null ? 0 : Math.max(0, Math.min(11, currentSequence - 1));
   const answer = answerSlots[activeAnswerIndex] ?? "";
   const [feedback, setFeedback] = useState("");
+  const [feedbackTone, setFeedbackTone] = useState<"success" | "error" | "info">("info");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -113,7 +116,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           setWaitingForClue(current.status === "WAITING_FOR_CLUE");
 
           if (current.status === "READY") {
-            setAnswerSlots(Array(12).fill(""));
+            setFeedbackTone("info");
             setFeedback(
               isPersian
                 ? "راند جدید آماده است؛ راهنما را بخوان و کلمه را پیدا کن."
@@ -164,32 +167,39 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     const value = answer.trim();
 
     if (!value) {
+      setFeedbackTone("info");
       setFeedback(
         isPersian
-          ? "کلمه‌ی انگلیسی را در یکی از کادرهای خالی وارد کن."
-          : "Type the English word into one of the empty boxes.",
+          ? "کلمه‌ی انگلیسی را در کادر مربوط به همین راند وارد کن."
+          : "Type the English word into the box for this round.",
       );
       return;
     }
 
-    if (!contestId || !currentClueId || submitting) return;
+    if (!contestId || !currentClueId || submitting || solvedSlots[activeAnswerIndex]) return;
 
     setSubmitting(true);
     setFeedback("");
+    setFeedbackTone("info");
     setError("");
 
     try {
       const result = await submitAnswer(contestId, currentClueId, value);
 
       if (result.status === "INCORRECT") {
+        setIncorrectSlots((slots) => slots.map((item, index) => index === activeAnswerIndex ? true : item));
+        setFeedbackTone("error");
         setFeedback(
           isPersian
-            ? "این کلمه درست نیست. راهنما و لینک را دوباره بررسی کن."
-            : "That word is not correct. Check the hint and source link again.",
+            ? "پاسخ غلط است. کلمه را در همین کادر اصلاح کن و دوباره بررسی کن."
+            : "Incorrect answer. Edit the word in this box and try again.",
         );
-        setAnswerSlots(Array(12).fill(""));
         return;
       }
+
+      setSolvedSlots((slots) => slots.map((item, index) => index === activeAnswerIndex ? true : item));
+      setIncorrectSlots((slots) => slots.map((item, index) => index === activeAnswerIndex ? false : item));
+      setFeedbackTone("success");
 
       if (result.status === "CONTEST_COMPLETED") {
         setSolvedCount(12);
@@ -199,20 +209,18 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
         setHintAnchor("");
         setSourceUrl("");
         setCompleted(true);
-        setAnswerSlots(Array(12).fill(""));
         setFeedback(
           isPersian
-            ? "تبریک! هر ۱۲ راند را کامل کردی."
-            : "Congratulations! You completed all 12 rounds.",
+            ? "پاسخ درست بود! تبریک، هر ۱۲ راند را کامل کردی."
+            : "Correct answer! Congratulations, you completed all 12 rounds.",
         );
         return;
       }
 
-      setAnswerSlots(Array(12).fill(""));
       setFeedback(
         isPersian
-          ? "آفرین! کلمه درست بود؛ راند بعدی باز شد."
-          : "Correct! The next round is unlocked.",
+          ? "پاسخ درست بود! کلمه در کادر سبز باقی می‌ماند."
+          : "Correct answer! The word stays green in its box.",
       );
       await refreshCurrentClue();
     } catch (err) {
@@ -386,15 +394,16 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                         autoCapitalize="none"
                         spellCheck={false}
                         aria-label={(isPersian ? "کادر پاسخ " : "Answer box ") + (index + 1)}
-                        placeholder={isPersian ? "کلمه..." : "Type word..."}
-                        disabled={submitting}
-                        onFocus={() => setActiveAnswerIndex(index)}
+                        placeholder={solvedSlots[index] ? (isPersian ? "پاسخ درست" : "Correct") : index === activeAnswerIndex ? (isPersian ? "کلمه..." : "Type word...") : (isPersian ? "قفل" : "Locked")}
+                        disabled={submitting || solvedSlots[index] || index !== activeAnswerIndex}
+                        readOnly={solvedSlots[index]}
                         onChange={(event) => {
                           const next = [...answerSlots];
                           next[index] = event.target.value;
                           setAnswerSlots(next);
-                          setActiveAnswerIndex(index);
+                          setIncorrectSlots((slots) => slots.map((item, slotIndex) => slotIndex === index ? false : item));
                           setFeedback("");
+                          setFeedbackTone("info");
                         }}
                         onKeyDown={(event) => {
                           if (event.key === "Enter") {
