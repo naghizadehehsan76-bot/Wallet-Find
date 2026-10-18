@@ -159,3 +159,42 @@ textarea { font: inherit; resize: vertical; }
 .word-entry input:focus { border-bottom-color:var(--brass); }
 .word-entry input:disabled { opacity:.6; }
 @media (max-width:360px) { .word-entry { min-height:64px; padding-inline:3px; } .word-entry input { font-size:10px; } }
+
+
+/* Contest answer states: solved words remain visible in green; wrong attempts are highlighted. */
+.word-entry--solved {
+  border-color: rgba(62, 180, 116, .72);
+  background: rgba(42, 130, 78, .16);
+  box-shadow: inset 0 0 0 1px rgba(62, 180, 116, .18);
+}
+.word-entry--solved .word-option__index { color: #63d995; }
+.word-entry--solved input,
+.word-entry--solved input:disabled {
+  border-bottom-color: transparent;
+  color: #63d995;
+  opacity: 1;
+  -webkit-text-fill-color: #63d995;
+}
+.word-entry--incorrect {
+  border-color: rgba(231, 93, 93, .78);
+  background: rgba(170, 45, 45, .12);
+}
+.word-entry--incorrect input { border-bottom-color: #e75d5d; color: #ff9999; }
+.round-notice {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 800;
+}
+.round-notice--success {
+  border-color: rgba(62, 180, 116, .55);
+  background: rgba(42, 130, 78, .16);
+  color: #63d995;
+}
+.round-notice--error {
+  border-color: rgba(231, 93, 93, .55);
+  background: rgba(170, 45, 45, .13);
+  color: #ff9999;
+}
+.round-notice--info { background: var(--ink-2); color: var(--muted); }
