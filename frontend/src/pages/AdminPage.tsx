@@ -69,7 +69,7 @@ function AdminPage({ onNavigate }: AdminPageProps) {
           clue.content.trim() &&
           clue.correctAnswer.trim() &&
           clue.sourceUrl.trim() &&
-          clue.hintAnchor.trim().length >= 15,
+          clue.hintAnchor.trim().length >= 25,
       ).length,
     [clues],
   );
@@ -342,8 +342,8 @@ function AdminPage({ onNavigate }: AdminPageProps) {
                   />
                   <textarea
                     rows={2}
-                    minLength={15}
-                    placeholder="عبارت دقیق و یکتا که درست قبل از پاسخ در صفحه آمده است (حداقل ۱۵ نویسه)"
+                    minLength={25}
+                    placeholder="عبارت دقیق و یکتا که درست قبل از پاسخ در صفحه آمده است (حداقل ۲۵ نویسه)"
                     value={clue.hintAnchor}
                     onChange={(event) =>
                       updateClue(index, "hintAnchor", event.target.value)
