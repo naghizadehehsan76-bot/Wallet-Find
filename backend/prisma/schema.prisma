@@ -165,6 +165,10 @@ model ContestClue {
 
   correctAnswer String
 
+  sourceUrl   String?
+  hintAnchor  String?
+  options     Json?
+
   advertiserContentId String?
 
   publishedAt DateTime?

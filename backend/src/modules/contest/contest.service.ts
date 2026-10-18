@@ -186,6 +186,9 @@ export async function getCurrentClue(
       type: true,
       content: true,
       publishedAt: true,
+      sourceUrl: true,
+      hintAnchor: true,
+      options: true,
     },
   });
 
@@ -244,6 +247,11 @@ export async function getCurrentClue(
       type: currentClue.type,
       content: currentClue.content,
       publishedAt: currentClue.publishedAt,
+      sourceUrl: currentClue.sourceUrl,
+      hintAnchor: currentClue.hintAnchor,
+      options: Array.isArray(currentClue.options)
+        ? currentClue.options.filter((option): option is string => typeof option === "string")
+        : [],
     },
     currentSequence: currentClue.sequence,
     solvedCount: progress.solvedCount,

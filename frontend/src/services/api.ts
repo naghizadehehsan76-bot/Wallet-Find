@@ -39,6 +39,9 @@ export type CurrentClueResult = {
     type: string;
     content: string;
     publishedAt: string | null;
+    sourceUrl: string | null;
+    hintAnchor: string | null;
+    options: string[];
   } | null;
   currentSequence: number | null;
   solvedCount: number;
