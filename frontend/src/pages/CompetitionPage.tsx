@@ -47,7 +47,14 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [waitingForClue, setWaitingForClue] = useState(false);
 
   function applyCurrentClue(current: Awaited<ReturnType<typeof getCurrentClue>>) {
-    applyCurrentClue(current);
+    setSolvedCount(current.solvedCount);
+    setCurrentSequence(current.currentSequence);
+    setCurrentClueId(current.clue?.id ?? null);
+    setClueContent(current.clue?.content ?? "");
+    setHintAnchor(current.clue?.hintAnchor ?? "");
+    setSourceUrl(current.clue?.sourceUrl ?? "");
+    setCompleted(current.status === "CONTEST_COMPLETED");
+    setWaitingForClue(current.status === "WAITING_FOR_CLUE");
 
     const restoredAnswers = Array(12).fill("") as string[];
     const restoredSolved = Array(12).fill(false) as boolean[];
@@ -156,14 +163,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
 
     const current = await getCurrentClue(contestId);
 
-    setSolvedCount(current.solvedCount);
-    setCurrentSequence(current.currentSequence);
-    setCurrentClueId(current.clue?.id ?? null);
-    setClueContent(current.clue?.content ?? "");
-    setHintAnchor(current.clue?.hintAnchor ?? "");
-    setSourceUrl(current.clue?.sourceUrl ?? "");
-    setCompleted(current.status === "CONTEST_COMPLETED");
-    setWaitingForClue(current.status === "WAITING_FOR_CLUE");
+    applyCurrentClue(current);
   }
 
   async function handleSubmit() {
