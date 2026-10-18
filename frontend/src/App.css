@@ -151,3 +151,11 @@ textarea { font: inherit; resize: vertical; }
   .round-hint-card, .round-source-card { padding:12px; }
   .round-hint-card__phrase { font-size:11px; }
 }
+
+.word-entry { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; min-width:0; min-height:72px; padding:9px 5px; border:1px solid var(--line); border-radius:12px; background:var(--ink-2); transition:border-color .15s ease,background .15s ease; }
+.word-entry--active, .word-entry:focus-within { border-color:var(--brass); background:rgba(198,161,91,.08); box-shadow:inset 0 0 0 1px rgba(198,161,91,.12); }
+.word-entry input { display:block; width:100%; min-width:0; padding:8px 2px; border:0; border-bottom:1px solid var(--line); outline:none; border-radius:0; background:transparent; color:var(--brass-light); font-family:"JetBrains Mono",ui-monospace,Consolas,monospace; font-size:clamp(10px,2.8vw,13px); font-weight:700; text-align:center; }
+.word-entry input::placeholder { color:var(--muted); font-family:inherit; font-size:10px; font-weight:400; }
+.word-entry input:focus { border-bottom-color:var(--brass); }
+.word-entry input:disabled { opacity:.6; }
+@media (max-width:360px) { .word-entry { min-height:64px; padding-inline:3px; } .word-entry input { font-size:10px; } }
