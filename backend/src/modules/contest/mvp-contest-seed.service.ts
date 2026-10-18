@@ -319,7 +319,7 @@ function buildFallbackRounds(existingAnswers: ReadonlySet<string>): GeneratedRou
  */
 async function generateMvpRounds(): Promise<GeneratedRound[]> {
   const [wikipediaDocuments, gutenbergResults] = await Promise.all([
-    fetchWikipediaDocuments(20).catch((error: unknown) => {
+    fetchWikipediaDocuments(10).catch((error: unknown) => {
       console.warn("Wikipedia word source unavailable; using fallback material.", error);
       return [] as SourceDocument[];
     }),
