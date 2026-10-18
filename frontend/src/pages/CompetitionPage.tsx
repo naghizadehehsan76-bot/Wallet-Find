@@ -373,11 +373,11 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                 )}
 
                 <div className="word-grid-title">
-                  <span>{isPersian ? "کلمه‌ی پاسخ را در یک کادر خالی تایپ کن" : "Type your answer in an empty box"}</span>
+                  <span>{isPersian ? "پاسخ هر راند را در کادر شماره‌ی همان راند تایپ کن" : "Type each answer in its matching round box"}</span>
                   <span className="word-grid-count mono">{isPersian ? "کادر راند " + displayedRound : "ROUND BOX " + displayedRound}</span>
                 </div>
 
-                <section className="word-options-grid" aria-label={isPersian ? "دوازده کادر پاسخ خالی" : "Twelve empty answer boxes"}>
+                <section className="word-options-grid" aria-label={isPersian ? "دوازده کادر پاسخ، هر راند یک کادر" : "Twelve answer boxes, one per round"}>
                   {answerSlots.map((value, index) => (
                     <label
                       key={index}
