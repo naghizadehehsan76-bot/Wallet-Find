@@ -64,9 +64,9 @@ const FALLBACK_ROUNDS: Array<Omit<GeneratedRound, "options">> = [
   },
   {
     content: "Find the English word immediately after the phrase shown in the hint.",
-    correctAnswer: "natural",
+    correctAnswer: "fundamental",
     sourceUrl: "https://en.wikipedia.org/wiki/Gravity",
-    hintAnchor: "Gravity is a",
+    hintAnchor: "Gravity (from Latin gravitas 'weight') is a",
   },
   {
     content: "Find the English word immediately after the phrase shown in the hint.",
@@ -76,9 +76,9 @@ const FALLBACK_ROUNDS: Array<Omit<GeneratedRound, "options">> = [
   },
   {
     content: "Find the English word immediately after the phrase shown in the hint.",
-    correctAnswer: "body",
+    correctAnswer: "water",
     sourceUrl: "https://en.wikipedia.org/wiki/Ocean",
-    hintAnchor: "An ocean is a large",
+    hintAnchor: "body of salty",
   },
   {
     content: "Find the English word immediately after the phrase shown in the hint.",
@@ -187,28 +187,46 @@ function buildRoundFromSource(
   const matches = getWordMatches(source.text);
   if (matches.length < 20) return null;
 
+  const normalizedSource = source.text.replace(/\s+/g, " ").trim().toLowerCase();
   const candidateIndexes = shuffle(
-    matches.map((_, index) => index).filter((index) => index >= 2),
+    matches.map((_, index) => index).filter((index) => index >= 5),
   );
 
   for (const index of candidateIndexes) {
     const match = matches[index];
-    const previous = matches[index - 1];
-    const previousPrevious = matches[index - 2];
-
-    if (!match || !previous || !previousPrevious) continue;
+    if (!match) continue;
     if (COMMON_WORDS.has(match.word) || usedAnswers.has(match.word)) continue;
     if (match.raw[0] !== match.raw[0]?.toLowerCase()) continue;
 
-    const anchor = source.text
-      .slice(previousPrevious.index, match.index)
-      .replace(/\s+/g, " ")
-      .trim();
-
-    if (!anchor || anchor.length > 100) continue;
-
     const options = getOptions(source.text, match.word);
     if (options.length !== 12) continue;
+
+    // Expand the exact phrase until it occurs only once in the source text.
+    let anchor = "";
+    for (let wordsBefore = 5; wordsBefore <= 10; wordsBefore += 1) {
+      const firstWord = matches[index - wordsBefore];
+      if (!firstWord) continue;
+
+      const rawAnchor = source.text.slice(firstWord.index, match.index);
+      if (/\n\s*\n/.test(rawAnchor) || /[.!?][)"'\]]*\s/.test(rawAnchor)) {
+        continue;
+      }
+
+      const candidateAnchor = rawAnchor.replace(/\s+/g, " ").trim();
+      if (!candidateAnchor || candidateAnchor.length > 160) continue;
+
+      const searchableAnchor = candidateAnchor.toLowerCase();
+      const firstOccurrence = normalizedSource.indexOf(searchableAnchor);
+      if (firstOccurrence < 0) continue;
+      if (normalizedSource.indexOf(searchableAnchor, firstOccurrence + 1) !== -1) {
+        continue;
+      }
+
+      anchor = candidateAnchor;
+      break;
+    }
+
+    if (!anchor) continue;
 
     return {
       content: "Find the English word immediately after the phrase shown in the hint.",
