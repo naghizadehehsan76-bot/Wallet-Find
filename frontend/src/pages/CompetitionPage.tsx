@@ -46,6 +46,23 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [completed, setCompleted] = useState(false);
   const [waitingForClue, setWaitingForClue] = useState(false);
 
+  function applyCurrentClue(current: Awaited<ReturnType<typeof getCurrentClue>>) {
+    applyCurrentClue(current);
+
+    const restoredAnswers = Array(12).fill("") as string[];
+    const restoredSolved = Array(12).fill(false) as boolean[];
+    for (const saved of current.solvedAnswers ?? []) {
+      const index = saved.sequence - 1;
+      if (index >= 0 && index < 12) {
+        restoredAnswers[index] = saved.answer;
+        restoredSolved[index] = true;
+      }
+    }
+    setAnswerSlots(restoredAnswers);
+    setSolvedSlots(restoredSolved);
+    setIncorrectSlots(Array(12).fill(false));
+  }
+
   useEffect(() => {
     let cancelled = false;
 
@@ -60,14 +77,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
         const current = await getCurrentClue(contest.id);
         if (cancelled) return;
 
-        setSolvedCount(current.solvedCount);
-        setCurrentSequence(current.currentSequence);
-        setCurrentClueId(current.clue?.id ?? null);
-        setClueContent(current.clue?.content ?? "");
-        setHintAnchor(current.clue?.hintAnchor ?? "");
-        setSourceUrl(current.clue?.sourceUrl ?? "");
-        setCompleted(current.status === "CONTEST_COMPLETED");
-        setWaitingForClue(current.status === "WAITING_FOR_CLUE");
+        applyCurrentClue(current);
 
         if (current.status === "WAITING_FOR_CLUE") {
           setFeedback(
@@ -106,14 +116,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
         .then((current) => {
           if (cancelled) return;
 
-          setSolvedCount(current.solvedCount);
-          setCurrentSequence(current.currentSequence);
-          setCurrentClueId(current.clue?.id ?? null);
-          setClueContent(current.clue?.content ?? "");
-          setHintAnchor(current.clue?.hintAnchor ?? "");
-          setSourceUrl(current.clue?.sourceUrl ?? "");
-          setCompleted(current.status === "CONTEST_COMPLETED");
-          setWaitingForClue(current.status === "WAITING_FOR_CLUE");
+          applyCurrentClue(current);
 
           if (current.status === "READY") {
             setFeedbackTone("info");
