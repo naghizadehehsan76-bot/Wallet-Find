@@ -7,6 +7,18 @@ export const en = {
     wallet: "Wallet",
     profile: "Profile",
   },
+  sidebar: {
+    title: "Main menu",
+    openMenu: "Open menu",
+    closeMenu: "Close menu",
+    leaderboard: "Leaderboard",
+    rewards: "Rewards",
+    helpCenter: "Help Center",
+    termsOfUse: "Terms of Use",
+    login: "Login",
+    signup: "Sign Up",
+    footer: "Challenge your speed",
+  },
   wallet: {
     title: "Wallet",
     displayBalance: "MVP display balance",
@@ -163,6 +175,23 @@ export const en = {
       scheduled: "Scheduled",
       active: "Active",
       finished: "Finished",
+    },
+  },
+  infoPages: {
+    rewards: {
+      title: "Rewards",
+      description: "Reward details and how to receive them will be shown here.",
+      detail: "In the current version, the balance is display-only and real deposits or withdrawals are not enabled. The final prize amount and conditions will be announced before public launch.",
+    },
+    help: {
+      title: "Help Center",
+      description: "A quick guide to getting started and joining a contest.",
+      detail: "Log in or create an account to participate. Open each clue's source page and enter the target word in the matching round box. A support contact channel has not been configured yet.",
+    },
+    terms: {
+      title: "Terms of Use",
+      description: "Important information about the 12Keys preview release.",
+      detail: "This version is still a preview. The final contest rules, eligibility, judging, and payout terms will be published before public launch. Do not expect real payouts from this site yet; real payments are not enabled.",
     },
   },
   common: {

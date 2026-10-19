@@ -9,6 +9,8 @@ import { useI18n, type Language } from "./i18n";
 import SharedLanguageSwitcher from "./components/LanguageSwitcher";
 import "./App.css";
 
+type AuthMode = "login" | "signup";
+
 type Page =
   | "home"
   | "auth"
@@ -17,6 +19,9 @@ type Page =
   | "leaderboard"
   | "profile"
   | "wallet"
+  | "rewards"
+  | "help"
+  | "terms"
   | "admin";
 
 function LanguageSwitcher({
@@ -64,28 +69,74 @@ const enSteps = [
 
 function HomePage({
   onNavigate,
+  onAuth,
   language,
   onLanguageChange,
 }: {
   onNavigate: (page: Page) => void;
+  onAuth: (mode: AuthMode) => void;
   language: Language;
   onLanguageChange: (language: Language) => void;
 }) {
+  const { translation: t } = useI18n();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isPersian = language === "fa";
   const stats = isPersian ? faStats : enStats;
   const steps = isPersian ? faSteps : enSteps;
 
   return (
     <div className="app-shell home-shell">
-      <header className="topbar">
-        <div className="brand"><span className="brand-dot" /><span>12Keys</span></div>
+      <header className="topbar home-topbar">
+        <div className="home-topbar__brand">
+          <button
+            className="sidebar-toggle"
+            type="button"
+            aria-controls="home-sidebar"
+            aria-expanded={mobileMenuOpen}
+            aria-label={mobileMenuOpen ? t.sidebar.closeMenu : t.sidebar.openMenu}
+            onClick={() => setMobileMenuOpen((open) => !open)}
+          >
+            {mobileMenuOpen ? "×" : "☰"}
+          </button>
+          <div className="brand"><span className="brand-dot" /><span>12Keys</span></div>
+        </div>
         <div className="topbar-actions">
           <LanguageSwitcher language={language} onChange={onLanguageChange} />
           <div className="wallet-pill mono">₮ 128.40</div>
         </div>
       </header>
 
-      <main className="page home-page">
+      <div className={`home-content${mobileMenuOpen ? " home-content--menu-open" : ""}`}>
+        <aside id="home-sidebar" className="home-sidebar" aria-label={t.sidebar.title}>
+          <div className="sidebar-brand"><span className="brand-dot" /><strong>12Keys</strong></div>
+          <p className="sidebar-kicker">{t.sidebar.title}</p>
+          <nav className="sidebar-nav">
+            <button type="button" className="sidebar-link" onClick={() => { onNavigate("leaderboard"); setMobileMenuOpen(false); }}>
+              <span aria-hidden="true">🏆</span><span>{t.sidebar.leaderboard}</span>
+            </button>
+            <button type="button" className="sidebar-link" onClick={() => { onNavigate("rewards"); setMobileMenuOpen(false); }}>
+              <span aria-hidden="true">✦</span><span>{t.sidebar.rewards}</span>
+            </button>
+            <button type="button" className="sidebar-link" onClick={() => { onNavigate("help"); setMobileMenuOpen(false); }}>
+              <span aria-hidden="true">?</span><span>{t.sidebar.helpCenter}</span>
+            </button>
+            <button type="button" className="sidebar-link" onClick={() => { onNavigate("terms"); setMobileMenuOpen(false); }}>
+              <span aria-hidden="true">≡</span><span>{t.sidebar.termsOfUse}</span>
+            </button>
+          </nav>
+          <div className="sidebar-divider" />
+          <div className="sidebar-auth">
+            <button type="button" className="sidebar-login" onClick={() => { onAuth("login"); setMobileMenuOpen(false); }}>
+              {t.sidebar.login}
+            </button>
+            <button type="button" className="sidebar-signup" onClick={() => { onAuth("signup"); setMobileMenuOpen(false); }}>
+              {t.sidebar.signup}
+            </button>
+          </div>
+          <p className="sidebar-footer">{t.sidebar.footer}</p>
+        </aside>
+
+        <main className="page home-page">
         <section className="hero">
           <div className="eyebrow">{isPersian ? "مسابقه شبانه" : "NIGHTLY CONTEST"}</div>
           <h1 className="hero-title">
@@ -128,6 +179,50 @@ function HomePage({
             {steps.map((step) => <article className="step" key={step.number}><div className="step-number mono">{step.number}</div><div className="step-content"><p>{step.title}</p><small>{step.description}</small></div></article>)}
           </div>
         </section>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function InfoPage({
+  kind,
+  onNavigate,
+}: {
+  kind: "rewards" | "help" | "terms";
+  onNavigate: (page: Page) => void;
+}) {
+  const { translation: t } = useI18n();
+  const content = t.infoPages[kind];
+  const icon = kind === "rewards" ? "✦" : kind === "help" ? "?" : "≡";
+
+  return (
+    <div className="app-shell info-shell">
+      <header className="topbar">
+        <div className="brand"><span className="brand-dot" /><span>12Keys</span></div>
+        <div className="topbar-actions"><SharedLanguageSwitcher /></div>
+      </header>
+      <main className="page info-page">
+        <button className="back-button" type="button" onClick={() => onNavigate("home")}>
+          ‹ {t.navigation.home}
+        </button>
+        <div className="eyebrow">{t.sidebar.title}</div>
+        <h1 className="info-title">{content.title}</h1>
+        <p className="info-description">{content.description}</p>
+        <section className="info-panel">
+          <span className="info-panel__icon" aria-hidden="true">{icon}</span>
+          <p>{content.detail}</p>
+        </section>
+        {kind === "rewards" && (
+          <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>
+            {t.navigation.competition}
+          </button>
+        )}
+        {kind === "help" && (
+          <button className="cta-button" type="button" onClick={() => onNavigate("auth")}>
+            {t.auth.login} / {t.auth.signup}
+          </button>
+        )}
       </main>
     </div>
   );
@@ -146,6 +241,12 @@ function App() {
   const isAdmin = savedRole === "ADMIN";
 
   const [page, setPage] = useState<Page>(() => localStorage.getItem("walletFindToken") ? "competition" : "home");
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
+
+  function openAuth(mode: AuthMode) {
+    setAuthMode(mode);
+    setPage("auth");
+  }
 
   function handleAuthenticated(token: string) {
     localStorage.setItem("walletFindToken", token);
@@ -159,7 +260,7 @@ function App() {
   }
 
   if (page === "auth") {
-    return <AuthPage onAuthenticated={handleAuthenticated} onBack={() => setPage("home")} />;
+    return <AuthPage initialMode={authMode} onAuthenticated={handleAuthenticated} onBack={() => setPage("home")} />;
   }
 
   if (page === "admin" && isAdmin) {
@@ -182,6 +283,10 @@ function App() {
     return <KeyStagePage onNavigate={setPage} />;
   }
 
+  if (page === "rewards" || page === "help" || page === "terms") {
+    return <InfoPage kind={page} onNavigate={setPage} />;
+  }
+
   if (page === "wallet") {
     return (
       <div className="app-shell">
@@ -189,7 +294,7 @@ function App() {
     );
   }
 
-  return <HomePage onNavigate={setPage} language={language} onLanguageChange={changeLanguage} />;
+  return <HomePage onNavigate={setPage} onAuth={openAuth} language={language} onLanguageChange={changeLanguage} />;
 }
 
 function BottomNavShim({ activePage, onNavigate }: { activePage: Page; onNavigate: (page: Page) => void }) {

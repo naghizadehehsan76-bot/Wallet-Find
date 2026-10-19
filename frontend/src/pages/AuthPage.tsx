@@ -10,11 +10,12 @@ type AuthMode = "login" | "signup";
 type AuthPageProps = {
   onAuthenticated: (token: string) => void;
   onBack: () => void;
+  initialMode?: AuthMode;
 };
 
-function AuthPage({ onAuthenticated, onBack }: AuthPageProps) {
+function AuthPage({ onAuthenticated, onBack, initialMode = "login" }: AuthPageProps) {
   const { language, translation: t } = useI18n();
-  const [mode, setMode] = useState<AuthMode>("login");
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
