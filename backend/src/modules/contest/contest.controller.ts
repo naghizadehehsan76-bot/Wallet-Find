@@ -14,6 +14,7 @@ import {
   getCurrentClue,
   submitAnswer,
 } from "./contest.service.js";
+import { startNextMvpContest } from "./mvp-contest-seed.service.js";
 
 function isError(error: unknown): error is Error {
   return error instanceof Error;
@@ -164,6 +165,64 @@ export async function getActiveContestHandler(
     return res.status(500).json({
       success: false,
       error: "INTERNAL_SERVER_ERROR",
+    });
+  }
+}
+
+export async function startNextContestHandler(
+  req: AuthenticatedRequest,
+  res: Response
+) {
+  const contestId = req.params.contestId;
+
+  if (!contestId || Array.isArray(contestId)) {
+    return res.status(400).json({
+      success: false,
+      error: "INVALID_CONTEST_ID",
+    });
+  }
+
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      error: "AUTHENTICATION_REQUIRED",
+    });
+  }
+
+  try {
+    const contest = await startNextMvpContest(req.user.userId, contestId);
+
+    return res.status(200).json({
+      success: true,
+      data: contest,
+    });
+  } catch (error) {
+    if (isError(error) && error.message === "CONTEST_NOT_FOUND") {
+      return res.status(404).json({
+        success: false,
+        error: "CONTEST_NOT_FOUND",
+      });
+    }
+
+    if (isError(error) && error.message === "CONTEST_NOT_COMPLETED_BY_USER") {
+      return res.status(409).json({
+        success: false,
+        error: "CONTEST_NOT_COMPLETED_BY_USER",
+      });
+    }
+
+    console.error("Failed to start next MVP contest", error);
+
+    if (isError(error) && error.message === "MVP_ROUND_GENERATION_FAILED") {
+      return res.status(503).json({
+        success: false,
+        error: "NEXT_CONTEST_GENERATION_FAILED",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      error: "NEXT_CONTEST_FAILED",
     });
   }
 }
