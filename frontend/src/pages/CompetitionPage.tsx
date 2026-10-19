@@ -119,11 +119,6 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   }, [isPersian]);
 
   useEffect(() => {
-    setFeedback("");
-    setError("");
-  }, [language]);
-
-  useEffect(() => {
     if (!contestId || !waitingForClue) return;
 
     let cancelled = false;
