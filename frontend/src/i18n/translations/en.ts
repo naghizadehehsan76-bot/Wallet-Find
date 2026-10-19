@@ -8,8 +8,8 @@ export const en = {
     profile: "Profile",
   },
   landing: {
-    gridTitle: "12 contest keys",
-    gridSubtitle: "Round layout",
+    gridTitle: "Challenge your speed and find the words",
+    gridSubtitle: "",
     gridLegend: "Key status",
     solved: "Solved",
     current: "Current",
