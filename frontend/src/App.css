@@ -198,3 +198,5 @@ textarea { font: inherit; resize: vertical; }
   color: #ff9999;
 }
 .round-notice--info { background: var(--ink-2); color: var(--muted); }
+
+.round-complete__button { margin-top:18px; }
