@@ -185,9 +185,11 @@ function HomePage({
                   ? t.landing.current
                   : t.landing.locked;
               return (
-                <div key={index} className={`contest-tile contest-tile--${status}`}>
-                  <span className="contest-tile__number mono">{(index + 1).toLocaleString(isPersian ? "fa-IR" : "en-US")}</span>
-                  <span className="contest-tile__status" aria-hidden="true">
+                <div key={index} className={`contest-tile contest-tile--${status}`} style={index < 4 ? { justifyContent: "center", padding: "14px 5px 10px" } : undefined}>
+                  <span className="contest-tile__number mono" style={index < 4 ? { width: "100%", textAlign: "center", overflowWrap: "anywhere", fontSize: "clamp(9px, 2.8vw, 13px)", color: "var(--verdigris)" } : undefined}>
+                    {index < 4 ? ["challenge", "your", "speed", "every"][index] : (index + 1).toLocaleString(isPersian ? "fa-IR" : "en-US")}
+                  </span>
+                  <span className="contest-tile__status" aria-hidden="true" style={index < 4 ? { position: "absolute", top: 5, insetInlineEnd: 5, width: 16, height: 16 } : undefined}>
                     {status === "solved" ? "✓" : status === "current" ? "●" : "◇"}
                   </span>
                   <span className="contest-tile__sr-only">{statusText}</span>
