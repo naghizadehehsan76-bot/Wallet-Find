@@ -65,11 +65,6 @@ function AdminPage({ onNavigate }: AdminPageProps) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    setMessage("");
-    setError("");
-  }, [language]);
-
   const validClues = useMemo(
     () =>
       clues.filter(
