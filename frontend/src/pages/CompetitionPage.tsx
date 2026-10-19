@@ -7,6 +7,8 @@ import {
   submitAnswer,
 } from "../services/api";
 import { useI18n } from "../i18n";
+import LanguageSwitcher from "../components/LanguageSwitcher";
+import { localizeApiError, localizeContestTitle } from "../i18n/localize";
 
 type Page =
   | "home"
@@ -115,6 +117,11 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       cancelled = true;
     };
   }, [isPersian]);
+
+  useEffect(() => {
+    setFeedback("");
+    setError("");
+  }, [language]);
 
   useEffect(() => {
     if (!contestId || !waitingForClue) return;
@@ -302,15 +309,14 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           <span className="brand-dot" />
           <span>12Keys</span>
         </div>
-        <div className="wallet-pill mono">₮ 128.40</div>
+        <div className="topbar-actions"><LanguageSwitcher /><div className="wallet-pill mono">₮ 128.40</div></div>
       </header>
 
       <main className="page">
         <section className="comp-head">
           <div>
             <h2 className="page-title">
-              {contestTitle ||
-                (isPersian ? "مسابقه واژه‌یابی" : "Word-finding contest")}
+              {localizeContestTitle(contestTitle, language)}
             </h2>
             <div className="date">
               {formattedDate ||
@@ -328,7 +334,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
             {isPersian ? "در حال دریافت مسابقه..." : "Loading contest..."}
           </div>
         ) : error && !currentClueId && !completed ? (
-          <div className="inline-feedback">{error}</div>
+          <div className="inline-feedback">{localizeApiError(error, language)}</div>
         ) : (
           <>
             <section className="round-progress">
@@ -489,7 +495,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
             )}
 
             {feedback && <div className={"inline-feedback round-notice round-notice--" + feedbackTone} role="status" aria-live="polite">{feedback}</div>}
-            {error && <div className="inline-feedback round-error">{error}</div>}
+            {error && <div className="inline-feedback round-error">{localizeApiError(error, language)}</div>}
 
             <div className="section-title">
               {isPersian ? "روش بازی" : "How to play"}
