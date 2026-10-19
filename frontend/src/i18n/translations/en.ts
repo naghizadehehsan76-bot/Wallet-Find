@@ -185,6 +185,33 @@ export const en = {
       finished: "Finished",
     },
   },
+  contestRules: {
+    kicker: "CONTEST GUIDE",
+    title: "How to Play & Contest Rules",
+    description: "Each contest asks you to find 12 words in order using the clues. The numbered boxes show where to enter the answer for each clue.",
+    stepsTitle: "Steps to enter the contest",
+    steps: [
+      {
+        title: "Open the daily contest",
+        description: "After signing in, open the active contest. Solve the words in order, from box 1 through box 12.",
+      },
+      {
+        title: "Check the clue and source page",
+        description: "Open the source link and find the exact phrase shown in the hint. The English word immediately after that phrase is the answer for that round.",
+      },
+      {
+        title: "Enter the answer in the matching box",
+        description: "Type the word into the box with the same number. A correct answer stays in its place in green and unlocks the next box. If the answer is wrong, you can try again.",
+      },
+      {
+        title: "Compete with your speed",
+        description: "Your solving speed affects the contest result. Under the planned contest model, reaching the final word sooner means a larger reward.",
+      },
+    ],
+    rewardsTitle: "How are rewards determined?",
+    rewardsDetail: "Under the planned contest model, all eligible participants receive a reward, and faster solving can lead to a larger reward. The final reward calculation and distribution details will be announced before public launch.",
+    previewNotice: "Note: This is still a preview release. Real payments and reward transfers are not currently enabled. This page describes the planned contest and does not mean payouts are active.",
+  },
   infoPages: {
     rewards: {
       title: "Rewards",
