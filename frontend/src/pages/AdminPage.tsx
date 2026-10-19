@@ -8,7 +8,7 @@ import {
 } from "../services/api";
 import { useI18n } from "../i18n";
 import LanguageSwitcher from "../components/LanguageSwitcher";
-import { localizeApiError } from "../i18n/localize";
+import { localizeApiError, localizeUiMessage } from "../i18n/localize";
 
 type Page =
   | "home"
@@ -402,7 +402,7 @@ function AdminPage({ onNavigate }: AdminPageProps) {
           </>
         )}
 
-        {message && <div className="inline-feedback">{message}</div>}
+        {message && <div className="inline-feedback">{localizeUiMessage(message, language)}</div>}
         {error && <div className="inline-feedback">{localizeApiError(error, language)}</div>}
       </main>
     </div>
