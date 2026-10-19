@@ -17,9 +17,10 @@ type Page =
 
 type ProfilePageProps = {
   onNavigate: (page: Page) => void;
+  onLogout: () => void;
 };
 
-function ProfilePage({ onNavigate }: ProfilePageProps) {
+function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
   const { language } = useI18n();
   const isPersian = language === "fa";
   const [profile, setProfile] = useState<ProfileResult | null>(null);
@@ -62,7 +63,7 @@ function ProfilePage({ onNavigate }: ProfilePageProps) {
         <div className="topbar-actions"><LanguageSwitcher /><div className="wallet-pill">{isPersian ? "پروفایل" : "Profile"}</div></div>
       </header>
 
-      <main className="page">
+      <main className="page profile-page">
         {loading ? (
           <div className="inline-feedback">
             {isPersian ? "در حال دریافت پروفایل..." : "Loading profile..."}
@@ -125,6 +126,13 @@ function ProfilePage({ onNavigate }: ProfilePageProps) {
             )}
           </>
         ) : null}
+
+        <div className="profile-actions">
+          <button className="cta-button cta-button--logout" type="button" onClick={onLogout}>
+            <span aria-hidden="true">↪</span>
+            {isPersian ? "خروج از حساب" : "Log out"}
+          </button>
+        </div>
       </main>
 
       <BottomNav activePage="profile" onNavigate={onNavigate} />

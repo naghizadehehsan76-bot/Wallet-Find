@@ -2,8 +2,8 @@
 
 :root {
   font-family: "Vazirmatn", sans-serif;
-  color: #ede7d9;
-  background: #0a0f1a;
+  color: #f5f1e8;
+  background: #050607;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -13,7 +13,7 @@
 html {
   margin: 0;
   padding: 0;
-  background: #0a0f1a;
+  background: #050607;
 }
 
 body {
@@ -22,7 +22,7 @@ body {
   min-height: 100svh;
   margin: 0;
   padding: 0;
-  background: #0a0f1a;
+  background: #050607;
 }
 
 button,

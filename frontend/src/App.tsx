@@ -76,7 +76,7 @@ function HomePage({
   const steps = isPersian ? faSteps : enSteps;
 
   return (
-    <div className="app-shell">
+    <div className="app-shell home-shell">
       <header className="topbar">
         <div className="brand"><span className="brand-dot" /><span>12Keys</span></div>
         <div className="topbar-actions">
@@ -85,7 +85,7 @@ function HomePage({
         </div>
       </header>
 
-      <main className="page">
+      <main className="page home-page">
         <section className="hero">
           <div className="eyebrow">{isPersian ? "مسابقه شبانه" : "NIGHTLY CONTEST"}</div>
           <h1 className="hero-title">
@@ -152,6 +152,12 @@ function App() {
     setPage("competition");
   }
 
+  function handleLogout() {
+    localStorage.removeItem("walletFindToken");
+    localStorage.removeItem("walletFindUser");
+    setPage("home");
+  }
+
   if (page === "auth") {
     return <AuthPage onAuthenticated={handleAuthenticated} onBack={() => setPage("home")} />;
   }
@@ -169,7 +175,7 @@ function App() {
   }
 
   if (page === "profile") {
-    return <ProfilePage onNavigate={setPage} />;
+    return <ProfilePage onNavigate={setPage} onLogout={handleLogout} />;
   }
 
   if (page === "key") {

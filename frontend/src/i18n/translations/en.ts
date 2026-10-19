@@ -102,6 +102,7 @@ export const en = {
     title: "Profile",
     loading: "Loading profile...",
     error: "Unable to load profile.",
+    logout: "Log out",
   },
   key: {
     allKeys: "All keys",
