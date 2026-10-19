@@ -1039,8 +1039,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 
-/* One consistent, clean sans-serif wordmark across all application pages. */
-.brand--home,
+/* One consistent wordmark for Home, Contest, Leaderboard, Profile, Wallet, and the shared drawer. */
+.topbar .brand,
+.topbar .brand--home,
 .sidebar-brand--home {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 24px;
