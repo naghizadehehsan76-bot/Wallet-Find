@@ -32,10 +32,11 @@ function createToken(userId: string, role: string): string {
 }
 
 export async function registerUser(input: RegisterInput) {
+  const normalizedEmail = input.email.trim().toLowerCase();
   const existingUser = await prisma.user.findFirst({
     where: {
       OR: [
-        { email: input.email },
+        { email: { equals: normalizedEmail, mode: "insensitive" } },
         { username: input.username },
       ],
     },
@@ -52,7 +53,7 @@ export async function registerUser(input: RegisterInput) {
 
   const user = await prisma.user.create({
     data: {
-      email: input.email,
+      email: normalizedEmail,
       username: input.username,
       passwordHash,
     },
@@ -77,14 +78,18 @@ export async function registerUser(input: RegisterInput) {
 }
 
 export async function loginUser(input: LoginInput) {
-  const user = await prisma.user.findUnique({
+  const normalizedEmail = input.email.trim();
+  const user = await prisma.user.findFirst({
     where: {
-      email: input.email,
+      email: {
+        equals: normalizedEmail,
+        mode: "insensitive",
+      },
     },
   });
 
   if (!user) {
-    throw new Error("INVALID_CREDENTIALS");
+    throw new Error("EMAIL_NOT_REGISTERED");
   }
 
   const passwordValid = await bcrypt.compare(
@@ -93,7 +98,7 @@ export async function loginUser(input: LoginInput) {
   );
 
   if (!passwordValid) {
-    throw new Error("INVALID_CREDENTIALS");
+    throw new Error("INVALID_PASSWORD");
   }
 
   const token = createToken(
