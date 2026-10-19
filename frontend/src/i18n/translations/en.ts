@@ -136,7 +136,7 @@ export const en = {
     mockClue: "A historical square in three Iranian cities shares a name that also means “coin” in Persian. Combine its first letter with the symbolic number of those cities.",
   },
   auth: {
-    welcome: "Welcome to 12Keys",
+    welcome: "Welcome to Wallet Find",
     login: "Login",
     signup: "Sign Up",
     email: "Email",
@@ -149,7 +149,7 @@ export const en = {
     signupButton: "Create account",
     loading: "Checking...",
     back: "Back",
-    privacy: "By continuing, you agree to the 12Keys contest rules and privacy policy.",
+    privacy: "By continuing, you agree to the Wallet Find contest rules and privacy policy.",
   },
   admin: {
     back: "Back",
@@ -198,7 +198,7 @@ export const en = {
     },
     terms: {
       title: "Terms of Use",
-      description: "Important information about the 12Keys preview release.",
+      description: "Important information about the Wallet Find preview release.",
       detail: "This version is still a preview. The final contest rules, eligibility, judging, and payout terms will be published before public launch. Do not expect real payouts from this site yet; real payments are not enabled.",
     },
   },

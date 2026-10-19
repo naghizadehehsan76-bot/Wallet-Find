@@ -221,7 +221,7 @@ function AdminPage({ onNavigate }: AdminPageProps) {
       <header className="topbar">
         <div className="brand">
           <span className="brand-dot" />
-          <span>12Keys {isPersian ? "مدیریت" : "Admin"}</span>
+          <span>Wallet Find {isPersian ? "مدیریت" : "Admin"}</span>
         </div>
         <div className="topbar-actions">
           <LanguageSwitcher />

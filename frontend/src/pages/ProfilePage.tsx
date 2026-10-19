@@ -58,7 +58,7 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
       <header className="topbar">
         <div className="brand">
           <span className="brand-dot" />
-          <span>12Keys</span>
+          <span>Wallet Find</span>
         </div>
         <div className="topbar-actions"><LanguageSwitcher /><div className="wallet-pill">{isPersian ? "پروفایل" : "Profile"}</div></div>
       </header>
