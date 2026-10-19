@@ -60,7 +60,7 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
           <span className="brand-dot" />
           <span>Wallet Find</span>
         </div>
-        <div className="topbar-actions"><LanguageSwitcher /><div className="wallet-pill">{isPersian ? "پروفایل" : "Profile"}</div></div>
+        <div className="topbar-actions"><LanguageSwitcher /></div>
       </header>
 
       <main className="page profile-page">
