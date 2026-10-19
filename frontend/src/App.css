@@ -1006,7 +1006,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 @media (max-width: 599px) {
   .home-topbar .topbar-actions {
-    display: none;
+    display: flex;
+    flex: 0 0 auto;
+    visibility: visible;
+  }
+  .home-topbar .language-switcher {
+    gap: 1px;
+    padding: 2px;
+  }
+  .home-topbar .language-switcher button {
+    padding: 5px 6px;
+    font-size: 10px;
   }
   .sidebar-home-tools {
     display: flex;
