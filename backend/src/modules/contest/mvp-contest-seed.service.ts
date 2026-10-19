@@ -217,7 +217,7 @@ async function fetchWikipediaDocuments(limit: number): Promise<SourceDocument[]>
 
   const addDocuments = (items: SourceDocument[]) => {
     for (const item of items) {
-      const normalizedUrl = item.url.split("#")[0];
+      const normalizedUrl = item.url.split("#")[0] ?? item.url;
       const normalizedTitle = item.title.trim().toLowerCase();
       if (!item.text || item.text.length <= 300) continue;
       if (seenUrls.has(normalizedUrl) || seenTitles.has(normalizedTitle)) continue;
@@ -356,7 +356,13 @@ async function fetchGutenbergDocument(book: {
       signal: AbortSignal.timeout(10_000),
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.warn("Project Gutenberg source returned a non-success status", {
+        title: book.title,
+        status: response.status,
+      });
+      return null;
+    }
 
     let text = await response.text();
     text = text
@@ -364,10 +370,20 @@ async function fetchGutenbergDocument(book: {
       .replace(/^[\s\S]*?\*\*\* START OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[^\n]*\n/i, "")
       .replace(/\n\*\*\* END OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[\s\S]*$/i, "");
 
-    if (text.length < 1000) return null;
+    if (text.length < 1000) {
+      console.warn("Project Gutenberg source text was too short", {
+        title: book.title,
+        textLength: text.length,
+      });
+      return null;
+    }
 
     return { title: book.title, url: book.pageUrl, text };
-  } catch {
+  } catch (error) {
+    console.warn("Project Gutenberg source unavailable", {
+      title: book.title,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return null;
   }
 }
