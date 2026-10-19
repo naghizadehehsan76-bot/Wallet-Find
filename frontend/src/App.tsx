@@ -175,7 +175,6 @@ function HomePage({
               <strong>{t.landing.gridTitle}</strong>
               <span>{t.landing.gridSubtitle}</span>
             </div>
-            <span className="contest-grid-layout-tag">3 × 4</span>
           </div>
           <div className="contest-grid">
             {Array.from({ length: 12 }).map((_, index) => {
