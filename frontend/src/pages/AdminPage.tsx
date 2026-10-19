@@ -49,7 +49,7 @@ function toIsoOrUndefined(value: string) {
     : date.toISOString();
 }
 
-function AdminPage({ onNavigate }: AdminPageProps) {
+function AdminPage(_props: AdminPageProps) {
   const { language, translation: t } = useI18n();
   const isPersian = language === "fa";
   const [title, setTitle] = useState("");
