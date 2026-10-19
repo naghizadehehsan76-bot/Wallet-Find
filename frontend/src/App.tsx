@@ -327,7 +327,6 @@ function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }
       >
         <div className="global-sidebar__header">
           <div className="sidebar-brand"><span className="brand-dot" /><strong>Wallet Find</strong></div>
-          <button type="button" className="global-sidebar__close" onClick={() => setIsOpen(false)} aria-label={t.sidebar.closeMenu}>×</button>
         </div>
         <p className="sidebar-kicker">{t.sidebar.title}</p>
         <nav className="sidebar-nav">
