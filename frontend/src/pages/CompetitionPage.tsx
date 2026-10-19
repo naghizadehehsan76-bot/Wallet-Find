@@ -302,10 +302,15 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div className="brand">
+        <button
+          className="brand brand--home"
+          type="button"
+          aria-label={isPersian ? "خانه" : "Home"}
+          onClick={() => onNavigate("home")}
+        >
           <span className="brand-dot" />
           <span>Wallet Find</span>
-        </div>
+        </button>
         <div className="topbar-actions"><LanguageSwitcher /><div className="wallet-pill mono">{isPersian ? "₮ ۱۲۸٫۴۰" : "₮ 128.40"}</div></div>
       </header>
 
