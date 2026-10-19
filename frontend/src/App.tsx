@@ -309,16 +309,18 @@ function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }
       {isOpen && (
         <button className="global-sidebar-backdrop" type="button" aria-label={t.sidebar.closeMenu} onClick={() => setIsOpen(false)} />
       )}
-      <button
-        className={"global-sidebar-trigger" + (currentPage === "home" ? " global-sidebar-trigger--home" : "")}
-        type="button"
-        aria-controls="global-sidebar"
-        aria-expanded={isOpen}
-        aria-label={isOpen ? t.sidebar.closeMenu : t.sidebar.openMenu}
-        onClick={() => setIsOpen((open) => !open)}
-      >
-        "☰"
-      </button>
+      {!isOpen && (
+        <button
+          className={"global-sidebar-trigger" + (currentPage === "home" ? " global-sidebar-trigger--home" : "")}
+          type="button"
+          aria-controls="global-sidebar"
+          aria-expanded={false}
+          aria-label={t.sidebar.openMenu}
+          onClick={() => setIsOpen(true)}
+        >
+          ☰
+        </button>
+      )}
       <aside
         id="global-sidebar"
         className={"global-sidebar" + (isOpen ? " global-sidebar--open" : "")}
