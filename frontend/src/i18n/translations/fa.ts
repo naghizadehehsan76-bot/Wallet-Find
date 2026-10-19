@@ -8,8 +8,8 @@ export const fa = {
     profile: "پروفایل",
   },
   landing: {
-    gridTitle: "۱۲ کلید مسابقه",
-    gridSubtitle: "چیدمان راندها",
+    gridTitle: "سرعتت رو به چالش بکش و کلمات رو پیدا کن",
+    gridSubtitle: "",
     gridLegend: "وضعیت کلیدها",
     solved: "حل‌شده",
     current: "راند فعلی",
