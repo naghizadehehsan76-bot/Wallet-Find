@@ -788,3 +788,39 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 @media (prefers-reduced-motion:reduce) {
   .global-sidebar,.global-sidebar-trigger,.global-sidebar-backdrop { transition:none; animation:none; }
 }
+
+
+/* Align the global drawer button directly beside the Wallet Find title. */
+.topbar .brand-dot { visibility: hidden; }
+.global-sidebar-trigger {
+  top: 16px;
+  inset-inline-start: max(16px, calc((100vw - 480px) / 2 + 16px));
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid rgba(66,232,212,.34);
+  border-radius: 10px;
+  background: linear-gradient(145deg,rgba(16,25,25,.98),rgba(5,8,8,.98));
+  box-shadow: 0 4px 16px rgba(0,0,0,.24);
+  font-size: 18px;
+  line-height: 1;
+}
+[dir="rtl"] .global-sidebar-trigger {
+  border: 1px solid rgba(66,232,212,.34);
+  border-radius: 10px;
+}
+@media (min-width:600px) and (max-width:899px) {
+  .global-sidebar-trigger {
+    top: 18px;
+    inset-inline-start: max(20px, calc((100vw - 720px) / 2 + 20px));
+  }
+}
+@media (min-width:900px) {
+  .global-sidebar-trigger {
+    top: 24px;
+    inset-inline-start: max(42px, calc((100vw - 1180px) / 2 + 42px));
+  }
+  .global-sidebar-trigger--home {
+    inset-inline-start: max(42px, calc((100vw - 1240px) / 2 + 42px));
+  }
+}

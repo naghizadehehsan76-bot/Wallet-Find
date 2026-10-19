@@ -310,7 +310,7 @@ function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }
         <button className="global-sidebar-backdrop" type="button" aria-label={t.sidebar.closeMenu} onClick={() => setIsOpen(false)} />
       )}
       <button
-        className="global-sidebar-trigger"
+        className={"global-sidebar-trigger" + (currentPage === "home" ? " global-sidebar-trigger--home" : "")}
         type="button"
         aria-controls="global-sidebar"
         aria-expanded={isOpen}
