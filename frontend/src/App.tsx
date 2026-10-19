@@ -329,7 +329,7 @@ type GlobalSidebarProps = {
 };
 
 function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }: GlobalSidebarProps) {
-  const { translation: t } = useI18n();
+  const { translation: t, language } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
