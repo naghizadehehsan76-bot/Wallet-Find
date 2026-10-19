@@ -6,6 +6,7 @@ import LeaderboardPage from "./pages/LeaderboardPage";
 import ProfilePage from "./pages/ProfilePage";
 import AdminPage from "./pages/AdminPage";
 import { useI18n, type Language } from "./i18n";
+import SharedLanguageSwitcher from "./components/LanguageSwitcher";
 import "./App.css";
 
 type Page =
@@ -28,10 +29,10 @@ function LanguageSwitcher({
   return (
     <div className="language-switcher">
       <button type="button" className={language === "fa" ? "active" : ""} onClick={() => onChange("fa")}>
-        فارسی
+        {language === "fa" ? "فارسی" : "Persian"}
       </button>
       <button type="button" className={language === "en" ? "active" : ""} onClick={() => onChange("en")}>
-        English
+        {language === "fa" ? "انگلیسی" : "English"}
       </button>
     </div>
   );
@@ -95,7 +96,7 @@ function HomePage({
           </p>
         </section>
 
-        <section className="dial-wrap" aria-label="12 keys">
+        <section className="dial-wrap" aria-label={isPersian ? "۱۲ کلید" : "12 keys"}>
           <div className="dial-ring">
             {Array.from({ length: 12 }).map((_, index) => {
               const angle = (index / 12) * 360 - 90;
@@ -133,7 +134,7 @@ function HomePage({
 }
 
 function App() {
-  const { language, changeLanguage, isRTL } = useI18n();
+  const { language, changeLanguage, isRTL, translation: t } = useI18n();
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -178,7 +179,7 @@ function App() {
   if (page === "wallet") {
     return (
       <div className="app-shell">
-        <main className="page"><div className="section-title">{language === "fa" ? "کیف پول" : "Wallet"}</div><div className="balance-card"><div className="balance-label">{language === "fa" ? "موجودی نمایشی MVP" : "MVP display balance"}</div><div className="balance-amount mono">۱۲۸٫۴۰ ₮</div><div className="balance-network">Polygon</div></div><div className="inline-feedback">{language === "fa" ? "عملیات واقعی برداشت و واریز پس از تکمیل موتور مسابقه اضافه می‌شود." : "Real deposits and withdrawals will be added after the contest engine is stable."}</div></main><BottomNavShim activePage="wallet" onNavigate={setPage} /></div>
+        <header className="topbar"><div className="brand"><span className="brand-dot" /><span>12Keys</span></div><div className="topbar-actions"><SharedLanguageSwitcher /></div></header><main className="page"><div className="section-title">{t.wallet.title}</div><div className="balance-card"><div className="balance-label">{t.wallet.displayBalance}</div><div className="balance-amount mono">{t.wallet.balance}</div><div className="balance-network">Polygon</div></div><div className="inline-feedback">{t.wallet.notice}</div></main><BottomNavShim activePage="wallet" onNavigate={setPage} /></div>
     );
   }
 
@@ -186,7 +187,16 @@ function App() {
 }
 
 function BottomNavShim({ activePage, onNavigate }: { activePage: Page; onNavigate: (page: Page) => void }) {
-  return <div className="bottom-nav"><button className={`nav-item ${activePage === "home" ? "nav-item--active" : ""}`} onClick={() => onNavigate("home")} type="button"><span className="nav-icon">⌂</span><span>خانه</span></button><button className={`nav-item ${activePage === "competition" ? "nav-item--active" : ""}`} onClick={() => onNavigate("competition")} type="button"><span className="nav-icon">🔑</span><span>مسابقه</span></button><button className={`nav-item ${activePage === "leaderboard" ? "nav-item--active" : ""}`} onClick={() => onNavigate("leaderboard")} type="button"><span className="nav-icon">🏆</span><span>رتبه‌بندی</span></button><button className={`nav-item ${activePage === "wallet" ? "nav-item--active" : ""}`} onClick={() => onNavigate("wallet")} type="button"><span className="nav-icon">◈</span><span>کیف پول</span></button><button className={`nav-item ${activePage === "profile" ? "nav-item--active" : ""}`} onClick={() => onNavigate("profile")} type="button"><span className="nav-icon">◎</span><span>پروفایل</span></button></div>;
+  const { translation: t } = useI18n();
+  return (
+    <nav className="bottom-nav" aria-label={t.navigation.ariaLabel}>
+      <button className={`nav-item ${activePage === "home" ? "nav-item--active" : ""}`} onClick={() => onNavigate("home")} type="button" aria-current={activePage === "home" ? "page" : undefined}><span className="nav-icon" aria-hidden="true">⌂</span><span>{t.navigation.home}</span></button>
+      <button className={`nav-item ${activePage === "competition" ? "nav-item--active" : ""}`} onClick={() => onNavigate("competition")} type="button" aria-current={activePage === "competition" ? "page" : undefined}><span className="nav-icon" aria-hidden="true">🔑</span><span>{t.navigation.competition}</span></button>
+      <button className={`nav-item ${activePage === "leaderboard" ? "nav-item--active" : ""}`} onClick={() => onNavigate("leaderboard")} type="button" aria-current={activePage === "leaderboard" ? "page" : undefined}><span className="nav-icon" aria-hidden="true">🏆</span><span>{t.navigation.leaderboard}</span></button>
+      <button className={`nav-item ${activePage === "wallet" ? "nav-item--active" : ""}`} onClick={() => onNavigate("wallet")} type="button" aria-current={activePage === "wallet" ? "page" : undefined}><span className="nav-icon" aria-hidden="true">◈</span><span>{t.navigation.wallet}</span></button>
+      <button className={`nav-item ${activePage === "profile" ? "nav-item--active" : ""}`} onClick={() => onNavigate("profile")} type="button" aria-current={activePage === "profile" ? "page" : undefined}><span className="nav-icon" aria-hidden="true">◎</span><span>{t.navigation.profile}</span></button>
+    </nav>
+  );
 }
 
 export default App;
