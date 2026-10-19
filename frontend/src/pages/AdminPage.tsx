@@ -225,9 +225,6 @@ function AdminPage({ onNavigate }: AdminPageProps) {
         </div>
         <div className="topbar-actions">
           <LanguageSwitcher />
-          <button className="wallet-pill" type="button" onClick={() => onNavigate("profile")}>
-            {t.admin.back}
-          </button>
         </div>
       </header>
 
