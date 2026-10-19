@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import {
   activateContest,
@@ -6,6 +6,9 @@ import {
   createContest,
   finishContest,
 } from "../services/api";
+import { useI18n } from "../i18n";
+import LanguageSwitcher from "../components/LanguageSwitcher";
+import { localizeApiError } from "../i18n/localize";
 
 type Page =
   | "home"
@@ -47,10 +50,10 @@ function toIsoOrUndefined(value: string) {
 }
 
 function AdminPage({ onNavigate }: AdminPageProps) {
-  const [title, setTitle] = useState("مسابقه شبانه 12Keys");
-  const [description, setDescription] = useState(
-    "مسابقه آزمایشی برای تست موتور ۱۲ کلیدی.",
-  );
+  const { language, translation: t } = useI18n();
+  const isPersian = language === "fa";
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
   const [clues, setClues] = useState<ClueDraft[]>(() =>
@@ -61,6 +64,11 @@ function AdminPage({ onNavigate }: AdminPageProps) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setMessage("");
+    setError("");
+  }, [language]);
 
   const validClues = useMemo(
     () =>
@@ -125,12 +133,12 @@ function AdminPage({ onNavigate }: AdminPageProps) {
       );
       setMessage(
         result.contest.status === "SCHEDULED"
-          ? "مسابقه زمان‌بندی شد. پس از تکمیل ۱۲ سرنخ، فعال‌سازی به‌صورت خودکار انجام می‌شود."
-          : "مسابقه ساخته شد. حالا ۱۲ سرنخ را ثبت کن.",
+          ? t.admin.createdScheduled
+          : t.admin.createdDraft,
       );
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "ساخت مسابقه ناموفق بود.",
+        err instanceof Error ? err.message : "REQUEST_FAILED",
       );
     } finally {
       setLoading(false);
@@ -159,12 +167,12 @@ function AdminPage({ onNavigate }: AdminPageProps) {
 
       setMessage(
         status === "scheduled"
-          ? "هر ۱۲ سرنخ ثبت شد. Scheduler مسابقه را در زمان تعیین‌شده فعال می‌کند."
-          : "هر ۱۲ سرنخ ثبت شد. مسابقه آماده فعال‌سازی است.",
+          ? t.admin.cluesScheduled
+          : t.admin.cluesReady,
       );
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "ثبت سرنخ‌ها ناموفق بود.",
+        err instanceof Error ? err.message : "REQUEST_FAILED",
       );
     } finally {
       setLoading(false);
@@ -181,10 +189,10 @@ function AdminPage({ onNavigate }: AdminPageProps) {
     try {
       await activateContest(contestId);
       setStatus("active");
-      setMessage("مسابقه فعال شد و بازیکنان می‌توانند وارد شوند.");
+      setMessage(t.admin.activated);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "فعال‌سازی ناموفق بود.",
+        err instanceof Error ? err.message : "REQUEST_FAILED",
       );
     } finally {
       setLoading(false);
@@ -201,10 +209,10 @@ function AdminPage({ onNavigate }: AdminPageProps) {
     try {
       await finishContest(contestId);
       setStatus("finished");
-      setMessage("مسابقه پایان یافت.");
+      setMessage(t.admin.finished);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "پایان مسابقه ناموفق بود.",
+        err instanceof Error ? err.message : "REQUEST_FAILED",
       );
     } finally {
       setLoading(false);
@@ -218,38 +226,38 @@ function AdminPage({ onNavigate }: AdminPageProps) {
       <header className="topbar">
         <div className="brand">
           <span className="brand-dot" />
-          <span>12Keys Admin</span>
+          <span>12Keys {isPersian ? "مدیریت" : "Admin"}</span>
         </div>
-        <button
-          className="wallet-pill"
-          type="button"
-          onClick={() => onNavigate("profile")}
-        >
-          بازگشت
-        </button>
+        <div className="topbar-actions">
+          <LanguageSwitcher />
+          <button className="wallet-pill" type="button" onClick={() => onNavigate("profile")}>
+            {t.admin.back}
+          </button>
+        </div>
       </header>
 
       <main className="page">
         <section className="comp-head">
           <div>
-            <h1 className="page-title">ماشین ساخت مسابقه</h1>
+            <h1 className="page-title">{t.admin.pageTitle}</h1>
             <div className="date">
-              ساخت مسابقه با ۱۲ سرنخ قابل بررسی؛ عبارت راهنما باید یکتا باشد و پاسخ دقیقاً بعد از آن بیاید
+              {t.admin.subtitle}
             </div>
           </div>
           <div className="prize">
-            <strong>{status}</strong>
-            <span>{validClues}/12 clues</span>
+            <strong>{t.admin.status[status]}</strong>
+            <span>{validClues.toLocaleString(isPersian ? "fa-IR" : "en-US")}/12 {isPersian ? "سرنخ" : "clues"}</span>
           </div>
         </section>
 
         <form onSubmit={handleCreateContest}>
           <div className="field">
-            <label htmlFor="contest-title">عنوان مسابقه</label>
+            <label htmlFor="contest-title">{t.admin.titleLabel}</label>
             <input
               id="contest-title"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
+              placeholder={t.admin.titlePlaceholder}
               minLength={3}
               maxLength={200}
               required
@@ -258,11 +266,12 @@ function AdminPage({ onNavigate }: AdminPageProps) {
           </div>
 
           <div className="field">
-            <label htmlFor="contest-description">توضیحات</label>
+            <label htmlFor="contest-description">{t.admin.descriptionLabel}</label>
             <textarea
               id="contest-description"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
+              placeholder={t.admin.descriptionPlaceholder}
               maxLength={2000}
               rows={3}
               disabled={Boolean(contestId)}
@@ -272,7 +281,7 @@ function AdminPage({ onNavigate }: AdminPageProps) {
           {!contestId && (
             <>
               <div className="field">
-                <label htmlFor="contest-start">شروع مسابقه (اختیاری)</label>
+                <label htmlFor="contest-start">{t.admin.startsLabel}</label>
                 <input
                   id="contest-start"
                   type="datetime-local"
@@ -282,7 +291,7 @@ function AdminPage({ onNavigate }: AdminPageProps) {
               </div>
 
               <div className="field">
-                <label htmlFor="contest-end">پایان مسابقه (اختیاری)</label>
+                <label htmlFor="contest-end">{t.admin.endsLabel}</label>
                 <input
                   id="contest-end"
                   type="datetime-local"
@@ -298,24 +307,24 @@ function AdminPage({ onNavigate }: AdminPageProps) {
             type="submit"
             disabled={loading || Boolean(contestId)}
           >
-            {contestId ? "مسابقه ساخته شده" : "ساخت مسابقه"}
+            {contestId ? t.admin.created : t.admin.create}
           </button>
         </form>
 
         {contestId && (
           <>
-            <div className="section-title">۱۲ کلید مسابقه</div>
+            <div className="section-title">{t.admin.roundsTitle}</div>
 
             <section className="admin-clues-grid">
               {clues.map((clue, index) => (
                 <article className="admin-clue-card" key={index}>
                   <div className="keycell-top">
                     <div className="keycell-number mono">{index + 1}</div>
-                    <div className="keycell-status">TEXT</div>
+                    <div className="keycell-status">{isPersian ? "متن" : "TEXT"}</div>
                   </div>
                   <textarea
                     rows={3}
-                    placeholder="متن سرنخ"
+                    placeholder={t.admin.clueText}
                     value={clue.content}
                     onChange={(event) =>
                       updateClue(index, "content", event.target.value)
@@ -324,7 +333,7 @@ function AdminPage({ onNavigate }: AdminPageProps) {
                   />
                   <input
                     type="text"
-                    placeholder="پاسخ صحیح (کلمهٔ بلافاصله بعد از عبارت)"
+                    placeholder={t.admin.answerPlaceholder}
                     value={clue.correctAnswer}
                     onChange={(event) =>
                       updateClue(index, "correctAnswer", event.target.value)
@@ -333,7 +342,7 @@ function AdminPage({ onNavigate }: AdminPageProps) {
                   />
                   <input
                     type="url"
-                    placeholder="لینک کامل صفحهٔ منبع (https://...)"
+                    placeholder={t.admin.sourcePlaceholder}
                     value={clue.sourceUrl}
                     onChange={(event) =>
                       updateClue(index, "sourceUrl", event.target.value)
@@ -343,7 +352,7 @@ function AdminPage({ onNavigate }: AdminPageProps) {
                   <textarea
                     rows={2}
                     minLength={25}
-                    placeholder="عبارت دقیق و یکتا که درست قبل از پاسخ در صفحه آمده است (حداقل ۲۵ نویسه)"
+                    placeholder={t.admin.anchorPlaceholder}
                     value={clue.hintAnchor}
                     onChange={(event) =>
                       updateClue(index, "hintAnchor", event.target.value)
@@ -366,7 +375,7 @@ function AdminPage({ onNavigate }: AdminPageProps) {
                   validClues !== 12
                 }
               >
-                ثبت هر ۱۲ سرنخ
+                {t.admin.publish}
               </button>
 
               {!isScheduled && status === "draft" && (
@@ -376,13 +385,13 @@ function AdminPage({ onNavigate }: AdminPageProps) {
                   onClick={() => void handleActivate()}
                   disabled={loading || validClues !== 12}
                 >
-                  فعال‌سازی دستی مسابقه
+                  {t.admin.activate}
                 </button>
               )}
 
               {isScheduled && (
                 <div className="inline-feedback">
-                  زمان شروع مشخص شده است؛ فعال‌سازی در زمان تعیین‌شده به‌صورت خودکار انجام می‌شود.
+                  {t.admin.scheduledNotice}
                 </div>
               )}
 
@@ -392,14 +401,14 @@ function AdminPage({ onNavigate }: AdminPageProps) {
                 onClick={() => void handleFinish()}
                 disabled={loading || status !== "active"}
               >
-                پایان مسابقه
+                {t.admin.finish}
               </button>
             </div>
           </>
         )}
 
         {message && <div className="inline-feedback">{message}</div>}
-        {error && <div className="inline-feedback">{error}</div>}
+        {error && <div className="inline-feedback">{localizeApiError(error, language)}</div>}
       </main>
     </div>
   );
