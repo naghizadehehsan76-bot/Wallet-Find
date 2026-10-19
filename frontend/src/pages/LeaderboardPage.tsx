@@ -7,6 +7,8 @@ import {
 } from "../services/api";
 import { useI18n } from "../i18n";
 import "./LeaderboardPage.css";
+import LanguageSwitcher from "../components/LanguageSwitcher";
+import { localizeApiError, localizeContestTitle } from "../i18n/localize";
 
 type Page =
   | "home"
@@ -77,7 +79,7 @@ function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
           <span className="brand-dot" />
           <span>12Keys</span>
         </div>
-        <div className="wallet-pill mono">₮ 128.40</div>
+        <div className="topbar-actions"><LanguageSwitcher /><div className="wallet-pill mono">₮ 128.40</div></div>
       </header>
 
       <main className="page">
@@ -87,8 +89,7 @@ function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
               {isPersian ? "رتبه‌بندی" : "Leaderboard"}
             </h2>
             <div className="date">
-              {contestTitle ||
-                (isPersian ? "مسابقه امشب" : "Tonight's contest")}
+              {localizeContestTitle(contestTitle, language)}
             </div>
           </div>
         </section>
@@ -100,7 +101,7 @@ function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
               : "Loading leaderboard..."}
           </div>
         ) : error ? (
-          <div className="inline-feedback">{error}</div>
+          <div className="inline-feedback">{localizeApiError(error, language)}</div>
         ) : entries.length === 0 ? (
           <div className="inline-feedback">
             {isPersian
