@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import BottomNav from "../components/BottomNav";
 import { getProfile, type ProfileResult } from "../services/api";
 import { useI18n } from "../i18n";
+import LanguageSwitcher from "../components/LanguageSwitcher";
+import { localizeApiError } from "../i18n/localize";
 
 type Page =
   | "home"
@@ -57,7 +59,7 @@ function ProfilePage({ onNavigate }: ProfilePageProps) {
           <span className="brand-dot" />
           <span>12Keys</span>
         </div>
-        <div className="wallet-pill">{isPersian ? "پروفایل" : "Profile"}</div>
+        <div className="topbar-actions"><LanguageSwitcher /><div className="wallet-pill">{isPersian ? "پروفایل" : "Profile"}</div></div>
       </header>
 
       <main className="page">
@@ -66,7 +68,7 @@ function ProfilePage({ onNavigate }: ProfilePageProps) {
             {isPersian ? "در حال دریافت پروفایل..." : "Loading profile..."}
           </div>
         ) : error ? (
-          <div className="inline-feedback">{error}</div>
+          <div className="inline-feedback">{localizeApiError(error, language)}</div>
         ) : profile ? (
           <>
             <section className="profile-head">
