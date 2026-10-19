@@ -79,7 +79,7 @@ function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
           <span className="brand-dot" />
           <span>12Keys</span>
         </div>
-        <div className="topbar-actions"><LanguageSwitcher /><div className="wallet-pill mono">₮ 128.40</div></div>
+        <div className="topbar-actions"><LanguageSwitcher /><div className="wallet-pill mono">{isPersian ? "₮ ۱۲۸٫۴۰" : "₮ 128.40"}</div></div>
       </header>
 
       <main className="page">
