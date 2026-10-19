@@ -295,6 +295,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     : "";
 
   const displayedRound = currentSequence ?? (completed ? 12 : solvedCount + 1);
+  const numberLocale = isPersian ? "fa-IR" : "en-US";
+  const formatNumber = (value: number) => value.toLocaleString(numberLocale);
   const progressPercent = Math.min(100, (solvedCount / 12) * 100);
 
   return (
@@ -304,7 +306,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           <span className="brand-dot" />
           <span>12Keys</span>
         </div>
-        <div className="topbar-actions"><LanguageSwitcher /><div className="wallet-pill mono">₮ 128.40</div></div>
+        <div className="topbar-actions"><LanguageSwitcher /><div className="wallet-pill mono">{isPersian ? "₮ ۱۲۸٫۴۰" : "₮ 128.40"}</div></div>
       </header>
 
       <main className="page">
@@ -319,7 +321,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
             </div>
           </div>
           <div className="prize">
-            <strong>۵۰۰ ₮</strong>
+            <strong>{isPersian ? "۵۰۰ ₮" : "500 ₮"}</strong>
             <span>USDT · Polygon</span>
           </div>
         </section>
@@ -336,13 +338,13 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
               <div className="round-progress__labels">
                 <strong>
                   {isPersian
-                    ? "راند " + displayedRound + " از ۱۲"
-                    : "Round " + displayedRound + " of 12"}
+                    ? "راند " + formatNumber(displayedRound) + " از ۱۲"
+                    : "Round " + formatNumber(displayedRound) + " of 12"}
                 </strong>
                 <span>
                   {isPersian
-                    ? solvedCount + " راند حل‌شده"
-                    : solvedCount + " completed"}
+                    ? formatNumber(solvedCount) + " راند حل‌شده"
+                    : formatNumber(solvedCount) + " completed"}
                 </span>
               </div>
               <div
@@ -434,7 +436,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
 
                 <div className="word-grid-title">
                   <span>{isPersian ? "پاسخ هر راند را در کادر شماره‌ی همان راند تایپ کن" : "Type each answer in its matching round box"}</span>
-                  <span className="word-grid-count mono">{isPersian ? "کادر راند " + displayedRound : "ROUND BOX " + displayedRound}</span>
+                  <span className="word-grid-count mono">{isPersian ? "کادر راند " + formatNumber(displayedRound) : "ROUND BOX " + formatNumber(displayedRound)}</span>
                 </div>
 
                 <section className="word-options-grid" aria-label={isPersian ? "دوازده کادر پاسخ، هر راند یک کادر" : "Twelve answer boxes, one per round"}>
@@ -444,7 +446,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                       className={"word-entry " + (activeAnswerIndex === index ? "word-entry--active" : "") + (solvedSlots[index] ? " word-entry--solved" : "") + (incorrectSlots[index] ? " word-entry--incorrect" : "")}
                     >
                       <span className="word-option__index mono">
-                        {(index + 1).toString().padStart(2, "0")}
+                        {(index + 1).toLocaleString(numberLocale, { minimumIntegerDigits: 2, useGrouping: false })}
                       </span>
                       <input
                         type="text"
@@ -453,7 +455,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                         autoComplete="off"
                         autoCapitalize="none"
                         spellCheck={false}
-                        aria-label={(isPersian ? "کادر پاسخ " : "Answer box ") + (index + 1)}
+                        aria-label={(isPersian ? "کادر پاسخ " : "Answer box ") + formatNumber(index + 1)}
                         placeholder={solvedSlots[index] ? (isPersian ? "پاسخ درست" : "Correct") : index === activeAnswerIndex ? (isPersian ? "کلمه..." : "Type word...") : (isPersian ? "قفل" : "Locked")}
                         disabled={submitting || solvedSlots[index] || index !== activeAnswerIndex}
                         readOnly={solvedSlots[index]}
@@ -497,7 +499,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
             </div>
 
             <div className="step">
-              <div className="step-number mono">1</div>
+              <div className="step-number mono">{formatNumber(1)}</div>
               <div className="step-content">
                 <p>
                   {isPersian
@@ -507,7 +509,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
               </div>
             </div>
             <div className="step">
-              <div className="step-number mono">2</div>
+              <div className="step-number mono">{formatNumber(2)}</div>
               <div className="step-content">
                 <p>
                   {isPersian
@@ -517,7 +519,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
               </div>
             </div>
             <div className="step">
-              <div className="step-number mono">3</div>
+              <div className="step-number mono">{formatNumber(3)}</div>
               <div className="step-content">
                 <p>
                   {isPersian
