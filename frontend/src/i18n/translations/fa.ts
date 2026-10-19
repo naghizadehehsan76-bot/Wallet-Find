@@ -7,6 +7,14 @@ export const fa = {
     wallet: "کیف پول",
     profile: "پروفایل",
   },
+  landing: {
+    gridTitle: "۱۲ کلید مسابقه",
+    gridSubtitle: "چیدمان راندها",
+    gridLegend: "وضعیت کلیدها",
+    solved: "حل‌شده",
+    current: "راند فعلی",
+    locked: "قفل‌شده",
+  },
   sidebar: {
     title: "منوی اصلی",
     openMenu: "باز کردن منو",

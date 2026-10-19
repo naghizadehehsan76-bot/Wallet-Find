@@ -169,20 +169,37 @@ function HomePage({
           </p>
         </section>
 
-        <section className="dial-wrap" aria-label={isPersian ? "۱۲ کلید" : "12 keys"}>
-          <div className="dial-ring">
+        <section className="contest-grid-visual" aria-label={t.landing.gridTitle}>
+          <div className="contest-grid-heading">
+            <div>
+              <strong>{t.landing.gridTitle}</strong>
+              <span>{t.landing.gridSubtitle}</span>
+            </div>
+            <span className="contest-grid-layout-tag">3 × 4</span>
+          </div>
+          <div className="contest-grid">
             {Array.from({ length: 12 }).map((_, index) => {
-              const angle = (index / 12) * 360 - 90;
-              const radius = 118;
-              const x = 130 + radius * Math.cos((angle * Math.PI) / 180);
-              const y = 130 + radius * Math.sin((angle * Math.PI) / 180);
-              const state = index < 4 ? "solved" : index === 4 ? "current" : "locked";
-              return <div key={index} className={`keyhole ${state}`} style={{ left: `${x}px`, top: `${y}px` }}>{(index + 1).toLocaleString(isPersian ? "fa-IR" : "en-US")}</div>;
+              const status = index < 4 ? "solved" : index === 4 ? "current" : "locked";
+              const statusText = status === "solved"
+                ? t.landing.solved
+                : status === "current"
+                  ? t.landing.current
+                  : t.landing.locked;
+              return (
+                <div key={index} className={`contest-tile contest-tile--${status}`}>
+                  <span className="contest-tile__number mono">{(index + 1).toLocaleString(isPersian ? "fa-IR" : "en-US")}</span>
+                  <span className="contest-tile__status" aria-hidden="true">
+                    {status === "solved" ? "✓" : status === "current" ? "●" : "◇"}
+                  </span>
+                  <span className="contest-tile__sr-only">{statusText}</span>
+                </div>
+              );
             })}
           </div>
-          <div className="dial-center">
-            <div className="dial-label">{isPersian ? "تا شروع بعدی" : "NEXT START"}</div>
-            <div className="dial-time mono">{isPersian ? "۰۳:۵۹:۰۲" : "03:59:02"}</div>
+          <div className="contest-grid-legend" aria-label={t.landing.gridLegend}>
+            <span><i className="contest-legend-dot contest-legend-dot--solved" />{t.landing.solved}</span>
+            <span><i className="contest-legend-dot contest-legend-dot--current" />{t.landing.current}</span>
+            <span><i className="contest-legend-dot contest-legend-dot--locked" />{t.landing.locked}</span>
           </div>
         </section>
 

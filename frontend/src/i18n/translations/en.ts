@@ -7,6 +7,14 @@ export const en = {
     wallet: "Wallet",
     profile: "Profile",
   },
+  landing: {
+    gridTitle: "12 contest keys",
+    gridSubtitle: "Round layout",
+    gridLegend: "Key status",
+    solved: "Solved",
+    current: "Current",
+    locked: "Locked",
+  },
   sidebar: {
     title: "Main menu",
     openMenu: "Open menu",
