@@ -22,6 +22,7 @@ type Page =
   | "rewards"
   | "help"
   | "terms"
+  | "rules"
   | "admin";
 
 function LanguageSwitcher({
@@ -213,7 +214,7 @@ function HomePage({
 
         <section className="cta-group">
           <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>{isPersian ? "ورود به مسابقه امشب" : "Enter Tonight's Contest"}</button>
-          <button className="cta-button cta-button--ghost" type="button" onClick={() => onNavigate("auth")}>{isPersian ? "ثبت‌نام / ورود" : "Sign Up / Login"}</button>
+          <button className="cta-button cta-button--ghost" type="button" onClick={() => onNavigate("rules")}>{isPersian ? "روش و قوانین مسابقه" : "How to Play & Contest Rules"}</button>
         </section>
 
         <section className="stat-row">
@@ -275,6 +276,49 @@ function InfoPage({
   );
 }
 
+function ContestRulesPage({ onNavigate }: { onNavigate: (page: Page) => void }) {
+  const { translation: t } = useI18n();
+  const rules = t.contestRules;
+
+  return (
+    <div className="app-shell info-shell">
+      <header className="topbar">
+        <div className="brand"><span className="brand-dot" /><span>Wallet Find</span></div>
+        <div className="topbar-actions"><SharedLanguageSwitcher /></div>
+      </header>
+      <main className="page info-page contest-rules-page">
+        <button className="back-button" type="button" onClick={() => onNavigate("home")}>
+          ‹ {t.navigation.home}
+        </button>
+        <div className="eyebrow">{rules.kicker}</div>
+        <h1 className="info-title">{rules.title}</h1>
+        <p className="info-description">{rules.description}</p>
+
+        <section className="contest-rules-list" aria-label={rules.stepsTitle}>
+          {rules.steps.map((step, index) => (
+            <article className="contest-rule-step" key={step.title}>
+              <span className="contest-rule-step__number mono">{String(index + 1).padStart(2, "0")}</span>
+              <div className="contest-rule-step__copy">
+                <h2>{step.title}</h2>
+                <p>{step.description}</p>
+              </div>
+            </article>
+          ))}
+        </section>
+
+        <section className="contest-rules-reward">
+          <h2>{rules.rewardsTitle}</h2>
+          <p>{rules.rewardsDetail}</p>
+        </section>
+        <p className="contest-rules-notice" role="note">{rules.previewNotice}</p>
+        <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>
+          {t.navigation.competition}
+        </button>
+      </main>
+    </div>
+  );
+}
+
 type GlobalSidebarProps = {
   currentPage: Page;
   isLoggedIn: boolean;
@@ -304,6 +348,7 @@ function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }
   const items: { page: Page; icon: string; label: string }[] = [
     { page: "home", icon: "⌂", label: t.navigation.home },
     { page: "competition", icon: "🔑", label: t.navigation.competition },
+    { page: "rules", icon: "ⓘ", label: t.contestRules.title },
     { page: "leaderboard", icon: "🏆", label: t.sidebar.leaderboard },
     { page: "rewards", icon: "✦", label: t.sidebar.rewards },
     { page: "wallet", icon: "◈", label: t.navigation.wallet },
@@ -420,6 +465,8 @@ function App() {
     currentView = <KeyStagePage onNavigate={setPage} />;
   } else if (page === "rewards" || page === "help" || page === "terms") {
     currentView = <InfoPage kind={page} onNavigate={setPage} />;
+  } else if (page === "rules") {
+    currentView = <ContestRulesPage onNavigate={setPage} />;
   } else if (page === "wallet") {
     currentView = (
       <div className="app-shell">
