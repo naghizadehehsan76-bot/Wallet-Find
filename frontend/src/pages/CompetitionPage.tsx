@@ -8,7 +8,7 @@ import {
 } from "../services/api";
 import { useI18n } from "../i18n";
 import LanguageSwitcher from "../components/LanguageSwitcher";
-import { localizeApiError, localizeContestTitle } from "../i18n/localize";
+import { localizeApiError, localizeContestTitle, localizeUiMessage } from "../i18n/localize";
 
 type Page =
   | "home"
@@ -398,7 +398,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                         : "Find this exact phrase on the source page. The English word immediately after it is the answer:"}
                     </p>
                   ) : (
-                    <p>{clueContent}</p>
+                    <p>{localizeUiMessage(clueContent, language)}</p>
                   )}
                   {hintAnchor && (
                     <div className="round-hint-card__phrase" dir="ltr">
@@ -491,7 +491,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
               </>
             )}
 
-            {feedback && <div className={"inline-feedback round-notice round-notice--" + feedbackTone} role="status" aria-live="polite">{feedback}</div>}
+            {feedback && <div className={"inline-feedback round-notice round-notice--" + feedbackTone} role="status" aria-live="polite">{localizeUiMessage(feedback, language)}</div>}
             {error && <div className="inline-feedback round-error">{localizeApiError(error, language)}</div>}
 
             <div className="section-title">
