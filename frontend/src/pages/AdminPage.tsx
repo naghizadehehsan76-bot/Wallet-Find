@@ -314,7 +314,7 @@ function AdminPage({ onNavigate }: AdminPageProps) {
               {clues.map((clue, index) => (
                 <article className="admin-clue-card" key={index}>
                   <div className="keycell-top">
-                    <div className="keycell-number mono">{index + 1}</div>
+                    <div className="keycell-number mono">{(index + 1).toLocaleString(isPersian ? "fa-IR" : "en-US")}</div>
                     <div className="keycell-status">{isPersian ? "متن" : "TEXT"}</div>
                   </div>
                   <textarea
