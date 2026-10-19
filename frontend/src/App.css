@@ -998,3 +998,32 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .brand--home, .sidebar-brand--home { transition: none; }
   .brand--home:hover, .brand--home:active { transform: none; }
 }
+
+
+/* Keep the Home brand clear on phones and move quick settings into the drawer. */
+.sidebar-home-tools {
+  display: none;
+}
+@media (max-width: 599px) {
+  .home-topbar .topbar-actions {
+    display: none;
+  }
+  .sidebar-home-tools {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 18px 2px 2px;
+    padding: 12px;
+    border: 1px solid rgba(66,232,212,.18);
+    border-radius: 13px;
+    background: rgba(13,17,18,.72);
+  }
+  .sidebar-home-tools .language-switcher {
+    max-width: 100%;
+  }
+  .sidebar-home-tools .wallet-pill {
+    white-space: nowrap;
+  }
+}
