@@ -1,6 +1,9 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { login, register } from "../services/api";
+import { useI18n } from "../i18n";
+import LanguageSwitcher from "../components/LanguageSwitcher";
+import { localizeApiError } from "../i18n/localize";
 
 type AuthMode = "login" | "signup";
 
@@ -10,6 +13,7 @@ type AuthPageProps = {
 };
 
 function AuthPage({ onAuthenticated, onBack }: AuthPageProps) {
+  const { language, translation: t } = useI18n();
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
@@ -39,7 +43,7 @@ function AuthPage({ onAuthenticated, onBack }: AuthPageProps) {
       setError(
         err instanceof Error
           ? err.message
-          : "خطایی در ارتباط با سرور رخ داد.",
+          : "NETWORK_ERROR",
       );
     } finally {
       setLoading(false);
@@ -53,14 +57,15 @@ function AuthPage({ onAuthenticated, onBack }: AuthPageProps) {
           <span className="brand-dot" />
           <span>12Keys</span>
         </div>
+        <div className="topbar-actions"><LanguageSwitcher /></div>
       </header>
 
       <main className="page auth-page">
         <button className="back-button" type="button" onClick={onBack}>
-          ‹ بازگشت
+          ‹ {t.auth.back}
         </button>
 
-        <h1 className="auth-title">به 12Keys خوش آمدی</h1>
+        <h1 className="auth-title">{t.auth.welcome}</h1>
 
         <div className="auth-toggle">
           <button
@@ -71,7 +76,7 @@ function AuthPage({ onAuthenticated, onBack }: AuthPageProps) {
               setError("");
             }}
           >
-            ورود
+            {t.auth.login}
           </button>
 
           <button
@@ -82,19 +87,19 @@ function AuthPage({ onAuthenticated, onBack }: AuthPageProps) {
               setError("");
             }}
           >
-            ثبت‌نام
+            {t.auth.signup}
           </button>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="field">
-            <label htmlFor="email">ایمیل</label>
+            <label htmlFor="email">{t.auth.email}</label>
             <input
               id="email"
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="example@email.com"
+              placeholder={t.auth.emailPlaceholder}
               required
               autoComplete="email"
             />
@@ -102,13 +107,13 @@ function AuthPage({ onAuthenticated, onBack }: AuthPageProps) {
 
           {mode === "signup" && (
             <div className="field">
-              <label htmlFor="username">نام کاربری</label>
+              <label htmlFor="username">{t.auth.username}</label>
               <input
                 id="username"
                 type="text"
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
-                placeholder="مثلاً: shahink"
+                placeholder={t.auth.usernamePlaceholder}
                 minLength={3}
                 maxLength={30}
                 required
@@ -118,13 +123,13 @@ function AuthPage({ onAuthenticated, onBack }: AuthPageProps) {
           )}
 
           <div className="field">
-            <label htmlFor="password">رمز عبور</label>
+            <label htmlFor="password">{t.auth.password}</label>
             <input
               id="password"
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="حداقل ۸ کاراکتر"
+              placeholder={t.auth.passwordHint}
               minLength={8}
               required
               autoComplete={
@@ -135,21 +140,21 @@ function AuthPage({ onAuthenticated, onBack }: AuthPageProps) {
 
           {error && (
             <div className="auth-error" role="alert">
-              {error}
+              {localizeApiError(error, language)}
             </div>
           )}
 
           <button className="cta-button" type="submit" disabled={loading}>
             {loading
-              ? "در حال بررسی..."
+              ? t.auth.loading
               : mode === "login"
-                ? "ورود"
-                : "ساخت حساب"}
+                ? t.auth.loginButton
+                : t.auth.signupButton}
           </button>
         </form>
 
         <p className="auth-hint">
-          با ادامه، قوانین مسابقه و حریم خصوصی 12Keys را می‌پذیری.
+          {t.auth.privacy}
         </p>
       </main>
     </div>
