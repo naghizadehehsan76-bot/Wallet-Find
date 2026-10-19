@@ -665,7 +665,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .contest-tile:nth-child(11) { animation-delay: .25s; }
 .contest-tile:nth-child(12) { animation-delay: .275s; }
 .contest-tile__number { position:relative; z-index:1; color:var(--paper); font-size:20px; font-weight:900; line-height:1; }
+.contest-tile--worded { flex-direction:column; justify-content:center; gap:5px; padding:10px 5px 8px; }
+.contest-tile__word-number { position:relative; z-index:1; color:var(--muted); font-size:12px; font-weight:800; line-height:1; }
+.contest-tile__word { position:relative; z-index:1; display:block; width:100%; min-width:0; color:var(--verdigris); font-size:clamp(9px,2.8vw,13px); font-weight:900; line-height:1.1; letter-spacing:-.3px; text-align:center; overflow-wrap:anywhere; }
+.contest-tile__word--gold { color:var(--brass-light); }
 .contest-tile__status { position:relative; z-index:1; display:inline-flex; align-items:center; justify-content:center; width:21px; height:21px; flex:0 0 21px; border-radius:7px; border:1px solid rgba(160,168,170,.18); color:var(--muted); font-size:11px; }
+.contest-tile--worded .contest-tile__status { position:absolute; bottom:4px; inset-inline-end:4px; width:14px; height:14px; flex-basis:14px; font-size:8px; }
 .contest-tile__sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 .contest-tile--solved { border-color:rgba(66,232,212,.4); background:linear-gradient(145deg,rgba(66,232,212,.11),rgba(13,23,22,.92)); }
 .contest-tile--solved .contest-tile__number { color:var(--verdigris); }
