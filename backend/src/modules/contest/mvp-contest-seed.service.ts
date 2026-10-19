@@ -546,3 +546,210 @@ export async function ensureMvpActiveContest() {
   console.log("Created playable English word-finding contest:", contest.id);
   return contest.id;
 }
+
+
+type ActiveContestForNext = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  startsAt: Date | null;
+  endsAt: Date | null;
+  clues: Array<{
+    sequence: number;
+    sourceUrl: string | null;
+    hintAnchor: string | null;
+    options: unknown;
+  }>;
+};
+
+function isPlayableActiveContest(contest: ActiveContestForNext, now: Date): boolean {
+  return (
+    hasCompleteClueSequence(contest.clues.map((clue) => clue.sequence)) &&
+    contest.clues.every((clue) =>
+      Boolean(clue.sourceUrl) &&
+      typeof clue.hintAnchor === "string" &&
+      clue.hintAnchor.trim().length >= 25 &&
+      Array.isArray(clue.options) &&
+      clue.options.length === 12
+    ) &&
+    (!contest.startsAt || contest.startsAt <= now) &&
+    (!contest.endsAt || contest.endsAt > now)
+  );
+}
+
+function publicContest(contest: ActiveContestForNext) {
+  return {
+    id: contest.id,
+    title: contest.title,
+    description: contest.description,
+    status: contest.status,
+    startsAt: contest.startsAt,
+    endsAt: contest.endsAt,
+  };
+}
+
+/**
+ * Start the next shared contest only after this user has solved all 12 clues
+ * in the supplied contest. Existing submissions remain attached to the
+ * finished contest so its leaderboard/history is preserved.
+ */
+export async function startNextMvpContest(userId: string, completedContestId: string) {
+  const completedContest = await prisma.contest.findUnique({
+    where: { id: completedContestId },
+    select: {
+      id: true,
+      clues: {
+        select: {
+          sequence: true,
+          submissions: {
+            where: { userId, isCorrect: true },
+            select: { id: true },
+            take: 1,
+          },
+        },
+      },
+    },
+  });
+
+  if (!completedContest) {
+    throw new Error("CONTEST_NOT_FOUND");
+  }
+
+  const solvedSequences = completedContest.clues
+    .filter((clue) => clue.submissions.length > 0)
+    .map((clue) => clue.sequence);
+
+  if (!hasCompleteClueSequence(solvedSequences)) {
+    throw new Error("CONTEST_NOT_COMPLETED_BY_USER");
+  }
+
+  const now = new Date();
+  const activeSelect = {
+    id: true,
+    title: true,
+    description: true,
+    status: true,
+    startsAt: true,
+    endsAt: true,
+    clues: {
+      select: {
+        sequence: true,
+        sourceUrl: true,
+        hintAnchor: true,
+        options: true,
+      },
+    },
+  } as const;
+
+  const existingActive = await prisma.contest.findMany({
+    where: { status: "ACTIVE" },
+    select: activeSelect,
+  });
+
+  const existingNext = existingActive.find((contest) =>
+    contest.id !== completedContestId && isPlayableActiveContest(contest, now)
+  );
+
+  if (existingNext) {
+    return publicContest(existingNext);
+  }
+
+  // Generate and validate the complete next contest before retiring the old
+  // one. If an external source is unavailable, the finished contest remains
+  // available and the caller receives a clear error instead of a broken round.
+  const clues = await generateMvpRounds();
+
+  try {
+    const nextContest = await prisma.$transaction(async (tx) => {
+      const activeContests = await tx.contest.findMany({
+        where: { status: "ACTIVE" },
+        select: activeSelect,
+      });
+
+      const contestCreatedByAnotherRequest = activeContests.find((contest) =>
+        contest.id !== completedContestId && isPlayableActiveContest(contest, new Date())
+      );
+
+      if (contestCreatedByAnotherRequest) {
+        return publicContest(contestCreatedByAnotherRequest);
+      }
+
+      const previousActiveIds = activeContests.map((contest) => contest.id);
+      const startsAt = new Date();
+
+      const created = await tx.contest.create({
+        data: {
+          title: "مسابقه واژه‌یابی انگلیسی Wallet Find",
+          description: "۱۲ راند واژه‌یابی؛ راهنما را بخوان، لینک منبع را باز کن و کلمه را از میان ۱۲ گزینه انتخاب کن.",
+          status: "ACTIVE",
+          startsAt,
+          clues: {
+            create: clues.map((clue, index) => ({
+              sequence: index + 1,
+              type: "WEB_PAGE",
+              source: "SYSTEM",
+              content: clue.content,
+              correctAnswer: clue.correctAnswer,
+              sourceUrl: clue.sourceUrl,
+              hintAnchor: clue.hintAnchor,
+              options: clue.options,
+            })),
+          },
+        },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          status: true,
+          startsAt: true,
+          endsAt: true,
+        },
+      });
+
+      if (previousActiveIds.length > 0) {
+        await tx.contest.updateMany({
+          where: {
+            id: { in: previousActiveIds },
+            status: "ACTIVE",
+          },
+          data: { status: "FINISHED" },
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: "MVP_NEXT_CONTEST_CREATED",
+          entity: "Contest",
+          entityId: created.id,
+          metadata: {
+            previousContestId: completedContestId,
+            clueCount: clues.length,
+            sourceDomains: [...new Set(clues.map((clue) => new URL(clue.sourceUrl).hostname))],
+            createdAt: startsAt.toISOString(),
+          },
+        },
+      });
+
+      return created;
+    }, { isolationLevel: "Serializable" });
+
+    return nextContest;
+  } catch (error) {
+    // If two completed users press the button at nearly the same time, return
+    // the replacement created by the winning transaction rather than making
+    // the second click fail or creating multiple active contests.
+    const activeAfterError = await prisma.contest.findMany({
+      where: { status: "ACTIVE" },
+      select: activeSelect,
+    });
+    const nextAfterError = activeAfterError.find((contest) =>
+      contest.id !== completedContestId && isPlayableActiveContest(contest, new Date())
+    );
+    if (nextAfterError) {
+      return publicContest(nextAfterError);
+    }
+    throw error;
+  }
+}
