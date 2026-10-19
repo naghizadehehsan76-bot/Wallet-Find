@@ -560,7 +560,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 
-/* 12Keys brand mark: a compact 3-by-4 grid inside a vault-like frame. */
+/* Wallet Find brand mark: a compact 3-by-4 grid inside a vault-like frame. */
 .brand-dot {
   display: inline-block;
   width: 34px;
@@ -726,7 +726,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 /* Global slide-out drawer shared by every application page. */
 .global-sidebar-trigger {
-  position: fixed; top: 88px; inset-inline-start: 0; z-index: 113;
+  position: fixed; top: 68px; inset-inline-start: 0; z-index: 113;
   display: inline-flex; align-items: center; justify-content: center;
   width: 43px; height: 50px; padding: 0;
   border: 1px solid rgba(66,232,212,.38); border-inline-start: 0;

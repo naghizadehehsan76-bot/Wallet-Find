@@ -56,7 +56,7 @@ function AuthPage({ onAuthenticated, onBack, initialMode = "login" }: AuthPagePr
       <header className="topbar">
         <div className="brand">
           <span className="brand-dot" />
-          <span>12Keys</span>
+          <span>Wallet Find</span>
         </div>
         <div className="topbar-actions"><LanguageSwitcher /></div>
       </header>

@@ -44,7 +44,7 @@ function KeyStagePage({
       <header className="topbar">
         <div className="brand">
           <span className="brand-dot" />
-          <span>12Keys</span>
+          <span>Wallet Find</span>
         </div>
 
         <div className="topbar-actions"><LanguageSwitcher /><span className="timer mono">{t.key.timer}</span></div>

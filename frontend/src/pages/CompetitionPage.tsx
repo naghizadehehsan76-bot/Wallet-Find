@@ -304,7 +304,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       <header className="topbar">
         <div className="brand">
           <span className="brand-dot" />
-          <span>12Keys</span>
+          <span>Wallet Find</span>
         </div>
         <div className="topbar-actions"><LanguageSwitcher /><div className="wallet-pill mono">{isPersian ? "₮ ۱۲۸٫۴۰" : "₮ 128.40"}</div></div>
       </header>
