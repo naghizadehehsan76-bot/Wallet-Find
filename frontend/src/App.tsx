@@ -112,7 +112,6 @@ function HomePage({
         </div>
         <div className="topbar-actions">
           <LanguageSwitcher language={language} onChange={onLanguageChange} />
-          <div className="wallet-pill mono">₮ 128.40</div>
         </div>
       </header>
 
@@ -388,7 +387,6 @@ function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }
         {currentPage === "home" && (
           <div className="sidebar-home-tools" aria-label={language === "fa" ? "تنظیمات سریع" : "Quick settings"}>
             <SharedLanguageSwitcher />
-            <div className="wallet-pill mono" aria-label={language === "fa" ? "موجودی کیف پول" : "Wallet balance"}>₮ 128.40</div>
           </div>
         )}
         <p className="sidebar-kicker">{t.sidebar.title}</p>
