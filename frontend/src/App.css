@@ -1,3 +1,5 @@
+@import url('https://fonts.cdnfonts.com/css/allstar');
+
 :root {
   color-scheme: dark;
   --ink: #050607;
@@ -1036,4 +1038,27 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .sidebar-home-tools .wallet-pill {
     white-space: nowrap;
   }
+}
+
+
+/* Shared typography for the project wordmark and language selector on every page. */
+.brand--home,
+.sidebar-brand--home {
+  font-family: "Allstar", sans-serif;
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.language-switcher {
+  gap: 2px;
+  padding: 3px;
+}
+.language-switcher button,
+.home-topbar .language-switcher button {
+  padding: 4px 7px;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.2;
 }
