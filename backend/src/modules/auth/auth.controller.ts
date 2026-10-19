@@ -74,11 +74,12 @@ export async function login(
   } catch (error) {
     if (
       error instanceof Error &&
-      error.message === "INVALID_CREDENTIALS"
+      (error.message === "EMAIL_NOT_REGISTERED" ||
+        error.message === "INVALID_PASSWORD")
     ) {
       return res.status(401).json({
         success: false,
-        error: "INVALID_CREDENTIALS",
+        error: error.message,
       });
     }
 
