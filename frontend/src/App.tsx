@@ -317,7 +317,7 @@ function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }
         aria-label={isOpen ? t.sidebar.closeMenu : t.sidebar.openMenu}
         onClick={() => setIsOpen((open) => !open)}
       >
-        {isOpen ? "×" : "☰"}
+        "☰"
       </button>
       <aside
         id="global-sidebar"
@@ -327,6 +327,7 @@ function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }
       >
         <div className="global-sidebar__header">
           <div className="sidebar-brand"><span className="brand-dot" /><strong>Wallet Find</strong></div>
+          <button type="button" className="global-sidebar__close" onClick={() => setIsOpen(false)} aria-label={t.sidebar.closeMenu}>×</button>
         </div>
         <p className="sidebar-kicker">{t.sidebar.title}</p>
         <nav className="sidebar-nav">

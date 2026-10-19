@@ -762,6 +762,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 .global-sidebar.global-sidebar--open { transform: translateX(0); visibility: visible; pointer-events: auto; }
 .global-sidebar__header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.global-sidebar__close {
+  display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px;
+  border:1px solid rgba(212,175,55,.22); border-radius:10px;
+  background:rgba(212,175,55,.05); color:var(--brass-light); font-size:22px; cursor:pointer;
+}
 .global-sidebar .sidebar-kicker { margin-top:25px; }
 .global-sidebar .sidebar-nav { gap:6px; }
 .global-sidebar .sidebar-link--active {
