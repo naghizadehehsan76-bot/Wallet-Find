@@ -108,7 +108,7 @@ function HomePage({
           >
             {mobileMenuOpen ? "×" : "☰"}
           </button>
-          <div className="brand"><span className="brand-dot" /><span>Wallet Find</span></div>
+          <button className="brand brand--home" type="button" aria-label={t.navigation.home} onClick={() => onNavigate("home")}><span className="brand-dot" /><span>Wallet Find</span></button>
         </div>
         <div className="topbar-actions">
           <LanguageSwitcher language={language} onChange={onLanguageChange} />
@@ -131,7 +131,7 @@ function HomePage({
           aria-label={t.sidebar.title}
           aria-hidden={!mobileMenuOpen}
         >
-          <div className="sidebar-brand"><span className="brand-dot" /><strong>Wallet Find</strong></div>
+          <button type="button" className="sidebar-brand sidebar-brand--home" aria-label={t.navigation.home} onClick={() => { onNavigate("home"); setMobileMenuOpen(false); }}><span className="brand-dot" /><strong>Wallet Find</strong></button>
           <p className="sidebar-kicker">{t.sidebar.title}</p>
           <nav className="sidebar-nav">
             <button type="button" className="sidebar-link" onClick={() => { onNavigate("leaderboard"); setMobileMenuOpen(false); }}>
@@ -247,7 +247,7 @@ function InfoPage({
   return (
     <div className="app-shell info-shell">
       <header className="topbar">
-        <div className="brand"><span className="brand-dot" /><span>Wallet Find</span></div>
+        <button className="brand brand--home" type="button" aria-label={t.navigation.home} onClick={() => onNavigate("home")}><span className="brand-dot" /><span>Wallet Find</span></button>
         <div className="topbar-actions"><SharedLanguageSwitcher /></div>
       </header>
       <main className="page info-page">
@@ -283,7 +283,7 @@ function ContestRulesPage({ onNavigate }: { onNavigate: (page: Page) => void }) 
   return (
     <div className="app-shell info-shell">
       <header className="topbar">
-        <div className="brand"><span className="brand-dot" /><span>Wallet Find</span></div>
+        <button className="brand brand--home" type="button" aria-label={t.navigation.home} onClick={() => onNavigate("home")}><span className="brand-dot" /><span>Wallet Find</span></button>
         <div className="topbar-actions"><SharedLanguageSwitcher /></div>
       </header>
       <main className="page info-page contest-rules-page">
@@ -381,7 +381,7 @@ function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }
         aria-hidden={!isOpen}
       >
         <div className="global-sidebar__header">
-          <div className="sidebar-brand"><span className="brand-dot" /><strong>Wallet Find</strong></div>
+          <button type="button" className="sidebar-brand sidebar-brand--home" aria-label={t.navigation.home} onClick={() => navigateTo("home")}><span className="brand-dot" /><strong>Wallet Find</strong></button>
           <button type="button" className="global-sidebar__close" onClick={() => setIsOpen(false)} aria-label={t.sidebar.closeMenu}>×</button>
         </div>
         <p className="sidebar-kicker">{t.sidebar.title}</p>
@@ -470,7 +470,7 @@ function App() {
   } else if (page === "wallet") {
     currentView = (
       <div className="app-shell">
-        <header className="topbar"><div className="brand"><span className="brand-dot" /><span>Wallet Find</span></div><div className="topbar-actions"><SharedLanguageSwitcher /></div></header><main className="page"><div className="section-title">{t.wallet.title}</div><div className="balance-card"><div className="balance-label">{t.wallet.displayBalance}</div><div className="balance-amount mono">{t.wallet.balance}</div><div className="balance-network">Polygon</div></div><div className="inline-feedback">{t.wallet.notice}</div></main><BottomNavShim activePage="wallet" onNavigate={setPage} /></div>
+        <header className="topbar"><button className="brand brand--home" type="button" aria-label={t.navigation.home} onClick={() => setPage("home")}><span className="brand-dot" /><span>Wallet Find</span></button><div className="topbar-actions"><SharedLanguageSwitcher /></div></header><main className="page"><div className="section-title">{t.wallet.title}</div><div className="balance-card"><div className="balance-label">{t.wallet.displayBalance}</div><div className="balance-amount mono">{t.wallet.balance}</div><div className="balance-network">Polygon</div></div><div className="inline-feedback">{t.wallet.notice}</div></main><BottomNavShim activePage="wallet" onNavigate={setPage} /></div>
     );
   } else {
     currentView = <HomePage onNavigate={setPage} onAuth={openAuth} language={language} onLanguageChange={changeLanguage} />;

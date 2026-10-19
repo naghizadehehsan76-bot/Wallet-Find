@@ -957,3 +957,44 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
     inset-inline-start: max(42px, calc((100vw - 1240px) / 2 + 42px));
   }
 }
+
+
+/* Refined, keyboard-accessible Wallet Find wordmark that returns to Home. */
+.brand--home {
+  appearance: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--paper);
+  font-family: "Space Grotesk", "Inter", sans-serif;
+  font-size: clamp(23px, 4.8vw, 27px);
+  font-weight: 700;
+  letter-spacing: -0.8px;
+  line-height: 1.05;
+  text-align: start;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color .18s ease, transform .18s ease;
+}
+.brand--home:hover {
+  color: var(--brass-light);
+  transform: translateY(-1px);
+}
+.brand--home:active { transform: translateY(0); }
+.sidebar-brand--home {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--paper);
+  font-family: inherit;
+  font-size: 19px;
+  font-weight: 900;
+  text-align: start;
+  cursor: pointer;
+  transition: color .18s ease;
+}
+.sidebar-brand--home:hover { color: var(--brass-light); }
+@media (prefers-reduced-motion: reduce) {
+  .brand--home, .sidebar-brand--home { transition: none; }
+  .brand--home:hover, .brand--home:active { transform: none; }
+}
