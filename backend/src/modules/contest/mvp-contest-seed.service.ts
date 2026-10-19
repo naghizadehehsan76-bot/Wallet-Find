@@ -157,27 +157,57 @@ function buildRoundFromSource(
 }
 
 async function fetchWikipediaDocuments(limit: number): Promise<SourceDocument[]> {
-  const url = new URL("https://en.wikipedia.org/w/api.php");
-  url.searchParams.set("action", "query");
-  url.searchParams.set("format", "json");
-  url.searchParams.set("generator", "random");
-  url.searchParams.set("grnnamespace", "0");
-  url.searchParams.set("grnlimit", String(limit));
-  url.searchParams.set("prop", "extracts|info");
-  url.searchParams.set("inprop", "url");
-  url.searchParams.set("explaintext", "1");
-  url.searchParams.set("exchars", "9000");
+  // MediaWiki's generator=random effectively returns a single random page in
+  // this use case. Use list=random to collect many titles, then fetch their
+  // extracts in a second request.
+  const randomUrl = new URL("https://en.wikipedia.org/w/api.php");
+  randomUrl.searchParams.set("action", "query");
+  randomUrl.searchParams.set("format", "json");
+  randomUrl.searchParams.set("list", "random");
+  randomUrl.searchParams.set("rnnamespace", "0");
+  randomUrl.searchParams.set("rnlimit", String(Math.min(limit, 50)));
 
-  const response = await fetch(url, {
-    headers: { "User-Agent": "WalletFind/1.0 (English word-round generator)" },
+  const headers = { "User-Agent": "WalletFind/1.0 (English word-round generator)" };
+  const randomResponse = await fetch(randomUrl, {
+    headers,
     signal: AbortSignal.timeout(10_000),
   });
 
-  if (!response.ok) {
-    throw new Error("WIKIPEDIA_SOURCE_UNAVAILABLE");
+  if (!randomResponse.ok) {
+    throw new Error("WIKIPEDIA_RANDOM_TITLES_UNAVAILABLE");
   }
 
-  const data = await response.json() as {
+  const randomData = await randomResponse.json() as {
+    query?: { random?: Array<{ title?: string }> };
+  };
+  const titles = [...new Set(
+    (randomData.query?.random ?? [])
+      .map((page) => page.title)
+      .filter((title): title is string => Boolean(title)),
+  )];
+
+  if (titles.length === 0) return [];
+
+  const extractUrl = new URL("https://en.wikipedia.org/w/api.php");
+  extractUrl.searchParams.set("action", "query");
+  extractUrl.searchParams.set("format", "json");
+  extractUrl.searchParams.set("titles", titles.join("|"));
+  extractUrl.searchParams.set("prop", "extracts|info");
+  extractUrl.searchParams.set("inprop", "url");
+  extractUrl.searchParams.set("explaintext", "1");
+  extractUrl.searchParams.set("exchars", "9000");
+  extractUrl.searchParams.set("redirects", "1");
+
+  const extractResponse = await fetch(extractUrl, {
+    headers,
+    signal: AbortSignal.timeout(10_000),
+  });
+
+  if (!extractResponse.ok) {
+    throw new Error("WIKIPEDIA_EXTRACTS_UNAVAILABLE");
+  }
+
+  const data = await extractResponse.json() as {
     query?: {
       pages?: Record<string, {
         title?: string;
