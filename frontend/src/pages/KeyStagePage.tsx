@@ -1,6 +1,7 @@
 import { useState } from "react";
 import BottomNav from "../components/BottomNav";
 import { useI18n } from "../i18n";
+import LanguageSwitcher from "../components/LanguageSwitcher";
 
 type Page =
   | "home"
@@ -18,7 +19,8 @@ type KeyStagePageProps = {
 function KeyStagePage({
   onNavigate,
 }: KeyStagePageProps) {
-  const { translation: t } = useI18n();
+  const { translation: t, language } = useI18n();
+  const numberLocale = language === "fa" ? "fa-IR" : "en-US";
 
   const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState<string>(
@@ -45,9 +47,7 @@ function KeyStagePage({
           <span>12Keys</span>
         </div>
 
-        <span className="timer mono">
-          ۰۴:۱۸
-        </span>
+        <div className="topbar-actions"><LanguageSwitcher /><span className="timer mono">{t.key.timer}</span></div>
       </header>
 
       <main className="page">
@@ -63,9 +63,7 @@ function KeyStagePage({
           </button>
         </div>
 
-        <div className="big-key-number mono">
-          ۰۵
-        </div>
+        <div className="big-key-number mono">{(5).toLocaleString(numberLocale, { minimumIntegerDigits: 2, useGrouping: false })}</div>
 
         <div className="key-of">
           {t.key.fifthOfTwelve}
@@ -77,9 +75,7 @@ function KeyStagePage({
           </div>
 
           <p>
-            نامی که در سه شهر ایران به یک میدان تاریخی
-            داده شده و در فارسی معنای «سکه» هم دارد.
-            حرف اول را با عدد نمادین این شهرها جمع بزن.
+            {t.key.mockClue}
           </p>
         </div>
 
