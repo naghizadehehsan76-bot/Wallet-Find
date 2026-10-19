@@ -173,7 +173,7 @@ function HomePage({
           <div className="contest-grid-heading">
             <div>
               <strong>{t.landing.gridTitle}</strong>
-              <span>{t.landing.gridSubtitle}</span>
+              {t.landing.gridSubtitle && <span>{t.landing.gridSubtitle}</span>}
             </div>
           </div>
           <div className="contest-grid">
