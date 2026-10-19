@@ -329,7 +329,7 @@ type GlobalSidebarProps = {
 };
 
 function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }: GlobalSidebarProps) {
-  const { translation: t } = useI18n();
+  const { translation: t, language } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
@@ -385,6 +385,12 @@ function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }
           <button type="button" className="sidebar-brand sidebar-brand--home" aria-label={t.navigation.home} onClick={() => navigateTo("home")}><span className="brand-dot" /><strong>Wallet Find</strong></button>
           <button type="button" className="global-sidebar__close" onClick={() => setIsOpen(false)} aria-label={t.sidebar.closeMenu}>×</button>
         </div>
+        {currentPage === "home" && (
+          <div className="sidebar-home-tools" aria-label={language === "fa" ? "تنظیمات سریع" : "Quick settings"}>
+            <SharedLanguageSwitcher />
+            <div className="wallet-pill mono" aria-label={language === "fa" ? "موجودی کیف پول" : "Wallet balance"}>₮ 128.40</div>
+          </div>
+        )}
         <p className="sidebar-kicker">{t.sidebar.title}</p>
         <nav className="sidebar-nav">
           {items.map((item) => (
