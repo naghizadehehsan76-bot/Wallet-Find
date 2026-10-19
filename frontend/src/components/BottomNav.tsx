@@ -1,3 +1,5 @@
+import { useI18n } from "../i18n";
+
 type Page =
   | "home"
   | "auth"
@@ -12,34 +14,27 @@ type BottomNavProps = {
   onNavigate: (page: Page) => void;
 };
 
-function BottomNav({
-  activePage,
-  onNavigate,
-}: BottomNavProps) {
-  const items: {
-    page: Page;
-    icon: string;
-    label: string;
-  }[] = [
-    { page: "home", icon: "⌂", label: "خانه" },
-    { page: "competition", icon: "🔑", label: "مسابقه" },
-    { page: "leaderboard", icon: "🏆", label: "رتبه‌بندی" },
-    { page: "wallet", icon: "◈", label: "کیف پول" },
-    { page: "profile", icon: "◎", label: "پروفایل" },
+function BottomNav({ activePage, onNavigate }: BottomNavProps) {
+  const { translation: t } = useI18n();
+  const items: { page: Page; icon: string; label: string }[] = [
+    { page: "home", icon: "⌂", label: t.navigation.home },
+    { page: "competition", icon: "🔑", label: t.navigation.competition },
+    { page: "leaderboard", icon: "🏆", label: t.navigation.leaderboard },
+    { page: "wallet", icon: "◈", label: t.navigation.wallet },
+    { page: "profile", icon: "◎", label: t.navigation.profile },
   ];
 
   return (
-    <nav className="bottom-nav" aria-label="ناوبری اصلی">
+    <nav className="bottom-nav" aria-label={t.navigation.ariaLabel}>
       {items.map((item) => (
         <button
           key={item.page}
-          className={`nav-item ${
-            activePage === item.page ? "nav-item--active" : ""
-          }`}
+          className={`nav-item ${activePage === item.page ? "nav-item--active" : ""}`}
           type="button"
           onClick={() => onNavigate(item.page)}
+          aria-current={activePage === item.page ? "page" : undefined}
         >
-          <span className="nav-icon">{item.icon}</span>
+          <span className="nav-icon" aria-hidden="true">{item.icon}</span>
           <span>{item.label}</span>
         </button>
       ))}
