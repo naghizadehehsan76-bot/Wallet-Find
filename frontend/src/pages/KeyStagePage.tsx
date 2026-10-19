@@ -47,7 +47,7 @@ function KeyStagePage({
           <span>Wallet Find</span>
         </div>
 
-        <div className="topbar-actions"><LanguageSwitcher /><span className="timer mono">{t.key.timer}</span></div>
+        <div className="topbar-actions"><LanguageSwitcher /></div>
       </header>
 
       <main className="page">
