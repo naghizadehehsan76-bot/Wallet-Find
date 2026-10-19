@@ -160,12 +160,12 @@ function HomePage({
 
         <main className="page home-page">
         <section className="hero">
-          <div className="eyebrow">{isPersian ? "مسابقه شبانه" : "NIGHTLY CONTEST"}</div>
+          <div className="eyebrow">{isPersian ? "مسابقه روزانه" : "DAILY CONTEST"}</div>
           <h1 className="hero-title">
-            {isPersian ? <><span>۱۲ کلید</span><br />یک قفل، یک برنده</> : <>Every night <span>12 Keys</span><br />One lock, one winner</>}
+            {isPersian ? <><span>۱۲ کلید، ۱۲ سرنخ</span><br />و یک کیف پول</> : <><span>12 Keys, 12 Clues</span><br />and One Wallet</>}
           </h1>
           <p className="hero-description">
-            {isPersian ? "هر شب یک گاوصندوق جدید باز می‌شود. ۱۲ سرنخ حل کن، سریع‌تر از بقیه به کلید آخر برس و جایزه USDT را ببر." : "A new vault opens every night. Solve 12 clues, reach the final key faster than everyone else, and win the USDT prize."}
+            {isPersian ? "همهٔ شرکت‌کننده‌ها جایزه می‌برن؛ هرچقدر سریع‌تر باشی، جایزه‌ات بیشتره. سریع‌تر از بقیه به کلمهٔ آخر کیف پول برس و جایزهٔ USDT رو ببر." : "Every participant wins a prize—the faster you are, the bigger your reward. Reach the wallet’s final word before everyone else and win USDT."}
           </p>
         </section>
 
