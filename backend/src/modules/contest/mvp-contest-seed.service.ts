@@ -156,77 +156,195 @@ function buildRoundFromSource(
   return null;
 }
 
-async function fetchWikipediaDocuments(limit: number): Promise<SourceDocument[]> {
-  // MediaWiki's generator=random effectively returns a single random page in
-  // this use case. Use list=random to collect many titles, then fetch their
-  // extracts in a second request.
-  const randomUrl = new URL("https://en.wikipedia.org/w/api.php");
-  randomUrl.searchParams.set("action", "query");
-  randomUrl.searchParams.set("format", "json");
-  randomUrl.searchParams.set("list", "random");
-  randomUrl.searchParams.set("rnnamespace", "0");
-  randomUrl.searchParams.set("rnlimit", String(Math.min(limit, 50)));
+async function fetchWikipediaArticle(title: string): Promise<SourceDocument | null> {
+  const apiUrl = new URL("https://en.wikipedia.org/w/api.php");
+  apiUrl.searchParams.set("action", "query");
+  apiUrl.searchParams.set("format", "json");
+  apiUrl.searchParams.set("titles", title);
+  apiUrl.searchParams.set("prop", "extracts|info");
+  apiUrl.searchParams.set("inprop", "url");
+  apiUrl.searchParams.set("explaintext", "1");
+  apiUrl.searchParams.set("exchars", "9000");
+  apiUrl.searchParams.set("redirects", "1");
 
-  const headers = { "User-Agent": "WalletFind/1.0 (English word-round generator)" };
-  const randomResponse = await fetch(randomUrl, {
-    headers,
-    signal: AbortSignal.timeout(10_000),
-  });
+  try {
+    const response = await fetch(apiUrl, {
+      headers: { "User-Agent": "WalletFind/1.0 (English word-round generator)" },
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!response.ok) {
+      console.warn("Wikipedia article request failed", { title, status: response.status });
+      return null;
+    }
 
-  if (!randomResponse.ok) {
-    throw new Error("WIKIPEDIA_RANDOM_TITLES_UNAVAILABLE");
-  }
-
-  const randomData = await randomResponse.json() as {
-    query?: { random?: Array<{ title?: string }> };
-  };
-  const titles = [...new Set(
-    (randomData.query?.random ?? [])
-      .map((page) => page.title)
-      .filter((title): title is string => Boolean(title)),
-  )];
-
-  if (titles.length === 0) return [];
-
-  const extractUrl = new URL("https://en.wikipedia.org/w/api.php");
-  extractUrl.searchParams.set("action", "query");
-  extractUrl.searchParams.set("format", "json");
-  extractUrl.searchParams.set("titles", titles.join("|"));
-  extractUrl.searchParams.set("prop", "extracts|info");
-  extractUrl.searchParams.set("inprop", "url");
-  extractUrl.searchParams.set("explaintext", "1");
-  extractUrl.searchParams.set("exchars", "9000");
-  extractUrl.searchParams.set("redirects", "1");
-
-  const extractResponse = await fetch(extractUrl, {
-    headers,
-    signal: AbortSignal.timeout(10_000),
-  });
-
-  if (!extractResponse.ok) {
-    throw new Error("WIKIPEDIA_EXTRACTS_UNAVAILABLE");
-  }
-
-  const data = await extractResponse.json() as {
-    query?: {
-      pages?: Record<string, {
-        title?: string;
-        fullurl?: string;
-        extract?: string;
-      }>;
+    const data = await response.json() as {
+      query?: {
+        pages?: Record<string, { title?: string; fullurl?: string; extract?: string }>;
+      };
+      error?: { code?: string; info?: string };
     };
-  };
+    if (data.error) {
+      console.warn("Wikipedia article API error", { title, code: data.error.code, info: data.error.info });
+      return null;
+    }
 
-  return Object.values(data.query?.pages ?? {})
-    .filter((page) => typeof page.extract === "string" && page.extract.length > 300)
-    .map((page) => ({
-      title: page.title ?? "Wikipedia article",
+    const page = Object.values(data.query?.pages ?? {}).find(
+      (candidate) => typeof candidate.extract === "string" && candidate.extract.length > 300,
+    );
+    if (!page) return null;
+
+    const pageTitle = page.title ?? title;
+    return {
+      title: pageTitle,
       url: page.fullurl
-        ?? "https://en.wikipedia.org/wiki/" + encodeURIComponent((page.title ?? "").replace(/ /g, "_")),
+        ?? "https://en.wikipedia.org/wiki/" + encodeURIComponent(pageTitle.replace(/ /g, "_")),
       text: page.extract ?? "",
-    }));
+    };
+  } catch (error) {
+    console.warn("Wikipedia article request unavailable", {
+      title,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
 }
 
+async function fetchWikipediaDocuments(limit: number): Promise<SourceDocument[]> {
+  const headers = { "User-Agent": "WalletFind/1.0 (English word-round generator)" };
+  const documents: SourceDocument[] = [];
+  const seenUrls = new Set<string>();
+  const seenTitles = new Set<string>();
+
+  const addDocuments = (items: SourceDocument[]) => {
+    for (const item of items) {
+      const normalizedUrl = item.url.split("#")[0];
+      const normalizedTitle = item.title.trim().toLowerCase();
+      if (!item.text || item.text.length <= 300) continue;
+      if (seenUrls.has(normalizedUrl) || seenTitles.has(normalizedTitle)) continue;
+      seenUrls.add(normalizedUrl);
+      seenTitles.add(normalizedTitle);
+      documents.push(item);
+    }
+  };
+
+  let randomTitles: string[] = [];
+  try {
+    const randomUrl = new URL("https://en.wikipedia.org/w/api.php");
+    randomUrl.searchParams.set("action", "query");
+    randomUrl.searchParams.set("format", "json");
+    randomUrl.searchParams.set("list", "random");
+    randomUrl.searchParams.set("rnnamespace", "0");
+    randomUrl.searchParams.set("rnlimit", String(Math.min(limit, 50)));
+
+    const randomResponse = await fetch(randomUrl, {
+      headers,
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!randomResponse.ok) {
+      throw new Error("HTTP " + randomResponse.status);
+    }
+
+    const randomData = await randomResponse.json() as {
+      query?: { random?: Array<{ title?: string }> };
+      error?: { code?: string; info?: string };
+    };
+    if (randomData.error) {
+      throw new Error(randomData.error.code + ": " + randomData.error.info);
+    }
+    randomTitles = [...new Set(
+      (randomData.query?.random ?? [])
+        .map((page) => page.title)
+        .filter((title): title is string => Boolean(title)),
+    )];
+    console.info("Wikipedia random title response", {
+      requestedCount: Math.min(limit, 50),
+      receivedTitleCount: randomTitles.length,
+    });
+
+    if (randomTitles.length > 0) {
+      const extractUrl = new URL("https://en.wikipedia.org/w/api.php");
+      extractUrl.searchParams.set("action", "query");
+      extractUrl.searchParams.set("format", "json");
+      extractUrl.searchParams.set("titles", randomTitles.join("|"));
+      extractUrl.searchParams.set("prop", "extracts|info");
+      extractUrl.searchParams.set("inprop", "url");
+      extractUrl.searchParams.set("explaintext", "1");
+      extractUrl.searchParams.set("exchars", "9000");
+      extractUrl.searchParams.set("redirects", "1");
+
+      const extractResponse = await fetch(extractUrl, {
+        headers,
+        signal: AbortSignal.timeout(12_000),
+      });
+      if (!extractResponse.ok) {
+        throw new Error("Wikipedia batch extract HTTP " + extractResponse.status);
+      }
+
+      const data = await extractResponse.json() as {
+        query?: {
+          pages?: Record<string, { title?: string; fullurl?: string; extract?: string }>;
+        };
+        error?: { code?: string; info?: string };
+      };
+      if (data.error) {
+        throw new Error("Wikipedia batch extract " + data.error.code + ": " + data.error.info);
+      }
+
+      const pages = Object.values(data.query?.pages ?? {});
+      const validDocuments = pages
+        .filter((page) => typeof page.extract === "string" && page.extract.length > 300)
+        .map((page) => {
+          const title = page.title ?? "Wikipedia article";
+          return {
+            title,
+            url: page.fullurl
+              ?? "https://en.wikipedia.org/wiki/" + encodeURIComponent(title.replace(/ /g, "_")),
+            text: page.extract ?? "",
+          };
+        });
+      addDocuments(validDocuments);
+      console.info("Wikipedia batch extract response", {
+        requestedTitleCount: randomTitles.length,
+        returnedPageCount: pages.length,
+        validDocumentCount: validDocuments.length,
+      });
+    }
+  } catch (error) {
+    console.warn("Wikipedia random batch unavailable; trying known article pages", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  // The random/batch endpoint has returned only one usable article in Render.
+  // If it does so again, fetch known article pages individually. This still
+  // derives every answer and hint from the exact text used to build that clue.
+  const fallbackTitles = [
+    "Albert Einstein", "Paris", "Solar System", "Mount Everest", "Amazon rainforest",
+    "Computer", "Internet", "Moon", "Earth", "Sun", "Gravity", "Eiffel Tower",
+    "Bitcoin", "Leonardo da Vinci", "World War II", "Himalayas", "Nile", "Ocean",
+    "Mathematics", "History of science", "Human brain", "Electricity", "DNA",
+    "Photosynthesis", "Volcano", "Antarctica", "Saturn", "Venus", "Apollo 11",
+    "William Shakespeare", "Artificial intelligence", "Cell (biology)", "Evolution",
+    "Water", "Light", "Sound", "Solar energy", "Telescope", "Space exploration",
+    "Printing press", "Evolutionary biology", "United Nations", "World Wide Web",
+    "Cryptocurrency", "Blockchain", "Mars", "Jupiter", "Titanic", "Pacific Ocean",
+    "Ancient Egypt", "Roman Empire", "Renaissance", "Mona Lisa", "Pyramid",
+    "Electricity generation", "Photography", "Computer network", "Language",
+  ].filter((title) => !randomTitles.some((randomTitle) => randomTitle.toLowerCase() === title.toLowerCase()));
+
+  for (let offset = 0; offset < fallbackTitles.length && documents.length < limit; offset += 5) {
+    const titles = fallbackTitles.slice(offset, offset + 5);
+    const results = await Promise.all(titles.map((title) => fetchWikipediaArticle(title)));
+    addDocuments(results.filter((item): item is SourceDocument => item !== null));
+    console.info("Wikipedia fallback batch response", {
+      requestedCount: titles.length,
+      usableDocumentCount: results.filter(Boolean).length,
+      totalUsableDocuments: documents.length,
+    });
+  }
+
+  return documents.slice(0, limit);
+}
 async function fetchGutenbergDocument(book: {
   title: string;
   textUrl: string;
