@@ -159,6 +159,15 @@ export async function getActiveContest(): Promise<ActiveContest> {
   return request<ActiveContest>("/contests/active", {}, true);
 }
 
+export async function startNextContest(
+  completedContestId: string,
+): Promise<ActiveContest> {
+  return request<ActiveContest>(
+    `/contests/${encodeURIComponent(completedContestId)}/next`,
+    { method: "POST" },
+    true,
+  );
+}
 export async function getCurrentClue(
   contestId: string,
 ): Promise<CurrentClueResult> {
