@@ -101,6 +101,14 @@ export function localizeApiError(error: unknown, language: UiLanguage): string {
       ? "مشکلی رخ داد. لطفاً دوباره تلاش کن."
       : "Something went wrong. Please try again.";
   }
+  const hasPersianText = /[\u0600-\u06FF]/.test(message);
+  const hasLatinText = /[A-Za-z]/.test(message);
+  if ((language === "fa" && hasLatinText && !hasPersianText) ||
+      (language === "en" && hasPersianText && !hasLatinText)) {
+    return language === "fa"
+      ? "مشکلی رخ داد. لطفاً دوباره تلاش کن."
+      : "Something went wrong. Please try again.";
+  }
   return message;
 }
 
