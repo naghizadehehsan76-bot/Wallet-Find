@@ -3,6 +3,7 @@ import BottomNav from "../components/BottomNav";
 import {
   getActiveContest,
   getCurrentClue,
+  startNextContest,
   submitAnswer,
 } from "../services/api";
 import { useI18n } from "../i18n";
@@ -42,6 +43,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [feedbackTone, setFeedbackTone] = useState<"success" | "error" | "info">("info");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [startingNextContest, setStartingNextContest] = useState(false);
   const [error, setError] = useState("");
   const [completed, setCompleted] = useState(false);
   const [waitingForClue, setWaitingForClue] = useState(false);
@@ -166,6 +168,50 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     applyCurrentClue(current);
   }
 
+  async function handleStartNextContest() {
+    if (!contestId || !completed || startingNextContest) return;
+
+    setStartingNextContest(true);
+    setError("");
+    setFeedback("");
+
+    try {
+      const nextContest = await startNextContest(contestId);
+      setContestId(nextContest.id);
+      setContestTitle(nextContest.title);
+      setContestDate(nextContest.startsAt);
+
+      const current = await getCurrentClue(nextContest.id);
+      applyCurrentClue(current);
+      setFeedbackTone("success");
+      setFeedback(
+        isPersian
+          ? "مسابقه‌ی بعدی آماده است؛ راند اول را شروع کن."
+          : "The next contest is ready. Start with round one.",
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "NEXT_CONTEST_FAILED";
+      setError(
+        message === "NEXT_CONTEST_GENERATION_FAILED"
+          ? (isPersian
+              ? "فعلاً ساخت مسابقه‌ی بعدی ممکن نشد. چند لحظه بعد دوباره تلاش کن."
+              : "The next contest could not be generated right now. Please try again shortly.")
+          : message === "CONTEST_NOT_COMPLETED_BY_USER"
+            ? (isPersian
+                ? "برای شروع مسابقه‌ی بعدی باید هر ۱۲ راند مسابقه‌ی فعلی را کامل کنی."
+                : "Complete all 12 rounds of the current contest before starting the next one.")
+            : message === "AUTHENTICATION_REQUIRED" || message === "TOKEN_EXPIRED"
+              ? (isPersian
+                  ? "نشست ورودت منقضی شده است؛ دوباره وارد حساب شو."
+                  : "Your session has expired. Please sign in again.")
+              : (isPersian
+                  ? "شروع مسابقه‌ی بعدی ناموفق بود. دوباره تلاش کن."
+                  : "Could not start the next contest. Please try again."),
+      );
+    } finally {
+      setStartingNextContest(false);
+    }
+  }
   async function handleSubmit() {
     const value = answer.trim();
 
@@ -319,6 +365,16 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                     ? "هر ۱۲ راند را با موفقیت حل کردی."
                     : "You successfully solved all twelve rounds."}
                 </p>
+                <button
+                  type="button"
+                  className="cta-button round-complete__button"
+                  onClick={() => void handleStartNextContest()}
+                  disabled={startingNextContest}
+                >
+                  {startingNextContest
+                    ? (isPersian ? "در حال آماده‌سازی..." : "Preparing...")
+                    : (isPersian ? "شروع مسابقه ی بعدی" : "Start Next Contest")}
+                </button>
               </section>
             ) : waitingForClue ? (
               <div className="inline-feedback">
