@@ -9,6 +9,7 @@ import {
   createContestHandler,
   createClueHandler,
   getActiveContestHandler,
+  startNextContestHandler,
   getCurrentClueHandler,
   submitAnswerHandler,
 } from "./contest.controller.js";
@@ -34,6 +35,12 @@ router.post(
   requireAuth,
   requireAdmin,
   createClueHandler,
+);
+
+router.post(
+  "/:contestId/next",
+  requireAuth,
+  startNextContestHandler,
 );
 
 router.get(
