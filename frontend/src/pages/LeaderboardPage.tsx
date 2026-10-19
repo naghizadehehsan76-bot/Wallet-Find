@@ -135,8 +135,8 @@ function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
                   <strong>{entry.username}</strong>
                   <span>
                     {isPersian
-                      ? `${entry.solvedCount} از ۱۲ کلید`
-                      : `${entry.solvedCount} of 12 keys`}
+                      ? `${entry.solvedCount.toLocaleString(isPersian ? "fa-IR" : "en-US")} از ۱۲ کلید`
+                      : `${entry.solvedCount.toLocaleString(isPersian ? "fa-IR" : "en-US")} of 12 keys`}
                   </span>
                 </div>
 
