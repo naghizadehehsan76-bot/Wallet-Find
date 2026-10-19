@@ -241,7 +241,7 @@ function AdminPage({ onNavigate }: AdminPageProps) {
           </div>
           <div className="prize">
             <strong>{t.admin.status[status]}</strong>
-            <span>{validClues.toLocaleString(isPersian ? "fa-IR" : "en-US")}/12 {isPersian ? "سرنخ" : "clues"}</span>
+            <span>{validClues.toLocaleString(isPersian ? "fa-IR" : "en-US")}/{(12).toLocaleString(isPersian ? "fa-IR" : "en-US")} {isPersian ? "سرنخ" : "clues"}</span>
           </div>
         </section>
 
