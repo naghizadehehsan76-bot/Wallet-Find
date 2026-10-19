@@ -722,3 +722,69 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 @media (prefers-reduced-motion:reduce) {
   .contest-tile { animation:none; transition:none; }
 }
+
+
+/* Global slide-out drawer shared by every application page. */
+.global-sidebar-trigger {
+  position: fixed; top: 88px; inset-inline-start: 0; z-index: 113;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 43px; height: 50px; padding: 0;
+  border: 1px solid rgba(66,232,212,.38); border-inline-start: 0;
+  border-start-end-radius: 13px; border-end-end-radius: 13px;
+  background: linear-gradient(145deg,rgba(16,25,25,.98),rgba(5,8,8,.98));
+  color: var(--verdigris); font-size: 20px;
+  box-shadow: 7px 8px 24px rgba(0,0,0,.28); cursor: pointer;
+  transition: color .18s ease,background .18s ease,border-color .18s ease;
+}
+[dir="rtl"] .global-sidebar-trigger { border-inline-start: 1px solid rgba(66,232,212,.38); border-inline-end: 0; }
+.global-sidebar-trigger:hover { color: var(--brass-light); border-color: var(--brass); }
+.global-sidebar-backdrop {
+  position: fixed; inset: 0; z-index: 111; width: 100%; height: 100%;
+  padding: 0; border: 0; border-radius: 0; background: rgba(0,0,0,.64);
+  backdrop-filter: blur(3px); cursor: pointer; animation: sidebar-backdrop-in .2s ease both;
+}
+.global-sidebar {
+  position: fixed; top: 0; bottom: 0; inset-inline-start: 0; z-index: 112;
+  display: flex; flex-direction: column; width: min(320px,88vw);
+  min-height: 100vh; min-height: 100dvh;
+  padding: 23px 16px calc(23px + env(safe-area-inset-bottom));
+  overflow-x: hidden; overflow-y: auto;
+  border: 0; border-inline-end: 1px solid rgba(66,232,212,.26);
+  background: radial-gradient(ellipse at 12% 0%,rgba(66,232,212,.08),transparent 26rem),
+    linear-gradient(155deg,rgba(12,17,18,.995),rgba(5,7,8,.995));
+  box-shadow: 18px 0 55px rgba(0,0,0,.4);
+  transform: translateX(-105%); visibility: hidden; pointer-events: none;
+  transition: transform .28s cubic-bezier(.22,.72,.2,1),visibility .28s ease;
+}
+[dir="rtl"] .global-sidebar {
+  transform: translateX(105%); border-inline-end: 0;
+  border-inline-start: 1px solid rgba(66,232,212,.26); box-shadow: -18px 0 55px rgba(0,0,0,.4);
+}
+.global-sidebar.global-sidebar--open { transform: translateX(0); visibility: visible; pointer-events: auto; }
+.global-sidebar__header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.global-sidebar__close {
+  display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px;
+  border:1px solid rgba(212,175,55,.22); border-radius:10px;
+  background:rgba(212,175,55,.05); color:var(--brass-light); font-size:22px; cursor:pointer;
+}
+.global-sidebar .sidebar-kicker { margin-top:25px; }
+.global-sidebar .sidebar-nav { gap:6px; }
+.global-sidebar .sidebar-link--active {
+  color:var(--brass-light); border-color:rgba(212,175,55,.24); background:rgba(212,175,55,.075);
+}
+.global-sidebar .sidebar-link--active > span:first-child {
+  color:var(--verdigris); border-color:rgba(66,232,212,.32); background:rgba(66,232,212,.075);
+}
+.global-sidebar .sidebar-logout {
+  display:flex; align-items:center; justify-content:center; gap:9px;
+  color:var(--brass-light); border-color:rgba(212,175,55,.35); background:rgba(212,175,55,.07);
+}
+.global-sidebar .sidebar-logout:hover {
+  color:#ffb6b6; border-color:rgba(255,130,130,.42); background:rgba(255,100,100,.07);
+}
+/* Disable the old homepage-only drawer; the shared drawer replaces it. */
+.home-topbar__brand .sidebar-toggle { display:none !important; }
+.home-sidebar,.home-content--menu-open .home-sidebar { display:none !important; }
+@media (prefers-reduced-motion:reduce) {
+  .global-sidebar,.global-sidebar-trigger,.global-sidebar-backdrop { transition:none; animation:none; }
+}

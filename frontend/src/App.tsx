@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import AuthPage from "./pages/AuthPage";
 import CompetitionPage from "./pages/CompetitionPage";
 import KeyStagePage from "./pages/KeyStagePage";
@@ -267,6 +267,101 @@ function InfoPage({
   );
 }
 
+type GlobalSidebarProps = {
+  currentPage: Page;
+  isLoggedIn: boolean;
+  onNavigate: (page: Page) => void;
+  onAuth: (mode: AuthMode) => void;
+  onLogout: () => void;
+};
+
+function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }: GlobalSidebarProps) {
+  const { translation: t } = useI18n();
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [isOpen]);
+
+  function navigateTo(page: Page) {
+    onNavigate(page);
+    setIsOpen(false);
+  }
+
+  const items: { page: Page; icon: string; label: string }[] = [
+    { page: "home", icon: "⌂", label: t.navigation.home },
+    { page: "competition", icon: "🔑", label: t.navigation.competition },
+    { page: "leaderboard", icon: "🏆", label: t.sidebar.leaderboard },
+    { page: "rewards", icon: "✦", label: t.sidebar.rewards },
+    { page: "wallet", icon: "◈", label: t.navigation.wallet },
+    { page: "profile", icon: "◎", label: t.navigation.profile },
+    { page: "help", icon: "?", label: t.sidebar.helpCenter },
+    { page: "terms", icon: "≡", label: t.sidebar.termsOfUse },
+  ];
+
+  return (
+    <>
+      {isOpen && (
+        <button className="global-sidebar-backdrop" type="button" aria-label={t.sidebar.closeMenu} onClick={() => setIsOpen(false)} />
+      )}
+      <button
+        className="global-sidebar-trigger"
+        type="button"
+        aria-controls="global-sidebar"
+        aria-expanded={isOpen}
+        aria-label={isOpen ? t.sidebar.closeMenu : t.sidebar.openMenu}
+        onClick={() => setIsOpen((open) => !open)}
+      >
+        {isOpen ? "×" : "☰"}
+      </button>
+      <aside
+        id="global-sidebar"
+        className={"global-sidebar" + (isOpen ? " global-sidebar--open" : "")}
+        aria-label={t.sidebar.title}
+        aria-hidden={!isOpen}
+      >
+        <div className="global-sidebar__header">
+          <div className="sidebar-brand"><span className="brand-dot" /><strong>12Keys</strong></div>
+          <button type="button" className="global-sidebar__close" onClick={() => setIsOpen(false)} aria-label={t.sidebar.closeMenu}>×</button>
+        </div>
+        <p className="sidebar-kicker">{t.sidebar.title}</p>
+        <nav className="sidebar-nav">
+          {items.map((item) => (
+            <button
+              key={item.page}
+              type="button"
+              className={"sidebar-link" + (currentPage === item.page ? " sidebar-link--active" : "")}
+              onClick={() => navigateTo(item.page)}
+              aria-current={currentPage === item.page ? "page" : undefined}
+            >
+              <span aria-hidden="true">{item.icon}</span><span>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-divider" />
+        <div className="sidebar-auth">
+          {isLoggedIn ? (
+            <button type="button" className="sidebar-login sidebar-logout" onClick={() => { onLogout(); setIsOpen(false); }}>
+              <span aria-hidden="true">↪</span>{t.profile.logout}
+            </button>
+          ) : (
+            <>
+              <button type="button" className="sidebar-login" onClick={() => { onAuth("login"); setIsOpen(false); }}>{t.sidebar.login}</button>
+              <button type="button" className="sidebar-signup" onClick={() => { onAuth("signup"); setIsOpen(false); }}>{t.sidebar.signup}</button>
+            </>
+          )}
+        </div>
+        <p className="sidebar-footer">{t.sidebar.footer}</p>
+      </aside>
+    </>
+  );
+}
+
 function App() {
   const { language, changeLanguage, isRTL, translation: t } = useI18n();
 
@@ -298,42 +393,44 @@ function App() {
     setPage("home");
   }
 
+  const isLoggedIn = Boolean(localStorage.getItem("walletFindToken"));
+  let currentView: ReactNode;
+
   if (page === "auth") {
-    return <AuthPage initialMode={authMode} onAuthenticated={handleAuthenticated} onBack={() => setPage("home")} />;
-  }
-
-  if (page === "admin" && isAdmin) {
-    return <AdminPage onNavigate={setPage} />;
-  }
-
-  if (page === "competition") {
-    return <CompetitionPage onNavigate={setPage} />;
-  }
-
-  if (page === "leaderboard") {
-    return <LeaderboardPage onNavigate={setPage} />;
-  }
-
-  if (page === "profile") {
-    return <ProfilePage onNavigate={setPage} onLogout={handleLogout} />;
-  }
-
-  if (page === "key") {
-    return <KeyStagePage onNavigate={setPage} />;
-  }
-
-  if (page === "rewards" || page === "help" || page === "terms") {
-    return <InfoPage kind={page} onNavigate={setPage} />;
-  }
-
-  if (page === "wallet") {
-    return (
+    currentView = <AuthPage initialMode={authMode} onAuthenticated={handleAuthenticated} onBack={() => setPage("home")} />;
+  } else if (page === "admin" && isAdmin) {
+    currentView = <AdminPage onNavigate={setPage} />;
+  } else if (page === "competition") {
+    currentView = <CompetitionPage onNavigate={setPage} />;
+  } else if (page === "leaderboard") {
+    currentView = <LeaderboardPage onNavigate={setPage} />;
+  } else if (page === "profile") {
+    currentView = <ProfilePage onNavigate={setPage} onLogout={handleLogout} />;
+  } else if (page === "key") {
+    currentView = <KeyStagePage onNavigate={setPage} />;
+  } else if (page === "rewards" || page === "help" || page === "terms") {
+    currentView = <InfoPage kind={page} onNavigate={setPage} />;
+  } else if (page === "wallet") {
+    currentView = (
       <div className="app-shell">
         <header className="topbar"><div className="brand"><span className="brand-dot" /><span>12Keys</span></div><div className="topbar-actions"><SharedLanguageSwitcher /></div></header><main className="page"><div className="section-title">{t.wallet.title}</div><div className="balance-card"><div className="balance-label">{t.wallet.displayBalance}</div><div className="balance-amount mono">{t.wallet.balance}</div><div className="balance-network">Polygon</div></div><div className="inline-feedback">{t.wallet.notice}</div></main><BottomNavShim activePage="wallet" onNavigate={setPage} /></div>
     );
+  } else {
+    currentView = <HomePage onNavigate={setPage} onAuth={openAuth} language={language} onLanguageChange={changeLanguage} />;
   }
 
-  return <HomePage onNavigate={setPage} onAuth={openAuth} language={language} onLanguageChange={changeLanguage} />;
+  return (
+    <>
+      <GlobalSidebar
+        currentPage={page}
+        isLoggedIn={isLoggedIn}
+        onNavigate={setPage}
+        onAuth={openAuth}
+        onLogout={handleLogout}
+      />
+      {currentView}
+    </>
+  );
 }
 
 function BottomNavShim({ activePage, onNavigate }: { activePage: Page; onNavigate: (page: Page) => void }) {
