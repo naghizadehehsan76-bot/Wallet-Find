@@ -229,6 +229,7 @@ function HomePage({
         </section>
         </main>
       </div>
+      <BottomNavShim activePage="home" onNavigate={onNavigate} />
     </div>
   );
 }
