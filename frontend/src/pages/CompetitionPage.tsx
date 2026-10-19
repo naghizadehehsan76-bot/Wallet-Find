@@ -7,7 +7,6 @@ import {
   submitAnswer,
 } from "../services/api";
 import { useI18n } from "../i18n";
-import LanguageSwitcher from "../components/LanguageSwitcher";
 import { localizeApiError, localizeContestTitle, localizeUiMessage } from "../i18n/localize";
 
 type Page =
@@ -311,7 +310,6 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           <span className="brand-dot" />
           <span>Wallet Find</span>
         </button>
-        <div className="topbar-actions"><LanguageSwitcher /><div className="wallet-pill mono">{isPersian ? "₮ ۱۲۸٫۴۰" : "₮ 128.40"}</div></div>
       </header>
 
       <main className="page">
