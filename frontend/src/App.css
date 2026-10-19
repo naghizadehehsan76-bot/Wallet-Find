@@ -481,3 +481,80 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 @media (prefers-reduced-motion:reduce) {
   .sidebar-link,.sidebar-login,.sidebar-signup,.sidebar-toggle { transition:none; }
 }
+
+
+/* Slide-in drawer behaviour for the sidebar on desktop and mobile. */
+.home-content { display: contents; }
+.sidebar-toggle { display: inline-flex; }
+.home-sidebar {
+  display: flex !important;
+  position: fixed !important;
+  top: 0;
+  bottom: 0;
+  inset-inline-start: 0;
+  z-index: 101;
+  width: min(310px, 86vw);
+  max-width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0 !important;
+  padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 0;
+  border-inline-end: 1px solid rgba(66,232,212,.24);
+  border-radius: 0;
+  background:
+    radial-gradient(ellipse at 10% 0%, rgba(66,232,212,.08), transparent 24rem),
+    linear-gradient(155deg,rgba(10,15,16,.99),rgba(5,7,8,.99));
+  box-shadow: 18px 0 60px rgba(0,0,0,.38);
+  transform: translateX(-105%);
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform .28s cubic-bezier(.22,.72,.2,1), visibility .28s ease;
+}
+[dir="rtl"] .home-sidebar {
+  transform: translateX(105%);
+  box-shadow: -18px 0 60px rgba(0,0,0,.38);
+}
+.home-content--menu-open .home-sidebar {
+  transform: translateX(0);
+  visibility: visible;
+  pointer-events: auto;
+}
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: rgba(0,0,0,.62);
+  backdrop-filter: blur(3px);
+  cursor: pointer;
+  animation: sidebar-backdrop-in .2s ease both;
+}
+.home-content--menu-open .sidebar-kicker { margin-top: 26px; }
+.home-content--menu-open .sidebar-auth { grid-template-columns: 1fr; }
+@keyframes sidebar-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (min-width: 900px) {
+  .home-content { display: contents; }
+  .home-content .home-page { width: 100%; max-width: none; margin: 0; padding: 20px 36px 40px; }
+  .home-sidebar { width: 320px; }
+}
+@media (max-width: 899px) {
+  .home-content { display: contents; }
+  .home-content .home-page { padding-top: 8px; }
+  .home-sidebar { width: min(320px, 88vw); }
+}
+@media (max-width: 380px) {
+  .home-sidebar { width: min(292px, 88vw); padding-inline: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-sidebar, .sidebar-backdrop { transition: none; animation: none; }
+}

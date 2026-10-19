@@ -81,6 +81,15 @@ function HomePage({
   const { translation: t } = useI18n();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isPersian = language === "fa";
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileMenuOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [mobileMenuOpen]);
   const stats = isPersian ? faStats : enStats;
   const steps = isPersian ? faSteps : enSteps;
 
@@ -107,7 +116,20 @@ function HomePage({
       </header>
 
       <div className={`home-content${mobileMenuOpen ? " home-content--menu-open" : ""}`}>
-        <aside id="home-sidebar" className="home-sidebar" aria-label={t.sidebar.title}>
+        {mobileMenuOpen && (
+          <button
+            className="sidebar-backdrop"
+            type="button"
+            aria-label={t.sidebar.closeMenu}
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
+        <aside
+          id="home-sidebar"
+          className="home-sidebar"
+          aria-label={t.sidebar.title}
+          aria-hidden={!mobileMenuOpen}
+        >
           <div className="sidebar-brand"><span className="brand-dot" /><strong>12Keys</strong></div>
           <p className="sidebar-kicker">{t.sidebar.title}</p>
           <nav className="sidebar-nav">
