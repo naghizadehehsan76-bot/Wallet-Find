@@ -1,5 +1,5 @@
 import prisma from "../../config/prisma.js";
-import { hasCompleteClueSequence } from "./contest.logic.js";
+import { calculateCluePublishedAt, hasCompleteClueSequence } from "./contest.logic.js";
 
 type SourceDocument = {
   title: string;
@@ -510,6 +510,7 @@ export async function ensureMvpActiveContest() {
           sourceUrl: clue.sourceUrl,
           hintAnchor: clue.hintAnchor,
           options: clue.options,
+          publishedAt: calculateCluePublishedAt(index + 1, now, 2) ?? now,
         })),
       },
     },
@@ -694,6 +695,7 @@ export async function startNextMvpContest(userId: string, completedContestId: st
               sourceUrl: clue.sourceUrl,
               hintAnchor: clue.hintAnchor,
               options: clue.options,
+              publishedAt: calculateCluePublishedAt(index + 1, startsAt, 2) ?? startsAt,
             })),
           },
         },
