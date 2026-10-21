@@ -257,3 +257,73 @@ export async function finishContest(
     true,
   );
 }
+
+
+export type PrizePoolView = {
+  contestId: string;
+  currency: string;
+  testOnly: boolean;
+  status: string;
+  seeded: string;
+  rolloverIn: string;
+  total: string;
+  awarded: string;
+  rolloverOut: string;
+  available: string;
+  settledAt: string | null;
+};
+
+export type PrizePoolLedgerEntry = {
+  id: string;
+  type: string;
+  amount: string;
+  note: string;
+  createdAt: string;
+};
+
+export type PrizePoolAward = {
+  username: string;
+  rank: number;
+  amount: string;
+  status: string;
+};
+
+export type PrizePoolResult = {
+  pool: PrizePoolView;
+  ledger: PrizePoolLedgerEntry[];
+  awards: PrizePoolAward[];
+};
+
+export async function getPrizePool(contestId: string): Promise<PrizePoolResult> {
+  return request<PrizePoolResult>(
+    `/admin/prize-pool/${encodeURIComponent(contestId)}`,
+    {},
+    true,
+  );
+}
+
+export async function testFundPrizePool(
+  contestId: string,
+  amount: string,
+): Promise<{ pool: PrizePoolView }> {
+  return request<{ pool: PrizePoolView }>(
+    `/admin/prize-pool/${encodeURIComponent(contestId)}/test-fund`,
+    { method: "POST", body: JSON.stringify({ amount }) },
+    true,
+  );
+}
+
+export async function settlePrizePool(
+  contestId: string,
+): Promise<{
+  alreadySettled: boolean;
+  pool: PrizePoolView;
+  completedParticipants?: number;
+  awards: PrizePoolAward[];
+}> {
+  return request(
+    `/admin/prize-pool/${encodeURIComponent(contestId)}/settle`,
+    { method: "POST", body: JSON.stringify({}) },
+    true,
+  );
+}
