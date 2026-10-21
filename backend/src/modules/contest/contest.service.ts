@@ -6,6 +6,7 @@ import type {
   SubmitAnswerInput,
 } from "./contest.schema.js";
 import {
+  calculateClueAvailableAt,
   calculateResponseTimeMs,
   getContestProgress,
   hasCompleteClueSequence,
@@ -214,6 +215,7 @@ export async function getCurrentClue(
     select: {
       clueId: true,
       answer: true,
+      submittedAt: true,
     },
   });
 
@@ -242,11 +244,26 @@ export async function getCurrentClue(
   }
 
   const currentClue = progress.currentClue;
+  const contestSetting = await prisma.contestSetting.findUnique({
+    where: { contestId },
+    select: { publishIntervalMinutes: true },
+  });
+  const previousClue =
+    currentClue.sequence > 1
+      ? clues.find((clue) => clue.sequence === currentClue.sequence - 1)
+      : undefined;
+  const previousCorrectSubmittedAt = previousClue
+    ? correctSubmissions.find((submission) => submission.clueId === previousClue.id)?.submittedAt ?? null
+    : null;
+  const availableAt =
+    calculateClueAvailableAt(
+      currentClue.sequence,
+      contest.startsAt,
+      previousCorrectSubmittedAt,
+      contestSetting?.publishIntervalMinutes ?? 2,
+    ) ?? currentClue.publishedAt;
 
-  if (
-    currentClue.publishedAt &&
-    now < currentClue.publishedAt
-  ) {
+  if (availableAt && now < availableAt) {
     return {
       status: "WAITING_FOR_CLUE" as const,
       contest,
@@ -254,7 +271,8 @@ export async function getCurrentClue(
       currentSequence: currentClue.sequence,
       solvedCount: progress.solvedCount,
       solvedAnswers,
-      publishedAt: currentClue.publishedAt,
+      publishedAt: availableAt,
+      availableAt,
     };
   }
 
@@ -266,7 +284,8 @@ export async function getCurrentClue(
       sequence: currentClue.sequence,
       type: currentClue.type,
       content: currentClue.content,
-      publishedAt: currentClue.publishedAt,
+      publishedAt: availableAt,
+      availableAt,
       sourceUrl: currentClue.sourceUrl,
       hintAnchor: currentClue.hintAnchor,
       options: Array.isArray(currentClue.options)
@@ -276,6 +295,7 @@ export async function getCurrentClue(
     currentSequence: currentClue.sequence,
     solvedCount: progress.solvedCount,
     solvedAnswers,
+    availableAt,
   };
 }
 
@@ -348,6 +368,7 @@ export async function submitAnswer(
     },
     select: {
       clueId: true,
+      submittedAt: true,
     },
   });
 
@@ -372,10 +393,26 @@ export async function submitAnswer(
     throw new Error("CLUE_NOT_CURRENT");
   }
 
-  if (
-    currentClue.publishedAt &&
-    now < currentClue.publishedAt
-  ) {
+  const contestSetting = await prisma.contestSetting.findUnique({
+    where: { contestId },
+    select: { publishIntervalMinutes: true },
+  });
+  const previousClue =
+    currentClue.sequence > 1
+      ? clues.find((clue) => clue.sequence === currentClue.sequence - 1)
+      : undefined;
+  const previousCorrectSubmittedAt = previousClue
+    ? correctSubmissions.find((submission) => submission.clueId === previousClue.id)?.submittedAt ?? null
+    : null;
+  const availableAt =
+    calculateClueAvailableAt(
+      currentClue.sequence,
+      contest.startsAt,
+      previousCorrectSubmittedAt,
+      contestSetting?.publishIntervalMinutes ?? 2,
+    ) ?? currentClue.publishedAt;
+
+  if (availableAt && now < availableAt) {
     throw new Error("CLUE_NOT_PUBLISHED");
   }
 
@@ -399,41 +436,7 @@ export async function submitAnswer(
     normalizeAnswer(data.answer) ===
     normalizeAnswer(currentClue.correctAnswer);
 
-  let previousCorrectSubmittedAt: Date | null = null;
-
-  if (currentClue.sequence > 1) {
-    const previousClue = await prisma.contestClue.findUnique({
-      where: {
-        contestId_sequence: {
-          contestId,
-          sequence: currentClue.sequence - 1,
-        },
-      },
-      select: { id: true },
-    });
-
-    if (previousClue) {
-      const previousCorrectSubmission = await prisma.submission.findFirst({
-        where: {
-          userId,
-          contestId,
-          clueId: previousClue.id,
-          isCorrect: true,
-        },
-        select: { submittedAt: true },
-        orderBy: { submittedAt: "asc" },
-      });
-
-      previousCorrectSubmittedAt =
-        previousCorrectSubmission?.submittedAt ?? null;
-    }
-  }
-
-  const responseTimeMs = calculateResponseTimeMs(now, [
-    currentClue.publishedAt,
-    currentClue.sequence === 1 ? contest.startsAt : null,
-    previousCorrectSubmittedAt,
-  ]);
+  const responseTimeMs = calculateResponseTimeMs(now, [availableAt]);
 
   await prisma.submission.create({
     data: {
