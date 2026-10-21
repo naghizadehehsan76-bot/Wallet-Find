@@ -1,5 +1,5 @@
 import prisma from "../../config/prisma.js";
-import { hasCompleteClueSequence } from "../contest/contest.logic.js";
+import { calculateCluePublishedAt, hasCompleteClueSequence } from "../contest/contest.logic.js";
 
 export async function activateContest(
   contestId: string,
@@ -39,7 +39,7 @@ export async function activateContest(
 
   const clues = await prisma.contestClue.findMany({
     where: { contestId },
-    select: { sequence: true },
+    select: { id: true, sequence: true },
     orderBy: { sequence: "asc" },
   });
 
@@ -64,12 +64,40 @@ export async function activateContest(
   }
 
   const clueCount = clues.length;
+  const startsAt = contest.startsAt ?? now;
+  const setting = await prisma.contestSetting.findUnique({
+    where: { contestId },
+    select: { publishIntervalMinutes: true },
+  });
+  const intervalMinutes = setting?.publishIntervalMinutes ?? 2;
+
+  // Manual activation uses the same shared publication schedule as the
+  // automatic scheduler. Every participant therefore gets the same start time
+  // for each clue, regardless of when they solved the previous clue.
+  await Promise.all(
+    clues.map((clue) => {
+      const publishedAt = calculateCluePublishedAt(
+        clue.sequence,
+        startsAt,
+        intervalMinutes,
+      );
+
+      if (!publishedAt) {
+        throw new Error("CLUE_PUBLICATION_TIME_MISSING");
+      }
+
+      return prisma.contestClue.update({
+        where: { id: clue.id },
+        data: { publishedAt },
+      });
+    }),
+  );
 
   const updated = await prisma.contest.update({
     where: { id: contestId },
     data: {
       status: "ACTIVE",
-      startsAt: contest.startsAt ?? now,
+      startsAt,
     },
     select: {
       id: true,
