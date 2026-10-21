@@ -1,4 +1,4 @@
-import { calculateCluePublicationTime } from "./contest.logic.js";
+import { calculateCluePublicationTime, calculateResponseTimeMs } from "./contest.logic.js";
 
 import prisma from "../../config/prisma.js";
 
@@ -57,6 +57,7 @@ export async function getContestLeaderboard(
       username: string;
       solvedClueIds: Set<string>;
       totalResponseTimeMs: bigint;
+      completedAt: Date | null;
       incorrectAttempts: number;
     }
   >();
@@ -69,6 +70,7 @@ export async function getContestLeaderboard(
         username: submission.user.username,
         solvedClueIds: new Set<string>(),
         totalResponseTimeMs: 0n,
+        completedAt: null,
         incorrectAttempts: 0,
       };
       byUser.set(submission.userId, existing);
@@ -86,6 +88,9 @@ export async function getContestLeaderboard(
       continue;
     }
     existing.solvedClueIds.add(submission.clueId);
+    if (submission.clue.sequence === 12) {
+      existing.completedAt = submission.submittedAt;
+    }
 
     const publishedAt =
       submission.clue.publishedAt ??
@@ -101,15 +106,28 @@ export async function getContestLeaderboard(
     existing.totalResponseTimeMs += BigInt(elapsedMs);
   }
 
+  const contestStartTime =
+    contest.startsAt ??
+    submissions.find((submission) => submission.clue.sequence === 1)?.clue.publishedAt ??
+    null;
+
   const entries = [...byUser.entries()]
-    .map(([userId, value]) => ({
-      userId,
-      username: value.username,
-      solvedCount: value.solvedClueIds.size,
-      totalResponseTimeMs: Number(value.totalResponseTimeMs),
-      incorrectAttempts: value.incorrectAttempts,
-      completed: value.solvedClueIds.size >= 12,
-    }))
+    .map(([userId, value]) => {
+      const completed = value.solvedClueIds.size >= 12;
+      const overallElapsedMs =
+        completed && value.completedAt && contestStartTime
+          ? calculateResponseTimeMs(value.completedAt, [contestStartTime])
+          : Number(value.totalResponseTimeMs);
+
+      return {
+        userId,
+        username: value.username,
+        solvedCount: value.solvedClueIds.size,
+        totalResponseTimeMs: overallElapsedMs,
+        incorrectAttempts: value.incorrectAttempts,
+        completed,
+      };
+    })
     .sort((a, b) => {
       if (a.completed !== b.completed) {
         return a.completed ? -1 : 1;

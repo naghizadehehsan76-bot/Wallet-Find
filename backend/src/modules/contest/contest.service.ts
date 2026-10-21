@@ -232,11 +232,16 @@ export async function getCurrentClue(
     return [{ sequence, answer: submission.answer }];
   });
 
+  const finalCorrectSubmission = correctSubmissions.find(
+    (submission) => sequenceByClueId.get(submission.clueId) === REQUIRED_CLUE_COUNT,
+  );
+
   if (progress.completed || !progress.currentClue) {
     return {
       status: "CONTEST_COMPLETED" as const,
       contest,
       serverTime: now,
+      completedAt: finalCorrectSubmission?.submittedAt ?? null,
       clue: null,
       currentSequence: null,
       solvedCount: progress.solvedCount,
@@ -376,12 +381,16 @@ export async function submitAnswer(
   const progress = getContestProgress(clues, solvedClueIds);
 
   if (progress.completed || !progress.currentClue) {
+    const finalCorrectSubmission = correctSubmissions.find((submission) =>
+      clues.find((clue) => clue.id === submission.clueId)?.sequence === REQUIRED_CLUE_COUNT
+    );
     return {
       status: "CONTEST_COMPLETED" as const,
       isCorrect: true,
       responseTimeMs: 0,
       currentSequence: REQUIRED_CLUE_COUNT,
       nextSequence: null,
+      completedAt: finalCorrectSubmission?.submittedAt ?? now,
     };
   }
 
@@ -467,6 +476,7 @@ export async function submitAnswer(
       responseTimeMs,
       currentSequence: currentClue.sequence,
       nextSequence: null,
+      completedAt: now,
     };
   }
 

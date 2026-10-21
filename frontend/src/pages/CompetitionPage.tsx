@@ -49,7 +49,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [error, setError] = useState("");
   const [completed, setCompleted] = useState(false);
   const [waitingForClue, setWaitingForClue] = useState(false);
-  const [clueAvailableAt, setClueAvailableAt] = useState<string | null>(null);
+  const [completedAt, setCompletedAt] = useState<string | null>(null);
   const [timerNow, setTimerNow] = useState(() => Date.now());
   const [serverTimeOffset, setServerTimeOffset] = useState(0);
 
@@ -67,14 +67,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     setHintAnchor(current.clue?.hintAnchor ?? "");
     setSourceUrl(current.clue?.sourceUrl ?? "");
     setCompleted(current.status === "CONTEST_COMPLETED");
+    setCompletedAt(current.completedAt ?? null);
     setWaitingForClue(current.status === "WAITING_FOR_CLUE");
-    setClueAvailableAt(
-      current.availableAt ??
-        current.clue?.availableAt ??
-        current.publishedAt ??
-        current.clue?.publishedAt ??
-        null,
-    );
 
     const restoredAnswers = Array(12).fill("") as string[];
     const restoredSolved = Array(12).fill(false) as boolean[];
@@ -187,14 +181,14 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   }
 
   useEffect(() => {
-    if (!waitingForClue && !currentClueId) return;
+    if (!contestDate || completed) return;
 
     const timerId = window.setInterval(() => {
       setTimerNow(Date.now());
     }, 100);
 
     return () => window.clearInterval(timerId);
-  }, [waitingForClue, currentClueId]);
+  }, [contestDate, completed]);
 
   async function handleStartNextContest() {
     if (!contestId || !completed || startingNextContest) return;
@@ -279,6 +273,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       setFeedbackTone("success");
 
       if (result.status === "CONTEST_COMPLETED") {
+        setCompletedAt(result.completedAt ?? new Date(Date.now() + serverTimeOffset).toISOString());
         setSolvedCount(12);
         setCurrentSequence(null);
         setCurrentClueId(null);
@@ -324,16 +319,17 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const numberLocale = isPersian ? "fa-IR" : "en-US";
   const formatNumber = (value: number) => value.toLocaleString(numberLocale);
   const progressPercent = Math.min(100, (solvedCount / 12) * 100);
-  const unlockTimestamp = clueAvailableAt ? Date.parse(clueAvailableAt) : Number.NaN;
+  const LOCK_DURATION_MS = 2 * 60_000;
   const authoritativeNow = timerNow + serverTimeOffset;
-  const remainingUnlockMs =
-    waitingForClue && Number.isFinite(unlockTimestamp)
-      ? Math.max(0, unlockTimestamp - authoritativeNow)
-      : null;
-  const elapsedFromPublicationMs =
-    !waitingForClue && Boolean(currentClueId) && Number.isFinite(unlockTimestamp)
-      ? Math.max(0, authoritativeNow - unlockTimestamp)
-      : null;
+  const contestStartTimestamp = contestDate ? Date.parse(contestDate) : Number.NaN;
+  const completionTimestamp = completedAt ? Date.parse(completedAt) : Number.NaN;
+  const timerEndTimestamp =
+    completed && Number.isFinite(completionTimestamp)
+      ? completionTimestamp
+      : authoritativeNow;
+  const totalContestElapsedMs = Number.isFinite(contestStartTimestamp)
+    ? Math.max(0, timerEndTimestamp - contestStartTimestamp)
+    : null;
   const formatCountdown = (milliseconds: number) => {
     const totalSeconds = Math.ceil(milliseconds / 1_000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -358,6 +354,105 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       });
     return formatPart(minutes) + ":" + formatPart(seconds) + "." + formatPart(centiseconds);
   };
+
+  const renderAnswerGrid = () => (
+    <section
+      className="word-options-grid"
+      aria-label={isPersian ? "دوازده کادر پاسخ، هر راند یک کادر" : "Twelve answer boxes, one per round"}
+    >
+      {answerSlots.map((value, index) => {
+        const isSolved = solvedSlots[index];
+        const isActive =
+          !completed &&
+          !waitingForClue &&
+          Boolean(currentClueId) &&
+          index === activeAnswerIndex &&
+          !isSolved;
+        const isLocked = !isSolved && !isActive;
+        const countdownStartAt = Number.isFinite(contestStartTimestamp)
+          ? contestStartTimestamp + Math.max(0, index - 1) * LOCK_DURATION_MS
+          : Number.NaN;
+        const releaseAt = Number.isFinite(contestStartTimestamp)
+          ? contestStartTimestamp + index * LOCK_DURATION_MS
+          : Number.NaN;
+        const lockRemainingMs =
+          index === 0
+            ? 0
+            : !Number.isFinite(countdownStartAt) || !Number.isFinite(releaseAt)
+              ? LOCK_DURATION_MS
+              : authoritativeNow < countdownStartAt
+                ? LOCK_DURATION_MS
+                : Math.max(0, releaseAt - authoritativeNow);
+
+        return (
+          <div
+            key={index}
+            className={
+              "word-entry " +
+              (isActive ? "word-entry--active " : "") +
+              (isSolved ? "word-entry--solved " : "") +
+              (incorrectSlots[index] ? "word-entry--incorrect" : "")
+            }
+          >
+            <span className="word-option__index mono">
+              {(index + 1).toLocaleString(numberLocale, {
+                minimumIntegerDigits: 2,
+                useGrouping: false,
+              })}
+            </span>
+            {isLocked ? (
+              <div
+                className="word-entry__lock"
+                aria-label={
+                  (isPersian ? "خانه‌ی قفل‌شده، زمان باقی‌مانده " : "Locked box, time remaining ") +
+                  (index === 0 ? "—:—" : formatCountdown(lockRemainingMs))
+                }
+              >
+                <span className="word-entry__lock-icon" aria-hidden="true">🔒</span>
+                <span className="word-entry__lock-time mono">
+                  {index === 0 ? "—:—" : formatCountdown(lockRemainingMs)}
+                </span>
+              </div>
+            ) : (
+              <input
+                type="text"
+                value={value}
+                dir="ltr"
+                autoComplete="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                aria-label={(isPersian ? "کادر پاسخ " : "Answer box ") + formatNumber(index + 1)}
+                placeholder={
+                  isSolved
+                    ? (isPersian ? "پاسخ درست" : "Correct")
+                    : (isPersian ? "کلمه..." : "Type word...")
+                }
+                disabled={submitting || isSolved}
+                readOnly={isSolved}
+                onChange={(event) => {
+                  const next = [...answerSlots];
+                  next[index] = event.target.value;
+                  setAnswerSlots(next);
+                  setIncorrectSlots((slots) =>
+                    slots.map((item, slotIndex) => slotIndex === index ? false : item)
+                  );
+                  setFeedback("");
+                  setFeedbackTone("info");
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void handleSubmit();
+                  }
+                }}
+              />
+            )}
+          </div>
+        );
+      })}
+    </section>
+  );
+
 
   return (
     <div className="app-shell">
@@ -387,19 +482,13 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           </div>
           <div className="clue-timer" role="timer" aria-live="off">
             <span className="clue-timer__label">
-              {waitingForClue
-                ? (isPersian ? "انتشار سرنخ بعدی" : "Next clue release")
-                : (isPersian ? "زمان از انتشار سرنخ" : "Time since publication")}
+              {isPersian ? "زمان کل مسابقه" : "Total contest time"}
             </span>
             <strong>
-              {waitingForClue
-                ? (remainingUnlockMs === null ? "—:—" : formatCountdown(remainingUnlockMs))
-                : (elapsedFromPublicationMs === null ? "—:—" : formatElapsed(elapsedFromPublicationMs))}
+              {totalContestElapsedMs === null ? "—:—" : formatElapsed(totalContestElapsedMs)}
             </strong>
             <span className="clue-timer__note">
-              {waitingForClue
-                ? (isPersian ? "زمان تا انتشار" : "Time to release")
-                : (isPersian ? "تا ثبت پاسخ صحیح" : "Until correct answer")}
+              {isPersian ? "از شروع تا ثبت پاسخ دوازدهم" : "From start to final answer"}
             </span>
           </div>
         </section>
@@ -438,6 +527,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
             </section>
 
             {completed ? (
+              <>
               <section className="round-complete">
                 <div className="round-complete__icon">✓</div>
                 <h3>{isPersian ? "مسابقه کامل شد!" : "Contest completed!"}</h3>
@@ -457,12 +547,25 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                     : (isPersian ? "شروع مسابقه ی بعدی" : "Start Next Contest")}
                 </button>
               </section>
-            ) : waitingForClue ? (
-              <div className="inline-feedback">
-                {isPersian
-                  ? "پاسخ صحیح ثبت شد. لینک سرنخ بعدی پس از پایان تایمر باز می‌شود."
-                  : "Correct answer saved. The next clue link opens when the timer ends."}
+              <div className="word-grid-title">
+                <span>{isPersian ? "پاسخ‌های ثبت‌شده" : "Submitted answers"}</span>
+                <span className="word-grid-count mono">{formatNumber(solvedCount)} / 12</span>
               </div>
+              {renderAnswerGrid()}
+              </>
+            ) : waitingForClue ? (
+              <>
+                <div className="inline-feedback">
+                  {isPersian
+                    ? "پاسخ صحیح ثبت شد. خانه‌ی بعد پس از پایان تایمر و با ثبت پاسخ صحیح خانه‌ی قبلی فعال می‌شود."
+                    : "Correct answer saved. The next box activates when its timer ends and the previous answer is correct."}
+                </div>
+                <div className="word-grid-title">
+                  <span>{isPersian ? "وضعیت ۱۲ خانه" : "Twelve box status"}</span>
+                  <span className="word-grid-count mono">{isPersian ? "خانه‌ی بعد قفل است" : "Next box locked"}</span>
+                </div>
+                {renderAnswerGrid()}
+              </>
             ) : (
               <>
                 <section className="round-hint-card">
@@ -517,44 +620,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                   <span className="word-grid-count mono">{isPersian ? "کادر راند " + formatNumber(displayedRound) : "ROUND BOX " + formatNumber(displayedRound)}</span>
                 </div>
 
-                <section className="word-options-grid" aria-label={isPersian ? "دوازده کادر پاسخ، هر راند یک کادر" : "Twelve answer boxes, one per round"}>
-                  {answerSlots.map((value, index) => (
-                    <label
-                      key={index}
-                      className={"word-entry " + (activeAnswerIndex === index ? "word-entry--active" : "") + (solvedSlots[index] ? " word-entry--solved" : "") + (incorrectSlots[index] ? " word-entry--incorrect" : "")}
-                    >
-                      <span className="word-option__index mono">
-                        {(index + 1).toLocaleString(numberLocale, { minimumIntegerDigits: 2, useGrouping: false })}
-                      </span>
-                      <input
-                        type="text"
-                        value={value}
-                        dir="ltr"
-                        autoComplete="off"
-                        autoCapitalize="none"
-                        spellCheck={false}
-                        aria-label={(isPersian ? "کادر پاسخ " : "Answer box ") + formatNumber(index + 1)}
-                        placeholder={solvedSlots[index] ? (isPersian ? "پاسخ درست" : "Correct") : index === activeAnswerIndex ? (isPersian ? "کلمه..." : "Type word...") : (isPersian ? "قفل" : "Locked")}
-                        disabled={submitting || solvedSlots[index] || index !== activeAnswerIndex}
-                        readOnly={solvedSlots[index]}
-                        onChange={(event) => {
-                          const next = [...answerSlots];
-                          next[index] = event.target.value;
-                          setAnswerSlots(next);
-                          setIncorrectSlots((slots) => slots.map((item, slotIndex) => slotIndex === index ? false : item));
-                          setFeedback("");
-                          setFeedbackTone("info");
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            void handleSubmit();
-                          }
-                        }}
-                      />
-                    </label>
-                  ))}
-                </section>
+                {renderAnswerGrid()}
 
                 <button
                   type="button"
