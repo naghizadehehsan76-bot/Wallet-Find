@@ -30,10 +30,12 @@ export async function getContestLeaderboard(
       clueId: true,
       isCorrect: true,
       responseTimeMs: true,
+      submittedAt: true,
       user: {
         select: { username: true },
       },
     },
+    orderBy: { submittedAt: "asc" },
   });
 
   const byUser = new Map<
@@ -65,9 +67,13 @@ export async function getContestLeaderboard(
     }
 
     if (submission.isCorrect) {
-      existing.solvedClueIds.add(submission.clueId);
-      existing.totalResponseTimeMs +=
-        submission.responseTimeMs ?? 0n;
+      // Count a clue only once; if legacy or concurrent duplicate submissions
+      // exist, the earliest correct one is the official solve time.
+      if (!existing.solvedClueIds.has(submission.clueId)) {
+        existing.solvedClueIds.add(submission.clueId);
+        existing.totalResponseTimeMs +=
+          submission.responseTimeMs ?? 0n;
+      }
     } else {
       existing.incorrectAttempts += 1;
     }
