@@ -1,3 +1,5 @@
+import { calculateCluePublicationTime } from "./contest.logic.js";
+
 import prisma from "../../config/prisma.js";
 
 export type LeaderboardEntry = {
@@ -16,20 +18,33 @@ export async function getContestLeaderboard(
 ) {
   const contest = await prisma.contest.findUnique({
     where: { id: contestId },
-    select: { id: true },
+    select: {
+      id: true,
+      startsAt: true,
+      setting: { select: { publishIntervalMinutes: true } },
+    },
   });
 
   if (!contest) {
     throw new Error("CONTEST_NOT_FOUND");
   }
 
+  const intervalMinutes = contest.setting?.publishIntervalMinutes ?? 2;
   const submissions = await prisma.submission.findMany({
     where: { contestId },
+    orderBy: [{ submittedAt: "asc" }, { id: "asc" }],
     select: {
       userId: true,
       clueId: true,
       isCorrect: true,
+      submittedAt: true,
       responseTimeMs: true,
+      clue: {
+        select: {
+          sequence: true,
+          publishedAt: true,
+        },
+      },
       user: {
         select: { username: true },
       },
@@ -47,30 +62,43 @@ export async function getContestLeaderboard(
   >();
 
   for (const submission of submissions) {
-    const existing = byUser.get(submission.userId);
+    let existing = byUser.get(submission.userId);
 
     if (!existing) {
-      byUser.set(submission.userId, {
+      existing = {
         username: submission.user.username,
-        solvedClueIds: new Set(
-          submission.isCorrect ? [submission.clueId] : [],
-        ),
-        totalResponseTimeMs:
-          submission.isCorrect
-            ? submission.responseTimeMs ?? 0n
-            : 0n,
-        incorrectAttempts: submission.isCorrect ? 0 : 1,
-      });
+        solvedClueIds: new Set<string>(),
+        totalResponseTimeMs: 0n,
+        incorrectAttempts: 0,
+      };
+      byUser.set(submission.userId, existing);
+    }
+
+    if (!submission.isCorrect) {
+      existing.incorrectAttempts += 1;
       continue;
     }
 
-    if (submission.isCorrect) {
-      existing.solvedClueIds.add(submission.clueId);
-      existing.totalResponseTimeMs +=
-        submission.responseTimeMs ?? 0n;
-    } else {
-      existing.incorrectAttempts += 1;
+    // Count one successful answer per clue only. Submissions are ordered by
+    // server timestamp so duplicated concurrent correct requests cannot
+    // inflate (or replace) the user's score more than once for the same clue.
+    if (existing.solvedClueIds.has(submission.clueId)) {
+      continue;
     }
+    existing.solvedClueIds.add(submission.clueId);
+
+    const publishedAt =
+      submission.clue.publishedAt ??
+      calculateCluePublicationTime(
+        submission.clue.sequence,
+        contest.startsAt,
+        intervalMinutes,
+      );
+    const elapsedMs = publishedAt
+      ? Math.max(0, submission.submittedAt.getTime() - publishedAt.getTime())
+      : Number(submission.responseTimeMs ?? 0n);
+
+    existing.totalResponseTimeMs += BigInt(elapsedMs);
   }
 
   const entries = [...byUser.entries()]
