@@ -594,9 +594,8 @@ function publicContest(contest: ActiveContestForNext) {
 }
 
 /**
- * Start the next shared contest only after this user has solved all 12 clues
- * in the supplied contest. Existing submissions remain attached to the
- * finished contest so its leaderboard/history is preserved.
+ * Prepare the next shared round after a user completes all 12 clues. It starts
+ * on the next fixed 30-minute boundary and does not interrupt the current round.
  */
 export async function startNextMvpContest(userId: string, completedContestId: string) {
   const completedContest = await prisma.contest.findUnique({
@@ -629,6 +628,21 @@ export async function startNextMvpContest(userId: string, completedContestId: st
   }
 
   const now = new Date();
+  const existingScheduled = await prisma.contest.findFirst({
+    where: { status: "SCHEDULED", startsAt: { gt: now } },
+    orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      status: true,
+      startsAt: true,
+      endsAt: true,
+      clues: { select: { sequence: true, sourceUrl: true, hintAnchor: true, options: true } },
+    },
+  });
+  if (existingScheduled) return publicContest(existingScheduled);
+
   const activeSelect = {
     id: true,
     title: true,
@@ -680,14 +694,17 @@ export async function startNextMvpContest(userId: string, completedContestId: st
       }
 
       const previousActiveIds = activeContests.map((contest) => contest.id);
-      const startsAt = new Date();
+      const ROUND_INTERVAL_MS = 30 * 60_000;
+      const startsAt = new Date(Math.ceil(Date.now() / ROUND_INTERVAL_MS) * ROUND_INTERVAL_MS);
+      const endsAt = new Date(startsAt.getTime() + CONTEST_DURATION_MS);
 
       const created = await tx.contest.create({
         data: {
           title: "مسابقه واژه‌یابی انگلیسی Wallet Find",
           description: "۱۲ راند واژه‌یابی؛ راهنما را بخوان، لینک منبع را باز کن و کلمه را از میان ۱۲ گزینه انتخاب کن.",
-          status: "ACTIVE",
+          status: "SCHEDULED",
           startsAt,
+          endsAt,
           clues: {
             create: clues.map((clue, index) => ({
               sequence: index + 1,
@@ -698,7 +715,7 @@ export async function startNextMvpContest(userId: string, completedContestId: st
               sourceUrl: clue.sourceUrl,
               hintAnchor: clue.hintAnchor,
               options: clue.options,
-              publishedAt: new Date(startsAt.getTime() + index * 2 * 60_000),
+              publishedAt: startsAt,
             })),
           },
         },
@@ -712,16 +729,6 @@ export async function startNextMvpContest(userId: string, completedContestId: st
         },
       });
 
-      if (previousActiveIds.length > 0) {
-        await tx.contest.updateMany({
-          where: {
-            id: { in: previousActiveIds },
-            status: "ACTIVE",
-          },
-          data: { status: "FINISHED" },
-        });
-      }
-
       await tx.auditLog.create({
         data: {
           userId,
@@ -732,7 +739,9 @@ export async function startNextMvpContest(userId: string, completedContestId: st
             previousContestId: completedContestId,
             clueCount: clues.length,
             sourceDomains: [...new Set(clues.map((clue) => new URL(clue.sourceUrl).hostname))],
-            createdAt: startsAt.toISOString(),
+            createdAt: now.toISOString(),
+            scheduledStartAt: startsAt.toISOString(),
+            endsAt: endsAt.toISOString(),
           },
         },
       });
