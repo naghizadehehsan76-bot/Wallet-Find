@@ -73,12 +73,11 @@ async function ensurePool(tx: any, contestId: string) {
       orderBy: { contest: { startsAt: "asc" } },
     });
     for (const previous of previousPools) {
-      const referenceKey = `rollover-in:${previous.contestId}:${contestId}`;
-      const alreadyTransferred = await tx.prizeLedger.findFirst({
-        where: {
-          type: "ROLLOVER_IN",
-          referenceKey: { startsWith: `rollover-in:${previous.contestId}:` },
-        },
+      // A globally unique source key prevents the same rollover from being
+      // credited to two different future rounds, even under concurrent requests.
+      const referenceKey = `rollover-source:${previous.contestId}`;
+      const alreadyTransferred = await tx.prizeLedger.findUnique({
+        where: { referenceKey },
         select: { id: true },
       });
       if (alreadyTransferred) continue;
@@ -89,7 +88,7 @@ async function ensurePool(tx: any, contestId: string) {
           contestId,
           type: "ROLLOVER_IN",
           amountMicro: amount,
-          note: `Rollover transferred from previous round ${previous.contestId}; simulated ledger only`,
+          note: `Rollover transferred from previous round ${previous.contestId} into round ${contestId}; simulated ledger only`,
           referenceKey,
         },
       });
