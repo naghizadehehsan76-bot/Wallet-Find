@@ -25,11 +25,54 @@ async function ensurePool(tx: any, contestId: string) {
     select: { id: true },
   });
   if (!contest) throw new Error("CONTEST_NOT_FOUND");
-  return tx.prizePool.upsert({
+  let pool = await tx.prizePool.upsert({
     where: { contestId },
     update: {},
     create: { contestId, testOnly: true, currency: "USDT" },
   });
+
+  // Carry every not-yet-claimed rollover forward exactly once, when a later
+  // round's pool is first accessed. Ledger reference keys make retries safe.
+  const currentContest = await tx.contest.findUnique({
+    where: { id: contestId },
+    select: { startsAt: true },
+  });
+  if (currentContest?.startsAt) {
+    const previousPools = await tx.prizePool.findMany({
+      where: {
+        contestId: { not: contestId },
+        status: "SETTLED",
+        rolloverOutMicro: { gt: 0n },
+        contest: { startsAt: { lt: currentContest.startsAt } },
+      },
+      select: { contestId: true, rolloverOutMicro: true },
+      orderBy: { contest: { startsAt: "asc" } },
+    });
+    for (const previous of previousPools) {
+      const referenceKey = `rollover-in:${previous.contestId}:${contestId}`;
+      const alreadyTransferred = await tx.prizeLedger.findUnique({
+        where: { referenceKey },
+        select: { id: true },
+      });
+      if (alreadyTransferred) continue;
+      const amount = BigInt(previous.rolloverOutMicro);
+      if (amount <= 0n) continue;
+      await tx.prizeLedger.create({
+        data: {
+          contestId,
+          type: "ROLLOVER_IN",
+          amountMicro: amount,
+          note: `Rollover transferred from previous round ${previous.contestId}; simulated ledger only`,
+          referenceKey,
+        },
+      });
+      pool = await tx.prizePool.update({
+        where: { contestId },
+        data: { rolloverInMicro: { increment: amount } },
+      });
+    }
+  }
+  return pool;
 }
 
 function responsePool(pool: any) {
