@@ -358,6 +358,7 @@ export async function submitAnswerHandler(
       "CLUE_NOT_CURRENT",
       "CLUE_NOT_PUBLISHED",
       "CLUE_ALREADY_SOLVED",
+      "CLUE_LOCKED",
     ]);
 
     if (clientErrors.has(error.message)) {
@@ -367,6 +368,9 @@ export async function submitAnswerHandler(
       return res.status(status).json({
         success: false,
         error: error.message,
+        ...(error.message === "CLUE_LOCKED" && "lockedUntil" in error
+          ? { lockedUntil: (error as Error & { lockedUntil?: string }).lockedUntil }
+          : {}),
       });
     }
 
