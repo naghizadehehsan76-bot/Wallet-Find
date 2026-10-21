@@ -599,7 +599,7 @@ function publicContest(contest: ActiveContestForNext) {
 
 /**
  * Prepare the next shared round after a user completes all 12 clues. It starts
- * on the next fixed 30-minute boundary and does not interrupt the current round.
+ * on the next fixed 15-minute boundary and does not interrupt the current round.
  */
 export async function startNextMvpContest(userId: string, completedContestId: string) {
   const completedContest = await prisma.contest.findUnique({
