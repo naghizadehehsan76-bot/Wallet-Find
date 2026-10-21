@@ -183,7 +183,7 @@ export async function testFundPrizePool(contestId: string, rawAmount: unknown, a
     });
     await tx.auditLog.create({
       data: {
-        userId: actorUserId,
+        ...(actorUserId ? { userId: actorUserId } : {}),
         action: "PRIZE_POOL_TEST_FUNDED",
         entity: "PrizePool",
         entityId: pool.id,
@@ -265,9 +265,18 @@ export async function settlePrizePool(contestId: string, actorUserId?: string) {
 
     let position = 1;
     for (let index = 0; index < finishers.length;) {
+      const first = finishers[index];
+      if (!first) break;
       let end = index + 1;
-      while (end < finishers.length && finishers[end].elapsedMs === finishers[index].elapsedMs) end++;
-      for (let cursor = index; cursor < end; cursor++) finishers[cursor].rank = position;
+      while (end < finishers.length) {
+        const candidate = finishers[end];
+        if (!candidate || candidate.elapsedMs !== first.elapsedMs) break;
+        end++;
+      }
+      for (let cursor = index; cursor < end; cursor++) {
+        const person = finishers[cursor];
+        if (person) person.rank = position;
+      }
       position += end - index;
       index = end;
     }
@@ -278,15 +287,22 @@ export async function settlePrizePool(contestId: string, actorUserId?: string) {
 
     // Tie groups pool the rank-slot prizes they occupy, then split evenly.
     for (let index = 0; index < Math.min(3, finishers.length);) {
+      const first = finishers[index];
+      if (!first) break;
       let end = index + 1;
-      while (end < finishers.length && finishers[end].elapsedMs === finishers[index].elapsedMs) end++;
+      while (end < finishers.length) {
+        const candidate = finishers[end];
+        if (!candidate || candidate.elapsedMs !== first.elapsedMs) break;
+        end++;
+      }
       let slotPercent = 0n;
       for (let slot = index; slot < Math.min(end, 3); slot++) slotPercent += POOL_PERCENTAGES[slot] ?? 0n;
       const groupAmount = totalPool * slotPercent / 100n;
       const groupSize = BigInt(end - index);
       const perPerson = groupAmount / groupSize;
       for (let cursor = index; cursor < end; cursor++) {
-        if (index < 3) payouts.set(finishers[cursor].userId, { rank: finishers[cursor].rank, amount: perPerson });
+        const person = finishers[cursor];
+        if (person && index < 3) payouts.set(person.userId, { rank: person.rank, amount: perPerson });
       }
       distributed += perPerson * groupSize;
       index = end;
@@ -301,7 +317,9 @@ export async function settlePrizePool(contestId: string, actorUserId?: string) {
       if (scoreTotal > 0n) {
         for (let index = 0; index < lower.length; index++) {
           const person = lower[index];
-          const share = lowerPool * scores[index] / scoreTotal;
+          const score = scores[index];
+          if (!person || score === undefined) continue;
+          const share = lowerPool * score / scoreTotal;
           const existing = payouts.get(person.userId);
           payouts.set(person.userId, { rank: person.rank, amount: (existing?.amount ?? 0n) + share });
           distributed += share;
@@ -357,7 +375,7 @@ export async function settlePrizePool(contestId: string, actorUserId?: string) {
     });
     await tx.auditLog.create({
       data: {
-        userId: actorUserId,
+        ...(actorUserId ? { userId: actorUserId } : {}),
         action: "PRIZE_POOL_SIMULATED_SETTLEMENT",
         entity: "PrizePool",
         entityId: pool.id,
