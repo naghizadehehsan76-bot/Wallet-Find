@@ -208,6 +208,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       setContestId(nextContest.id);
       setContestTitle(nextContest.title);
       setContestDate(nextContest.startsAt);
+      setPrizePool(null);
+      void getContestPrizePool(nextContest.id).then((result) => setPrizePool(result.pool)).catch(() => undefined);
 
       const current = await getCurrentClue(nextContest.id);
       applyCurrentClue(current);
