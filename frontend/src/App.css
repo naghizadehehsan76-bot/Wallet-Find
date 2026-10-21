@@ -1081,3 +1081,44 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   font-size: 11px;
   line-height: 1.2;
 }
+
+
+/* Competition header countdown replaces the non-functional sample prize balance. */
+.clue-timer {
+  min-width: 118px;
+  max-width: 150px;
+  padding: 10px 12px;
+  border: 1px solid rgba(66,232,212,.25);
+  border-radius: 12px;
+  background: linear-gradient(160deg,var(--ink-3),var(--ink-2));
+  text-align: center;
+  flex: 0 0 auto;
+}
+.clue-timer__label,
+.clue-timer__note {
+  display: block;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+.clue-timer strong {
+  display: block;
+  margin: 4px 0;
+  color: var(--verdigris);
+  font-family: "JetBrains Mono",ui-monospace,Consolas,monospace;
+  font-size: 21px;
+  font-weight: 900;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+@media (max-width: 360px) {
+  .clue-timer {
+    min-width: 106px;
+    max-width: 118px;
+    padding: 9px 8px;
+  }
+  .clue-timer__label,
+  .clue-timer__note { font-size: 8px; }
+  .clue-timer strong { font-size: 18px; }
+}

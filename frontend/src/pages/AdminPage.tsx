@@ -219,10 +219,15 @@ function AdminPage(_props: AdminPageProps) {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div className="brand">
+        <button
+          className="brand brand--home"
+          type="button"
+          aria-label={isPersian ? "بازگشت به خانه" : "Return home"}
+          onClick={() => _props.onNavigate("home")}
+        >
           <span className="brand-dot" />
           <span>Wallet Find {isPersian ? "مدیریت" : "Admin"}</span>
-        </div>
+        </button>
         <div className="topbar-actions">
           <LanguageSwitcher />
         </div>

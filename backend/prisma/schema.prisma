@@ -231,7 +231,7 @@ model ContestSetting {
 
   clueCount Int @default(12)
 
-  publishIntervalMinutes Int @default(15)
+  publishIntervalMinutes Int @default(2)
 
   firstPrizePercent  Int @default(70)
   secondPrizePercent Int @default(20)

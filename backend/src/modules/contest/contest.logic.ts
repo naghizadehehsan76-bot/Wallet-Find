@@ -71,6 +71,36 @@ export function getContestProgress<T extends SequencedClue>(
  * Response timing begins at the latest applicable server timestamp:
  * clue publication, contest start, or the previous clue's correct submission.
  */
+
+/**
+ * The first clue is available when the contest starts. Every later clue is
+ * released two minutes (or the contest's configured interval) after the
+ * user's previous correct answer, so slow solvers never skip the wait.
+ */
+export function calculateClueAvailableAt(
+  sequence: number,
+  contestStartsAt: Date | null | undefined,
+  previousCorrectSubmittedAt: Date | null | undefined,
+  intervalMinutes: number,
+): Date | null {
+  if (sequence <= 1) {
+    return contestStartsAt ?? null;
+  }
+
+  if (!previousCorrectSubmittedAt) {
+    return null;
+  }
+
+  const safeInterval =
+    Number.isFinite(intervalMinutes) && intervalMinutes >= 1
+      ? intervalMinutes
+      : 2;
+
+  return new Date(
+    previousCorrectSubmittedAt.getTime() + safeInterval * 60_000,
+  );
+}
+
 export function calculateResponseTimeMs(
   now: Date,
   referenceTimes: readonly (Date | null | undefined)[],
