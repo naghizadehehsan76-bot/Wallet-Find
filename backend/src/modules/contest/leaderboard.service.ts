@@ -99,10 +99,7 @@ export async function getContestLeaderboard(
     existing.totalResponseTimeMs += BigInt(0);
   }
 
-  const contestStartTime =
-    contest.startsAt ??
-    submissions.find((submission) => submission.clue.sequence === 1)?.clue.publishedAt ??
-    null;
+  const contestStartTime = contest.startsAt;
 
   const entries = [...byUser.entries()]
     .map(([userId, value]) => {
