@@ -74,8 +74,11 @@ async function ensurePool(tx: any, contestId: string) {
     });
     for (const previous of previousPools) {
       const referenceKey = `rollover-in:${previous.contestId}:${contestId}`;
-      const alreadyTransferred = await tx.prizeLedger.findUnique({
-        where: { referenceKey },
+      const alreadyTransferred = await tx.prizeLedger.findFirst({
+        where: {
+          type: "ROLLOVER_IN",
+          referenceKey: { startsWith: `rollover-in:${previous.contestId}:` },
+        },
         select: { id: true },
       });
       if (alreadyTransferred) continue;
