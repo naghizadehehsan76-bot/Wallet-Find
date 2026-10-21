@@ -28,7 +28,11 @@ export async function runContestScheduler(now = new Date()) {
     if (!hasCompleteClueSequence(clueSequences.map((clue) => clue.sequence))) continue;
 
     const anotherActive = await prisma.contest.findFirst({
-      where: { status: "ACTIVE", id: { not: contest.id } },
+      where: {
+        status: "ACTIVE",
+        id: { not: contest.id },
+        OR: [{ endsAt: null }, { endsAt: { gt: now } }],
+      },
       select: { id: true },
     });
     if (anotherActive) continue;
