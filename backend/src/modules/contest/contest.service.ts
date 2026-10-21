@@ -107,39 +107,27 @@ export async function createClue(
 }
 
 export async function getActiveContest() {
-  const contest = await prisma.contest.findFirst({
+  const now = new Date();
+  const active = await prisma.contest.findFirst({
     where: {
       status: "ACTIVE",
+      AND: [
+        { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+        { OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
+      ],
     },
-    orderBy: [
-      { startsAt: "asc" },
-      { createdAt: "asc" },
-    ],
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      status: true,
-      startsAt: true,
-      endsAt: true,
-    },
+    orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }],
+    select: { id: true, title: true, description: true, status: true, startsAt: true, endsAt: true },
   });
+  if (active) return active;
 
-  if (!contest) {
-    throw new Error("ACTIVE_CONTEST_NOT_FOUND");
-  }
-
-  const now = new Date();
-
-  if (contest.startsAt && now < contest.startsAt) {
-    throw new Error("CONTEST_NOT_STARTED");
-  }
-
-  if (contest.endsAt && now >= contest.endsAt) {
-    throw new Error("CONTEST_FINISHED");
-  }
-
-  return contest;
+  const upcoming = await prisma.contest.findFirst({
+    where: { status: "SCHEDULED", startsAt: { gt: now } },
+    orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
+    select: { id: true, title: true, description: true, status: true, startsAt: true, endsAt: true },
+  });
+  if (upcoming) return upcoming;
+  throw new Error("ACTIVE_CONTEST_NOT_FOUND");
 }
 
 export async function getCurrentClue(
@@ -164,11 +152,26 @@ export async function getCurrentClue(
     throw new Error("CONTEST_NOT_FOUND");
   }
 
+  const now = new Date();
+
+  if (contest.status === "SCHEDULED" && contest.startsAt && now < contest.startsAt) {
+    return {
+      status: "WAITING_FOR_CLUE" as const,
+      contest,
+      serverTime: now,
+      clue: null,
+      currentSequence: null,
+      solvedCount: 0,
+      solvedAnswers: [],
+      availableAt: contest.startsAt,
+      lockedUntil: null,
+      lockRemainingMs: 0,
+    };
+  }
+
   if (contest.status !== "ACTIVE") {
     throw new Error("CONTEST_NOT_ACTIVE");
   }
-
-  const now = new Date();
 
   if (contest.startsAt && now < contest.startsAt) {
     throw new Error("CONTEST_NOT_STARTED");
