@@ -24,10 +24,12 @@ type LeaderboardPageProps = {
 };
 
 function formatTime(milliseconds: number, isPersian: boolean) {
-  const totalSeconds = Math.floor(milliseconds / 1000);
+  const safeMilliseconds = Math.max(0, milliseconds);
+  const totalSeconds = Math.floor(safeMilliseconds / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  const value = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  const centiseconds = Math.floor((safeMilliseconds % 1000) / 10);
+  const value = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(centiseconds).padStart(2, "0")}`;
 
   return isPersian
     ? value.replace(/\d/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"[Number(digit)])
