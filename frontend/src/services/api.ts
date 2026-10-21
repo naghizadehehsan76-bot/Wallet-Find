@@ -329,3 +329,14 @@ export async function settlePrizePool(
     true,
   );
 }
+
+export async function getContestPrizePool(contestId: string): Promise<{
+  pool: PrizePoolView;
+  awards: PrizePoolAward[];
+}> {
+  return request(
+    `/contests/${encodeURIComponent(contestId)}/prize-pool`,
+    {},
+    true,
+  );
+}
