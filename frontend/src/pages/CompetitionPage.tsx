@@ -345,6 +345,19 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       });
     return formatPart(minutes) + ":" + formatPart(seconds);
   };
+  const formatElapsed = (milliseconds: number) => {
+    const safeMilliseconds = Math.max(0, milliseconds);
+    const totalSeconds = Math.floor(safeMilliseconds / 1_000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    const centiseconds = Math.floor((safeMilliseconds % 1_000) / 10);
+    const formatPart = (value: number) =>
+      value.toLocaleString(numberLocale, {
+        minimumIntegerDigits: 2,
+        useGrouping: false,
+      });
+    return formatPart(minutes) + ":" + formatPart(seconds) + "." + formatPart(centiseconds);
+  };
 
   return (
     <div className="app-shell">
@@ -381,7 +394,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
             <strong>
               {waitingForClue
                 ? (remainingUnlockMs === null ? "—:—" : formatCountdown(remainingUnlockMs))
-                : (elapsedFromPublicationMs === null ? "—:—" : formatCountdown(elapsedFromPublicationMs))}
+                : (elapsedFromPublicationMs === null ? "—:—" : formatElapsed(elapsedFromPublicationMs))}
             </strong>
             <span className="clue-timer__note">
               {waitingForClue
