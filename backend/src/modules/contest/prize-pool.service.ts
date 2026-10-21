@@ -115,6 +115,24 @@ export async function getPrizePool(contestId: string) {
 }
 
 /** This is explicitly simulated accounting; it never moves real tokens. */
+export async function getPublicPrizePool(contestId: string) {
+  const pool = await prisma.$transaction((tx) => ensurePool(tx, contestId));
+  const awards = await prisma.prizeAward.findMany({
+    where: { contestId },
+    orderBy: [{ rank: "asc" }, { createdAt: "asc" }],
+    select: { username: true, rank: true, amountMicro: true, status: true },
+  });
+  return {
+    pool: responsePool(pool),
+    awards: awards.map((row) => ({
+      username: row.username,
+      rank: row.rank,
+      amount: formatMicro(BigInt(row.amountMicro)),
+      status: row.status,
+    })),
+  };
+}
+
 export async function testFundPrizePool(contestId: string, rawAmount: unknown, actorUserId?: string) {
   const amount = parseUsdt(rawAmount);
   if (amount <= 0n) throw new Error("INVALID_TEST_FUNDING_AMOUNT");
