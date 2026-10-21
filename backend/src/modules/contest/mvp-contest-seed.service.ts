@@ -494,12 +494,14 @@ export async function ensureMvpActiveContest() {
   // Generate and validate all rounds before changing the current contest.
   // If an external source fails, the existing contest remains active.
   const clues = await generateMvpRounds();
+  // Start the contest clock after clue generation, immediately before creating it.
+  const startsAt = new Date();
   const contest = await prisma.contest.create({
     data: {
       title: "مسابقه واژه‌یابی انگلیسی Wallet Find",
       description: "۱۲ راند واژه‌یابی؛ راهنما را بخوان، لینک منبع را باز کن و کلمه را از میان ۱۲ گزینه انتخاب کن.",
       status: "ACTIVE",
-      startsAt: now,
+      startsAt,
       clues: {
         create: clues.map((clue, index) => ({
           sequence: index + 1,
@@ -510,7 +512,7 @@ export async function ensureMvpActiveContest() {
           sourceUrl: clue.sourceUrl,
           hintAnchor: clue.hintAnchor,
           options: clue.options,
-          publishedAt: new Date(now.getTime() + index * 2 * 60_000),
+          publishedAt: new Date(startsAt.getTime() + index * 2 * 60_000),
         })),
       },
     },
@@ -539,7 +541,7 @@ export async function ensureMvpActiveContest() {
       metadata: {
         clueCount: clues.length,
         sourceDomains: [...new Set(clues.map((clue) => new URL(clue.sourceUrl).hostname))],
-        createdAt: now.toISOString(),
+        createdAt: startsAt.toISOString(),
       },
     },
   });
