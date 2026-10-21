@@ -1,6 +1,7 @@
 import prisma from "../../config/prisma.js";
 import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
 import { ensureScheduledMvpContest } from "./mvp-contest-seed.service.js";
+import { settlePrizePool } from "./prize-pool.service.js";
 
 /**
  * The scheduler manages round activation/expiry only. Clues are no longer
@@ -75,8 +76,34 @@ export async function runContestScheduler(now = new Date()) {
     });
   }
 
+  // Retry any finished round whose prize ledger is still open or missing.
+  // Settlement is idempotent; settled pools are excluded from this query.
+  const awaitingSettlement = await prisma.contest.findMany({
+    where: {
+      status: "FINISHED",
+      endsAt: { lte: now },
+      OR: [
+        { prizePool: { is: null } },
+        { prizePool: { is: { status: "OPEN" } } },
+      ],
+    },
+    select: { id: true },
+  });
+  for (const contest of awaitingSettlement) {
+    try {
+      await settlePrizePool(contest.id);
+    } catch (error) {
+      console.error("Automatic prize settlement failed; it will be retried.", contest.id, error);
+    }
+  }
+
   const nextRound = await ensureScheduledMvpContest(now);
-  return { scheduledChecked: scheduled.length, nextRound, now: now.toISOString() };
+  return {
+    scheduledChecked: scheduled.length,
+    settlementsChecked: awaitingSettlement.length,
+    nextRound,
+    now: now.toISOString(),
+  };
 }
 
 export function startContestScheduler() {
