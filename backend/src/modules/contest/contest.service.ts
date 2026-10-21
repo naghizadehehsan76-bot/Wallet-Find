@@ -18,7 +18,11 @@ import {
 export async function createContest(
   data: CreateContestInput
 ) {
-  const startsAt = data.startsAt ? new Date(data.startsAt) : null;
+  const requestedStart = data.startsAt ? new Date(data.startsAt) : null;
+  const ROUND_INTERVAL_MS = 30 * 60_000;
+  const startsAt = requestedStart
+    ? new Date(Math.ceil(requestedStart.getTime() / ROUND_INTERVAL_MS) * ROUND_INTERVAL_MS)
+    : null;
   const endsAt = startsAt ? new Date(startsAt.getTime() + CONTEST_DURATION_MS) : null;
 
   return prisma.contest.create({
