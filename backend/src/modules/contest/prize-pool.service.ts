@@ -32,14 +32,17 @@ async function ensurePool(tx: any, contestId: string) {
     create: { contestId, testOnly: true, currency: "USDT" },
   });
 
-  // Create an explicitly fictional 100 USDT demo balance once per round.
+  // Create a fictional 100 USDT demo balance for the initial test pool only.
   // This is a ledger fixture only and cannot trigger any blockchain transfer.
   const initialFundingKey = `test-funding-initial:${contestId}`;
   const initialFunding = await tx.prizeLedger.findUnique({
     where: { referenceKey: initialFundingKey },
     select: { id: true },
   });
-  if (!initialFunding && BigInt(pool.seededMicro) === 0n && pool.status === "OPEN") {
+  const otherPoolsExist = await tx.prizePool.count({
+    where: { contestId: { not: contestId } },
+  });
+  if (!initialFunding && otherPoolsExist === 0 && BigInt(pool.seededMicro) === 0n && pool.status === "OPEN") {
     const demoAmount = 100n * MICRO;
     pool = await tx.prizePool.update({
       where: { contestId },
