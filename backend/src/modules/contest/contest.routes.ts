@@ -14,6 +14,7 @@ import {
   submitAnswerHandler,
 } from "./contest.controller.js";
 import { getLeaderboardHandler } from "./leaderboard.controller.js";
+import { getPublicPrizePoolHandler } from "./prize-pool.controller.js";
 
 const router = Router();
 
