@@ -57,13 +57,13 @@ test("contest duration is fifteen minutes and wrong answers lock for one minute"
   assert.equal(WRONG_ANSWER_LOCK_MS, 60_000);
 });
 
-test("response time is measured from contest start, not from the previous answer", () => {
-  const publishedAt = new Date("2026-10-21T10:02:00.000Z");
+test("response time is measured from the shared contest start", () => {
+  const contestStartsAt = new Date("2026-10-21T10:00:00.000Z");
   const correctSubmittedAt = new Date("2026-10-21T10:05:30.250Z");
 
   assert.equal(
-    calculateResponseTimeMs(correctSubmittedAt, [publishedAt]),
-    210_250,
+    calculateResponseTimeMs(correctSubmittedAt, [contestStartsAt]),
+    330_250,
   );
 });
 
