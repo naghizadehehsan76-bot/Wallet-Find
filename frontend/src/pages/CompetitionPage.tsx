@@ -50,9 +50,19 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [completed, setCompleted] = useState(false);
   const [waitingForClue, setWaitingForClue] = useState(false);
   const [clueAvailableAt, setClueAvailableAt] = useState<string | null>(null);
+  const [serverClockOffsetMs, setServerClockOffsetMs] = useState(0);
   const [timerNow, setTimerNow] = useState(() => Date.now());
 
   function applyCurrentClue(current: Awaited<ReturnType<typeof getCurrentClue>>) {
+    if (current.serverNow) {
+      const serverNowMs = Date.parse(current.serverNow);
+      if (Number.isFinite(serverNowMs)) {
+        const offsetMs = serverNowMs - Date.now();
+        setServerClockOffsetMs(offsetMs);
+        setTimerNow(serverNowMs);
+      }
+    }
+
     setSolvedCount(current.solvedCount);
     setCurrentSequence(current.currentSequence);
     setCurrentClueId(current.clue?.id ?? null);
@@ -183,11 +193,11 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     if (!clueAvailableAt || completed) return;
 
     const timerId = window.setInterval(() => {
-      setTimerNow(Date.now());
+      setTimerNow(Date.now() + serverClockOffsetMs);
     }, 1_000);
 
     return () => window.clearInterval(timerId);
-  }, [clueAvailableAt, completed]);
+  }, [clueAvailableAt, completed, serverClockOffsetMs]);
 
   async function handleStartNextContest() {
     if (!contestId || !completed || startingNextContest) return;
