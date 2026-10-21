@@ -1,5 +1,5 @@
 import prisma from "../../config/prisma.js";
-import { hasCompleteClueSequence } from "../contest/contest.logic.js";
+import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "../contest/contest.logic.js";
 
 export async function activateContest(
   contestId: string,
@@ -65,37 +65,14 @@ export async function activateContest(
 
   const clueCount = clues.length;
   const startsAt = contest.startsAt ?? now;
-  const setting = await prisma.contestSetting.findUnique({
-    where: { contestId },
-    select: { publishIntervalMinutes: true },
-  });
-  const intervalMinutes = setting?.publishIntervalMinutes ?? 2;
-
-  // Manual activation uses the same global release schedule as the scheduler.
-  await prisma.$transaction(
-    clues.map((clue) =>
-      prisma.contestClue.update({
-        where: {
-          contestId_sequence: {
-            contestId,
-            sequence: clue.sequence,
-          },
-        },
-        data: {
-          publishedAt: new Date(
-            startsAt.getTime() +
-              (clue.sequence - 1) * intervalMinutes * 60_000,
-          ),
-        },
-      }),
-    ),
-  );
+  const endsAt = new Date(startsAt.getTime() + CONTEST_DURATION_MS);
 
   const updated = await prisma.contest.update({
     where: { id: contestId },
     data: {
       status: "ACTIVE",
       startsAt,
+      endsAt,
     },
     select: {
       id: true,
