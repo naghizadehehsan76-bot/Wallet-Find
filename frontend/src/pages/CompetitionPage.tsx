@@ -213,9 +213,13 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       applyCurrentClue(current);
       setFeedbackTone("success");
       setFeedback(
-        isPersian
-          ? "مسابقه‌ی بعدی آماده است؛ راند اول را شروع کن."
-          : "The next contest is ready. Start with round one.",
+        current.status === "WAITING_FOR_CLUE"
+          ? (isPersian
+              ? "ثبت شد؛ دور بعد در زمان ثابت شروع می‌شود. صفحه به‌صورت خودکار آماده خواهد شد."
+              : "Scheduled. The next round starts at its fixed boundary; this page will update automatically.")
+          : (isPersian
+              ? "مسابقه‌ی بعدی آماده است؛ راند اول را شروع کن."
+              : "The next contest is ready. Start with round one."),
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : "NEXT_CONTEST_FAILED";
@@ -339,7 +343,9 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     ? Math.max(0, timerEndTimestamp - contestStartTimestamp)
     : null;
   const roundRemainingMs = Number.isFinite(contestStartTimestamp)
-    ? Math.max(0, contestStartTimestamp + 15 * 60_000 - authoritativeNow)
+    ? waitingForClue && contestStartTimestamp > authoritativeNow
+      ? contestStartTimestamp - authoritativeNow
+      : Math.max(0, contestStartTimestamp + 15 * 60_000 - authoritativeNow)
     : null;
   const formatCountdown = (milliseconds: number) => {
     const totalSeconds = Math.ceil(milliseconds / 1_000);
@@ -481,7 +487,9 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
             <span className="clue-timer__label">
               {completed
                 ? (isPersian ? "زمان تکمیل شما" : "Your completion time")
-                : (isPersian ? "زمان باقی‌مانده مسابقه" : "Contest time remaining")}
+                : waitingForClue
+                  ? (isPersian ? "تا شروع دور بعد" : "Until next round")
+                  : (isPersian ? "زمان باقی‌مانده مسابقه" : "Contest time remaining")}
             </span>
             <strong>
               {completed
@@ -491,7 +499,9 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
             <span className="clue-timer__note">
               {completed
                 ? (isPersian ? "از شروع رسمی دور تا پاسخ دوازدهم" : "From official round start to clue 12")
-                : (isPersian ? "دور مسابقه دقیقاً ۱۵ دقیقه است" : "Each round lasts exactly 15 minutes")}
+                : waitingForClue
+                  ? (isPersian ? "شروع در مرز ثابت ۳۰ دقیقه‌ای" : "Starts on the fixed 30-minute boundary")
+                  : (isPersian ? "دور مسابقه دقیقاً ۱۵ دقیقه است" : "Each round lasts exactly 15 minutes")}
             </span>
           </div>
         </section>
