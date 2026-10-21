@@ -39,6 +39,7 @@ export type CurrentClueResult = {
     type: string;
     content: string;
     publishedAt: string | null;
+    availableAt?: string | null;
     sourceUrl: string | null;
     hintAnchor: string | null;
     options: string[];
@@ -47,6 +48,7 @@ export type CurrentClueResult = {
   solvedCount: number;
   solvedAnswers: { sequence: number; answer: string }[];
   publishedAt?: string;
+  availableAt?: string | null;
 };
 
 export type SubmitAnswerResult = {
