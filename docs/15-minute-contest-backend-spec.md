@@ -22,7 +22,7 @@ Define the backend behavior for a shared, server-timed, 12-answer contest round.
 - Prize pool split: rank 1 = 50%, rank 2 = 20%, rank 3 = 10%, and the remaining 20% is distributed only among completed participants ranked fourth or lower.
 - If there are no completed participants ranked fourth or lower, that 20% rolls over into the next round's prize pool.
 - The fourth-and-lower pool is proportional to time score: `score = 900 seconds - elapsed completion time in seconds`. A faster completion earns a larger share. The top three's percentages remain fixed.
-- Round schedule: a 15-minute contest followed by a 15-minute pause; therefore new rounds start every 30 minutes on fixed server-aligned boundaries. Example: 20:00–20:15 contest, 20:15–20:30 pause, next round starts at 20:30. Do not interpret this as a new round every 15 minutes.
+- Round schedule: each contest lasts 15 minutes, and a new round starts every 15 minutes on fixed server-aligned boundaries with no pause. Example: 20:00–20:15, then 20:15–20:30, then 20:30–20:45.
 - The visible countdown is derived from server time and `endsAt`, and reaches zero at the official deadline.
 
 ## 3. Authoritative time and boundary conditions
@@ -78,7 +78,7 @@ Recommended lifecycle: `SCHEDULED -> ACTIVE -> FINISHED`, with a separate explic
 - Scheduler creates/prepares the next round ahead of time with 12 complete, ordered clues and a fixed start/end.
 - At `startsAt`, it becomes playable.
 - At `endsAt`, submission APIs reject new attempts based on timestamps immediately, regardless of scheduler lag. A background scheduler then marks the round finished, snapshots ranking, computes awards, and carries rollover.
-- The 15-minute pause must not be modeled as a contest that accepts answers. During the pause, the API returns a clear `NO_ACTIVE_CONTEST` / `NEXT_CONTEST_AT` state.
+- There is no pause between rounds. The next round starts at the exact end boundary of the previous round; the scheduler should prepare it in advance.
 - Use database constraints/transactions to prevent overlapping active rounds and duplicate round creation for the same scheduled boundary.
 - If the application restarts or the scheduler is late, it must reconcile all due round transitions in chronological order. Do not reopen a round that has ended.
 
@@ -124,7 +124,7 @@ Existing routes should be evolved rather than duplicated where possible.
 10. Top-three percentages and fourth-and-lower proportional shares total no more than the round pool, subject to explicit rounding rules.
 11. With no eligible fourth-and-lower completers, 20% rolls over exactly once.
 12. Finalization is safe to retry and safe after server restart.
-13. The 15-minute pause accepts no submissions; the next round starts on the next 30-minute boundary.
+13. The 15-minute pause accepts no submissions; the next round starts on the next 15-minute boundary.
 14. A round with fewer than three completers rolls every unfilled top-three allocation forward exactly once.
 15. Equal completion timestamps share the same rank and split the sum of occupied rank-slot allocations equally.
 
