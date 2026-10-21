@@ -9,6 +9,7 @@ import {
 import { useI18n } from "../i18n";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import { localizeApiError, localizeUiMessage } from "../i18n/localize";
+import PrizePoolPanel from "../components/PrizePoolPanel";
 
 type Page =
   | "home"
@@ -402,6 +403,13 @@ function AdminPage(_props: AdminPageProps) {
               </button>
             </div>
           </>
+        )}
+
+        {contestId && (
+          <PrizePoolPanel
+            contestId={contestId}
+            contestStatus={status}
+          />
         )}
 
         {message && <div className="inline-feedback">{localizeUiMessage(message, language)}</div>}
