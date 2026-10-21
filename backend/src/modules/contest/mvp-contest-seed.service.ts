@@ -780,3 +780,91 @@ export async function startNextMvpContest(userId: string, completedContestId: st
     throw error;
   }
 }
+
+
+let lastAutomaticRoundAttemptAt = 0;
+const AUTOMATIC_ROUND_RETRY_DELAY_MS = 5 * 60_000;
+
+/**
+ * Keep one future shared round queued even when nobody has completed the
+ * current round yet. The generated round starts on a fixed half-hour boundary.
+ */
+export async function ensureScheduledMvpContest(now = new Date()) {
+  const existingScheduled = await prisma.contest.findFirst({
+    where: { status: "SCHEDULED", startsAt: { gt: now } },
+    select: { id: true },
+  });
+  if (existingScheduled) return { scheduled: true, contestId: existingScheduled.id };
+
+  if (now.getTime() - lastAutomaticRoundAttemptAt < AUTOMATIC_ROUND_RETRY_DELAY_MS) {
+    return { scheduled: false, reason: "GENERATION_COOLDOWN" };
+  }
+  lastAutomaticRoundAttemptAt = now.getTime();
+
+  const previous = await prisma.contest.findFirst({
+    where: { status: { in: ["ACTIVE", "FINISHED"] }, startsAt: { not: null } },
+    orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }],
+    select: { id: true, startsAt: true },
+  });
+  if (!previous?.startsAt) return { scheduled: false, reason: "NO_PREVIOUS_ROUND" };
+
+  try {
+    const clues = await generateMvpRounds();
+    const intervalMs = 30 * 60_000;
+    const nextBoundary = Math.ceil(now.getTime() / intervalMs) * intervalMs;
+    const previousBoundary = previous.startsAt.getTime() + intervalMs;
+    const startsAt = new Date(Math.max(nextBoundary, previousBoundary));
+    const endsAt = new Date(startsAt.getTime() + CONTEST_DURATION_MS);
+
+    const created = await prisma.$transaction(async (tx) => {
+      const raceWinner = await tx.contest.findFirst({
+        where: { status: "SCHEDULED", startsAt: { gt: now } },
+        select: { id: true },
+      });
+      if (raceWinner) return raceWinner;
+
+      const round = await tx.contest.create({
+        data: {
+          title: "مسابقه واژه‌یابی انگلیسی Wallet Find",
+          description: "۱۲ راند واژه‌یابی؛ راهنما را بخوان و کلمه را از منبع پیدا کن.",
+          status: "SCHEDULED",
+          startsAt,
+          endsAt,
+          clues: {
+            create: clues.map((clue, index) => ({
+              sequence: index + 1,
+              type: "WEB_PAGE",
+              source: "SYSTEM",
+              content: clue.content,
+              correctAnswer: clue.correctAnswer,
+              sourceUrl: clue.sourceUrl,
+              hintAnchor: clue.hintAnchor,
+              options: clue.options,
+              publishedAt: startsAt,
+            })),
+          },
+        },
+        select: { id: true },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: "MVP_ROUND_AUTO_SCHEDULED",
+          entity: "Contest",
+          entityId: round.id,
+          metadata: {
+            sourceRoundId: previous.id,
+            startsAt: startsAt.toISOString(),
+            endsAt: endsAt.toISOString(),
+            clueCount: clues.length,
+          },
+        },
+      });
+      return round;
+    }, { isolationLevel: "Serializable" });
+
+    return { scheduled: true, contestId: created.id };
+  } catch (error) {
+    console.warn("Could not automatically schedule the next MVP round; will retry after cooldown.", error);
+    return { scheduled: false, reason: "GENERATION_FAILED" };
+  }
+}
