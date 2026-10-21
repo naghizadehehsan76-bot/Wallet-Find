@@ -47,8 +47,9 @@ export type CurrentClueResult = {
   currentSequence: number | null;
   solvedCount: number;
   solvedAnswers: { sequence: number; answer: string }[];
-  publishedAt?: string;
+  publishedAt?: string | null;
   availableAt?: string | null;
+  serverTime?: string;
 };
 
 export type SubmitAnswerResult = {
