@@ -302,6 +302,8 @@ export async function submitAnswer(
   contestId: string,
   data: SubmitAnswerInput
 ) {
+  // Capture the server-side submission timestamp immediately on entry.
+  const now = new Date();
   const contest = await prisma.contest.findUnique({
     where: {
       id: contestId,
@@ -321,8 +323,6 @@ export async function submitAnswer(
   if (contest.status !== "ACTIVE") {
     throw new Error("CONTEST_NOT_ACTIVE");
   }
-
-  const now = new Date();
 
   if (
     contest.startsAt &&
