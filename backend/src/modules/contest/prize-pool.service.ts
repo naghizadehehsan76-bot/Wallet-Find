@@ -67,7 +67,7 @@ async function ensurePool(tx: any, contestId: string) {
         contestId: { not: contestId },
         status: "SETTLED",
         rolloverOutMicro: { gt: 0n },
-        contest: { startsAt: { lt: currentContest.startsAt } },
+        contest: { is: { startsAt: { lt: currentContest.startsAt } } },
       },
       select: { contestId: true, rolloverOutMicro: true },
       orderBy: { contest: { startsAt: "asc" } },
