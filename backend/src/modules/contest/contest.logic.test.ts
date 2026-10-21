@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  calculateClueAvailableAt,
   calculateResponseTimeMs,
   getContestProgress,
   hasCompleteClueSequence,
@@ -48,6 +49,24 @@ test("progress exposes only the contiguous solved prefix", () => {
   assert.equal(complete.solvedCount, REQUIRED_CLUE_COUNT);
   assert.equal(complete.currentClue, null);
   assert.equal(complete.completed, true);
+});
+
+test("the first clue unlocks at contest start and later clues unlock two minutes after a correct answer", () => {
+  const contestStartsAt = new Date("2026-10-21T10:00:00.000Z");
+  const previousCorrectSubmittedAt = new Date("2026-10-21T10:03:30.000Z");
+
+  assert.equal(
+    calculateClueAvailableAt(1, contestStartsAt, null, 2)?.toISOString(),
+    contestStartsAt.toISOString(),
+  );
+  assert.equal(
+    calculateClueAvailableAt(2, contestStartsAt, previousCorrectSubmittedAt, 2)?.toISOString(),
+    "2026-10-21T10:05:30.000Z",
+  );
+  assert.equal(
+    calculateClueAvailableAt(3, contestStartsAt, null, 2),
+    null,
+  );
 });
 
 test("response timing starts at the latest authoritative timestamp", () => {
