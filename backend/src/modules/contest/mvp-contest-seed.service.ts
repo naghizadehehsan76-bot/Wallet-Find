@@ -686,6 +686,15 @@ export async function startNextMvpContest(userId: string, completedContestId: st
         select: activeSelect,
       });
 
+      const scheduledCreatedByAnotherRequest = await tx.contest.findFirst({
+        where: { status: "SCHEDULED", startsAt: { gt: new Date() } },
+        orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
+        select: activeSelect,
+      });
+      if (scheduledCreatedByAnotherRequest) {
+        return publicContest(scheduledCreatedByAnotherRequest);
+      }
+
       const contestCreatedByAnotherRequest = activeContests.find((contest) =>
         contest.id !== completedContestId && isPlayableActiveContest(contest, new Date())
       );
