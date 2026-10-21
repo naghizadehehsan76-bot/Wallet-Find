@@ -219,6 +219,15 @@ function AdminPage(_props: AdminPageProps) {
   return (
     <div className="app-shell">
       <header className="topbar">
+        <button
+          className="brand brand--home"
+          type="button"
+          aria-label={isPersian ? "بازگشت به خانه" : "Return home"}
+          onClick={() => _props.onNavigate("home")}
+        >
+          <span className="brand-dot" />
+          <span>Wallet Find {isPersian ? "مدیریت" : "Admin"}</span>
+        </button>
         <div className="topbar-actions">
           <LanguageSwitcher />
         </div>
@@ -226,15 +235,12 @@ function AdminPage(_props: AdminPageProps) {
 
       <main className="page">
         <section className="comp-head">
-          <button
-            className="brand brand--home"
-            type="button"
-            aria-label={isPersian ? "بازگشت به خانه" : "Return home"}
-            onClick={() => _props.onNavigate("home")}
-          >
-            <span className="brand-dot" />
-            <span>Wallet Find {isPersian ? "مدیریت" : "Admin"}</span>
-          </button>
+          <div>
+            <h1 className="page-title">{t.admin.pageTitle}</h1>
+            <div className="date">
+              {t.admin.subtitle}
+            </div>
+          </div>
           <div className="prize">
             <strong>{t.admin.status[status]}</strong>
             <span>{validClues.toLocaleString(isPersian ? "fa-IR" : "en-US")}/{(12).toLocaleString(isPersian ? "fa-IR" : "en-US")} {isPersian ? "سرنخ" : "clues"}</span>
