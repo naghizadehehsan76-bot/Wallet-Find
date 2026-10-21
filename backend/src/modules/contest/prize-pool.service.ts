@@ -15,7 +15,8 @@ function parseUsdt(value: unknown): bigint {
   if (typeof value !== "string" || !/^\d{1,12}(\.\d{1,6})?$/.test(value)) {
     throw new Error("INVALID_TEST_FUNDING_AMOUNT");
   }
-  const [whole, fraction = ""] = value.split(".");
+  const whole = value.split(".")[0] ?? "0";
+  const fraction = value.split(".")[1] ?? "";
   return BigInt(whole) * MICRO + BigInt(fraction.padEnd(6, "0") || "0");
 }
 
