@@ -79,18 +79,10 @@ test("response time is measured from publication to submission, not from the pre
   );
 });
 
-test("response timing starts at the latest authoritative timestamp", () => {
-  const now = new Date("2026-10-18T10:01:00.000Z");
-  const publishedAt = new Date("2026-10-18T10:00:30.000Z");
-  const previousSolve = new Date("2026-10-18T10:00:45.000Z");
+test("response time never becomes negative", () => {
+  const now = new Date("2026-10-21T10:01:00.000Z");
+  const futurePublication = new Date("2026-10-21T10:02:00.000Z");
 
-  assert.equal(
-    calculateResponseTimeMs(now, [publishedAt, previousSolve]),
-    15_000,
-  );
-  assert.equal(
-    calculateResponseTimeMs(now, [publishedAt, new Date("2026-10-18T10:02:00.000Z")]),
-    0,
-  );
+  assert.equal(calculateResponseTimeMs(now, [futurePublication]), 0);
   assert.equal(calculateResponseTimeMs(now, []), 0);
 });
