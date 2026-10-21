@@ -20,7 +20,17 @@ export default function PrizePoolPanel({ contestId, contestStatus }: Props) {
     }
   }, [contestId]);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    let cancelled = false;
+    void getPrizePool(contestId)
+      .then((result) => {
+        if (!cancelled) setData(result);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "REQUEST_FAILED");
+      });
+    return () => { cancelled = true; };
+  }, [contestId]);
 
   async function fund() {
     setLoading(true); setMessage(""); setError("");
