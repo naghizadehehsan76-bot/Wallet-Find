@@ -50,6 +50,7 @@ export type CurrentClueResult = {
   publishedAt?: string | null;
   availableAt?: string | null;
   serverTime?: string;
+  completedAt?: string | null;
 };
 
 export type SubmitAnswerResult = {
@@ -58,6 +59,7 @@ export type SubmitAnswerResult = {
   responseTimeMs: number;
   currentSequence: number;
   nextSequence: number | null;
+  completedAt?: string | null;
 };
 
 export type LeaderboardEntry = {
