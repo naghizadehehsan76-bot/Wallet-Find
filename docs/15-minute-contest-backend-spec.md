@@ -1,6 +1,6 @@
 # Wallet-Find: 15-Minute Contest Backend Specification
 
-Status: approved product rules; implementation in progress on a separate branch.
+Status: approved rules implemented on a separate branch; latest backend tests/build and frontend build/lint pass. Not merged or deployed.
 Target repository: Wallet-Find
 Branch: spec/15-minute-contest-rules
 
@@ -127,3 +127,12 @@ Existing routes should be evolved rather than duplicated where possible.
 13. The 15-minute pause accepts no submissions; the next round starts on the next 30-minute boundary.
 14. A round with fewer than three completers rolls every unfilled top-three allocation forward exactly once.
 15. Equal completion timestamps share the same rank and split the sum of occupied rank-slot allocations equally.
+
+
+## 11. Prize pool implementation and test mode
+
+- Prize accounting is persisted in `PrizePool`, `PrizeLedger`, and `PrizeAward`; all amounts use integer micro-USDT units (six decimal places).
+- The initial test pool is seeded with a fictional 100.000000 USDT entry. Subsequent rounds receive prior rollover or explicit simulated funding; no blockchain transfer is performed.
+- Admin endpoints expose pool summary, test funding, and idempotent settlement. The participant page displays the simulated pool and rollover-in amount.
+- The scheduler retries settlement for finished rounds whose pool is not settled. No completed participants means the full pool rolls over. Fewer than three finishers leave unfilled top-three allocations in rollover. Exact-time ties share their rank-slot prize amounts equally.
+- Test-only records must never be interpreted as real wallet balances, withdrawable funds, or proof of an on-chain transfer.
