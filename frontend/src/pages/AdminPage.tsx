@@ -183,9 +183,13 @@ function AdminPage(_props: AdminPageProps) {
     setError("");
 
     try {
-      await activateContest(contestId);
-      setStatus("active");
-      setMessage(t.admin.activated);
+      const result = await activateContest(contestId);
+      setStatus(result.contest.status === "SCHEDULED" ? "scheduled" : "active");
+      setMessage(
+        result.contest.status === "SCHEDULED"
+          ? (isPersian ? "مسابقه برای مرز زمانی ثابت بعدی زمان‌بندی شد." : "Contest scheduled for the next fixed boundary.")
+          : t.admin.activated,
+      );
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "REQUEST_FAILED",
