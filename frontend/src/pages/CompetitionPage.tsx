@@ -402,12 +402,12 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                 className="word-entry__lock"
                 aria-label={
                   (isPersian ? "خانه‌ی قفل‌شده، زمان باقی‌مانده " : "Locked box, time remaining ") +
-                  (index === 0 ? "—:—" : formatCountdown(lockRemainingMs))
+                  (isPersian ? "قفل" : "Locked")
                 }
               >
                 <span className="word-entry__lock-icon" aria-hidden="true">🔒</span>
                 <span className="word-entry__lock-time mono">
-                  {index === 0 ? "—:—" : formatCountdown(lockRemainingMs)}
+                  {isPersian ? "قفل" : "Locked"}
                 </span>
               </div>
             ) : (
@@ -479,16 +479,35 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           </div>
           <div className="clue-timer" role="timer" aria-live="off">
             <span className="clue-timer__label">
-              {isPersian ? "زمان کل مسابقه" : "Total contest time"}
+              {completed
+                ? (isPersian ? "زمان تکمیل شما" : "Your completion time")
+                : (isPersian ? "زمان باقی‌مانده مسابقه" : "Contest time remaining")}
             </span>
             <strong>
-              {totalContestElapsedMs === null ? "—:—" : formatElapsed(totalContestElapsedMs)}
+              {completed
+                ? (totalContestElapsedMs === null ? "—:—" : formatElapsed(totalContestElapsedMs))
+                : (roundRemainingMs === null ? "—:—" : formatCountdown(roundRemainingMs))}
             </strong>
             <span className="clue-timer__note">
-              {isPersian ? "از شروع تا ثبت پاسخ دوازدهم" : "From start to final answer"}
+              {completed
+                ? (isPersian ? "از شروع رسمی دور تا پاسخ دوازدهم" : "From official round start to clue 12")
+                : (isPersian ? "دور مسابقه دقیقاً ۱۵ دقیقه است" : "Each round lasts exactly 15 minutes")}
             </span>
           </div>
         </section>
+
+        {prizePool && (
+          <section className="stat-row" aria-label={isPersian ? "صندوق جایزه مسابقه" : "Contest prize pool"}>
+            <div className="stat-card">
+              <strong>{prizePool.total} USDT</strong>
+              <span>{isPersian ? "مجموع صندوق فرضی" : "Total simulated pool"}</span>
+            </div>
+            <div className="stat-card">
+              <strong>{prizePool.rolloverIn} USDT</strong>
+              <span>{isPersian ? "انتقال از دور قبل" : "Rollover from prior round"}</span>
+            </div>
+          </section>
+        )}
 
         {loading ? (
           <div className="inline-feedback">
@@ -554,8 +573,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
               <>
                 <div className="inline-feedback">
                   {isPersian
-                    ? "پاسخ صحیح ثبت شد. خانه‌ی بعد پس از پایان تایمر و با ثبت پاسخ صحیح خانه‌ی قبلی فعال می‌شود."
-                    : "Correct answer saved. The next box activates when its timer ends and the previous answer is correct."}
+                    ? "پاسخ صحیح ثبت شد. خانه‌ی بعد بلافاصله فعال می‌شود."
+                    : "Correct answer saved. The next box is available immediately."}
                 </div>
                 <div className="word-grid-title">
                   <span>{isPersian ? "وضعیت ۱۲ خانه" : "Twelve box status"}</span>
