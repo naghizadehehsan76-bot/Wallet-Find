@@ -64,13 +64,16 @@ export async function activateContest(
   }
 
   const clueCount = clues.length;
-  const startsAt = contest.startsAt ?? now;
+  const ROUND_INTERVAL_MS = 30 * 60_000;
+  const requestedStart = contest.startsAt && contest.startsAt > now ? contest.startsAt : now;
+  const startsAt = new Date(Math.ceil(requestedStart.getTime() / ROUND_INTERVAL_MS) * ROUND_INTERVAL_MS);
   const endsAt = new Date(startsAt.getTime() + CONTEST_DURATION_MS);
+  const nextStatus = startsAt.getTime() <= now.getTime() ? "ACTIVE" : "SCHEDULED";
 
   const updated = await prisma.contest.update({
     where: { id: contestId },
     data: {
-      status: "ACTIVE",
+      status: nextStatus,
       startsAt,
       endsAt,
     },
