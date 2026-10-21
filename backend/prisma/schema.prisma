@@ -236,7 +236,7 @@ model ContestSetting {
 
   publishIntervalMinutes Int @default(2)
 
-  firstPrizePercent  Int @default(70)
+  firstPrizePercent  Int @default(50)
   secondPrizePercent Int @default(20)
   thirdPrizePercent  Int @default(10)
 
