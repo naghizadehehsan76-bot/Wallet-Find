@@ -1,7 +1,7 @@
 import prisma from "../../config/prisma.js";
 import { hasCompleteClueSequence } from "./contest.logic.js";
 
-const DEFAULT_PUBLISH_INTERVAL_MINUTES = 15;
+const DEFAULT_PUBLISH_INTERVAL_MINUTES = 2;
 
 function getIntervalMinutes(value: number | null | undefined): number {
   if (!value || value < 1) {
