@@ -180,14 +180,14 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   }
 
   useEffect(() => {
-    if (!waitingForClue) return;
+    if (!waitingForClue && !currentClueId) return;
 
     const timerId = window.setInterval(() => {
       setTimerNow(Date.now());
     }, 1_000);
 
     return () => window.clearInterval(timerId);
-  }, [waitingForClue]);
+  }, [waitingForClue, currentClueId]);
 
   async function handleStartNextContest() {
     if (!contestId || !completed || startingNextContest) return;
@@ -322,6 +322,10 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     waitingForClue && Number.isFinite(unlockTimestamp)
       ? Math.max(0, unlockTimestamp - timerNow)
       : null;
+  const elapsedFromPublicationMs =
+    !waitingForClue && Boolean(currentClueId) && Number.isFinite(unlockTimestamp)
+      ? Math.max(0, timerNow - unlockTimestamp)
+      : null;
   const formatCountdown = (milliseconds: number) => {
     const totalSeconds = Math.ceil(milliseconds / 1_000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -360,17 +364,21 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                 (isPersian ? "مسابقه فعال" : "Active contest")}
             </div>
           </div>
-          <div className="clue-timer" role="timer" aria-live="polite">
+          <div className="clue-timer" role="timer" aria-live="off">
             <span className="clue-timer__label">
-              {isPersian ? "بازشدن لینک سرنخ بعدی" : "Next clue unlock"}
+              {waitingForClue
+                ? (isPersian ? "انتشار سرنخ بعدی" : "Next clue release")
+                : (isPersian ? "زمان از انتشار سرنخ" : "Time since publication")}
             </span>
             <strong>
-              {remainingUnlockMs === null ? "—:—" : formatCountdown(remainingUnlockMs)}
+              {waitingForClue
+                ? (remainingUnlockMs === null ? "—:—" : formatCountdown(remainingUnlockMs))
+                : (elapsedFromPublicationMs === null ? "—:—" : formatCountdown(elapsedFromPublicationMs))}
             </strong>
             <span className="clue-timer__note">
               {waitingForClue
-                ? (isPersian ? "زمان باقی‌مانده" : "Time remaining")
-                : (isPersian ? "پس از پاسخ صحیح شروع می‌شود" : "Starts after a correct answer")}
+                ? (isPersian ? "زمان تا انتشار" : "Time to release")
+                : (isPersian ? "تا ثبت پاسخ صحیح" : "Until correct answer")}
             </span>
           </div>
         </section>
