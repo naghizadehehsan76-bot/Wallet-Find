@@ -1,6 +1,6 @@
 # Wallet-Find: 15-Minute Contest Backend Specification
 
-Status: approved product rules; implementation not yet changed.
+Status: approved product rules; implementation in progress on a separate branch.
 Target repository: Wallet-Find
 Branch: spec/15-minute-contest-rules
 
@@ -55,13 +55,15 @@ For each authenticated submission:
 - Prize ranking is determined by ascending `completedAt - startsAt` (equivalent to ascending `completedAt` within one round).
 - Failed attempts do not add an independent ranking penalty; their 60-second lock already costs real contest time.
 - Incomplete participants are not included in prize calculations and receive zero.
-- Tie policy must be explicitly implemented before prize payout. Current leaderboard code can produce equal ranks for equal completion times, but prize allocation needs a deterministic policy for ties across the 50/20/10 slots. Do not silently award duplicate fixed percentages. Recommended implementation is to order by server completion timestamp at millisecond precision, then use a documented stable tie-breaker only if the timestamps are identical; if true shared ranks are preferred, split the sum of affected rank prizes equally. Product owner must choose before payouts are enabled.
+- Exact completion-time ties share the same rank. Pool the fixed prizes for all occupied rank slots among tied participants and divide that pooled amount equally. Example: two participants tied for ranks 1 and 2 split the combined 70% equally. The next distinct completion time receives rank 3.
+- If fewer than three participants complete the round, any unawarded rank-1, rank-2, or rank-3 allocation rolls over to the next round's prize pool. The existing fourth-and-lower 20% allocation also rolls over if there are no eligible fourth-and-lower finishers.
 
 ## 6. Prize calculation and rollover
 
 Let `pool` be the round's total prize pool.
 
-- First place receives `pool * 0.50`, second `pool * 0.20`, third `pool * 0.10`, subject to the tie policy above.
+- Nominal rank allocations are `pool * 0.50`, `pool * 0.20`, and `pool * 0.10` for ranks 1, 2, and 3. For a tie spanning rank slots, sum those occupied slots' allocations and divide equally among all tied participants.
+- If a rank slot from 1 through 3 is unfilled because too few participants completed, roll its allocation forward to the next round.
 - The remaining pool is `pool * 0.20`.
 - Eligible fourth-and-lower completed participant `i` receives weight `w_i = 900 - elapsedSeconds_i`. Use integer milliseconds for the elapsed value in production to avoid rounding errors.
 - If eligible weights exist, allocate the remaining 20% proportionally: `share_i = remainingPool * w_i / sum(weights)`.
@@ -123,5 +125,5 @@ Existing routes should be evolved rather than duplicated where possible.
 11. With no eligible fourth-and-lower completers, 20% rolls over exactly once.
 12. Finalization is safe to retry and safe after server restart.
 13. The 15-minute pause accepts no submissions; the next round starts on the next 30-minute boundary.
-14. A round with fewer than three completers does not accidentally distribute more than the configured pool; the policy for unfilled top-three slots must be specified before payout is enabled.
-15. Equal completion timestamps follow the chosen tie policy.
+14. A round with fewer than three completers rolls every unfilled top-three allocation forward exactly once.
+15. Equal completion timestamps share the same rank and split the sum of occupied rank-slot allocations equally.
