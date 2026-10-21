@@ -1,5 +1,5 @@
 import prisma from "../../config/prisma.js";
-import { hasCompleteClueSequence } from "./contest.logic.js";
+import { calculateCluePublishedAt, hasCompleteClueSequence } from "./contest.logic.js";
 
 const DEFAULT_PUBLISH_INTERVAL_MINUTES = 2;
 
@@ -32,17 +32,16 @@ async function scheduleContestClues(contestId: string, startsAt: Date) {
   }
 
   for (const clue of clues) {
-    const publishedAt =
-      clue.sequence === 1
-        ? startsAt
-        : new Date(
-            startsAt.getTime() +
-              (clue.sequence - 1) * intervalMinutes * 60_000,
-          );
+    const publishedAt = calculateCluePublishedAt(
+      clue.sequence,
+      startsAt,
+      intervalMinutes,
+    );
 
     if (
-      !clue.publishedAt ||
-      clue.publishedAt.getTime() !== publishedAt.getTime()
+      publishedAt &&
+      (!clue.publishedAt ||
+        clue.publishedAt.getTime() !== publishedAt.getTime())
     ) {
       await prisma.contestClue.update({
         where: { id: clue.id },
