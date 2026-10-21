@@ -51,6 +51,8 @@ export type CurrentClueResult = {
   availableAt?: string | null;
   serverTime?: string;
   completedAt?: string | null;
+  lockedUntil?: string | null;
+  lockRemainingMs?: number;
 };
 
 export type SubmitAnswerResult = {
