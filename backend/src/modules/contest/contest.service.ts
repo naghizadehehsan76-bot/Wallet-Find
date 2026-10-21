@@ -240,6 +240,7 @@ export async function getCurrentClue(
       currentSequence: null,
       solvedCount: progress.solvedCount,
       solvedAnswers,
+      serverNow: now,
     };
   }
 
@@ -270,6 +271,7 @@ export async function getCurrentClue(
       solvedAnswers,
       publishedAt: availableAt,
       availableAt,
+      serverNow: now,
     };
   }
 
@@ -293,6 +295,7 @@ export async function getCurrentClue(
     solvedCount: progress.solvedCount,
     solvedAnswers,
     availableAt,
+    serverNow: now,
   };
 }
 
