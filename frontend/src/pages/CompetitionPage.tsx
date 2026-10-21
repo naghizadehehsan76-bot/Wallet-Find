@@ -51,8 +51,15 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [waitingForClue, setWaitingForClue] = useState(false);
   const [clueAvailableAt, setClueAvailableAt] = useState<string | null>(null);
   const [timerNow, setTimerNow] = useState(() => Date.now());
+  const [serverTimeOffset, setServerTimeOffset] = useState(0);
 
   function applyCurrentClue(current: Awaited<ReturnType<typeof getCurrentClue>>) {
+    if (current.serverTime) {
+      const serverTimestamp = Date.parse(current.serverTime);
+      if (Number.isFinite(serverTimestamp)) {
+        setServerTimeOffset(serverTimestamp - Date.now());
+      }
+    }
     setSolvedCount(current.solvedCount);
     setCurrentSequence(current.currentSequence);
     setCurrentClueId(current.clue?.id ?? null);
@@ -318,13 +325,14 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const formatNumber = (value: number) => value.toLocaleString(numberLocale);
   const progressPercent = Math.min(100, (solvedCount / 12) * 100);
   const unlockTimestamp = clueAvailableAt ? Date.parse(clueAvailableAt) : Number.NaN;
+  const authoritativeNow = timerNow + serverTimeOffset;
   const remainingUnlockMs =
     waitingForClue && Number.isFinite(unlockTimestamp)
-      ? Math.max(0, unlockTimestamp - timerNow)
+      ? Math.max(0, unlockTimestamp - authoritativeNow)
       : null;
   const elapsedFromPublicationMs =
     !waitingForClue && Boolean(currentClueId) && Number.isFinite(unlockTimestamp)
-      ? Math.max(0, timerNow - unlockTimestamp)
+      ? Math.max(0, authoritativeNow - unlockTimestamp)
       : null;
   const formatCountdown = (milliseconds: number) => {
     const totalSeconds = Math.ceil(milliseconds / 1_000);
