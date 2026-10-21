@@ -73,7 +73,7 @@ Let `pool` be the round's total prize pool.
 
 ## 7. Round lifecycle and scheduling
 
-Recommended lifecycle: `SCHEDULED -> ACTIVE -> FINISHED`, with a separate explicit pause/no-active-round period between rounds.
+Recommended lifecycle: `SCHEDULED -> ACTIVE -> FINISHED`, with the next round already scheduled to begin at the same boundary the prior round ends.
 
 - Scheduler creates/prepares the next round ahead of time with 12 complete, ordered clues and a fixed start/end.
 - At `startsAt`, it becomes playable.
@@ -103,7 +103,7 @@ Schema changes should be made through a new Prisma migration, not by editing the
 
 Existing routes should be evolved rather than duplicated where possible.
 
-- Get active/current round: return round ID, status, server time, `startsAt`, `endsAt`, remaining seconds, solved answers, current clue, lock state, and next-round start time when in the pause.
+- Get active/current round: return round ID, status, server time, `startsAt`, `endsAt`, remaining seconds, solved answers, current clue, lock state, and next-round start time when the next round is scheduled.
 - Submit answer: validate authentication, active window, clue order, and lock on the server; return whether correct, next clue/progress, `lockedUntil` on wrong answer, and completion time on clue 12.
 - Get leaderboard: while active, return provisional completion rankings and progress; after finish, return the frozen final ranking and awards.
 - Get round results: return final rank, completion status, elapsed time, prize amount, and rollover summary where appropriate.
@@ -124,7 +124,7 @@ Existing routes should be evolved rather than duplicated where possible.
 10. Top-three percentages and fourth-and-lower proportional shares total no more than the round pool, subject to explicit rounding rules.
 11. With no eligible fourth-and-lower completers, 20% rolls over exactly once.
 12. Finalization is safe to retry and safe after server restart.
-13. The 15-minute pause accepts no submissions; the next round starts on the next 15-minute boundary.
+13. Consecutive rounds start every 15 minutes with no pause; the next round begins exactly when the prior round ends.
 14. A round with fewer than three completers rolls every unfilled top-three allocation forward exactly once.
 15. Equal completion timestamps share the same rank and split the sum of occupied rank-slot allocations equally.
 
