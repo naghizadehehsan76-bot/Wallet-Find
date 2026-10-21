@@ -323,7 +323,12 @@ export async function settlePrizePool(
   completedParticipants?: number;
   awards: PrizePoolAward[];
 }> {
-  return request(
+  return request<{
+    alreadySettled: boolean;
+    pool: PrizePoolView;
+    completedParticipants?: number;
+    awards: PrizePoolAward[];
+  }>(
     `/admin/prize-pool/${encodeURIComponent(contestId)}/settle`,
     { method: "POST", body: JSON.stringify({}) },
     true,
@@ -334,7 +339,10 @@ export async function getContestPrizePool(contestId: string): Promise<{
   pool: PrizePoolView;
   awards: PrizePoolAward[];
 }> {
-  return request(
+  return request<{
+    pool: PrizePoolView;
+    awards: PrizePoolAward[];
+  }>(
     `/contests/${encodeURIComponent(contestId)}/prize-pool`,
     {},
     true,
