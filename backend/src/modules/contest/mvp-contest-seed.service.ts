@@ -602,6 +602,7 @@ export async function startNextMvpContest(userId: string, completedContestId: st
     where: { id: completedContestId },
     select: {
       id: true,
+      startsAt: true,
       clues: {
         select: {
           sequence: true,
@@ -693,9 +694,12 @@ export async function startNextMvpContest(userId: string, completedContestId: st
         return publicContest(contestCreatedByAnotherRequest);
       }
 
-      const previousActiveIds = activeContests.map((contest) => contest.id);
       const ROUND_INTERVAL_MS = 30 * 60_000;
-      const startsAt = new Date(Math.ceil(Date.now() / ROUND_INTERVAL_MS) * ROUND_INTERVAL_MS);
+      const nextFixedBoundary = Math.ceil(Date.now() / ROUND_INTERVAL_MS) * ROUND_INTERVAL_MS;
+      const previousRoundBoundary = completedContest.startsAt
+        ? completedContest.startsAt.getTime() + ROUND_INTERVAL_MS
+        : 0;
+      const startsAt = new Date(Math.max(nextFixedBoundary, previousRoundBoundary));
       const endsAt = new Date(startsAt.getTime() + CONTEST_DURATION_MS);
 
       const created = await tx.contest.create({
