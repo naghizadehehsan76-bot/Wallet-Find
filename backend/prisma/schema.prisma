@@ -108,6 +108,9 @@ model Contest {
   setting ContestSetting?
 
   advertisementOrders AdvertisementOrder[]
+  prizePool PrizePool?
+  prizeLedger PrizeLedger[]
+  prizeAwards PrizeAward[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -380,4 +383,57 @@ model AdvertisementMetric {
   @@index([createdAt])
   @@index([userId])
   @@map("advertisement_metrics")
+}
+
+
+enum PrizeLedgerType {
+  TEST_FUNDING
+  ROLLOVER_IN
+  ROLLOVER_OUT
+  AWARD
+}
+
+model PrizePool {
+  id String @id @default(cuid())
+  contestId String @unique
+  currency String @default("USDT")
+  seededMicro BigInt @default(0)
+  rolloverInMicro BigInt @default(0)
+  rolloverOutMicro BigInt @default(0)
+  awardedMicro BigInt @default(0)
+  testOnly Boolean @default(true)
+  status String @default("OPEN")
+  settledAt DateTime?
+  contest Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@map("prize_pools")
+}
+
+model PrizeLedger {
+  id String @id @default(cuid())
+  contestId String
+  type PrizeLedgerType
+  amountMicro BigInt
+  note String
+  referenceKey String? @unique
+  contest Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@index([contestId, type])
+  @@map("prize_ledger")
+}
+
+model PrizeAward {
+  id String @id @default(cuid())
+  contestId String
+  userId String
+  username String
+  rank Int
+  amountMicro BigInt
+  status String @default("SIMULATED")
+  contest Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@unique([contestId, userId])
+  @@index([contestId, rank])
+  @@map("prize_awards")
 }
