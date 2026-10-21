@@ -21,7 +21,7 @@ export async function createContest(
   const requestedStart = data.startsAt ? new Date(data.startsAt) : null;
   const ROUND_INTERVAL_MS = 30 * 60_000;
   const startsAt = requestedStart
-    ? new Date(Math.ceil(requestedStart.getTime() / ROUND_INTERVAL_MS) * ROUND_INTERVAL_MS)
+    ? new Date(Math.ceil(Math.max(requestedStart.getTime(), Date.now()) / ROUND_INTERVAL_MS) * ROUND_INTERVAL_MS)
     : null;
   const endsAt = startsAt ? new Date(startsAt.getTime() + CONTEST_DURATION_MS) : null;
 
