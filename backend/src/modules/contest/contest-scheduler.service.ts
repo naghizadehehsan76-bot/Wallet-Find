@@ -1,78 +1,22 @@
 import prisma from "../../config/prisma.js";
-import { hasCompleteClueSequence } from "./contest.logic.js";
+import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
 
-const DEFAULT_PUBLISH_INTERVAL_MINUTES = 2;
-
-function getIntervalMinutes(value: number | null | undefined): number {
-  if (!value || value < 1) {
-    return DEFAULT_PUBLISH_INTERVAL_MINUTES;
-  }
-
-  return value;
-}
-
-async function scheduleContestClues(contestId: string, startsAt: Date) {
-  const setting = await prisma.contestSetting.findUnique({
-    where: { contestId },
-    select: { publishIntervalMinutes: true },
-  });
-
-  const intervalMinutes = getIntervalMinutes(
-    setting?.publishIntervalMinutes,
-  );
-
-  const clues = await prisma.contestClue.findMany({
-    where: { contestId },
-    orderBy: { sequence: "asc" },
-    select: { id: true, sequence: true, publishedAt: true },
-  });
-
-  if (clues.length === 0) {
-    throw new Error("CONTEST_REQUIRES_CLUES");
-  }
-
-  for (const clue of clues) {
-    const publishedAt =
-      clue.sequence === 1
-        ? startsAt
-        : new Date(
-            startsAt.getTime() +
-              (clue.sequence - 1) * intervalMinutes * 60_000,
-          );
-
-    if (
-      !clue.publishedAt ||
-      clue.publishedAt.getTime() !== publishedAt.getTime()
-    ) {
-      await prisma.contestClue.update({
-        where: { id: clue.id },
-        data: { publishedAt },
-      });
-    }
-  }
-}
-
+/**
+ * The scheduler manages round activation/expiry only. Clues are no longer
+ * released on a global interval: each participant sees the next clue as soon
+ * as their previous answer is accepted as correct.
+ */
 export async function runContestScheduler(now = new Date()) {
   const scheduled = await prisma.contest.findMany({
     where: { status: "SCHEDULED" },
-    select: {
-      id: true,
-      startsAt: true,
-      endsAt: true,
-    },
+    select: { id: true, startsAt: true, endsAt: true },
   });
 
   for (const contest of scheduled) {
-    if (!contest.startsAt || now < contest.startsAt) {
-      continue;
-    }
-
-    if (contest.endsAt && now >= contest.endsAt) {
-      await prisma.contest.update({
-        where: { id: contest.id },
-        data: { status: "FINISHED" },
-      });
-
+    if (!contest.startsAt || now < contest.startsAt) continue;
+    const endsAt = contest.endsAt ?? new Date(contest.startsAt.getTime() + CONTEST_DURATION_MS);
+    if (now >= endsAt) {
+      await prisma.contest.update({ where: { id: contest.id }, data: { status: "FINISHED", endsAt } });
       continue;
     }
 
@@ -81,98 +25,62 @@ export async function runContestScheduler(now = new Date()) {
       select: { sequence: true },
       orderBy: { sequence: "asc" },
     });
-
-    if (
-      !hasCompleteClueSequence(
-        clueSequences.map((clue) => clue.sequence),
-      )
-    ) {
-      continue;
-    }
+    if (!hasCompleteClueSequence(clueSequences.map((clue) => clue.sequence))) continue;
 
     const anotherActive = await prisma.contest.findFirst({
-      where: {
-        status: "ACTIVE",
-        id: { not: contest.id },
-      },
+      where: { status: "ACTIVE", id: { not: contest.id } },
       select: { id: true },
     });
+    if (anotherActive) continue;
 
-    if (anotherActive) {
-      continue;
-    }
-
-    await scheduleContestClues(contest.id, contest.startsAt);
-
-    await prisma.contest.update({
-      where: { id: contest.id },
-      data: { status: "ACTIVE" },
-    });
-
+    await prisma.contest.update({ where: { id: contest.id }, data: { status: "ACTIVE", endsAt } });
     await prisma.auditLog.create({
       data: {
         action: "CONTEST_AUTO_ACTIVATED",
         entity: "Contest",
         entityId: contest.id,
-        metadata: { scheduledAt: contest.startsAt },
+        metadata: { scheduledAt: contest.startsAt, endsAt },
       },
     });
   }
 
   const active = await prisma.contest.findMany({
     where: { status: "ACTIVE" },
-    select: {
-      id: true,
-      endsAt: true,
-    },
+    select: { id: true, startsAt: true, endsAt: true },
   });
 
   for (const contest of active) {
-    if (!contest.endsAt || now < contest.endsAt) {
+    if (!contest.startsAt) continue;
+    const endsAt = contest.endsAt ?? new Date(contest.startsAt.getTime() + CONTEST_DURATION_MS);
+    if (now < endsAt) {
+      if (!contest.endsAt) {
+        await prisma.contest.update({ where: { id: contest.id }, data: { endsAt } });
+      }
       continue;
     }
 
-    await prisma.contest.update({
-      where: { id: contest.id },
-      data: { status: "FINISHED" },
-    });
-
+    await prisma.contest.update({ where: { id: contest.id }, data: { status: "FINISHED", endsAt } });
     await prisma.auditLog.create({
       data: {
         action: "CONTEST_AUTO_FINISHED",
         entity: "Contest",
         entityId: contest.id,
-        metadata: { finishedAt: now },
+        metadata: { finishedAt: now, endsAt },
       },
     });
   }
 
-  return {
-    scheduledChecked: scheduled.length,
-    now: now.toISOString(),
-  };
+  return { scheduledChecked: scheduled.length, now: now.toISOString() };
 }
 
 export function startContestScheduler() {
-  const intervalMs = Number.parseInt(
-    process.env.CONTEST_SCHEDULER_INTERVAL_MS ?? "30000",
-    10,
-  );
-
-  const safeInterval =
-    Number.isFinite(intervalMs) && intervalMs >= 5_000
-      ? intervalMs
-      : 30_000;
-
+  const intervalMs = Number.parseInt(process.env.CONTEST_SCHEDULER_INTERVAL_MS ?? "30000", 10);
+  const safeInterval = Number.isFinite(intervalMs) && intervalMs >= 5_000 ? intervalMs : 30_000;
   let running = false;
 
   const tick = async () => {
-    if (running) {
-      return;
-    }
-
+    if (running) return;
     running = true;
-
     try {
       await runContestScheduler();
     } catch (error) {
@@ -183,8 +91,5 @@ export function startContestScheduler() {
   };
 
   void tick();
-
-  return setInterval(() => {
-    void tick();
-  }, safeInterval);
+  return setInterval(() => { void tick(); }, safeInterval);
 }
