@@ -79,6 +79,16 @@ test("response time is measured from publication to submission, not from the pre
   );
 });
 
+test("contest finish time includes the scheduled waiting time between clues", () => {
+  const firstCluePublishedAt = new Date("2026-10-21T10:00:00.000Z");
+  const finalAnswerSubmittedAt = new Date("2026-10-21T10:22:10.000Z");
+
+  assert.equal(
+    calculateResponseTimeMs(finalAnswerSubmittedAt, [firstCluePublishedAt]),
+    1_330_000,
+  );
+});
+
 test("response time never becomes negative", () => {
   const now = new Date("2026-10-21T10:01:00.000Z");
   const futurePublication = new Date("2026-10-21T10:02:00.000Z");
