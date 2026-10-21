@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  calculateClueAvailableAt,
+  calculateCluePublicationTime,
   calculateResponseTimeMs,
   getContestProgress,
   hasCompleteClueSequence,
@@ -51,36 +51,38 @@ test("progress exposes only the contiguous solved prefix", () => {
   assert.equal(complete.completed, true);
 });
 
-test("the first clue unlocks at contest start and later clues unlock two minutes after a correct answer", () => {
+test("all participants share the same global clue publication schedule", () => {
   const contestStartsAt = new Date("2026-10-21T10:00:00.000Z");
-  const previousCorrectSubmittedAt = new Date("2026-10-21T10:03:30.000Z");
 
   assert.equal(
-    calculateClueAvailableAt(1, contestStartsAt, null, 2)?.toISOString(),
-    contestStartsAt.toISOString(),
+    calculateCluePublicationTime(1, contestStartsAt, 2)?.toISOString(),
+    "2026-10-21T10:00:00.000Z",
   );
   assert.equal(
-    calculateClueAvailableAt(2, contestStartsAt, previousCorrectSubmittedAt, 2)?.toISOString(),
-    "2026-10-21T10:05:30.000Z",
+    calculateCluePublicationTime(2, contestStartsAt, 2)?.toISOString(),
+    "2026-10-21T10:02:00.000Z",
   );
   assert.equal(
-    calculateClueAvailableAt(3, contestStartsAt, null, 2),
-    null,
+    calculateCluePublicationTime(12, contestStartsAt, 2)?.toISOString(),
+    "2026-10-21T10:22:00.000Z",
+  );
+  assert.equal(calculateCluePublicationTime(2, null, 2), null);
+});
+
+test("response time is measured from publication to submission, not from the previous answer", () => {
+  const publishedAt = new Date("2026-10-21T10:02:00.000Z");
+  const correctSubmittedAt = new Date("2026-10-21T10:05:30.250Z");
+
+  assert.equal(
+    calculateResponseTimeMs(correctSubmittedAt, [publishedAt]),
+    210_250,
   );
 });
 
-test("response timing starts at the latest authoritative timestamp", () => {
-  const now = new Date("2026-10-18T10:01:00.000Z");
-  const publishedAt = new Date("2026-10-18T10:00:30.000Z");
-  const previousSolve = new Date("2026-10-18T10:00:45.000Z");
+test("response time never becomes negative", () => {
+  const now = new Date("2026-10-21T10:01:00.000Z");
+  const futurePublication = new Date("2026-10-21T10:02:00.000Z");
 
-  assert.equal(
-    calculateResponseTimeMs(now, [publishedAt, previousSolve]),
-    15_000,
-  );
-  assert.equal(
-    calculateResponseTimeMs(now, [publishedAt, new Date("2026-10-18T10:02:00.000Z")]),
-    0,
-  );
+  assert.equal(calculateResponseTimeMs(now, [futurePublication]), 0);
   assert.equal(calculateResponseTimeMs(now, []), 0);
 });

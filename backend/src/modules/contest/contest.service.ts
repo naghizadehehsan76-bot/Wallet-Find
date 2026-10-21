@@ -6,7 +6,7 @@ import type {
   SubmitAnswerInput,
 } from "./contest.schema.js";
 import {
-  calculateClueAvailableAt,
+  calculateCluePublicationTime,
   calculateResponseTimeMs,
   getContestProgress,
   hasCompleteClueSequence,
@@ -236,6 +236,7 @@ export async function getCurrentClue(
     return {
       status: "CONTEST_COMPLETED" as const,
       contest,
+      serverTime: now,
       clue: null,
       currentSequence: null,
       solvedCount: progress.solvedCount,
@@ -248,44 +249,41 @@ export async function getCurrentClue(
     where: { contestId },
     select: { publishIntervalMinutes: true },
   });
-  const previousClue =
-    currentClue.sequence > 1
-      ? clues.find((clue) => clue.sequence === currentClue.sequence - 1)
-      : undefined;
-  const previousCorrectSubmittedAt = previousClue
-    ? correctSubmissions.find((submission) => submission.clueId === previousClue.id)?.submittedAt ?? null
-    : null;
-  const availableAt =
-    calculateClueAvailableAt(
+  const publishedAt =
+    currentClue.publishedAt ??
+    calculateCluePublicationTime(
       currentClue.sequence,
       contest.startsAt,
-      previousCorrectSubmittedAt,
       contestSetting?.publishIntervalMinutes ?? 2,
-    ) ?? currentClue.publishedAt;
+    );
 
-  if (availableAt && now < availableAt) {
+  // A clue is visible only after its globally scheduled publication time.
+  // The contiguous progress check above separately requires prior clues to be solved.
+  if (!publishedAt || now < publishedAt) {
     return {
       status: "WAITING_FOR_CLUE" as const,
       contest,
+      serverTime: now,
       clue: null,
       currentSequence: currentClue.sequence,
       solvedCount: progress.solvedCount,
       solvedAnswers,
-      publishedAt: availableAt,
-      availableAt,
+      publishedAt,
+      availableAt: publishedAt,
     };
   }
 
   return {
     status: "READY" as const,
     contest,
+    serverTime: now,
     clue: {
       id: currentClue.id,
       sequence: currentClue.sequence,
       type: currentClue.type,
       content: currentClue.content,
-      publishedAt: availableAt,
-      availableAt,
+      publishedAt,
+      availableAt: publishedAt,
       sourceUrl: currentClue.sourceUrl,
       hintAnchor: currentClue.hintAnchor,
       options: Array.isArray(currentClue.options)
@@ -295,7 +293,7 @@ export async function getCurrentClue(
     currentSequence: currentClue.sequence,
     solvedCount: progress.solvedCount,
     solvedAnswers,
-    availableAt,
+    availableAt: publishedAt,
   };
 }
 
@@ -304,6 +302,8 @@ export async function submitAnswer(
   contestId: string,
   data: SubmitAnswerInput
 ) {
+  // Capture the server-side submission timestamp immediately on entry.
+  const now = new Date();
   const contest = await prisma.contest.findUnique({
     where: {
       id: contestId,
@@ -323,8 +323,6 @@ export async function submitAnswer(
   if (contest.status !== "ACTIVE") {
     throw new Error("CONTEST_NOT_ACTIVE");
   }
-
-  const now = new Date();
 
   if (
     contest.startsAt &&
@@ -397,22 +395,15 @@ export async function submitAnswer(
     where: { contestId },
     select: { publishIntervalMinutes: true },
   });
-  const previousClue =
-    currentClue.sequence > 1
-      ? clues.find((clue) => clue.sequence === currentClue.sequence - 1)
-      : undefined;
-  const previousCorrectSubmittedAt = previousClue
-    ? correctSubmissions.find((submission) => submission.clueId === previousClue.id)?.submittedAt ?? null
-    : null;
-  const availableAt =
-    calculateClueAvailableAt(
+  const publishedAt =
+    currentClue.publishedAt ??
+    calculateCluePublicationTime(
       currentClue.sequence,
       contest.startsAt,
-      previousCorrectSubmittedAt,
       contestSetting?.publishIntervalMinutes ?? 2,
-    ) ?? currentClue.publishedAt;
+    );
 
-  if (availableAt && now < availableAt) {
+  if (!publishedAt || now < publishedAt) {
     throw new Error("CLUE_NOT_PUBLISHED");
   }
 
@@ -436,7 +427,7 @@ export async function submitAnswer(
     normalizeAnswer(data.answer) ===
     normalizeAnswer(currentClue.correctAnswer);
 
-  const responseTimeMs = calculateResponseTimeMs(now, [availableAt]);
+  const responseTimeMs = calculateResponseTimeMs(now, [publishedAt]);
 
   await prisma.submission.create({
     data: {

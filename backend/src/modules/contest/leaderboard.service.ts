@@ -1,3 +1,5 @@
+import { calculateCluePublicationTime } from "./contest.logic.js";
+
 import prisma from "../../config/prisma.js";
 
 export type LeaderboardEntry = {
@@ -16,20 +18,33 @@ export async function getContestLeaderboard(
 ) {
   const contest = await prisma.contest.findUnique({
     where: { id: contestId },
-    select: { id: true },
+    select: {
+      id: true,
+      startsAt: true,
+      setting: { select: { publishIntervalMinutes: true } },
+    },
   });
 
   if (!contest) {
     throw new Error("CONTEST_NOT_FOUND");
   }
 
+  const intervalMinutes = contest.setting?.publishIntervalMinutes ?? 2;
   const submissions = await prisma.submission.findMany({
     where: { contestId },
+    orderBy: [{ submittedAt: "asc" }, { id: "asc" }],
     select: {
       userId: true,
       clueId: true,
       isCorrect: true,
+      submittedAt: true,
       responseTimeMs: true,
+      clue: {
+        select: {
+          sequence: true,
+          publishedAt: true,
+        },
+      },
       user: {
         select: { username: true },
       },
@@ -47,30 +62,43 @@ export async function getContestLeaderboard(
   >();
 
   for (const submission of submissions) {
-    const existing = byUser.get(submission.userId);
+    let existing = byUser.get(submission.userId);
 
     if (!existing) {
-      byUser.set(submission.userId, {
+      existing = {
         username: submission.user.username,
-        solvedClueIds: new Set(
-          submission.isCorrect ? [submission.clueId] : [],
-        ),
-        totalResponseTimeMs:
-          submission.isCorrect
-            ? submission.responseTimeMs ?? 0n
-            : 0n,
-        incorrectAttempts: submission.isCorrect ? 0 : 1,
-      });
+        solvedClueIds: new Set<string>(),
+        totalResponseTimeMs: 0n,
+        incorrectAttempts: 0,
+      };
+      byUser.set(submission.userId, existing);
+    }
+
+    if (!submission.isCorrect) {
+      existing.incorrectAttempts += 1;
       continue;
     }
 
-    if (submission.isCorrect) {
-      existing.solvedClueIds.add(submission.clueId);
-      existing.totalResponseTimeMs +=
-        submission.responseTimeMs ?? 0n;
-    } else {
-      existing.incorrectAttempts += 1;
+    // Count one successful answer per clue only. Submissions are ordered by
+    // server timestamp so duplicated concurrent correct requests cannot
+    // inflate (or replace) the user's score more than once for the same clue.
+    if (existing.solvedClueIds.has(submission.clueId)) {
+      continue;
     }
+    existing.solvedClueIds.add(submission.clueId);
+
+    const publishedAt =
+      submission.clue.publishedAt ??
+      calculateCluePublicationTime(
+        submission.clue.sequence,
+        contest.startsAt,
+        intervalMinutes,
+      );
+    const elapsedMs = publishedAt
+      ? Math.max(0, submission.submittedAt.getTime() - publishedAt.getTime())
+      : Number(submission.responseTimeMs ?? 0n);
+
+    existing.totalResponseTimeMs += BigInt(elapsedMs);
   }
 
   const entries = [...byUser.entries()]
@@ -88,11 +116,9 @@ export async function getContestLeaderboard(
       }
 
       if (a.completed && b.completed) {
-        if (a.totalResponseTimeMs !== b.totalResponseTimeMs) {
-          return a.totalResponseTimeMs - b.totalResponseTimeMs;
-        }
-
-        return a.incorrectAttempts - b.incorrectAttempts;
+        // Once both users solved all twelve clues, total elapsed time alone
+        // decides the order. Equal totals are a tie, not an error-count win.
+        return a.totalResponseTimeMs - b.totalResponseTimeMs;
       }
 
       if (a.solvedCount !== b.solvedCount) {
@@ -107,12 +133,27 @@ export async function getContestLeaderboard(
     })
     .slice(0, limit);
 
-  const leaderboard: LeaderboardEntry[] = entries.map(
-    (entry, index) => ({
-      rank: index + 1,
+  let previousCompletedTotal: number | null = null;
+  let previousRank = 0;
+
+  const leaderboard: LeaderboardEntry[] = entries.map((entry, index) => {
+    const rank =
+      entry.completed &&
+      previousCompletedTotal !== null &&
+      entry.totalResponseTimeMs === previousCompletedTotal
+        ? previousRank
+        : index + 1;
+
+    previousCompletedTotal = entry.completed
+      ? entry.totalResponseTimeMs
+      : null;
+    previousRank = rank;
+
+    return {
+      rank,
       ...entry,
-    }),
-  );
+    };
+  });
 
   return {
     contestId,

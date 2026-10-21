@@ -51,8 +51,15 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [waitingForClue, setWaitingForClue] = useState(false);
   const [clueAvailableAt, setClueAvailableAt] = useState<string | null>(null);
   const [timerNow, setTimerNow] = useState(() => Date.now());
+  const [serverTimeOffset, setServerTimeOffset] = useState(0);
 
   function applyCurrentClue(current: Awaited<ReturnType<typeof getCurrentClue>>) {
+    if (current.serverTime) {
+      const serverTimestamp = Date.parse(current.serverTime);
+      if (Number.isFinite(serverTimestamp)) {
+        setServerTimeOffset(serverTimestamp - Date.now());
+      }
+    }
     setSolvedCount(current.solvedCount);
     setCurrentSequence(current.currentSequence);
     setCurrentClueId(current.clue?.id ?? null);
@@ -180,14 +187,14 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   }
 
   useEffect(() => {
-    if (!waitingForClue) return;
+    if (!waitingForClue && !currentClueId) return;
 
     const timerId = window.setInterval(() => {
       setTimerNow(Date.now());
-    }, 1_000);
+    }, 100);
 
     return () => window.clearInterval(timerId);
-  }, [waitingForClue]);
+  }, [waitingForClue, currentClueId]);
 
   async function handleStartNextContest() {
     if (!contestId || !completed || startingNextContest) return;
@@ -318,9 +325,14 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const formatNumber = (value: number) => value.toLocaleString(numberLocale);
   const progressPercent = Math.min(100, (solvedCount / 12) * 100);
   const unlockTimestamp = clueAvailableAt ? Date.parse(clueAvailableAt) : Number.NaN;
+  const authoritativeNow = timerNow + serverTimeOffset;
   const remainingUnlockMs =
     waitingForClue && Number.isFinite(unlockTimestamp)
-      ? Math.max(0, unlockTimestamp - timerNow)
+      ? Math.max(0, unlockTimestamp - authoritativeNow)
+      : null;
+  const elapsedFromPublicationMs =
+    !waitingForClue && Boolean(currentClueId) && Number.isFinite(unlockTimestamp)
+      ? Math.max(0, authoritativeNow - unlockTimestamp)
       : null;
   const formatCountdown = (milliseconds: number) => {
     const totalSeconds = Math.ceil(milliseconds / 1_000);
@@ -332,6 +344,19 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
         useGrouping: false,
       });
     return formatPart(minutes) + ":" + formatPart(seconds);
+  };
+  const formatElapsed = (milliseconds: number) => {
+    const safeMilliseconds = Math.max(0, milliseconds);
+    const totalSeconds = Math.floor(safeMilliseconds / 1_000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    const centiseconds = Math.floor((safeMilliseconds % 1_000) / 10);
+    const formatPart = (value: number) =>
+      value.toLocaleString(numberLocale, {
+        minimumIntegerDigits: 2,
+        useGrouping: false,
+      });
+    return formatPart(minutes) + ":" + formatPart(seconds) + "." + formatPart(centiseconds);
   };
 
   return (
@@ -360,17 +385,21 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                 (isPersian ? "مسابقه فعال" : "Active contest")}
             </div>
           </div>
-          <div className="clue-timer" role="timer" aria-live="polite">
+          <div className="clue-timer" role="timer" aria-live="off">
             <span className="clue-timer__label">
-              {isPersian ? "بازشدن لینک سرنخ بعدی" : "Next clue unlock"}
+              {waitingForClue
+                ? (isPersian ? "انتشار سرنخ بعدی" : "Next clue release")
+                : (isPersian ? "زمان از انتشار سرنخ" : "Time since publication")}
             </span>
             <strong>
-              {remainingUnlockMs === null ? "—:—" : formatCountdown(remainingUnlockMs)}
+              {waitingForClue
+                ? (remainingUnlockMs === null ? "—:—" : formatCountdown(remainingUnlockMs))
+                : (elapsedFromPublicationMs === null ? "—:—" : formatElapsed(elapsedFromPublicationMs))}
             </strong>
             <span className="clue-timer__note">
               {waitingForClue
-                ? (isPersian ? "زمان باقی‌مانده" : "Time remaining")
-                : (isPersian ? "پس از پاسخ صحیح شروع می‌شود" : "Starts after a correct answer")}
+                ? (isPersian ? "زمان تا انتشار" : "Time to release")
+                : (isPersian ? "تا ثبت پاسخ صحیح" : "Until correct answer")}
             </span>
           </div>
         </section>
