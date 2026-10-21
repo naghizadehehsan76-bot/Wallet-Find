@@ -236,6 +236,7 @@ export async function getCurrentClue(
     return {
       status: "CONTEST_COMPLETED" as const,
       contest,
+      serverTime: now,
       clue: null,
       currentSequence: null,
       solvedCount: progress.solvedCount,
@@ -262,6 +263,7 @@ export async function getCurrentClue(
     return {
       status: "WAITING_FOR_CLUE" as const,
       contest,
+      serverTime: now,
       clue: null,
       currentSequence: currentClue.sequence,
       solvedCount: progress.solvedCount,
@@ -274,6 +276,7 @@ export async function getCurrentClue(
   return {
     status: "READY" as const,
     contest,
+    serverTime: now,
     clue: {
       id: currentClue.id,
       sequence: currentClue.sequence,
