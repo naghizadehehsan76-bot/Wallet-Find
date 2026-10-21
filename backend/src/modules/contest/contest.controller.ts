@@ -272,6 +272,7 @@ export async function getCurrentClueHandler(
       "CONTEST_FINISHED",
       "NO_CLUES_AVAILABLE",
       "CONTEST_REQUIRES_12_CLUES",
+      "CLUE_PUBLICATION_TIME_MISSING",
     ]);
 
     if (error.message === "CONTEST_NOT_FOUND") {
@@ -358,6 +359,7 @@ export async function submitAnswerHandler(
       "CLUE_NOT_CURRENT",
       "CLUE_NOT_PUBLISHED",
       "CLUE_ALREADY_SOLVED",
+      "CLUE_PUBLICATION_TIME_MISSING",
     ]);
 
     if (clientErrors.has(error.message)) {
