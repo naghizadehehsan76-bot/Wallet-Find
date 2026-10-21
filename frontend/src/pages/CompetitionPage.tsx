@@ -50,6 +50,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [completed, setCompleted] = useState(false);
   const [waitingForClue, setWaitingForClue] = useState(false);
   const [completedAt, setCompletedAt] = useState<string | null>(null);
+  const [lockedUntil, setLockedUntil] = useState<string | null>(null);
   const [timerNow, setTimerNow] = useState(() => Date.now());
   const [serverTimeOffset, setServerTimeOffset] = useState(0);
 
@@ -68,6 +69,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     setSourceUrl(current.clue?.sourceUrl ?? "");
     setCompleted(current.status === "CONTEST_COMPLETED");
     setCompletedAt(current.completedAt ?? null);
+    setLockedUntil(current.lockedUntil ?? null);
     setWaitingForClue(current.status === "WAITING_FOR_CLUE");
 
     const restoredAnswers = Array(12).fill("") as string[];
@@ -258,6 +260,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       const result = await submitAnswer(contestId, currentClueId, value);
 
       if (result.status === "INCORRECT") {
+        setLockedUntil(new Date(Date.now() + serverTimeOffset + 60_000).toISOString());
         setIncorrectSlots((slots) => slots.map((item, index) => index === activeAnswerIndex ? true : item));
         setFeedbackTone("error");
         setFeedback(
@@ -321,6 +324,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const progressPercent = Math.min(100, (solvedCount / 12) * 100);
   const LOCK_DURATION_MS = 2 * 60_000;
   const authoritativeNow = timerNow + serverTimeOffset;
+  const lockRemainingMs = lockedUntil ? Math.max(0, Date.parse(lockedUntil) - authoritativeNow) : 0;
+  const isClueLocked = lockRemainingMs > 0;
   const contestStartTimestamp = contestDate ? Date.parse(contestDate) : Number.NaN;
   const completionTimestamp = completedAt ? Date.parse(completedAt) : Number.NaN;
   const timerEndTimestamp =
@@ -626,11 +631,13 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                   type="button"
                   className="cta-button word-submit-button"
                   onClick={() => void handleSubmit()}
-                  disabled={!answer.trim() || submitting || completed}
+                  disabled={!answer.trim() || submitting || completed || isClueLocked}
                 >
                   {submitting
                     ? (isPersian ? "در حال بررسی..." : "Checking...")
-                    : (isPersian ? "بررسی کلمه‌ی واردشده" : "Check typed word")}
+                    : isClueLocked
+                      ? (isPersian ? "قفل پاسخ: " + Math.ceil(lockRemainingMs / 1000) + " ثانیه" : "Locked: " + Math.ceil(lockRemainingMs / 1000) + "s")
+                      : (isPersian ? "بررسی کلمه‌ی واردشده" : "Check typed word")}
                 </button>
               </>
             )}
