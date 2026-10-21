@@ -44,6 +44,6 @@ router.post(
   finishContestHandler,
 );
 
-router.get("/audit-logs", getAuditLogsHandler);
+router.get("/audit-logs", getAuditLogsHandler);\n\nrouter.get("/prize-pool/:contestId", getPrizePoolHandler);\nrouter.post("/prize-pool/:contestId/test-fund", testFundPrizePoolHandler);\nrouter.post("/prize-pool/:contestId/settle", settlePrizePoolHandler);
 
 export default router;
