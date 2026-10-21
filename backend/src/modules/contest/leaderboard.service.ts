@@ -1,4 +1,4 @@
-import { calculateCluePublicationTime, calculateResponseTimeMs } from "./contest.logic.js";
+import { calculateResponseTimeMs } from "./contest.logic.js";
 
 import prisma from "../../config/prisma.js";
 
@@ -21,7 +21,6 @@ export async function getContestLeaderboard(
     select: {
       id: true,
       startsAt: true,
-      setting: { select: { publishIntervalMinutes: true } },
     },
   });
 
@@ -29,7 +28,6 @@ export async function getContestLeaderboard(
     throw new Error("CONTEST_NOT_FOUND");
   }
 
-  const intervalMinutes = contest.setting?.publishIntervalMinutes ?? 2;
   const submissions = await prisma.submission.findMany({
     where: { contestId },
     orderBy: [{ submittedAt: "asc" }, { id: "asc" }],
@@ -42,7 +40,6 @@ export async function getContestLeaderboard(
       clue: {
         select: {
           sequence: true,
-          publishedAt: true,
         },
       },
       user: {
@@ -59,6 +56,7 @@ export async function getContestLeaderboard(
       totalResponseTimeMs: bigint;
       completedAt: Date | null;
       incorrectAttempts: number;
+      lastSubmittedAt: Date | null;
     }
   >();
 
@@ -72,10 +70,14 @@ export async function getContestLeaderboard(
         totalResponseTimeMs: 0n,
         completedAt: null,
         incorrectAttempts: 0,
+        lastSubmittedAt: null,
       };
       byUser.set(submission.userId, existing);
     }
 
+    if (!existing.lastSubmittedAt || submission.submittedAt > existing.lastSubmittedAt) {
+      existing.lastSubmittedAt = submission.submittedAt;
+    }
     if (!submission.isCorrect) {
       existing.incorrectAttempts += 1;
       continue;
@@ -92,24 +94,12 @@ export async function getContestLeaderboard(
       existing.completedAt = submission.submittedAt;
     }
 
-    const publishedAt =
-      submission.clue.publishedAt ??
-      calculateCluePublicationTime(
-        submission.clue.sequence,
-        contest.startsAt,
-        intervalMinutes,
-      );
-    const elapsedMs = publishedAt
-      ? Math.max(0, submission.submittedAt.getTime() - publishedAt.getTime())
-      : Number(submission.responseTimeMs ?? 0n);
-
-    existing.totalResponseTimeMs += BigInt(elapsedMs);
+    // Completed users are ranked by round completion time below. For
+    // incomplete users, the last server timestamp is used only for progress display.
+    existing.totalResponseTimeMs += BigInt(0);
   }
 
-  const contestStartTime =
-    contest.startsAt ??
-    submissions.find((submission) => submission.clue.sequence === 1)?.clue.publishedAt ??
-    null;
+  const contestStartTime = contest.startsAt;
 
   const entries = [...byUser.entries()]
     .map(([userId, value]) => {
@@ -117,7 +107,9 @@ export async function getContestLeaderboard(
       const overallElapsedMs =
         completed && value.completedAt && contestStartTime
           ? calculateResponseTimeMs(value.completedAt, [contestStartTime])
-          : Number(value.totalResponseTimeMs);
+          : value.lastSubmittedAt && contestStartTime
+            ? calculateResponseTimeMs(value.lastSubmittedAt, [contestStartTime])
+            : 0;
 
       return {
         userId,

@@ -6,20 +6,24 @@ import type {
   SubmitAnswerInput,
 } from "./contest.schema.js";
 import {
-  calculateCluePublicationTime,
   calculateResponseTimeMs,
   getContestProgress,
   hasCompleteClueSequence,
   normalizeAnswer,
   REQUIRED_CLUE_COUNT,
+  CONTEST_DURATION_MS,
+  WRONG_ANSWER_LOCK_MS,
 } from "./contest.logic.js";
 
 export async function createContest(
   data: CreateContestInput
 ) {
-  const startsAt = data.startsAt
-    ? new Date(data.startsAt)
+  const requestedStart = data.startsAt ? new Date(data.startsAt) : null;
+  const ROUND_INTERVAL_MS = 15 * 60_000;
+  const startsAt = requestedStart
+    ? new Date(Math.ceil(Math.max(requestedStart.getTime(), Date.now()) / ROUND_INTERVAL_MS) * ROUND_INTERVAL_MS)
     : null;
+  const endsAt = startsAt ? new Date(startsAt.getTime() + CONTEST_DURATION_MS) : null;
 
   return prisma.contest.create({
     data: {
@@ -27,9 +31,7 @@ export async function createContest(
       description: data.description ?? null,
       status: startsAt ? "SCHEDULED" : "DRAFT",
       startsAt,
-      endsAt: data.endsAt
-        ? new Date(data.endsAt)
-        : null,
+      endsAt,
     },
 
     select: {
@@ -109,39 +111,41 @@ export async function createClue(
 }
 
 export async function getActiveContest() {
-  const contest = await prisma.contest.findFirst({
+  const now = new Date();
+  const active = await prisma.contest.findFirst({
     where: {
       status: "ACTIVE",
+      AND: [
+        { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+        { OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
+      ],
     },
-    orderBy: [
-      { startsAt: "asc" },
-      { createdAt: "asc" },
-    ],
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      status: true,
-      startsAt: true,
-      endsAt: true,
-    },
+    orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }],
+    select: { id: true, title: true, description: true, status: true, startsAt: true, endsAt: true },
   });
+  if (active) return active;
 
-  if (!contest) {
-    throw new Error("ACTIVE_CONTEST_NOT_FOUND");
+  const due = await prisma.contest.findFirst({
+    where: {
+      status: "SCHEDULED",
+      startsAt: { lte: now },
+      OR: [{ endsAt: null }, { endsAt: { gt: now } }],
+    },
+    orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }],
+    select: { id: true, title: true, description: true, status: true, startsAt: true, endsAt: true },
+  });
+  if (due) {
+    await prisma.contest.update({ where: { id: due.id }, data: { status: "ACTIVE" } });
+    return { ...due, status: "ACTIVE" as const };
   }
 
-  const now = new Date();
-
-  if (contest.startsAt && now < contest.startsAt) {
-    throw new Error("CONTEST_NOT_STARTED");
-  }
-
-  if (contest.endsAt && now >= contest.endsAt) {
-    throw new Error("CONTEST_FINISHED");
-  }
-
-  return contest;
+  const upcoming = await prisma.contest.findFirst({
+    where: { status: "SCHEDULED", startsAt: { gt: now } },
+    orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
+    select: { id: true, title: true, description: true, status: true, startsAt: true, endsAt: true },
+  });
+  if (upcoming) return upcoming;
+  throw new Error("ACTIVE_CONTEST_NOT_FOUND");
 }
 
 export async function getCurrentClue(
@@ -166,11 +170,32 @@ export async function getCurrentClue(
     throw new Error("CONTEST_NOT_FOUND");
   }
 
-  if (contest.status !== "ACTIVE") {
-    throw new Error("CONTEST_NOT_ACTIVE");
+  const now = new Date();
+  const scheduledRoundIsLive = contest.status === "SCHEDULED"
+    && Boolean(contest.startsAt && now >= contest.startsAt)
+    && Boolean(!contest.endsAt || now < contest.endsAt);
+  if (scheduledRoundIsLive) {
+    await prisma.contest.update({ where: { id: contestId }, data: { status: "ACTIVE" } });
   }
 
-  const now = new Date();
+  if (contest.status === "SCHEDULED" && contest.startsAt && now < contest.startsAt) {
+    return {
+      status: "WAITING_FOR_CLUE" as const,
+      contest,
+      serverTime: now,
+      clue: null,
+      currentSequence: null,
+      solvedCount: 0,
+      solvedAnswers: [],
+      availableAt: contest.startsAt,
+      lockedUntil: null,
+      lockRemainingMs: 0,
+    };
+  }
+
+  if (contest.status !== "ACTIVE" && !scheduledRoundIsLive) {
+    throw new Error("CONTEST_NOT_ACTIVE");
+  }
 
   if (contest.startsAt && now < contest.startsAt) {
     throw new Error("CONTEST_NOT_STARTED");
@@ -250,33 +275,14 @@ export async function getCurrentClue(
   }
 
   const currentClue = progress.currentClue;
-  const contestSetting = await prisma.contestSetting.findUnique({
-    where: { contestId },
-    select: { publishIntervalMinutes: true },
+  const latestWrongAttempt = await prisma.submission.findFirst({
+    where: { userId, contestId, clueId: currentClue.id, isCorrect: false },
+    orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
+    select: { submittedAt: true },
   });
-  const publishedAt =
-    currentClue.publishedAt ??
-    calculateCluePublicationTime(
-      currentClue.sequence,
-      contest.startsAt,
-      contestSetting?.publishIntervalMinutes ?? 2,
-    );
-
-  // A clue is visible only after its globally scheduled publication time.
-  // The contiguous progress check above separately requires prior clues to be solved.
-  if (!publishedAt || now < publishedAt) {
-    return {
-      status: "WAITING_FOR_CLUE" as const,
-      contest,
-      serverTime: now,
-      clue: null,
-      currentSequence: currentClue.sequence,
-      solvedCount: progress.solvedCount,
-      solvedAnswers,
-      publishedAt,
-      availableAt: publishedAt,
-    };
-  }
+  const lockedUntil = latestWrongAttempt
+    ? new Date(latestWrongAttempt.submittedAt.getTime() + WRONG_ANSWER_LOCK_MS)
+    : null;
 
   return {
     status: "READY" as const,
@@ -287,8 +293,8 @@ export async function getCurrentClue(
       sequence: currentClue.sequence,
       type: currentClue.type,
       content: currentClue.content,
-      publishedAt,
-      availableAt: publishedAt,
+      publishedAt: contest.startsAt,
+      availableAt: contest.startsAt,
       sourceUrl: currentClue.sourceUrl,
       hintAnchor: currentClue.hintAnchor,
       options: Array.isArray(currentClue.options)
@@ -298,7 +304,9 @@ export async function getCurrentClue(
     currentSequence: currentClue.sequence,
     solvedCount: progress.solvedCount,
     solvedAnswers,
-    availableAt: publishedAt,
+    availableAt: contest.startsAt,
+    lockedUntil: lockedUntil && lockedUntil > now ? lockedUntil : null,
+    lockRemainingMs: lockedUntil && lockedUntil > now ? lockedUntil.getTime() - now.getTime() : 0,
   };
 }
 
@@ -325,7 +333,14 @@ export async function submitAnswer(
     throw new Error("CONTEST_NOT_FOUND");
   }
 
-  if (contest.status !== "ACTIVE") {
+  const scheduledRoundIsLive = contest.status === "SCHEDULED"
+    && Boolean(contest.startsAt && now >= contest.startsAt)
+    && Boolean(!contest.endsAt || now < contest.endsAt);
+  if (scheduledRoundIsLive) {
+    await prisma.contest.update({ where: { id: contestId }, data: { status: "ACTIVE" } });
+  }
+
+  if (contest.status !== "ACTIVE" && !scheduledRoundIsLive) {
     throw new Error("CONTEST_NOT_ACTIVE");
   }
 
@@ -400,20 +415,18 @@ export async function submitAnswer(
     throw new Error("CLUE_NOT_CURRENT");
   }
 
-  const contestSetting = await prisma.contestSetting.findUnique({
-    where: { contestId },
-    select: { publishIntervalMinutes: true },
+  const latestWrongAttempt = await prisma.submission.findFirst({
+    where: { userId, contestId, clueId: currentClue.id, isCorrect: false },
+    orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
+    select: { submittedAt: true },
   });
-  const publishedAt =
-    currentClue.publishedAt ??
-    calculateCluePublicationTime(
-      currentClue.sequence,
-      contest.startsAt,
-      contestSetting?.publishIntervalMinutes ?? 2,
-    );
-
-  if (!publishedAt || now < publishedAt) {
-    throw new Error("CLUE_NOT_PUBLISHED");
+  const lockedUntil = latestWrongAttempt
+    ? new Date(latestWrongAttempt.submittedAt.getTime() + WRONG_ANSWER_LOCK_MS)
+    : null;
+  if (lockedUntil && now < lockedUntil) {
+    const error = new Error("CLUE_LOCKED") as Error & { lockedUntil?: string };
+    error.lockedUntil = lockedUntil.toISOString();
+    throw error;
   }
 
   const existingCorrectSubmission = await prisma.submission.findFirst({
@@ -436,7 +449,7 @@ export async function submitAnswer(
     normalizeAnswer(data.answer) ===
     normalizeAnswer(currentClue.correctAnswer);
 
-  const responseTimeMs = calculateResponseTimeMs(now, [publishedAt]);
+  const responseTimeMs = calculateResponseTimeMs(now, [contest.startsAt]);
 
   await prisma.submission.create({
     data: {

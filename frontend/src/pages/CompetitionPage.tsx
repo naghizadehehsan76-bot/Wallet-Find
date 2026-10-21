@@ -5,6 +5,8 @@ import {
   getCurrentClue,
   startNextContest,
   submitAnswer,
+  getContestPrizePool,
+  type PrizePoolView,
 } from "../services/api";
 import { useI18n } from "../i18n";
 import LanguageSwitcher from "../components/LanguageSwitcher";
@@ -30,6 +32,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [contestId, setContestId] = useState<string | null>(null);
   const [contestTitle, setContestTitle] = useState("");
   const [contestDate, setContestDate] = useState<string | null>(null);
+  const [prizePool, setPrizePool] = useState<PrizePoolView | null>(null);
   const [currentClueId, setCurrentClueId] = useState<string | null>(null);
   const [currentSequence, setCurrentSequence] = useState<number | null>(null);
   const [solvedCount, setSolvedCount] = useState(0);
@@ -50,6 +53,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [completed, setCompleted] = useState(false);
   const [waitingForClue, setWaitingForClue] = useState(false);
   const [completedAt, setCompletedAt] = useState<string | null>(null);
+  const [lockedUntil, setLockedUntil] = useState<string | null>(null);
   const [timerNow, setTimerNow] = useState(() => Date.now());
   const [serverTimeOffset, setServerTimeOffset] = useState(0);
 
@@ -68,6 +72,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     setSourceUrl(current.clue?.sourceUrl ?? "");
     setCompleted(current.status === "CONTEST_COMPLETED");
     setCompletedAt(current.completedAt ?? null);
+    setLockedUntil(current.lockedUntil ?? null);
     setWaitingForClue(current.status === "WAITING_FOR_CLUE");
 
     const restoredAnswers = Array(12).fill("") as string[];
@@ -94,6 +99,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
         setContestId(contest.id);
         setContestTitle(contest.title);
         setContestDate(contest.startsAt);
+        void getContestPrizePool(contest.id).then((result) => setPrizePool(result.pool)).catch(() => undefined);
 
         const current = await getCurrentClue(contest.id);
         if (cancelled) return;
@@ -202,14 +208,20 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       setContestId(nextContest.id);
       setContestTitle(nextContest.title);
       setContestDate(nextContest.startsAt);
+      setPrizePool(null);
+      void getContestPrizePool(nextContest.id).then((result) => setPrizePool(result.pool)).catch(() => undefined);
 
       const current = await getCurrentClue(nextContest.id);
       applyCurrentClue(current);
       setFeedbackTone("success");
       setFeedback(
-        isPersian
-          ? "مسابقه‌ی بعدی آماده است؛ راند اول را شروع کن."
-          : "The next contest is ready. Start with round one.",
+        current.status === "WAITING_FOR_CLUE"
+          ? (isPersian
+              ? "ثبت شد؛ دور بعد در زمان ثابت شروع می‌شود. صفحه به‌صورت خودکار آماده خواهد شد."
+              : "Scheduled. The next round starts at its fixed boundary; this page will update automatically.")
+          : (isPersian
+              ? "مسابقه‌ی بعدی آماده است؛ راند اول را شروع کن."
+              : "The next contest is ready. Start with round one."),
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : "NEXT_CONTEST_FAILED";
@@ -258,6 +270,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       const result = await submitAnswer(contestId, currentClueId, value);
 
       if (result.status === "INCORRECT") {
+        setLockedUntil(new Date(Date.now() + serverTimeOffset + 60_000).toISOString());
         setIncorrectSlots((slots) => slots.map((item, index) => index === activeAnswerIndex ? true : item));
         setFeedbackTone("error");
         setFeedback(
@@ -319,8 +332,9 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const numberLocale = isPersian ? "fa-IR" : "en-US";
   const formatNumber = (value: number) => value.toLocaleString(numberLocale);
   const progressPercent = Math.min(100, (solvedCount / 12) * 100);
-  const LOCK_DURATION_MS = 2 * 60_000;
   const authoritativeNow = timerNow + serverTimeOffset;
+  const lockRemainingMs = lockedUntil ? Math.max(0, Date.parse(lockedUntil) - authoritativeNow) : 0;
+  const isClueLocked = lockRemainingMs > 0;
   const contestStartTimestamp = contestDate ? Date.parse(contestDate) : Number.NaN;
   const completionTimestamp = completedAt ? Date.parse(completedAt) : Number.NaN;
   const timerEndTimestamp =
@@ -329,6 +343,11 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       : authoritativeNow;
   const totalContestElapsedMs = Number.isFinite(contestStartTimestamp)
     ? Math.max(0, timerEndTimestamp - contestStartTimestamp)
+    : null;
+  const roundRemainingMs = Number.isFinite(contestStartTimestamp)
+    ? waitingForClue && contestStartTimestamp > authoritativeNow
+      ? contestStartTimestamp - authoritativeNow
+      : Math.max(0, contestStartTimestamp + 15 * 60_000 - authoritativeNow)
     : null;
   const formatCountdown = (milliseconds: number) => {
     const totalSeconds = Math.ceil(milliseconds / 1_000);
@@ -366,23 +385,10 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           !completed &&
           !waitingForClue &&
           Boolean(currentClueId) &&
+          (roundRemainingMs === null || roundRemainingMs > 0) &&
           index === activeAnswerIndex &&
           !isSolved;
         const isLocked = !isSolved && !isActive;
-        const countdownStartAt = Number.isFinite(contestStartTimestamp)
-          ? contestStartTimestamp + Math.max(0, index - 1) * LOCK_DURATION_MS
-          : Number.NaN;
-        const releaseAt = Number.isFinite(contestStartTimestamp)
-          ? contestStartTimestamp + index * LOCK_DURATION_MS
-          : Number.NaN;
-        const lockRemainingMs =
-          index === 0
-            ? 0
-            : !Number.isFinite(countdownStartAt) || !Number.isFinite(releaseAt)
-              ? LOCK_DURATION_MS
-              : authoritativeNow < countdownStartAt
-                ? LOCK_DURATION_MS
-                : Math.max(0, releaseAt - authoritativeNow);
 
         return (
           <div
@@ -405,12 +411,12 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                 className="word-entry__lock"
                 aria-label={
                   (isPersian ? "خانه‌ی قفل‌شده، زمان باقی‌مانده " : "Locked box, time remaining ") +
-                  (index === 0 ? "—:—" : formatCountdown(lockRemainingMs))
+                  (isPersian ? "قفل" : "Locked")
                 }
               >
                 <span className="word-entry__lock-icon" aria-hidden="true">🔒</span>
                 <span className="word-entry__lock-time mono">
-                  {index === 0 ? "—:—" : formatCountdown(lockRemainingMs)}
+                  {isPersian ? "قفل" : "Locked"}
                 </span>
               </div>
             ) : (
@@ -427,7 +433,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                     ? (isPersian ? "پاسخ درست" : "Correct")
                     : (isPersian ? "کلمه..." : "Type word...")
                 }
-                disabled={submitting || isSolved}
+                disabled={submitting || isSolved || (roundRemainingMs !== null && roundRemainingMs <= 0)}
                 readOnly={isSolved}
                 onChange={(event) => {
                   const next = [...answerSlots];
@@ -482,16 +488,39 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           </div>
           <div className="clue-timer" role="timer" aria-live="off">
             <span className="clue-timer__label">
-              {isPersian ? "زمان کل مسابقه" : "Total contest time"}
+              {completed
+                ? (isPersian ? "زمان تکمیل شما" : "Your completion time")
+                : waitingForClue
+                  ? (isPersian ? "تا شروع دور بعد" : "Until next round")
+                  : (isPersian ? "زمان باقی‌مانده مسابقه" : "Contest time remaining")}
             </span>
             <strong>
-              {totalContestElapsedMs === null ? "—:—" : formatElapsed(totalContestElapsedMs)}
+              {completed
+                ? (totalContestElapsedMs === null ? "—:—" : formatElapsed(totalContestElapsedMs))
+                : (roundRemainingMs === null ? "—:—" : formatCountdown(roundRemainingMs))}
             </strong>
             <span className="clue-timer__note">
-              {isPersian ? "از شروع تا ثبت پاسخ دوازدهم" : "From start to final answer"}
+              {completed
+                ? (isPersian ? "از شروع رسمی دور تا پاسخ دوازدهم" : "From official round start to clue 12")
+                : waitingForClue
+                  ? (isPersian ? "شروع در مرز ثابت ۳۰ دقیقه‌ای" : "Starts on the fixed 30-minute boundary")
+                  : (isPersian ? "دور مسابقه دقیقاً ۱۵ دقیقه است" : "Each round lasts exactly 15 minutes")}
             </span>
           </div>
         </section>
+
+        {prizePool && (
+          <section className="stat-row" aria-label={isPersian ? "صندوق جایزه مسابقه" : "Contest prize pool"}>
+            <div className="stat-card">
+              <strong>{prizePool.total} USDT</strong>
+              <span>{isPersian ? "مجموع صندوق فرضی" : "Total simulated pool"}</span>
+            </div>
+            <div className="stat-card">
+              <strong>{prizePool.rolloverIn} USDT</strong>
+              <span>{isPersian ? "انتقال از دور قبل" : "Rollover from prior round"}</span>
+            </div>
+          </section>
+        )}
 
         {loading ? (
           <div className="inline-feedback">
@@ -557,8 +586,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
               <>
                 <div className="inline-feedback">
                   {isPersian
-                    ? "پاسخ صحیح ثبت شد. خانه‌ی بعد پس از پایان تایمر و با ثبت پاسخ صحیح خانه‌ی قبلی فعال می‌شود."
-                    : "Correct answer saved. The next box activates when its timer ends and the previous answer is correct."}
+                    ? "پاسخ صحیح ثبت شد. خانه‌ی بعد بلافاصله فعال می‌شود."
+                    : "Correct answer saved. The next box is available immediately."}
                 </div>
                 <div className="word-grid-title">
                   <span>{isPersian ? "وضعیت ۱۲ خانه" : "Twelve box status"}</span>
@@ -626,15 +655,24 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                   type="button"
                   className="cta-button word-submit-button"
                   onClick={() => void handleSubmit()}
-                  disabled={!answer.trim() || submitting || completed}
+                  disabled={!answer.trim() || submitting || completed || isClueLocked || (roundRemainingMs !== null && roundRemainingMs <= 0)}
                 >
                   {submitting
                     ? (isPersian ? "در حال بررسی..." : "Checking...")
-                    : (isPersian ? "بررسی کلمه‌ی واردشده" : "Check typed word")}
+                    : isClueLocked
+                      ? (isPersian ? "قفل پاسخ: " + Math.ceil(lockRemainingMs / 1000) + " ثانیه" : "Locked: " + Math.ceil(lockRemainingMs / 1000) + "s")
+                      : (isPersian ? "بررسی کلمه‌ی واردشده" : "Check typed word")}
                 </button>
               </>
             )}
 
+            {!completed && !waitingForClue && roundRemainingMs !== null && roundRemainingMs <= 0 && (
+              <div className="inline-feedback round-error" role="status">
+                {isPersian
+                  ? "زمان مسابقه تمام شد؛ پس از پایان ۱۵ دقیقه پاسخ جدید پذیرفته نمی‌شود و شرکت‌کنندهٔ تکمیل‌نکرده جایزه نمی‌گیرد."
+                  : "The round has ended. No further answers are accepted after 15 minutes; incomplete participants receive no prize."}
+              </div>
+            )}
             {feedback && <div className={"inline-feedback round-notice round-notice--" + feedbackTone} role="status" aria-live="polite">{localizeUiMessage(feedback, language)}</div>}
             {error && <div className="inline-feedback round-error">{localizeApiError(error, language)}</div>}
 
