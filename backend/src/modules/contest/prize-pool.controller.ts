@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import type { AuthenticatedRequest } from "../../middleware/auth.middleware.js";
-import { getPrizePool, settlePrizePool, testFundPrizePool } from "./prize-pool.service.js";
+import { getPrizePool, getPublicPrizePool, settlePrizePool, testFundPrizePool } from "./prize-pool.service.js";
 
 function paramContestId(req: AuthenticatedRequest, res: Response): string | null {
   const value = req.params.contestId;
@@ -50,6 +50,17 @@ export async function settlePrizePoolHandler(req: AuthenticatedRequest, res: Res
   if (!contestId) return;
   try {
     const result = await settlePrizePool(contestId, req.user?.userId);
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    return sendError(res, error);
+  }
+}
+
+export async function getPublicPrizePoolHandler(req: AuthenticatedRequest, res: Response) {
+  const contestId = paramContestId(req, res);
+  if (!contestId) return;
+  try {
+    const result = await getPublicPrizePool(contestId);
     return res.json({ success: true, data: result });
   } catch (error) {
     return sendError(res, error);
