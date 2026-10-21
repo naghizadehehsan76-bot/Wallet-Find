@@ -116,21 +116,21 @@ The frontend must never determine whether an answer is correct.
 
 ## 7. Timing
 
-Response timing is part of contest ranking.
+Response timing is part of contest ranking and is authoritative on the server.
 
-The system must record timestamps for submissions.
-
-The backend calculates authoritative response times.
-
-Official ranking timing must not depend on the client's local clock.
+- Every clue has one shared scheduled `publishedAt` timestamp for all participants: contest start plus the publication interval multiplied by the clue's zero-based position.
+- A participant can access only their current unsolved clue. The next clue remains inaccessible until the previous answer is correct, even if its shared publication time has already passed.
+- A clue's response time is the elapsed time between its shared `publishedAt` timestamp and the server timestamp when the participant submits the correct answer.
+- Incorrect attempts are recorded, but they do not stop the response timer and are not included in total solving time.
+- The visible timer is only a display; ranking uses server-calculated milliseconds and never trusts the client's clock.
 
 ## 8. Ranking
 
 The leaderboard ranks players based on contest performance.
 
-The primary ranking metric is total solving time across the 12 clues.
+The primary ranking metric is the sum of response times for the first correct submission of each of the 12 clues. A lower total time ranks higher. Participants who have not solved all 12 clues cannot rank above a completed participant.
 
-The system must also retain incorrect-attempt information because contest tie-breaking may use incorrect-answer count.
+The system retains incorrect-attempt information for tie-breaking when total solving times are equal.
 
 The final ranking must be calculated server-side.
 
