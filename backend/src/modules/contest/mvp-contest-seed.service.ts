@@ -494,15 +494,18 @@ export async function ensureMvpActiveContest() {
   // Generate and validate all rounds before changing the current contest.
   // If an external source fails, the existing contest remains active.
   const clues = await generateMvpRounds();
-  // Start the contest clock after clue generation, immediately before creating it.
-  const startsAt = new Date();
+  // New rounds begin only on fixed half-hour boundaries.
+  const ROUND_INTERVAL_MS = 30 * 60_000;
+  const startsAt = new Date(Math.ceil(Date.now() / ROUND_INTERVAL_MS) * ROUND_INTERVAL_MS);
+  const endsAt = new Date(startsAt.getTime() + CONTEST_DURATION_MS);
+  const status = startsAt.getTime() <= Date.now() ? "ACTIVE" : "SCHEDULED";
   const contest = await prisma.contest.create({
     data: {
       title: "مسابقه واژه‌یابی انگلیسی Wallet Find",
       description: "۱۲ راند واژه‌یابی؛ راهنما را بخوان، لینک منبع را باز کن و کلمه را از میان ۱۲ گزینه انتخاب کن.",
-      status: "ACTIVE",
+      status,
       startsAt,
-      endsAt: new Date(startsAt.getTime() + CONTEST_DURATION_MS),
+      endsAt,
       clues: {
         create: clues.map((clue, index) => ({
           sequence: index + 1,
@@ -522,14 +525,15 @@ export async function ensureMvpActiveContest() {
 
   // Retire previous active records only after the replacement contest exists.
   const previousActiveIds = activeContests
-    .map((activeContest) => activeContest.id)
-    .filter((id) => id !== contest.id);
+    .filter((activeContest) => {
+      const effectiveEnd = activeContest.endsAt ??
+        (activeContest.startsAt ? new Date(activeContest.startsAt.getTime() + CONTEST_DURATION_MS) : null);
+      return effectiveEnd !== null && effectiveEnd.getTime() <= Date.now();
+    })
+    .map((activeContest) => activeContest.id);
   if (previousActiveIds.length > 0) {
     await prisma.contest.updateMany({
-      where: {
-        id: { in: previousActiveIds },
-        status: "ACTIVE",
-      },
+      where: { id: { in: previousActiveIds }, status: "ACTIVE" },
       data: { status: "FINISHED" },
     });
   }
