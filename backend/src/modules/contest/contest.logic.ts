@@ -1,4 +1,6 @@
 export const REQUIRED_CLUE_COUNT = 12;
+export const CONTEST_DURATION_MS = 15 * 60_000;
+export const WRONG_ANSWER_LOCK_MS = 60_000;
 
 export type SequencedClue = {
   id: string;
@@ -65,30 +67,6 @@ export function getContestProgress<T extends SequencedClue>(
     currentClue: ordered[solvedCount] ?? null,
     completed: solvedCount === REQUIRED_CLUE_COUNT,
   };
-}
-
-/**
- * The publication schedule is shared by every participant in a contest.
- * Unless an exact publication timestamp was stored, clue 1 begins at the
- * contest start and each later clue follows at the configured interval.
- */
-export function calculateCluePublicationTime(
-  sequence: number,
-  contestStartsAt: Date | null | undefined,
-  intervalMinutes: number,
-): Date | null {
-  if (!contestStartsAt || !Number.isFinite(contestStartsAt.getTime())) {
-    return null;
-  }
-
-  const safeInterval =
-    Number.isFinite(intervalMinutes) && intervalMinutes >= 1
-      ? intervalMinutes
-      : 2;
-
-  return new Date(
-    contestStartsAt.getTime() + Math.max(0, sequence - 1) * safeInterval * 60_000,
-  );
 }
 
 /**
