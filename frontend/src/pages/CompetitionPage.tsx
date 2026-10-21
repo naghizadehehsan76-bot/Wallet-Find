@@ -383,6 +383,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           !completed &&
           !waitingForClue &&
           Boolean(currentClueId) &&
+          (roundRemainingMs === null || roundRemainingMs > 0) &&
           index === activeAnswerIndex &&
           !isSolved;
         const isLocked = !isSolved && !isActive;
@@ -430,7 +431,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                     ? (isPersian ? "پاسخ درست" : "Correct")
                     : (isPersian ? "کلمه..." : "Type word...")
                 }
-                disabled={submitting || isSolved}
+                disabled={submitting || isSolved || (roundRemainingMs !== null && roundRemainingMs <= 0)}
                 readOnly={isSolved}
                 onChange={(event) => {
                   const next = [...answerSlots];
@@ -652,7 +653,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                   type="button"
                   className="cta-button word-submit-button"
                   onClick={() => void handleSubmit()}
-                  disabled={!answer.trim() || submitting || completed || isClueLocked}
+                  disabled={!answer.trim() || submitting || completed || isClueLocked || (roundRemainingMs !== null && roundRemainingMs <= 0)}
                 >
                   {submitting
                     ? (isPersian ? "در حال بررسی..." : "Checking...")
@@ -663,6 +664,13 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
               </>
             )}
 
+            {!completed && !waitingForClue && roundRemainingMs !== null && roundRemainingMs <= 0 && (
+              <div className="inline-feedback round-error" role="status">
+                {isPersian
+                  ? "زمان مسابقه تمام شد؛ پس از پایان ۱۵ دقیقه پاسخ جدید پذیرفته نمی‌شود و شرکت‌کنندهٔ تکمیل‌نکرده جایزه نمی‌گیرد."
+                  : "The round has ended. No further answers are accepted after 15 minutes; incomplete participants receive no prize."}
+              </div>
+            )}
             {feedback && <div className={"inline-feedback round-notice round-notice--" + feedbackTone} role="status" aria-live="polite">{localizeUiMessage(feedback, language)}</div>}
             {error && <div className="inline-feedback round-error">{localizeApiError(error, language)}</div>}
 
