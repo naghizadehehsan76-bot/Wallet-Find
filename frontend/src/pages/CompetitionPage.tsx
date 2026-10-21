@@ -49,6 +49,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [error, setError] = useState("");
   const [completed, setCompleted] = useState(false);
   const [waitingForClue, setWaitingForClue] = useState(false);
+  const [clueAvailableAt, setClueAvailableAt] = useState<string | null>(null);
+  const [timerNow, setTimerNow] = useState(() => Date.now());
 
   function applyCurrentClue(current: Awaited<ReturnType<typeof getCurrentClue>>) {
     setSolvedCount(current.solvedCount);
@@ -59,6 +61,13 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     setSourceUrl(current.clue?.sourceUrl ?? "");
     setCompleted(current.status === "CONTEST_COMPLETED");
     setWaitingForClue(current.status === "WAITING_FOR_CLUE");
+    setClueAvailableAt(
+      current.availableAt ??
+        current.clue?.availableAt ??
+        current.publishedAt ??
+        current.clue?.publishedAt ??
+        null,
+    );
 
     const restoredAnswers = Array(12).fill("") as string[];
     const restoredSolved = Array(12).fill(false) as boolean[];
@@ -155,7 +164,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
         });
     };
 
-    const intervalId = window.setInterval(pollForClue, 10_000);
+    const intervalId = window.setInterval(pollForClue, 2_000);
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
@@ -169,6 +178,16 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
 
     applyCurrentClue(current);
   }
+
+  useEffect(() => {
+    if (!waitingForClue) return;
+
+    const timerId = window.setInterval(() => {
+      setTimerNow(Date.now());
+    }, 1_000);
+
+    return () => window.clearInterval(timerId);
+  }, [waitingForClue]);
 
   async function handleStartNextContest() {
     if (!contestId || !completed || startingNextContest) return;
@@ -298,6 +317,22 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const numberLocale = isPersian ? "fa-IR" : "en-US";
   const formatNumber = (value: number) => value.toLocaleString(numberLocale);
   const progressPercent = Math.min(100, (solvedCount / 12) * 100);
+  const unlockTimestamp = clueAvailableAt ? Date.parse(clueAvailableAt) : Number.NaN;
+  const remainingUnlockMs =
+    waitingForClue && Number.isFinite(unlockTimestamp)
+      ? Math.max(0, unlockTimestamp - timerNow)
+      : null;
+  const formatCountdown = (milliseconds: number) => {
+    const totalSeconds = Math.ceil(milliseconds / 1_000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    const formatPart = (value: number) =>
+      value.toLocaleString(numberLocale, {
+        minimumIntegerDigits: 2,
+        useGrouping: false,
+      });
+    return formatPart(minutes) + ":" + formatPart(seconds);
+  };
 
   return (
     <div className="app-shell">
@@ -325,9 +360,18 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                 (isPersian ? "مسابقه فعال" : "Active contest")}
             </div>
           </div>
-          <div className="prize">
-            <strong>{isPersian ? "۵۰۰ ₮" : "500 ₮"}</strong>
-            <span>USDT · Polygon</span>
+          <div className="clue-timer" role="timer" aria-live="polite">
+            <span className="clue-timer__label">
+              {isPersian ? "بازشدن لینک سرنخ بعدی" : "Next clue unlock"}
+            </span>
+            <strong>
+              {remainingUnlockMs === null ? "—:—" : formatCountdown(remainingUnlockMs)}
+            </strong>
+            <span className="clue-timer__note">
+              {waitingForClue
+                ? (isPersian ? "زمان باقی‌مانده" : "Time remaining")
+                : (isPersian ? "پس از پاسخ صحیح شروع می‌شود" : "Starts after a correct answer")}
+            </span>
           </div>
         </section>
 
@@ -387,8 +431,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
             ) : waitingForClue ? (
               <div className="inline-feedback">
                 {isPersian
-                  ? "در انتظار آماده‌شدن راند بعدی..."
-                  : "Waiting for the next round..."}
+                  ? "پاسخ صحیح ثبت شد. لینک سرنخ بعدی پس از پایان تایمر باز می‌شود."
+                  : "Correct answer saved. The next clue link opens when the timer ends."}
               </div>
             ) : (
               <>
