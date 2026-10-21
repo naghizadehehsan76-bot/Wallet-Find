@@ -527,6 +527,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
             </section>
 
             {completed ? (
+              <>
               <section className="round-complete">
                 <div className="round-complete__icon">✓</div>
                 <h3>{isPersian ? "مسابقه کامل شد!" : "Contest completed!"}</h3>
@@ -551,6 +552,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                 <span className="word-grid-count mono">{formatNumber(solvedCount)} / 12</span>
               </div>
               {renderAnswerGrid()}
+              </>
             ) : waitingForClue ? (
               <>
                 <div className="inline-feedback">
