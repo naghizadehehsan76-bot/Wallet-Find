@@ -31,6 +31,30 @@ async function ensurePool(tx: any, contestId: string) {
     create: { contestId, testOnly: true, currency: "USDT" },
   });
 
+  // Create an explicitly fictional 100 USDT demo balance once per round.
+  // This is a ledger fixture only and cannot trigger any blockchain transfer.
+  const initialFundingKey = `test-funding-initial:${contestId}`;
+  const initialFunding = await tx.prizeLedger.findUnique({
+    where: { referenceKey: initialFundingKey },
+    select: { id: true },
+  });
+  if (!initialFunding && BigInt(pool.seededMicro) === 0n && pool.status === "OPEN") {
+    const demoAmount = 100n * MICRO;
+    pool = await tx.prizePool.update({
+      where: { contestId },
+      data: { seededMicro: { increment: demoAmount }, testOnly: true },
+    });
+    await tx.prizeLedger.create({
+      data: {
+        contestId,
+        type: "TEST_FUNDING",
+        amountMicro: demoAmount,
+        note: "INITIAL DEMO BALANCE 100.000000 USDT; simulated only, no real assets transferred",
+        referenceKey: initialFundingKey,
+      },
+    });
+  }
+
   // Carry every not-yet-claimed rollover forward exactly once, when a later
   // round's pool is first accessed. Ledger reference keys make retries safe.
   const currentContest = await tx.contest.findUnique({
