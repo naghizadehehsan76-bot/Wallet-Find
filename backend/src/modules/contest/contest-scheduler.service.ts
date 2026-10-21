@@ -1,5 +1,6 @@
 import prisma from "../../config/prisma.js";
 import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
+import { ensureScheduledMvpContest } from "./mvp-contest-seed.service.js";
 
 /**
  * The scheduler manages round activation/expiry only. Clues are no longer
@@ -74,7 +75,8 @@ export async function runContestScheduler(now = new Date()) {
     });
   }
 
-  return { scheduledChecked: scheduled.length, now: now.toISOString() };
+  const nextRound = await ensureScheduledMvpContest(now);
+  return { scheduledChecked: scheduled.length, nextRound, now: now.toISOString() };
 }
 
 export function startContestScheduler() {
