@@ -29,10 +29,6 @@ export async function activateContest(
 
   const now = new Date();
 
-  if (contest.startsAt && now < contest.startsAt) {
-    throw new Error("CONTEST_SCHEDULED_FOR_FUTURE");
-  }
-
   if (contest.endsAt && now >= contest.endsAt) {
     throw new Error("CONTEST_END_ALREADY_PASSED");
   }
@@ -51,24 +47,20 @@ export async function activateContest(
     );
   }
 
-  const existingActive = await prisma.contest.findFirst({
-    where: {
-      status: "ACTIVE",
-      id: { not: contestId },
-    },
-    select: { id: true },
-  });
-
-  if (existingActive) {
-    throw new Error("ANOTHER_CONTEST_ALREADY_ACTIVE");
-  }
-
   const clueCount = clues.length;
   const ROUND_INTERVAL_MS = 30 * 60_000;
   const requestedStart = contest.startsAt && contest.startsAt > now ? contest.startsAt : now;
   const startsAt = new Date(Math.ceil(requestedStart.getTime() / ROUND_INTERVAL_MS) * ROUND_INTERVAL_MS);
   const endsAt = new Date(startsAt.getTime() + CONTEST_DURATION_MS);
   const nextStatus = startsAt.getTime() <= now.getTime() ? "ACTIVE" : "SCHEDULED";
+
+  if (nextStatus === "ACTIVE") {
+    const existingActive = await prisma.contest.findFirst({
+      where: { status: "ACTIVE", id: { not: contestId }, OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
+      select: { id: true },
+    });
+    if (existingActive) throw new Error("ANOTHER_CONTEST_ALREADY_ACTIVE");
+  }
 
   const updated = await prisma.contest.update({
     where: { id: contestId },
