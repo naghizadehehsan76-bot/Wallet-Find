@@ -180,14 +180,14 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   }
 
   useEffect(() => {
-    if (!waitingForClue) return;
+    if (!clueAvailableAt || completed) return;
 
     const timerId = window.setInterval(() => {
       setTimerNow(Date.now());
     }, 1_000);
 
     return () => window.clearInterval(timerId);
-  }, [waitingForClue]);
+  }, [clueAvailableAt, completed]);
 
   async function handleStartNextContest() {
     if (!contestId || !completed || startingNextContest) return;
@@ -317,22 +317,43 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const numberLocale = isPersian ? "fa-IR" : "en-US";
   const formatNumber = (value: number) => value.toLocaleString(numberLocale);
   const progressPercent = Math.min(100, (solvedCount / 12) * 100);
-  const unlockTimestamp = clueAvailableAt ? Date.parse(clueAvailableAt) : Number.NaN;
-  const remainingUnlockMs =
-    waitingForClue && Number.isFinite(unlockTimestamp)
-      ? Math.max(0, unlockTimestamp - timerNow)
+  const cluePublishedTimestamp = clueAvailableAt
+    ? Date.parse(clueAvailableAt)
+    : Number.NaN;
+  const remainingUntilPublicationMs =
+    waitingForClue && Number.isFinite(cluePublishedTimestamp)
+      ? Math.max(0, cluePublishedTimestamp - timerNow)
       : null;
-  const formatCountdown = (milliseconds: number) => {
-    const totalSeconds = Math.ceil(milliseconds / 1_000);
-    const minutes = Math.floor(totalSeconds / 60);
+  const elapsedResponseMs =
+    !waitingForClue &&
+    currentClueId &&
+    Number.isFinite(cluePublishedTimestamp)
+      ? Math.max(0, timerNow - cluePublishedTimestamp)
+      : null;
+  const formatDuration = (milliseconds: number, roundUp = false) => {
+    const totalSeconds = Math.max(
+      0,
+      roundUp
+        ? Math.ceil(milliseconds / 1_000)
+        : Math.floor(milliseconds / 1_000),
+    );
+    const hours = Math.floor(totalSeconds / 3_600);
+    const minutes = Math.floor((totalSeconds % 3_600) / 60);
     const seconds = totalSeconds % 60;
     const formatPart = (value: number) =>
       value.toLocaleString(numberLocale, {
         minimumIntegerDigits: 2,
         useGrouping: false,
       });
-    return formatPart(minutes) + ":" + formatPart(seconds);
+    return hours > 0
+      ? formatPart(hours) + ":" + formatPart(minutes) + ":" + formatPart(seconds)
+      : formatPart(Math.floor(totalSeconds / 60)) + ":" + formatPart(seconds);
   };
+  const timerDisplayValue = waitingForClue
+    ? (remainingUntilPublicationMs === null
+        ? "—:—"
+        : formatDuration(remainingUntilPublicationMs, true))
+    : (elapsedResponseMs === null ? "—:—" : formatDuration(elapsedResponseMs));
 
   return (
     <div className="app-shell">
@@ -360,17 +381,17 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                 (isPersian ? "مسابقه فعال" : "Active contest")}
             </div>
           </div>
-          <div className="clue-timer" role="timer" aria-live="polite">
+          <div className="clue-timer" role="timer" aria-live="off">
             <span className="clue-timer__label">
-              {isPersian ? "بازشدن لینک سرنخ بعدی" : "Next clue unlock"}
+              {waitingForClue
+                ? (isPersian ? "انتشار سرنخ بعدی در" : "Next clue published in")
+                : (isPersian ? "زمان از انتشار سرنخ" : "Time since clue release")}
             </span>
-            <strong>
-              {remainingUnlockMs === null ? "—:—" : formatCountdown(remainingUnlockMs)}
-            </strong>
+            <strong>{timerDisplayValue}</strong>
             <span className="clue-timer__note">
               {waitingForClue
-                ? (isPersian ? "زمان باقی‌مانده" : "Time remaining")
-                : (isPersian ? "پس از پاسخ صحیح شروع می‌شود" : "Starts after a correct answer")}
+                ? (isPersian ? "پس از پاسخ صحیح قبلی" : "Previous answer must be correct")
+                : (isPersian ? "مبنای زمان رتبه‌بندی" : "Used for ranking")}
             </span>
           </div>
         </section>
