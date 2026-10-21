@@ -494,8 +494,8 @@ export async function ensureMvpActiveContest() {
   // Generate and validate all rounds before changing the current contest.
   // If an external source fails, the existing contest remains active.
   const clues = await generateMvpRounds();
-  // New rounds begin only on fixed half-hour boundaries.
-  const ROUND_INTERVAL_MS = 30 * 60_000;
+  // New rounds begin only on fixed 15-minute boundaries.
+  const ROUND_INTERVAL_MS = 15 * 60_000;
   const startsAt = new Date(Math.ceil(Date.now() / ROUND_INTERVAL_MS) * ROUND_INTERVAL_MS);
   const endsAt = new Date(startsAt.getTime() + CONTEST_DURATION_MS);
   const status = startsAt.getTime() <= Date.now() ? "ACTIVE" : "SCHEDULED";
@@ -707,7 +707,7 @@ export async function startNextMvpContest(userId: string, completedContestId: st
         return publicContest(contestCreatedByAnotherRequest);
       }
 
-      const ROUND_INTERVAL_MS = 30 * 60_000;
+      const ROUND_INTERVAL_MS = 15 * 60_000;
       const nextFixedBoundary = Math.ceil(Date.now() / ROUND_INTERVAL_MS) * ROUND_INTERVAL_MS;
       const previousRoundBoundary = completedContest.startsAt
         ? completedContest.startsAt.getTime() + ROUND_INTERVAL_MS
@@ -791,7 +791,7 @@ const AUTOMATIC_ROUND_RETRY_DELAY_MS = 5 * 60_000;
 
 /**
  * Keep one future shared round queued even when nobody has completed the
- * current round yet. The generated round starts on a fixed half-hour boundary.
+ * current round yet. The generated round starts on a fixed 15-minute boundary.
  */
 export async function ensureScheduledMvpContest(now = new Date()) {
   const existingScheduled = await prisma.contest.findFirst({
@@ -814,7 +814,7 @@ export async function ensureScheduledMvpContest(now = new Date()) {
 
   try {
     const clues = await generateMvpRounds();
-    const intervalMs = 30 * 60_000;
+    const intervalMs = 15 * 60_000;
     const nextBoundary = Math.ceil(now.getTime() / intervalMs) * intervalMs;
     const previousBoundary = previous.startsAt.getTime() + intervalMs;
     const startsAt = new Date(Math.max(nextBoundary, previousBoundary));
