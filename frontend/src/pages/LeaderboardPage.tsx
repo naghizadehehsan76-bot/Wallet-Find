@@ -28,8 +28,8 @@ function formatTime(milliseconds: number, isPersian: boolean) {
   const totalSeconds = Math.floor(safeMilliseconds / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  const centiseconds = Math.floor((safeMilliseconds % 1000) / 10);
-  const value = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(centiseconds).padStart(2, "0")}`;
+  const millisecondsPart = safeMilliseconds % 1000;
+  const value = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(millisecondsPart).padStart(3, "0")}`;
 
   return isPersian
     ? value.replace(/\d/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"[Number(digit)])
