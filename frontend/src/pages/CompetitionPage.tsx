@@ -191,7 +191,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
 
     const timerId = window.setInterval(() => {
       setTimerNow(Date.now());
-    }, 1_000);
+    }, 100);
 
     return () => window.clearInterval(timerId);
   }, [waitingForClue, currentClueId]);
