@@ -116,11 +116,9 @@ export async function getContestLeaderboard(
       }
 
       if (a.completed && b.completed) {
-        if (a.totalResponseTimeMs !== b.totalResponseTimeMs) {
-          return a.totalResponseTimeMs - b.totalResponseTimeMs;
-        }
-
-        return a.incorrectAttempts - b.incorrectAttempts;
+        // Once both users solved all twelve clues, total elapsed time alone
+        // decides the order. Equal totals are a tie, not an error-count win.
+        return a.totalResponseTimeMs - b.totalResponseTimeMs;
       }
 
       if (a.solvedCount !== b.solvedCount) {
@@ -135,12 +133,27 @@ export async function getContestLeaderboard(
     })
     .slice(0, limit);
 
-  const leaderboard: LeaderboardEntry[] = entries.map(
-    (entry, index) => ({
-      rank: index + 1,
+  let previousCompletedTotal: number | null = null;
+  let previousRank = 0;
+
+  const leaderboard: LeaderboardEntry[] = entries.map((entry, index) => {
+    const rank =
+      entry.completed &&
+      previousCompletedTotal !== null &&
+      entry.totalResponseTimeMs === previousCompletedTotal
+        ? previousRank
+        : index + 1;
+
+    previousCompletedTotal = entry.completed
+      ? entry.totalResponseTimeMs
+      : null;
+    previousRank = rank;
+
+    return {
+      rank,
       ...entry,
-    }),
-  );
+    };
+  });
 
   return {
     contestId,
