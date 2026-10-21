@@ -61,7 +61,7 @@ async function ensurePool(tx: any, contestId: string) {
     where: { id: contestId },
     select: { startsAt: true },
   });
-  if (currentContest?.startsAt) {
+  if (currentContest?.startsAt && pool.status === "OPEN") {
     const previousPools = await tx.prizePool.findMany({
       where: {
         contestId: { not: contestId },
