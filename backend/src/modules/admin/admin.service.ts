@@ -115,7 +115,7 @@ export async function updateContestSettings(
         contestId,
         clueCount: data.clueCount ?? 12,
         publishIntervalMinutes:
-          data.publishIntervalMinutes ?? 15,
+          data.publishIntervalMinutes ?? 2,
         firstPrizePercent:
           data.firstPrizePercent ?? 70,
         secondPrizePercent:
