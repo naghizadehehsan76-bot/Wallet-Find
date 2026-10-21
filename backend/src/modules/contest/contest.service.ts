@@ -121,6 +121,20 @@ export async function getActiveContest() {
   });
   if (active) return active;
 
+  const due = await prisma.contest.findFirst({
+    where: {
+      status: "SCHEDULED",
+      startsAt: { lte: now },
+      OR: [{ endsAt: null }, { endsAt: { gt: now } }],
+    },
+    orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }],
+    select: { id: true, title: true, description: true, status: true, startsAt: true, endsAt: true },
+  });
+  if (due) {
+    await prisma.contest.update({ where: { id: due.id }, data: { status: "ACTIVE" } });
+    return { ...due, status: "ACTIVE" as const };
+  }
+
   const upcoming = await prisma.contest.findFirst({
     where: { status: "SCHEDULED", startsAt: { gt: now } },
     orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
@@ -153,6 +167,12 @@ export async function getCurrentClue(
   }
 
   const now = new Date();
+  const scheduledRoundIsLive = contest.status === "SCHEDULED"
+    && Boolean(contest.startsAt && now >= contest.startsAt)
+    && Boolean(!contest.endsAt || now < contest.endsAt);
+  if (scheduledRoundIsLive) {
+    await prisma.contest.update({ where: { id: contestId }, data: { status: "ACTIVE" } });
+  }
 
   if (contest.status === "SCHEDULED" && contest.startsAt && now < contest.startsAt) {
     return {
@@ -169,7 +189,7 @@ export async function getCurrentClue(
     };
   }
 
-  if (contest.status !== "ACTIVE") {
+  if (contest.status !== "ACTIVE" && !scheduledRoundIsLive) {
     throw new Error("CONTEST_NOT_ACTIVE");
   }
 
@@ -309,7 +329,14 @@ export async function submitAnswer(
     throw new Error("CONTEST_NOT_FOUND");
   }
 
-  if (contest.status !== "ACTIVE") {
+  const scheduledRoundIsLive = contest.status === "SCHEDULED"
+    && Boolean(contest.startsAt && now >= contest.startsAt)
+    && Boolean(!contest.endsAt || now < contest.endsAt);
+  if (scheduledRoundIsLive) {
+    await prisma.contest.update({ where: { id: contestId }, data: { status: "ACTIVE" } });
+  }
+
+  if (contest.status !== "ACTIVE" && !scheduledRoundIsLive) {
     throw new Error("CONTEST_NOT_ACTIVE");
   }
 
