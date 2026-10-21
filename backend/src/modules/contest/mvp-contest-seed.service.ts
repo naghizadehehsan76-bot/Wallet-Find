@@ -1,5 +1,5 @@
 import prisma from "../../config/prisma.js";
-import { hasCompleteClueSequence } from "./contest.logic.js";
+import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
 
 type SourceDocument = {
   title: string;
@@ -502,6 +502,7 @@ export async function ensureMvpActiveContest() {
       description: "۱۲ راند واژه‌یابی؛ راهنما را بخوان، لینک منبع را باز کن و کلمه را از میان ۱۲ گزینه انتخاب کن.",
       status: "ACTIVE",
       startsAt,
+      endsAt: new Date(startsAt.getTime() + CONTEST_DURATION_MS),
       clues: {
         create: clues.map((clue, index) => ({
           sequence: index + 1,
@@ -512,7 +513,7 @@ export async function ensureMvpActiveContest() {
           sourceUrl: clue.sourceUrl,
           hintAnchor: clue.hintAnchor,
           options: clue.options,
-          publishedAt: new Date(startsAt.getTime() + index * 2 * 60_000),
+          publishedAt: startsAt,
         })),
       },
     },
