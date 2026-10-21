@@ -5,6 +5,8 @@ import {
   getCurrentClue,
   startNextContest,
   submitAnswer,
+  getContestPrizePool,
+  type PrizePoolView,
 } from "../services/api";
 import { useI18n } from "../i18n";
 import LanguageSwitcher from "../components/LanguageSwitcher";
@@ -30,6 +32,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [contestId, setContestId] = useState<string | null>(null);
   const [contestTitle, setContestTitle] = useState("");
   const [contestDate, setContestDate] = useState<string | null>(null);
+  const [prizePool, setPrizePool] = useState<PrizePoolView | null>(null);
   const [currentClueId, setCurrentClueId] = useState<string | null>(null);
   const [currentSequence, setCurrentSequence] = useState<number | null>(null);
   const [solvedCount, setSolvedCount] = useState(0);
@@ -96,6 +99,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
         setContestId(contest.id);
         setContestTitle(contest.title);
         setContestDate(contest.startsAt);
+        void getContestPrizePool(contest.id).then((result) => setPrizePool(result.pool)).catch(() => undefined);
 
         const current = await getCurrentClue(contest.id);
         if (cancelled) return;
@@ -322,7 +326,6 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const numberLocale = isPersian ? "fa-IR" : "en-US";
   const formatNumber = (value: number) => value.toLocaleString(numberLocale);
   const progressPercent = Math.min(100, (solvedCount / 12) * 100);
-  const LOCK_DURATION_MS = 2 * 60_000;
   const authoritativeNow = timerNow + serverTimeOffset;
   const lockRemainingMs = lockedUntil ? Math.max(0, Date.parse(lockedUntil) - authoritativeNow) : 0;
   const isClueLocked = lockRemainingMs > 0;
@@ -334,6 +337,9 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       : authoritativeNow;
   const totalContestElapsedMs = Number.isFinite(contestStartTimestamp)
     ? Math.max(0, timerEndTimestamp - contestStartTimestamp)
+    : null;
+  const roundRemainingMs = Number.isFinite(contestStartTimestamp)
+    ? Math.max(0, contestStartTimestamp + 15 * 60_000 - authoritativeNow)
     : null;
   const formatCountdown = (milliseconds: number) => {
     const totalSeconds = Math.ceil(milliseconds / 1_000);
@@ -374,20 +380,6 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           index === activeAnswerIndex &&
           !isSolved;
         const isLocked = !isSolved && !isActive;
-        const countdownStartAt = Number.isFinite(contestStartTimestamp)
-          ? contestStartTimestamp + Math.max(0, index - 1) * LOCK_DURATION_MS
-          : Number.NaN;
-        const releaseAt = Number.isFinite(contestStartTimestamp)
-          ? contestStartTimestamp + index * LOCK_DURATION_MS
-          : Number.NaN;
-        const lockRemainingMs =
-          index === 0
-            ? 0
-            : !Number.isFinite(countdownStartAt) || !Number.isFinite(releaseAt)
-              ? LOCK_DURATION_MS
-              : authoritativeNow < countdownStartAt
-                ? LOCK_DURATION_MS
-                : Math.max(0, releaseAt - authoritativeNow);
 
         return (
           <div
