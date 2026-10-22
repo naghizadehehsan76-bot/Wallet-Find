@@ -810,13 +810,17 @@ export async function ensureScheduledMvpContest(now = new Date()) {
     orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }],
     select: { id: true, startsAt: true },
   });
-  if (!previous?.startsAt) return { scheduled: false, reason: "NO_PREVIOUS_ROUND" };
 
+  // Bootstrap the very first shared round as well. Previously the scheduler
+  // required a prior ACTIVE/FINISHED round, so a fresh/empty database could
+  // never create its first contest and /contests/active returned 404 forever.
   try {
     const clues = await generateMvpRounds();
     const intervalMs = 15 * 60_000;
     const nextBoundary = Math.ceil(now.getTime() / intervalMs) * intervalMs;
-    const previousBoundary = previous.startsAt.getTime() + intervalMs;
+    const previousBoundary = previous?.startsAt
+      ? previous.startsAt.getTime() + intervalMs
+      : nextBoundary;
     const startsAt = new Date(Math.max(nextBoundary, previousBoundary));
     const endsAt = new Date(startsAt.getTime() + CONTEST_DURATION_MS);
 
@@ -852,11 +856,11 @@ export async function ensureScheduledMvpContest(now = new Date()) {
       });
       await tx.auditLog.create({
         data: {
-          action: "MVP_ROUND_AUTO_SCHEDULED",
+          action: previous ? "MVP_ROUND_AUTO_SCHEDULED" : "MVP_FIRST_ROUND_AUTO_CREATED",
           entity: "Contest",
           entityId: round.id,
           metadata: {
-            sourceRoundId: previous.id,
+            ...(previous ? { sourceRoundId: previous.id } : { bootstrap: true }),
             startsAt: startsAt.toISOString(),
             endsAt: endsAt.toISOString(),
             clueCount: clues.length,
@@ -868,7 +872,7 @@ export async function ensureScheduledMvpContest(now = new Date()) {
 
     return { scheduled: true, contestId: created.id };
   } catch (error) {
-    console.warn("Could not automatically schedule the next MVP round; will retry after cooldown.", error);
+    console.warn("Could not automatically schedule the MVP round; will retry after cooldown.", error);
     return { scheduled: false, reason: "GENERATION_FAILED" };
   }
 }
