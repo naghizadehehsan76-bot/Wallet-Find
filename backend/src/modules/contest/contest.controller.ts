@@ -14,7 +14,7 @@ import {
   getCurrentClue,
   submitAnswer,
 } from "./contest.service.js";
-import { startNextMvpContest } from "./mvp-contest-seed.service.js";
+import { ensureMvpActiveContest, startNextMvpContest } from "./mvp-contest-seed.service.js";
 
 function isError(error: unknown): error is Error {
   return error instanceof Error;
@@ -123,7 +123,28 @@ export async function getActiveContestHandler(
   }
 
   try {
-    const contest = await getActiveContest();
+    let contest;
+    try {
+      contest = await getActiveContest();
+    } catch (error) {
+      if (!isError(error) || error.message !== "ACTIVE_CONTEST_NOT_FOUND") {
+        throw error;
+      }
+
+      // Recover if the database has no active/upcoming round (for example,
+      // after a failed server-start seed or an empty initial database).
+      // If generation fails, preserve a clear server error and log its cause.
+      try {
+        await ensureMvpActiveContest();
+        contest = await getActiveContest();
+      } catch (recoveryError) {
+        console.error("No active contest found; automatic recovery failed.", recoveryError);
+        return res.status(503).json({
+          success: false,
+          error: "CONTEST_INITIALIZATION_FAILED",
+        });
+      }
+    }
 
     return res.status(200).json({
       success: true,
@@ -134,9 +155,9 @@ export async function getActiveContestHandler(
       isError(error) &&
       error.message === "ACTIVE_CONTEST_NOT_FOUND"
     ) {
-      return res.status(404).json({
+      return res.status(503).json({
         success: false,
-        error: "ACTIVE_CONTEST_NOT_FOUND",
+        error: "CONTEST_INITIALIZATION_FAILED",
       });
     }
 
