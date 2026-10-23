@@ -1,16 +1,16 @@
 type UiLanguage = "fa" | "en";
 
 const apiErrors: Record<string, { fa: string; en: string }> = {
-  ACTIVE_CONTEST_NOT_FOUND: { fa: "در حال حاضر مسابقه‌ی فعالی پیدا نشد. کمی بعد دوباره تلاش کن.", en: "No active contest was found. Please try again shortly." },
-  CONTEST_NOT_STARTED: { fa: "مسابقه هنوز شروع نشده است.", en: "The contest has not started yet." },
-  CONTEST_FINISHED: { fa: "این مسابقه به پایان رسیده است.", en: "This contest has ended." },
-  CONTEST_NOT_FOUND: { fa: "مسابقه پیدا نشد.", en: "Contest not found." },
-  CONTEST_NOT_ACTIVE: { fa: "این مسابقه فعال نیست.", en: "This contest is not active." },
-  CONTEST_REQUIRES_12_CLUES: { fa: "این مسابقه هنوز ۱۲ سرنخ کامل ندارد.", en: "This contest does not have all 12 clues yet." },
-  CONTEST_NOT_COMPLETED_BY_USER: { fa: "برای شروع مسابقه‌ی بعدی باید هر ۱۲ راند مسابقه‌ی فعلی را کامل کنی.", en: "Complete all 12 rounds of the current contest before starting the next one." },
-  NEXT_CONTEST_GENERATION_FAILED: { fa: "فعلاً ساخت مسابقه‌ی بعدی ممکن نشد. چند لحظه بعد دوباره تلاش کن.", en: "The next contest could not be generated right now. Please try again shortly." },
-  NEXT_CONTEST_FAILED: { fa: "شروع مسابقه‌ی بعدی ناموفق بود. دوباره تلاش کن.", en: "Could not start the next contest. Please try again." },
-  CONTEST_CLUES_LOCKED: { fa: "سرنخ‌های این مسابقه دیگر قابل ویرایش نیستند.", en: "The clues for this contest can no longer be edited." },
+  ACTIVE_CONTEST_NOT_FOUND: { fa: "در حال حاضر چالش فعالی پیدا نشد. کمی بعد دوباره تلاش کن.", en: "No active challenge was found. Please try again shortly." },
+  CONTEST_NOT_STARTED: { fa: "چالش هنوز شروع نشده است.", en: "The challenge has not started yet." },
+  CONTEST_FINISHED: { fa: "این چالش به پایان رسیده است.", en: "This challenge has ended." },
+  CONTEST_NOT_FOUND: { fa: "چالش پیدا نشد.", en: "Challenge not found." },
+  CONTEST_NOT_ACTIVE: { fa: "این چالش فعال نیست.", en: "This challenge is not active." },
+  CONTEST_REQUIRES_12_CLUES: { fa: "این چالش هنوز ۱۲ سرنخ کامل ندارد.", en: "This challenge does not have all 12 clues yet." },
+  CONTEST_NOT_COMPLETED_BY_USER: { fa: "برای شروع چالش بعدی باید هر ۱۲ راند چالش فعلی را کامل کنی.", en: "Complete all 12 rounds of the current challenge before starting the next one." },
+  NEXT_CONTEST_GENERATION_FAILED: { fa: "فعلاً ساخت چالش بعدی ممکن نشد. چند لحظه بعد دوباره تلاش کن.", en: "The next challenge could not be generated right now. Please try again shortly." },
+  NEXT_CONTEST_FAILED: { fa: "شروع چالش بعدی ناموفق بود. دوباره تلاش کن.", en: "Could not start the next challenge. Please try again." },
+  CONTEST_CLUES_LOCKED: { fa: "سرنخ‌های این چالش دیگر قابل ویرایش نیستند.", en: "The clues for this challenge can no longer be edited." },
   CONTEST_ALREADY_SOLVED: { fa: "این راند قبلاً حل شده است.", en: "This round has already been solved." },
   CLUE_NOT_CURRENT: { fa: "ابتدا باید راند فعلی را حل کنی.", en: "You must solve the current round first." },
   CLUE_NOT_PUBLISHED: { fa: "این سرنخ هنوز منتشر نشده است.", en: "This clue has not been published yet." },
@@ -34,32 +34,32 @@ const apiErrors: Record<string, { fa: string; en: string }> = {
 };
 
 const knownUiTexts: Record<string, { fa: string; en: string }> = {
-  "در حال همگام‌سازی وضعیت مسابقه؛ دوباره خودکار تلاش می‌کنیم.": { fa: "در حال همگام‌سازی وضعیت مسابقه؛ دوباره خودکار تلاش می‌کنیم.", en: "Syncing contest status. Retrying automatically." },
-  "Syncing contest status. Retrying automatically.": { fa: "در حال همگام‌سازی وضعیت مسابقه؛ دوباره خودکار تلاش می‌کنیم.", en: "Syncing contest status. Retrying automatically." },
-  "مسابقه آماده است؛ از اولین کلمه‌ی حل‌نشده شروع کن.": { fa: "مسابقه آماده است؛ از اولین کلمه‌ی حل‌نشده شروع کن.", en: "The contest is ready. Start with your first unsolved word." },
-  "The contest is ready. Start with your first unsolved word.": { fa: "مسابقه آماده است؛ از اولین کلمه‌ی حل‌نشده شروع کن.", en: "The contest is ready. Start with your first unsolved word." },
+  "در حال همگام‌سازی وضعیت چالش؛ دوباره خودکار تلاش می‌کنیم.": { fa: "در حال همگام‌سازی وضعیت چالش؛ دوباره خودکار تلاش می‌کنیم.", en: "Syncing challenge status. Retrying automatically." },
+  "Syncing challenge status. Retrying automatically.": { fa: "در حال همگام‌سازی وضعیت چالش؛ دوباره خودکار تلاش می‌کنیم.", en: "Syncing challenge status. Retrying automatically." },
+  "چالش آماده است؛ از اولین کلمه‌ی حل‌نشده شروع کن.": { fa: "چالش آماده است؛ از اولین کلمه‌ی حل‌نشده شروع کن.", en: "The challenge is ready. Start with your first unsolved word." },
+  "The challenge is ready. Start with your first unsolved word.": { fa: "چالش آماده است؛ از اولین کلمه‌ی حل‌نشده شروع کن.", en: "The challenge is ready. Start with your first unsolved word." },
   "ثبت شد؛ دور بعد در زمان ثابت شروع می‌شود. صفحه به‌صورت خودکار آماده خواهد شد.": { fa: "ثبت شد؛ دور بعد در زمان ثابت شروع می‌شود. صفحه به‌صورت خودکار آماده خواهد شد.", en: "Scheduled. The next round starts at its fixed boundary; this page will update automatically." },
   "Scheduled. The next round starts at its fixed boundary; this page will update automatically.": { fa: "ثبت شد؛ دور بعد در زمان ثابت شروع می‌شود. صفحه به‌صورت خودکار آماده خواهد شد.", en: "Scheduled. The next round starts at its fixed boundary; this page will update automatically." },
   "راند بعدی هنوز آماده‌ی انتشار نیست؛ صفحه به‌صورت خودکار بررسی می‌شود.": { fa: "راند بعدی هنوز آماده‌ی انتشار نیست؛ صفحه به‌صورت خودکار بررسی می‌شود.", en: "The next round is not published yet. This page will check automatically." },
   "The next round is not published yet. This page will check automatically.": { fa: "راند بعدی هنوز آماده‌ی انتشار نیست؛ صفحه به‌صورت خودکار بررسی می‌شود.", en: "The next round is not published yet. This page will check automatically." },
-  "خطا در دریافت مسابقه": { fa: "خطا در دریافت مسابقه", en: "Unable to load the contest." },
-  "Unable to load the contest.": { fa: "خطا در دریافت مسابقه", en: "Unable to load the contest." },
+  "خطا در دریافت چالش": { fa: "خطا در دریافت چالش", en: "Unable to load the challenge." },
+  "Unable to load the challenge.": { fa: "خطا در دریافت چالش", en: "Unable to load the challenge." },
   "راند جدید آماده است؛ راهنما را بخوان و کلمه را پیدا کن.": { fa: "راند جدید آماده است؛ راهنما را بخوان و کلمه را پیدا کن.", en: "The next round is ready. Read the hint and find the word." },
   "The next round is ready. Read the hint and find the word.": { fa: "راند جدید آماده است؛ راهنما را بخوان و کلمه را پیدا کن.", en: "The next round is ready. Read the hint and find the word." },
   "تبریک! هر ۱۲ راند را کامل کردی.": { fa: "تبریک! هر ۱۲ راند را کامل کردی.", en: "Congratulations! You completed all 12 rounds." },
   "Congratulations! You completed all 12 rounds.": { fa: "تبریک! هر ۱۲ راند را کامل کردی.", en: "Congratulations! You completed all 12 rounds." },
   "ارتباط موقتاً قطع شده؛ دوباره به‌صورت خودکار تلاش می‌کنیم.": { fa: "ارتباط موقتاً قطع شده؛ دوباره به‌صورت خودکار تلاش می‌کنیم.", en: "Connection interrupted. Retrying automatically." },
   "Connection interrupted. Retrying automatically.": { fa: "ارتباط موقتاً قطع شده؛ دوباره به‌صورت خودکار تلاش می‌کنیم.", en: "Connection interrupted. Retrying automatically." },
-  "مسابقه‌ی بعدی آماده است؛ راند اول را شروع کن.": { fa: "مسابقه‌ی بعدی آماده است؛ راند اول را شروع کن.", en: "The next contest is ready. Start with round one." },
-  "The next contest is ready. Start with round one.": { fa: "مسابقه‌ی بعدی آماده است؛ راند اول را شروع کن.", en: "The next contest is ready. Start with round one." },
-  "فعلاً ساخت مسابقه‌ی بعدی ممکن نشد. چند لحظه بعد دوباره تلاش کن.": { fa: "فعلاً ساخت مسابقه‌ی بعدی ممکن نشد. چند لحظه بعد دوباره تلاش کن.", en: "The next contest could not be generated right now. Please try again shortly." },
-  "The next contest could not be generated right now. Please try again shortly.": { fa: "فعلاً ساخت مسابقه‌ی بعدی ممکن نشد. چند لحظه بعد دوباره تلاش کن.", en: "The next contest could not be generated right now. Please try again shortly." },
-  "برای شروع مسابقه‌ی بعدی باید هر ۱۲ راند مسابقه‌ی فعلی را کامل کنی.": { fa: "برای شروع مسابقه‌ی بعدی باید هر ۱۲ راند مسابقه‌ی فعلی را کامل کنی.", en: "Complete all 12 rounds of the current contest before starting the next one." },
-  "Complete all 12 rounds of the current contest before starting the next one.": { fa: "برای شروع مسابقه‌ی بعدی باید هر ۱۲ راند مسابقه‌ی فعلی را کامل کنی.", en: "Complete all 12 rounds of the current contest before starting the next one." },
+  "چالش بعدی آماده است؛ راند اول را شروع کن.": { fa: "چالش بعدی آماده است؛ راند اول را شروع کن.", en: "The next challenge is ready. Start with round one." },
+  "The next challenge is ready. Start with round one.": { fa: "چالش بعدی آماده است؛ راند اول را شروع کن.", en: "The next challenge is ready. Start with round one." },
+  "فعلاً ساخت چالش بعدی ممکن نشد. چند لحظه بعد دوباره تلاش کن.": { fa: "فعلاً ساخت چالش بعدی ممکن نشد. چند لحظه بعد دوباره تلاش کن.", en: "The next challenge could not be generated right now. Please try again shortly." },
+  "The next challenge could not be generated right now. Please try again shortly.": { fa: "فعلاً ساخت چالش بعدی ممکن نشد. چند لحظه بعد دوباره تلاش کن.", en: "The next challenge could not be generated right now. Please try again shortly." },
+  "برای شروع چالش بعدی باید هر ۱۲ راند چالش فعلی را کامل کنی.": { fa: "برای شروع چالش بعدی باید هر ۱۲ راند چالش فعلی را کامل کنی.", en: "Complete all 12 rounds of the current challenge before starting the next one." },
+  "Complete all 12 rounds of the current challenge before starting the next one.": { fa: "برای شروع چالش بعدی باید هر ۱۲ راند چالش فعلی را کامل کنی.", en: "Complete all 12 rounds of the current challenge before starting the next one." },
   "نشست ورودت منقضی شده است؛ دوباره وارد حساب شو.": { fa: "نشست ورودت منقضی شده است؛ دوباره وارد حساب شو.", en: "Your session has expired. Please sign in again." },
   "Your session has expired. Please sign in again.": { fa: "نشست ورودت منقضی شده است؛ دوباره وارد حساب شو.", en: "Your session has expired. Please sign in again." },
-  "شروع مسابقه‌ی بعدی ناموفق بود. دوباره تلاش کن.": { fa: "شروع مسابقه‌ی بعدی ناموفق بود. دوباره تلاش کن.", en: "Could not start the next contest. Please try again." },
-  "Could not start the next contest. Please try again.": { fa: "شروع مسابقه‌ی بعدی ناموفق بود. دوباره تلاش کن.", en: "Could not start the next contest. Please try again." },
+  "شروع چالش بعدی ناموفق بود. دوباره تلاش کن.": { fa: "شروع چالش بعدی ناموفق بود. دوباره تلاش کن.", en: "Could not start the next challenge. Please try again." },
+  "Could not start the next challenge. Please try again.": { fa: "شروع چالش بعدی ناموفق بود. دوباره تلاش کن.", en: "Could not start the next challenge. Please try again." },
   "کلمه‌ی انگلیسی را در کادر مربوط به همین راند وارد کن.": { fa: "کلمه‌ی انگلیسی را در کادر مربوط به همین راند وارد کن.", en: "Type the English word into the box for this round." },
   "Type the English word into the box for this round.": { fa: "کلمه‌ی انگلیسی را در کادر مربوط به همین راند وارد کن.", en: "Type the English word into the box for this round." },
   "پاسخ غلط است. کلمه را در همین کادر اصلاح کن و دوباره بررسی کن.": { fa: "پاسخ غلط است. کلمه را در همین کادر اصلاح کن و دوباره بررسی کن.", en: "Incorrect answer. Edit the word in this box and try again." },
@@ -70,18 +70,18 @@ const knownUiTexts: Record<string, { fa: string; en: string }> = {
   "Correct answer! The word stays green in its box.": { fa: "پاسخ درست بود! کلمه در کادر سبز باقی می‌ماند.", en: "Correct answer! The word stays green in its box." },
   "خطا در ثبت پاسخ": { fa: "خطا در ثبت پاسخ", en: "Unable to submit the answer." },
   "Unable to submit the answer.": { fa: "خطا در ثبت پاسخ", en: "Unable to submit the answer." },
-  "مسابقه زمان‌بندی شد. پس از تکمیل ۱۲ سرنخ، فعال‌سازی به‌صورت خودکار انجام می‌شود.": { fa: "مسابقه زمان‌بندی شد. پس از تکمیل ۱۲ سرنخ، فعال‌سازی به‌صورت خودکار انجام می‌شود.", en: "The contest is scheduled. It will activate automatically after all 12 clues are complete." },
-  "The contest is scheduled. It will activate automatically after all 12 clues are complete.": { fa: "مسابقه زمان‌بندی شد. پس از تکمیل ۱۲ سرنخ، فعال‌سازی به‌صورت خودکار انجام می‌شود.", en: "The contest is scheduled. It will activate automatically after all 12 clues are complete." },
-  "مسابقه ساخته شد. حالا ۱۲ سرنخ را ثبت کن.": { fa: "مسابقه ساخته شد. حالا ۱۲ سرنخ را ثبت کن.", en: "Contest created. Now add all 12 clues." },
-  "Contest created. Now add all 12 clues.": { fa: "مسابقه ساخته شد. حالا ۱۲ سرنخ را ثبت کن.", en: "Contest created. Now add all 12 clues." },
-  "هر ۱۲ سرنخ ثبت شد. Scheduler مسابقه را در زمان تعیین‌شده فعال می‌کند.": { fa: "هر ۱۲ سرنخ ثبت شد. Scheduler مسابقه را در زمان تعیین‌شده فعال می‌کند.", en: "All 12 clues have been saved. The scheduler will activate the contest at the scheduled time." },
-  "All 12 clues have been saved. The scheduler will activate the contest at the scheduled time.": { fa: "هر ۱۲ سرنخ ثبت شد. Scheduler مسابقه را در زمان تعیین‌شده فعال می‌کند.", en: "All 12 clues have been saved. The scheduler will activate the contest at the scheduled time." },
-  "هر ۱۲ سرنخ ثبت شد. مسابقه آماده فعال‌سازی است.": { fa: "هر ۱۲ سرنخ ثبت شد. مسابقه آماده فعال‌سازی است.", en: "All 12 clues have been saved. The contest is ready to activate." },
-  "All 12 clues have been saved. The contest is ready to activate.": { fa: "هر ۱۲ سرنخ ثبت شد. مسابقه آماده فعال‌سازی است.", en: "All 12 clues have been saved. The contest is ready to activate." },
-  "مسابقه فعال شد و بازیکنان می‌توانند وارد شوند.": { fa: "مسابقه فعال شد و بازیکنان می‌توانند وارد شوند.", en: "The contest is active and players can join." },
-  "The contest is active and players can join.": { fa: "مسابقه فعال شد و بازیکنان می‌توانند وارد شوند.", en: "The contest is active and players can join." },
-  "مسابقه پایان یافت.": { fa: "مسابقه پایان یافت.", en: "The contest has ended." },
-  "The contest has ended.": { fa: "مسابقه پایان یافت.", en: "The contest has ended." },
+  "چالش زمان‌بندی شد. پس از تکمیل ۱۲ سرنخ، فعال‌سازی به‌صورت خودکار انجام می‌شود.": { fa: "چالش زمان‌بندی شد. پس از تکمیل ۱۲ سرنخ، فعال‌سازی به‌صورت خودکار انجام می‌شود.", en: "The challenge is scheduled. It will activate automatically after all 12 clues are complete." },
+  "The challenge is scheduled. It will activate automatically after all 12 clues are complete.": { fa: "چالش زمان‌بندی شد. پس از تکمیل ۱۲ سرنخ، فعال‌سازی به‌صورت خودکار انجام می‌شود.", en: "The challenge is scheduled. It will activate automatically after all 12 clues are complete." },
+  "چالش ساخته شد. حالا ۱۲ سرنخ را ثبت کن.": { fa: "چالش ساخته شد. حالا ۱۲ سرنخ را ثبت کن.", en: "Challenge created. Now add all 12 clues." },
+  "Challenge created. Now add all 12 clues.": { fa: "چالش ساخته شد. حالا ۱۲ سرنخ را ثبت کن.", en: "Challenge created. Now add all 12 clues." },
+  "هر ۱۲ سرنخ ثبت شد. Scheduler چالش را در زمان تعیین‌شده فعال می‌کند.": { fa: "هر ۱۲ سرنخ ثبت شد. Scheduler چالش را در زمان تعیین‌شده فعال می‌کند.", en: "All 12 clues have been saved. The scheduler will activate the challenge at the scheduled time." },
+  "All 12 clues have been saved. The scheduler will activate the challenge at the scheduled time.": { fa: "هر ۱۲ سرنخ ثبت شد. Scheduler چالش را در زمان تعیین‌شده فعال می‌کند.", en: "All 12 clues have been saved. The scheduler will activate the challenge at the scheduled time." },
+  "هر ۱۲ سرنخ ثبت شد. چالش آماده فعال‌سازی است.": { fa: "هر ۱۲ سرنخ ثبت شد. چالش آماده فعال‌سازی است.", en: "All 12 clues have been saved. The challenge is ready to activate." },
+  "All 12 clues have been saved. The challenge is ready to activate.": { fa: "هر ۱۲ سرنخ ثبت شد. چالش آماده فعال‌سازی است.", en: "All 12 clues have been saved. The challenge is ready to activate." },
+  "چالش فعال شد و بازیکنان می‌توانند وارد شوند.": { fa: "چالش فعال شد و بازیکنان می‌توانند وارد شوند.", en: "The challenge is active and players can join." },
+  "The challenge is active and players can join.": { fa: "چالش فعال شد و بازیکنان می‌توانند وارد شوند.", en: "The challenge is active and players can join." },
+  "چالش پایان یافت.": { fa: "چالش پایان یافت.", en: "The challenge has ended." },
+  "The challenge has ended.": { fa: "چالش پایان یافت.", en: "The challenge has ended." },
   "Find the English word immediately after the phrase shown in the hint.": { fa: "کلمه‌ی انگلیسی را که بلافاصله پس از عبارت راهنما آمده است پیدا کن.", en: "Find the English word immediately after the phrase shown in the hint." },
   "کلمه‌ی انگلیسی را که بلافاصله پس از عبارت راهنما آمده است پیدا کن.": { fa: "کلمه‌ی انگلیسی را که بلافاصله پس از عبارت راهنما آمده است پیدا کن.", en: "Find the English word immediately after the phrase shown in the hint." },
 };
@@ -125,12 +125,12 @@ export function localizeContestTitle(title: string | null | undefined, language:
   const normalized = title?.trim().toLocaleLowerCase();
   if (
     !normalized ||
-    normalized === "مسابقه واژه‌یابی انگلیسی wallet find" ||
-    normalized === "wallet find english word-finding contest"
+    normalized === "چالش واژه‌یابی انگلیسی wallet find" ||
+    normalized === "wallet find english word-finding challenge"
   ) {
     return language === "fa"
-      ? "مسابقه واژه‌یابی انگلیسی Wallet Find"
-      : "Wallet Find English Word-Finding Contest";
+      ? "چالش واژه‌یابی انگلیسی Wallet Find"
+      : "Wallet Find English Word-Finding Challenge";
   }
-  return title ?? (language === "fa" ? "مسابقه واژه‌یابی" : "Word-Finding Contest");
+  return title ?? (language === "fa" ? "چالش واژه‌یابی" : "Word-Finding Challenge");
 }
