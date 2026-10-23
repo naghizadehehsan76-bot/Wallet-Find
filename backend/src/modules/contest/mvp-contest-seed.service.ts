@@ -99,7 +99,7 @@ async function fetchWikipediaDocuments(limit: number): Promise<SourceDocument[]>
   apiUrl.searchParams.set("list", "random");
   apiUrl.searchParams.set("rnnamespace", "0");
   apiUrl.searchParams.set("rnlimit", String(Math.min(limit, 12)));
-  const headers = { "User-Agent": "WalletFind/1.0 (word contest; contact: support@wallet-find.onrender.com)" };
+  const headers = { "User-Agent": "WalletFind/1.0 (English word-round generator)" };
 
   try {
     const randomResponse = await fetch(apiUrl, {
