@@ -395,58 +395,51 @@ async function fetchGutenbergDocument(book: {
  * playable if either external source is temporarily unavailable.
  */
 async function generateMvpRounds(): Promise<GeneratedRound[]> {
-  const [wikipediaDocuments, gutenbergResults] = await Promise.all([
-    fetchWikipediaDocuments(40).catch((error: unknown) => {
-      console.warn("Wikipedia word source unavailable; using fallback material.", error);
-      return [] as SourceDocument[];
-    }),
-    Promise.all(GUTENBERG_BOOKS.map((book) => fetchGutenbergDocument(book))),
-  ]);
-
-  const sources = [
-    ...gutenbergResults.filter((source): source is SourceDocument => source !== null),
-    ...wikipediaDocuments,
-  ];
+  // Avoid repeated Wikipedia API calls here. Render logs showed persistent
+  // HTTP 429 rate limits, and the previous fallback could issue dozens of
+  // requests while trying to fill a single contest. Each Gutenberg book is a
+  // large corpus, so generate several unique clues from each fetched source.
+  const gutenbergResults = await Promise.all(
+    GUTENBERG_BOOKS.map((book) => fetchGutenbergDocument(book)),
+  );
+  const sources = gutenbergResults.filter(
+    (source): source is SourceDocument => source !== null,
+  );
   const rounds: GeneratedRound[] = [];
   const usedAnswers = new Set<string>();
-  const usedUrls = new Set<string>();
   const optionCorpus = sources.map((source) => source.text).join("\n");
 
-  for (const source of sources) {
-    if (rounds.length >= 12) break;
-    if (usedUrls.has(source.url)) continue;
+  for (const source of shuffle(sources)) {
+    let attempts = 0;
+    // Multiple clues may use the same source page, but each answer is unique.
+    // A bounded retry loop prevents a bad source from delaying startup forever.
+    while (rounds.length < 12 && attempts < 40) {
+      attempts += 1;
+      const round = buildRoundFromSource(source, usedAnswers, optionCorpus);
+      if (!round) continue;
 
-    const round = buildRoundFromSource(source, usedAnswers, optionCorpus);
-    if (!round) {
-      console.info("Skipped source: no valid unique clue could be generated", {
-        title: source.title,
-        url: source.url,
-        textLength: source.text.length,
-      });
-      continue;
+      rounds.push(round);
+      usedAnswers.add(round.correctAnswer);
     }
-
-    rounds.push(round);
-    usedAnswers.add(round.correctAnswer);
-    usedUrls.add(source.url);
+    if (rounds.length >= 12) break;
   }
 
   console.info("MVP clue generation summary", {
     sourceCount: sources.length,
-    wikipediaSourceCount: wikipediaDocuments.length,
-    gutenbergSourceCount: gutenbergResults.filter(Boolean).length,
+    wikipediaSourceCount: 0,
+    gutenbergSourceCount: sources.length,
     generatedRoundCount: rounds.length,
     uniqueAnswerCount: usedAnswers.size,
   });
 
-  // Never fill missing rounds with static clues: their source pages can change,
-  // making the saved answer disagree with the word after the displayed anchor.
-  // Every published clue must be generated from the exact source text it links to.
+  // Never publish an incomplete contest. If a source is unavailable or its
+  // text cannot yield enough valid clues, fail quickly and let the scheduler
+  // retry later instead of flooding Wikipedia with requests.
   if (rounds.length < 12) {
     throw new Error("MVP_ROUND_GENERATION_FAILED");
   }
 
-  return rounds.slice(0, 12);
+  return shuffle(rounds).slice(0, 12);
 }
 
 /**
@@ -454,7 +447,7 @@ async function generateMvpRounds(): Promise<GeneratedRound[]> {
  * Safe to call on every server start: a contest is reused only when all twelve
  * rounds have a source URL, a hint anchor, and twelve word choices.
  */
-export async function ensureMvpActiveContest() {
+async function ensureMvpActiveContestInternal() {
   const activeContests = await prisma.contest.findMany({
     where: { status: "ACTIVE" },
     select: {
@@ -553,6 +546,21 @@ export async function ensureMvpActiveContest() {
 
   console.log("Created playable English word-finding contest:", contest.id);
   return contest.id;
+}
+
+
+// Share initialization between server startup and any early request that
+// arrives before the first round is ready. This prevents duplicate source
+// downloads and duplicate contest creation during cold start.
+let activeContestEnsurePromise: Promise<string> | null = null;
+
+export function ensureMvpActiveContest(): Promise<string> {
+  if (!activeContestEnsurePromise) {
+    activeContestEnsurePromise = ensureMvpActiveContestInternal().finally(() => {
+      activeContestEnsurePromise = null;
+    });
+  }
+  return activeContestEnsurePromise;
 }
 
 
