@@ -81,15 +81,10 @@ function getWordMatches(text: string): WordMatch[] {
   }));
 }
 
-function getOptions(corpusText: string, answer: string): string[] {
-  // Use the combined source corpus for distractors. Short articles often do
-  // not contain 11 distinct suitable words, even when their clue is valid.
-  const candidates = [...new Set(
-    getWordMatches(corpusText)
-      .map((match) => match.word)
-      .filter((word) => word !== answer && !COMMON_WORDS.has(word)),
-  )];
-
+function getOptions(corpusWords: readonly string[], answer: string): string[] {
+  // The combined corpus is tokenized once per generation, not once per
+  // candidate answer. This avoids repeatedly scanning several full books.
+  const candidates = corpusWords.filter((word) => word !== answer);
   if (candidates.length < 11) return [];
 
   return shuffle([answer, ...shuffle(candidates).slice(0, 11)]);
@@ -98,7 +93,7 @@ function getOptions(corpusText: string, answer: string): string[] {
 function buildRoundFromSource(
   source: SourceDocument,
   usedAnswers: ReadonlySet<string>,
-  optionCorpus: string,
+  optionWords: readonly string[],
 ): GeneratedRound | null {
   const matches = getWordMatches(source.text);
   if (matches.length < 20) return null;
@@ -114,7 +109,7 @@ function buildRoundFromSource(
     if (COMMON_WORDS.has(match.word) || usedAnswers.has(match.word)) continue;
     if (match.raw[0] !== match.raw[0]?.toLowerCase()) continue;
 
-    const options = getOptions(optionCorpus, match.word);
+    const options = getOptions(optionWords, match.word);
     if (options.length !== 12) continue;
 
     // Expand the exact phrase until it occurs only once in the source text.
@@ -219,6 +214,11 @@ async function generateMvpRounds(): Promise<GeneratedRound[]> {
   const rounds: GeneratedRound[] = [];
   const usedAnswers = new Set<string>();
   const optionCorpus = sources.map((source) => source.text).join("\n");
+  const optionWords = [...new Set(
+    getWordMatches(optionCorpus)
+      .map((match) => match.word)
+      .filter((word) => !COMMON_WORDS.has(word)),
+  )];
 
   // Prefer a balanced mix: up to three clues from each of the four source
   // pages. A bounded retry loop prevents a poor source from stalling startup.
@@ -227,7 +227,7 @@ async function generateMvpRounds(): Promise<GeneratedRound[]> {
     let sourceRoundCount = 0;
     while (rounds.length < 12 && sourceRoundCount < 3 && attempts < 40) {
       attempts += 1;
-      const round = buildRoundFromSource(source, usedAnswers, optionCorpus);
+      const round = buildRoundFromSource(source, usedAnswers, optionWords);
       if (!round) continue;
 
       rounds.push(round);
@@ -242,7 +242,7 @@ async function generateMvpRounds(): Promise<GeneratedRound[]> {
     let attempts = 0;
     while (rounds.length < 12 && attempts < 40) {
       attempts += 1;
-      const round = buildRoundFromSource(source, usedAnswers, optionCorpus);
+      const round = buildRoundFromSource(source, usedAnswers, optionWords);
       if (!round) continue;
 
       rounds.push(round);
