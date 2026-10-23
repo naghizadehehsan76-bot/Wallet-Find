@@ -70,7 +70,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     setClueContent(current.clue?.content ?? "");
     setHintAnchor(current.clue?.hintAnchor ?? "");
     setSourceUrl(current.clue?.sourceUrl ?? "");
-    setCompleted(current.status === "CHALLENGE_COMPLETED");
+    setCompleted(current.status === "CONTEST_COMPLETED");
     setCompletedAt(current.completedAt ?? null);
     setLockedUntil(current.lockedUntil ?? null);
     setWaitingForClue(current.status === "WAITING_FOR_CLUE");
@@ -156,7 +156,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                 ? "چالش آماده است؛ از اولین کلمه‌ی حل‌نشده شروع کن."
                 : "The challenge is ready. Start with your first unsolved word.",
             );
-          } else if (current.status === "CHALLENGE_COMPLETED") {
+          } else if (current.status === "CONTEST_COMPLETED") {
             setFeedback(
               isPersian
                 ? "تبریک! هر ۱۲ راند را کامل کردی."
@@ -289,7 +289,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       setIncorrectSlots((slots) => slots.map((item, index) => index === activeAnswerIndex ? false : item));
       setFeedbackTone("success");
 
-      if (result.status === "CHALLENGE_COMPLETED") {
+      if (result.status === "CONTEST_COMPLETED") {
         setCompletedAt(result.completedAt ?? new Date(Date.now() + serverTimeOffset).toISOString());
         setSolvedCount(12);
         setCurrentSequence(null);
