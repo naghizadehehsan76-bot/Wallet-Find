@@ -34,6 +34,12 @@ const apiErrors: Record<string, { fa: string; en: string }> = {
 };
 
 const knownUiTexts: Record<string, { fa: string; en: string }> = {
+  "در حال همگام‌سازی وضعیت مسابقه؛ دوباره خودکار تلاش می‌کنیم.": { fa: "در حال همگام‌سازی وضعیت مسابقه؛ دوباره خودکار تلاش می‌کنیم.", en: "Syncing contest status. Retrying automatically." },
+  "Syncing contest status. Retrying automatically.": { fa: "در حال همگام‌سازی وضعیت مسابقه؛ دوباره خودکار تلاش می‌کنیم.", en: "Syncing contest status. Retrying automatically." },
+  "مسابقه آماده است؛ از اولین کلمه‌ی حل‌نشده شروع کن.": { fa: "مسابقه آماده است؛ از اولین کلمه‌ی حل‌نشده شروع کن.", en: "The contest is ready. Start with your first unsolved word." },
+  "The contest is ready. Start with your first unsolved word.": { fa: "مسابقه آماده است؛ از اولین کلمه‌ی حل‌نشده شروع کن.", en: "The contest is ready. Start with your first unsolved word." },
+  "ثبت شد؛ دور بعد در زمان ثابت شروع می‌شود. صفحه به‌صورت خودکار آماده خواهد شد.": { fa: "ثبت شد؛ دور بعد در زمان ثابت شروع می‌شود. صفحه به‌صورت خودکار آماده خواهد شد.", en: "Scheduled. The next round starts at its fixed boundary; this page will update automatically." },
+  "Scheduled. The next round starts at its fixed boundary; this page will update automatically.": { fa: "ثبت شد؛ دور بعد در زمان ثابت شروع می‌شود. صفحه به‌صورت خودکار آماده خواهد شد.", en: "Scheduled. The next round starts at its fixed boundary; this page will update automatically." },
   "راند بعدی هنوز آماده‌ی انتشار نیست؛ صفحه به‌صورت خودکار بررسی می‌شود.": { fa: "راند بعدی هنوز آماده‌ی انتشار نیست؛ صفحه به‌صورت خودکار بررسی می‌شود.", en: "The next round is not published yet. This page will check automatically." },
   "The next round is not published yet. This page will check automatically.": { fa: "راند بعدی هنوز آماده‌ی انتشار نیست؛ صفحه به‌صورت خودکار بررسی می‌شود.", en: "The next round is not published yet. This page will check automatically." },
   "خطا در دریافت مسابقه": { fa: "خطا در دریافت مسابقه", en: "Unable to load the contest." },
