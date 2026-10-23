@@ -70,7 +70,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     setClueContent(current.clue?.content ?? "");
     setHintAnchor(current.clue?.hintAnchor ?? "");
     setSourceUrl(current.clue?.sourceUrl ?? "");
-    setCompleted(current.status === "CONTEST_COMPLETED");
+    setCompleted(current.status === "CHALLENGE_COMPLETED");
     setCompletedAt(current.completedAt ?? null);
     setLockedUntil(current.lockedUntil ?? null);
     setWaitingForClue(current.status === "WAITING_FOR_CLUE");
@@ -121,8 +121,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           err instanceof Error
             ? err.message
             : isPersian
-              ? "خطا در دریافت مسابقه"
-              : "Unable to load the contest.",
+              ? "خطا در دریافت چالش"
+              : "Unable to load the challenge.",
         );
       })
       .finally(() => {
@@ -153,10 +153,10 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
             setFeedbackTone("info");
             setFeedback(
               isPersian
-                ? "مسابقه آماده است؛ از اولین کلمه‌ی حل‌نشده شروع کن."
-                : "The contest is ready. Start with your first unsolved word.",
+                ? "چالش آماده است؛ از اولین کلمه‌ی حل‌نشده شروع کن."
+                : "The challenge is ready. Start with your first unsolved word.",
             );
-          } else if (current.status === "CONTEST_COMPLETED") {
+          } else if (current.status === "CHALLENGE_COMPLETED") {
             setFeedback(
               isPersian
                 ? "تبریک! هر ۱۲ راند را کامل کردی."
@@ -168,8 +168,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           if (!cancelled) {
             setFeedback(
               isPersian
-                ? "در حال همگام‌سازی وضعیت مسابقه؛ دوباره خودکار تلاش می‌کنیم."
-                : "Syncing contest status. Retrying automatically.",
+                ? "در حال همگام‌سازی وضعیت چالش؛ دوباره خودکار تلاش می‌کنیم."
+                : "Syncing challenge status. Retrying automatically.",
             );
           }
         });
@@ -224,27 +224,27 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
               ? "ثبت شد؛ دور بعد در زمان ثابت شروع می‌شود. صفحه به‌صورت خودکار آماده خواهد شد."
               : "Scheduled. The next round starts at its fixed boundary; this page will update automatically.")
           : (isPersian
-              ? "مسابقه‌ی بعدی آماده است؛ راند اول را شروع کن."
-              : "The next contest is ready. Start with round one."),
+              ? "چالش بعدی آماده است؛ راند اول را شروع کن."
+              : "The next challenge is ready. Start with round one."),
       );
     } catch (err) {
-      const message = err instanceof Error ? err.message : "NEXT_CONTEST_FAILED";
+      const message = err instanceof Error ? err.message : "NEXT_CHALLENGE_FAILED";
       setError(
-        message === "NEXT_CONTEST_GENERATION_FAILED"
+        message === "NEXT_CHALLENGE_GENERATION_FAILED"
           ? (isPersian
-              ? "فعلاً ساخت مسابقه‌ی بعدی ممکن نشد. چند لحظه بعد دوباره تلاش کن."
-              : "The next contest could not be generated right now. Please try again shortly.")
-          : message === "CONTEST_NOT_COMPLETED_BY_USER"
+              ? "فعلاً ساخت چالش بعدی ممکن نشد. چند لحظه بعد دوباره تلاش کن."
+              : "The next challenge could not be generated right now. Please try again shortly.")
+          : message === "CHALLENGE_NOT_COMPLETED_BY_USER"
             ? (isPersian
-                ? "برای شروع مسابقه‌ی بعدی باید هر ۱۲ راند مسابقه‌ی فعلی را کامل کنی."
-                : "Complete all 12 rounds of the current contest before starting the next one.")
+                ? "برای شروع چالش بعدی باید هر ۱۲ راند چالش فعلی را کامل کنی."
+                : "Complete all 12 rounds of the current challenge before starting the next one.")
             : message === "AUTHENTICATION_REQUIRED" || message === "TOKEN_EXPIRED"
               ? (isPersian
                   ? "نشست ورودت منقضی شده است؛ دوباره وارد حساب شو."
                   : "Your session has expired. Please sign in again.")
               : (isPersian
-                  ? "شروع مسابقه‌ی بعدی ناموفق بود. دوباره تلاش کن."
-                  : "Could not start the next contest. Please try again."),
+                  ? "شروع چالش بعدی ناموفق بود. دوباره تلاش کن."
+                  : "Could not start the next challenge. Please try again."),
       );
     } finally {
       setStartingNextContest(false);
@@ -289,7 +289,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       setIncorrectSlots((slots) => slots.map((item, index) => index === activeAnswerIndex ? false : item));
       setFeedbackTone("success");
 
-      if (result.status === "CONTEST_COMPLETED") {
+      if (result.status === "CHALLENGE_COMPLETED") {
         setCompletedAt(result.completedAt ?? new Date(Date.now() + serverTimeOffset).toISOString());
         setSolvedCount(12);
         setCurrentSequence(null);
@@ -487,7 +487,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
             </h2>
             <div className="date">
               {formattedDate ||
-                (isPersian ? "مسابقه فعال" : "Active contest")}
+                (isPersian ? "چالش فعال" : "Active challenge")}
             </div>
           </div>
           <div className="clue-timer" role="timer" aria-live="off">
@@ -496,7 +496,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                 ? (isPersian ? "زمان تکمیل شما" : "Your completion time")
                 : waitingForClue
                   ? (isPersian ? "تا شروع دور بعد" : "Until next round")
-                  : (isPersian ? "زمان باقی‌مانده مسابقه" : "Contest time remaining")}
+                  : (isPersian ? "زمان باقی‌مانده چالش" : "Challenge time remaining")}
             </span>
             <strong>
               {completed
@@ -508,13 +508,13 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                 ? (isPersian ? "از شروع رسمی دور تا پاسخ دوازدهم" : "From official round start to clue 12")
                 : waitingForClue
                   ? (isPersian ? "شروع در مرز ثابت ۳۰ دقیقه‌ای" : "Starts on the fixed 30-minute boundary")
-                  : (isPersian ? "دور مسابقه دقیقاً ۱۵ دقیقه است" : "Each round lasts exactly 15 minutes")}
+                  : (isPersian ? "دور چالش دقیقاً ۱۵ دقیقه است" : "Each round lasts exactly 15 minutes")}
             </span>
           </div>
         </section>
 
         {prizePool && (
-          <section className="stat-row" aria-label={isPersian ? "صندوق جایزه مسابقه" : "Contest prize pool"}>
+          <section className="stat-row" aria-label={isPersian ? "صندوق جایزه چالش" : "Challenge prize pool"}>
             <div className="stat-card">
               <strong>{prizePool.total} USDT</strong>
               <span>{isPersian ? "مجموع صندوق فرضی" : "Total simulated pool"}</span>
@@ -528,7 +528,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
 
         {loading ? (
           <div className="inline-feedback">
-            {isPersian ? "در حال دریافت مسابقه..." : "Loading contest..."}
+            {isPersian ? "در حال دریافت چالش..." : "Loading challenge..."}
           </div>
         ) : error && !currentClueId && !completed ? (
           <div className="inline-feedback">{localizeApiError(error, language)}</div>
@@ -553,7 +553,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                 aria-valuemin={0}
                 aria-valuemax={12}
                 aria-valuenow={solvedCount}
-                aria-label={isPersian ? "پیشرفت مسابقه" : "Contest progress"}
+                aria-label={isPersian ? "پیشرفت چالش" : "Challenge progress"}
               >
                 <span style={{ width: progressPercent + "%" }} />
               </div>
@@ -563,7 +563,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
               <>
               <section className="round-complete">
                 <div className="round-complete__icon">✓</div>
-                <h3>{isPersian ? "مسابقه کامل شد!" : "Contest completed!"}</h3>
+                <h3>{isPersian ? "چالش کامل شد!" : "Challenge completed!"}</h3>
                 <p>
                   {isPersian
                     ? "هر ۱۲ راند را با موفقیت حل کردی."
@@ -577,7 +577,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                 >
                   {startingNextContest
                     ? (isPersian ? "در حال آماده‌سازی..." : "Preparing...")
-                    : (isPersian ? "شروع مسابقه ی بعدی" : "Start Next Contest")}
+                    : (isPersian ? "شروع چالش بعدی" : "Start Next Challenge")}
                 </button>
               </section>
               <div className="word-grid-title">
@@ -673,7 +673,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
             {!completed && !waitingForClue && roundRemainingMs !== null && roundRemainingMs <= 0 && (
               <div className="inline-feedback round-error" role="status">
                 {isPersian
-                  ? "زمان مسابقه تمام شد؛ پس از پایان ۱۵ دقیقه پاسخ جدید پذیرفته نمی‌شود و شرکت‌کنندهٔ تکمیل‌نکرده جایزه نمی‌گیرد."
+                  ? "زمان چالش تمام شد؛ پس از پایان ۱۵ دقیقه پاسخ جدید پذیرفته نمی‌شود و شرکت‌کنندهٔ تکمیل‌نکرده جایزه نمی‌گیرد."
                   : "The round has ended. No further answers are accepted after 15 minutes; incomplete participants receive no prize."}
               </div>
             )}
@@ -682,8 +682,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                 {feedback === "ثبت شد؛ دور بعد در زمان ثابت شروع می‌شود. صفحه به‌صورت خودکار آماده خواهد شد." ||
                 feedback === "Scheduled. The next round starts at its fixed boundary; this page will update automatically."
                   ? (isPersian
-                      ? "مسابقه تا " + formatCountdown(roundRemainingMs ?? 0) + " دیگر شروع می‌شود."
-                      : "Contest starts in " + formatCountdown(roundRemainingMs ?? 0) + ".")
+                      ? "چالش تا " + formatCountdown(roundRemainingMs ?? 0) + " دیگر شروع می‌شود."
+                      : "Challenge starts in " + formatCountdown(roundRemainingMs ?? 0) + ".")
                   : localizeUiMessage(feedback, language)}
               </div>
             )}
