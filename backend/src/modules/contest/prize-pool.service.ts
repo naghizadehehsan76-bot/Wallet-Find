@@ -318,7 +318,7 @@ export async function settlePrizePool(contestId: string, actorUserId?: string) {
       ? finishers.filter((person) => person.rank >= 4 && person.elapsedMs < CONTEST_DURATION_MS)
       : [];
     if (lower.length) {
-      const scores = lower.map((person) => BigInt(Math.max(0, 900_000 - person.elapsedMs)));
+      const scores = lower.map((person) => BigInt(Math.max(0, CONTEST_DURATION_MS - person.elapsedMs)));
       const scoreTotal = scores.reduce((sum, score) => sum + score, 0n);
       if (scoreTotal > 0n) {
         for (let index = 0; index < lower.length; index++) {
