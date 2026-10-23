@@ -87,11 +87,11 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
             <section className="stat-row">
               <div className="stat-card">
                 <strong>{profile.contestsParticipated}</strong>
-                <span>{isPersian ? "شرکت در مسابقه" : "Contests"}</span>
+                <span>{isPersian ? "شرکت در چالش" : "Challenges"}</span>
               </div>
               <div className="stat-card">
                 <strong>{profile.completedContests}</strong>
-                <span>{isPersian ? "مسابقه کامل" : "Completed"}</span>
+                <span>{isPersian ? "چالش کامل" : "Completed"}</span>
               </div>
               <div className="stat-card">
                 <strong>{profile.solvedKeys}</strong>
@@ -121,7 +121,7 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
                 type="button"
                 onClick={() => onNavigate("admin")}
               >
-                {isPersian ? "پنل مدیریت مسابقه" : "Contest Admin"}
+                {isPersian ? "پنل مدیریت چالش" : "Challenge Admin"}
               </button>
             )}
           </>
