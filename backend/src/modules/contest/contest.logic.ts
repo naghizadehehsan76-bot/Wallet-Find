@@ -1,6 +1,6 @@
 export const REQUIRED_CLUE_COUNT = 12;
 export const CONTEST_DURATION_MS = 15 * 60_000;
-export const WRONG_ANSWER_LOCK_MS = 60_000;
+export const WRONG_ANSWER_LOCK_MS = 120_000;
 
 export type SequencedClue = {
   id: string;
