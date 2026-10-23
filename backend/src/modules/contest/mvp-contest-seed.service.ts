@@ -289,6 +289,42 @@ async function ensureMvpActiveContestInternal() {
   });
 
   const now = new Date();
+
+  // Reuse a valid future round after a restart instead of generating a
+  // duplicate scheduled round on every cold start.
+  const scheduledContests = await prisma.contest.findMany({
+    where: { status: "SCHEDULED", startsAt: { gt: now } },
+    select: {
+      id: true,
+      startsAt: true,
+      endsAt: true,
+      clues: {
+        select: {
+          sequence: true,
+          sourceUrl: true,
+          hintAnchor: true,
+          options: true,
+        },
+      },
+    },
+    orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
+  });
+  const playableScheduledContest = scheduledContests.find((contest) =>
+    hasCompleteClueSequence(contest.clues.map((clue) => clue.sequence)) &&
+    contest.clues.every((clue) =>
+      Boolean(clue.sourceUrl) &&
+      typeof clue.hintAnchor === "string" &&
+      clue.hintAnchor.trim().length >= 25 &&
+      Array.isArray(clue.options) &&
+      clue.options.length === 12
+    ) &&
+    (!contest.endsAt || contest.endsAt > now),
+  );
+  if (playableScheduledContest) {
+    console.log("MVP scheduled contest ready:", playableScheduledContest.id);
+    return playableScheduledContest.id;
+  }
+
   const playableContest = activeContests.find((contest) =>
     hasCompleteClueSequence(contest.clues.map((clue) => clue.sequence)) &&
     contest.clues.every((clue) =>
