@@ -126,7 +126,9 @@ export function localizeContestTitle(title: string | null | undefined, language:
   if (
     !normalized ||
     normalized === "چالش واژه‌یابی انگلیسی wallet find" ||
-    normalized === "wallet find english word-finding challenge"
+    normalized === "مسابقه واژه‌یابی انگلیسی wallet find" ||
+    normalized === "wallet find english word-finding challenge" ||
+    normalized === "wallet find english word-finding contest"
   ) {
     return language === "fa"
       ? "چالش واژه‌یابی انگلیسی Wallet Find"
