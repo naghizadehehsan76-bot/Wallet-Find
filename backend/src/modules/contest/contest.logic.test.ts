@@ -52,9 +52,9 @@ test("progress exposes only the contiguous solved prefix", () => {
   assert.equal(complete.completed, true);
 });
 
-test("contest duration is fifteen minutes and wrong answers lock for one minute", () => {
+test("contest duration is fifteen minutes and wrong answers lock for two minutes", () => {
   assert.equal(CONTEST_DURATION_MS, 900_000);
-  assert.equal(WRONG_ANSWER_LOCK_MS, 60_000);
+  assert.equal(WRONG_ANSWER_LOCK_MS, 120_000);
 });
 
 test("response time is measured from the shared contest start", () => {
