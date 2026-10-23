@@ -46,13 +46,13 @@ function LanguageSwitcher({
 
 const faStats = [
   { value: "۲٬۴۱۸", label: "شرکت‌کننده امشب" },
-  { value: "۵۰۰ ₮", label: "جایزه مسابقه" },
+  { value: "۵۰۰ ₮", label: "جایزه چالش" },
   { value: "۰۳:۵۹", label: "تا شروع بعدی" },
 ];
 
 const enStats = [
   { value: "2,418", label: "Tonight's players" },
-  { value: "500 ₮", label: "Contest prize" },
+  { value: "500 ₮", label: "Challenge prize" },
   { value: "03:59", label: "Until next start" },
 ];
 
@@ -160,7 +160,7 @@ function HomePage({
 
         <main className="page home-page">
         <section className="hero">
-          <div className="eyebrow">{isPersian ? "مسابقه روزانه" : "DAILY CONTEST"}</div>
+          <div className="eyebrow">{isPersian ? "چالش روزانه" : "DAILY CHALLENGE"}</div>
           <h1 className="hero-title">
             {isPersian ? <><span>۱۲ کلید، ۱۲ سرنخ</span><br />و یک کیف پول</> : <><span>12 Keys, 12 Clues</span><br />and One Wallet</>}
           </h1>
@@ -169,14 +169,14 @@ function HomePage({
           </p>
         </section>
 
-        <section className="contest-grid-visual" aria-label={t.landing.gridTitle}>
-          <div className="contest-grid-heading">
+        <section className="challenge-grid-visual" aria-label={t.landing.gridTitle}>
+          <div className="challenge-grid-heading">
             <div>
               <strong>{t.landing.gridTitle}</strong>
               {t.landing.gridSubtitle && <span>{t.landing.gridSubtitle}</span>}
             </div>
           </div>
-          <div className="contest-grid">
+          <div className="challenge-grid">
             {Array.from({ length: 12 }).map((_, index) => {
               const status = index < 4 ? "solved" : index === 4 ? "current" : "locked";
               const statusText = status === "solved"
@@ -185,35 +185,35 @@ function HomePage({
                   ? t.landing.current
                   : t.landing.locked;
               return (
-                <div key={index} className={`contest-tile contest-tile--${status}${index < 5 ? " contest-tile--worded" : ""}`}>
+                <div key={index} className={`challenge-tile challenge-tile--${status}${index < 5 ? " challenge-tile--worded" : ""}`}>
                   {index < 5 ? (
                     <>
-                      <span className="contest-tile__word-number mono">{(index + 1).toLocaleString(isPersian ? "fa-IR" : "en-US")}</span>
-                      <span className={`contest-tile__word${index === 4 ? " contest-tile__word--gold" : ""}`}>
+                      <span className="challenge-tile__word-number mono">{(index + 1).toLocaleString(isPersian ? "fa-IR" : "en-US")}</span>
+                      <span className={`challenge-tile__word${index === 4 ? " challenge-tile__word--gold" : ""}`}>
                         {["challenge", "your", "speed", "every", "day"][index]}
                       </span>
                     </>
                   ) : (
-                    <span className="contest-tile__number mono">{(index + 1).toLocaleString(isPersian ? "fa-IR" : "en-US")}</span>
+                    <span className="challenge-tile__number mono">{(index + 1).toLocaleString(isPersian ? "fa-IR" : "en-US")}</span>
                   )}
-                  <span className="contest-tile__status" aria-hidden="true">
+                  <span className="challenge-tile__status" aria-hidden="true">
                     {status === "solved" ? "✓" : status === "current" ? "●" : "◇"}
                   </span>
-                  <span className="contest-tile__sr-only">{statusText}</span>
+                  <span className="challenge-tile__sr-only">{statusText}</span>
                 </div>
               );
             })}
           </div>
-          <div className="contest-grid-legend" aria-label={t.landing.gridLegend}>
-            <span><i className="contest-legend-dot contest-legend-dot--solved" />{t.landing.solved}</span>
-            <span><i className="contest-legend-dot contest-legend-dot--current" />{t.landing.current}</span>
-            <span><i className="contest-legend-dot contest-legend-dot--locked" />{t.landing.locked}</span>
+          <div className="challenge-grid-legend" aria-label={t.landing.gridLegend}>
+            <span><i className="challenge-legend-dot challenge-legend-dot--solved" />{t.landing.solved}</span>
+            <span><i className="challenge-legend-dot challenge-legend-dot--current" />{t.landing.current}</span>
+            <span><i className="challenge-legend-dot challenge-legend-dot--locked" />{t.landing.locked}</span>
           </div>
         </section>
 
         <section className="cta-group">
-          <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>{isPersian ? "ورود به مسابقه امشب" : "Enter Tonight's Contest"}</button>
-          <button className="cta-button cta-button--ghost" type="button" onClick={() => onNavigate("rules")}>{isPersian ? "روش و قوانین مسابقه" : "How to Play & Contest Rules"}</button>
+          <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>{isPersian ? "ورود به چالش امشب" : "Enter Tonight's Challenge"}</button>
+          <button className="cta-button cta-button--ghost" type="button" onClick={() => onNavigate("rules")}>{isPersian ? "روش و قوانین چالش" : "How to Play & Challenge Rules"}</button>
         </section>
 
         <section className="stat-row">
@@ -221,7 +221,7 @@ function HomePage({
         </section>
 
         <section className="how-section">
-          <h2 className="section-heading">{isPersian ? "مسابقه چطور کار می‌کند" : "How the contest works"}</h2>
+          <h2 className="section-heading">{isPersian ? "چالش چطور کار می‌کند" : "How the challenge works"}</h2>
           <div className="steps">
             {steps.map((step) => <article className="step" key={step.number}><div className="step-number mono">{step.number}</div><div className="step-content"><p>{step.title}</p><small>{step.description}</small></div></article>)}
           </div>
@@ -286,7 +286,7 @@ function ContestRulesPage({ onNavigate }: { onNavigate: (page: Page) => void }) 
         <button className="brand brand--home" type="button" aria-label={t.navigation.home} onClick={() => onNavigate("home")}><span className="brand-dot" /><span>Wallet Find</span></button>
         <div className="topbar-actions"><SharedLanguageSwitcher /></div>
       </header>
-      <main className="page info-page contest-rules-page">
+      <main className="page info-page challenge-rules-page">
         <button className="back-button" type="button" onClick={() => onNavigate("home")}>
           ‹ {t.navigation.home}
         </button>
@@ -294,11 +294,11 @@ function ContestRulesPage({ onNavigate }: { onNavigate: (page: Page) => void }) 
         <h1 className="info-title">{rules.title}</h1>
         <p className="info-description">{rules.description}</p>
 
-        <section className="contest-rules-list" aria-label={rules.stepsTitle}>
+        <section className="challenge-rules-list" aria-label={rules.stepsTitle}>
           {rules.steps.map((step, index) => (
-            <article className="contest-rule-step" key={step.title}>
-              <span className="contest-rule-step__number mono">{String(index + 1).padStart(2, "0")}</span>
-              <div className="contest-rule-step__copy">
+            <article className="challenge-rule-step" key={step.title}>
+              <span className="challenge-rule-step__number mono">{String(index + 1).padStart(2, "0")}</span>
+              <div className="challenge-rule-step__copy">
                 <h2>{step.title}</h2>
                 <p>{step.description}</p>
               </div>
@@ -306,11 +306,11 @@ function ContestRulesPage({ onNavigate }: { onNavigate: (page: Page) => void }) 
           ))}
         </section>
 
-        <section className="contest-rules-reward">
+        <section className="challenge-rules-reward">
           <h2>{rules.rewardsTitle}</h2>
           <p>{rules.rewardsDetail}</p>
         </section>
-        <p className="contest-rules-notice" role="note">{rules.previewNotice}</p>
+        <p className="challenge-rules-notice" role="note">{rules.previewNotice}</p>
         <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>
           {t.navigation.competition}
         </button>
