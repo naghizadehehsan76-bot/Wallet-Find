@@ -90,6 +90,90 @@ function getOptions(corpusWords: readonly string[], answer: string): string[] {
   return shuffle([answer, ...shuffle(candidates).slice(0, 11)]);
 }
 
+async function fetchWikipediaDocuments(limit: number): Promise<SourceDocument[]> {
+  // Use at most two API requests (random titles + one batch extract). Never
+  // fan out into individual article requests when Wikipedia rate-limits us.
+  const apiUrl = new URL("https://en.wikipedia.org/w/api.php");
+  apiUrl.searchParams.set("action", "query");
+  apiUrl.searchParams.set("format", "json");
+  apiUrl.searchParams.set("list", "random");
+  apiUrl.searchParams.set("rnnamespace", "0");
+  apiUrl.searchParams.set("rnlimit", String(Math.min(limit, 12)));
+  const headers = { "User-Agent": "WalletFind/1.0 (word contest; contact: support@wallet-find.onrender.com)" };
+
+  try {
+    const randomResponse = await fetch(apiUrl, {
+      headers,
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!randomResponse.ok) {
+      console.warn("Wikipedia random-page request skipped", { status: randomResponse.status });
+      return [];
+    }
+
+    const randomData = await randomResponse.json() as {
+      query?: { random?: Array<{ title?: string }> };
+      error?: { code?: string; info?: string };
+    };
+    if (randomData.error) {
+      console.warn("Wikipedia random-page API error", randomData.error);
+      return [];
+    }
+
+    const titles = [...new Set(
+      (randomData.query?.random ?? [])
+        .map((page) => page.title)
+        .filter((title): title is string => Boolean(title)),
+    )];
+    if (titles.length === 0) return [];
+
+    const extractUrl = new URL("https://en.wikipedia.org/w/api.php");
+    extractUrl.searchParams.set("action", "query");
+    extractUrl.searchParams.set("format", "json");
+    extractUrl.searchParams.set("titles", titles.join("|"));
+    extractUrl.searchParams.set("prop", "extracts|info");
+    extractUrl.searchParams.set("inprop", "url");
+    extractUrl.searchParams.set("explaintext", "1");
+    extractUrl.searchParams.set("exchars", "9000");
+    extractUrl.searchParams.set("redirects", "1");
+
+    const extractResponse = await fetch(extractUrl, {
+      headers,
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!extractResponse.ok) {
+      console.warn("Wikipedia batch extract skipped", { status: extractResponse.status });
+      return [];
+    }
+
+    const data = await extractResponse.json() as {
+      query?: { pages?: Record<string, { title?: string; fullurl?: string; extract?: string }> };
+      error?: { code?: string; info?: string };
+    };
+    if (data.error) {
+      console.warn("Wikipedia batch extract API error", data.error);
+      return [];
+    }
+
+    return Object.values(data.query?.pages ?? {})
+      .filter((page) => typeof page.extract === "string" && page.extract.length > 300)
+      .map((page) => {
+        const title = page.title ?? "Wikipedia article";
+        return {
+          title,
+          url: page.fullurl
+            ?? "https://en.wikipedia.org/wiki/" + encodeURIComponent(title.replace(/ /g, "_")),
+          text: page.extract ?? "",
+        };
+      });
+  } catch (error) {
+    console.warn("Wikipedia source unavailable; continuing with public-domain books.", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
+}
+
 function buildRoundFromSource(
   source: SourceDocument,
   usedAnswers: ReadonlySet<string>,
@@ -205,12 +289,14 @@ async function generateMvpRounds(): Promise<GeneratedRound[]> {
   // fallback could make dozens of requests during cold start, so this generator
   // uses four large public-domain texts and derives several unique clues from
   // each source page instead of depending on Wikipedia availability.
-  const gutenbergResults = await Promise.all(
-    GUTENBERG_BOOKS.map((book) => fetchGutenbergDocument(book)),
-  );
-  const sources = gutenbergResults.filter(
-    (source): source is SourceDocument => source !== null,
-  );
+  const [wikipediaDocuments, gutenbergResults] = await Promise.all([
+    fetchWikipediaDocuments(12),
+    Promise.all(GUTENBERG_BOOKS.map((book) => fetchGutenbergDocument(book))),
+  ]);
+  const sources = [
+    ...gutenbergResults.filter((source): source is SourceDocument => source !== null),
+    ...wikipediaDocuments,
+  ];
   const rounds: GeneratedRound[] = [];
   const usedAnswers = new Set<string>();
   const optionCorpus = sources.map((source) => source.text).join("\n");
@@ -252,7 +338,7 @@ async function generateMvpRounds(): Promise<GeneratedRound[]> {
 
   console.info("MVP clue generation summary", {
     sourceCount: sources.length,
-    wikipediaSourceCount: 0,
+    wikipediaSourceCount: wikipediaDocuments.length,
     gutenbergSourceCount: sources.length,
     generatedRoundCount: rounds.length,
     uniqueAnswerCount: usedAnswers.size,
