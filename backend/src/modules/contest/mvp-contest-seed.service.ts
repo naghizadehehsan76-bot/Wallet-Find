@@ -286,9 +286,8 @@ async function fetchGutenbergDocument(book: {
  */
 async function generateMvpRounds(): Promise<GeneratedRound[]> {
   // Render logs showed persistent Wikipedia HTTP 429 rate limits. The former
-  // fallback could make dozens of requests during cold start, so this generator
-  // uses four large public-domain texts and derives several unique clues from
-  // each source page instead of depending on Wikipedia availability.
+  // fallback could make dozens of requests during cold start, so Wikipedia is
+  // now optional and strictly limited; public-domain books remain the fallback.
   const [wikipediaDocuments, gutenbergResults] = await Promise.all([
     fetchWikipediaDocuments(12),
     Promise.all(GUTENBERG_BOOKS.map((book) => fetchGutenbergDocument(book))),
@@ -306,8 +305,8 @@ async function generateMvpRounds(): Promise<GeneratedRound[]> {
       .filter((word) => !COMMON_WORDS.has(word)),
   )];
 
-  // Prefer a balanced mix: up to three clues from each of the four source
-  // pages. A bounded retry loop prevents a poor source from stalling startup.
+  // Prefer a balanced mix: up to three clues per source before allowing any
+  // source to fill gaps. A bounded retry loop prevents startup from stalling.
   for (const source of shuffle(sources)) {
     let attempts = 0;
     let sourceRoundCount = 0;
