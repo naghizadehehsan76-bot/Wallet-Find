@@ -187,7 +187,7 @@ function AdminPage(_props: AdminPageProps) {
       setStatus(result.contest.status === "SCHEDULED" ? "scheduled" : "active");
       setMessage(
         result.contest.status === "SCHEDULED"
-          ? (isPersian ? "مسابقه برای مرز زمانی ثابت بعدی زمان‌بندی شد." : "Contest scheduled for the next fixed boundary.")
+          ? (isPersian ? "چالش برای مرز زمانی ثابت بعدی زمان‌بندی شد." : "Challenge scheduled for the next fixed boundary.")
           : t.admin.activated,
       );
     } catch (err) {
@@ -254,9 +254,9 @@ function AdminPage(_props: AdminPageProps) {
 
         <form onSubmit={handleCreateContest}>
           <div className="field">
-            <label htmlFor="contest-title">{t.admin.titleLabel}</label>
+            <label htmlFor="challenge-title">{t.admin.titleLabel}</label>
             <input
-              id="contest-title"
+              id="challenge-title"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder={t.admin.titlePlaceholder}
@@ -268,9 +268,9 @@ function AdminPage(_props: AdminPageProps) {
           </div>
 
           <div className="field">
-            <label htmlFor="contest-description">{t.admin.descriptionLabel}</label>
+            <label htmlFor="challenge-description">{t.admin.descriptionLabel}</label>
             <textarea
-              id="contest-description"
+              id="challenge-description"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               placeholder={t.admin.descriptionPlaceholder}
@@ -283,9 +283,9 @@ function AdminPage(_props: AdminPageProps) {
           {!contestId && (
             <>
               <div className="field">
-                <label htmlFor="contest-start">{t.admin.startsLabel}</label>
+                <label htmlFor="challenge-start">{t.admin.startsLabel}</label>
                 <input
-                  id="contest-start"
+                  id="challenge-start"
                   type="datetime-local"
                   value={startsAt}
                   onChange={(event) => setStartsAt(event.target.value)}
@@ -293,9 +293,9 @@ function AdminPage(_props: AdminPageProps) {
               </div>
 
               <div className="field">
-                <label htmlFor="contest-end">{t.admin.endsLabel}</label>
+                <label htmlFor="challenge-end">{t.admin.endsLabel}</label>
                 <input
-                  id="contest-end"
+                  id="challenge-end"
                   type="datetime-local"
                   value={endsAt}
                   onChange={(event) => setEndsAt(event.target.value)}
