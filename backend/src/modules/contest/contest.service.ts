@@ -275,6 +275,11 @@ export async function getCurrentClue(
   }
 
   const currentClue = progress.currentClue;
+  const previousClue = clues.find((clue) => clue.sequence === currentClue.sequence - 1);
+  const clueAvailableAt = currentClue.sequence === 1
+    ? contest.startsAt
+    : correctSubmissions.find((submission) => submission.clueId === previousClue?.id)?.submittedAt
+      ?? contest.startsAt;
   const latestWrongAttempt = await prisma.submission.findFirst({
     where: { userId, contestId, clueId: currentClue.id, isCorrect: false },
     orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
@@ -293,8 +298,8 @@ export async function getCurrentClue(
       sequence: currentClue.sequence,
       type: currentClue.type,
       content: currentClue.content,
-      publishedAt: contest.startsAt,
-      availableAt: contest.startsAt,
+      publishedAt: currentClue.publishedAt ?? clueAvailableAt,
+      availableAt: clueAvailableAt,
       sourceUrl: currentClue.sourceUrl,
       hintAnchor: currentClue.hintAnchor,
       options: Array.isArray(currentClue.options)
@@ -304,7 +309,7 @@ export async function getCurrentClue(
     currentSequence: currentClue.sequence,
     solvedCount: progress.solvedCount,
     solvedAnswers,
-    availableAt: contest.startsAt,
+    availableAt: clueAvailableAt,
     lockedUntil: lockedUntil && lockedUntil > now ? lockedUntil : null,
     lockRemainingMs: lockedUntil && lockedUntil > now ? lockedUntil.getTime() - now.getTime() : 0,
   };
@@ -410,6 +415,11 @@ export async function submitAnswer(
   }
 
   const currentClue = progress.currentClue;
+  const previousClue = clues.find((clue) => clue.sequence === currentClue.sequence - 1);
+  const clueAvailableAt = currentClue.sequence === 1
+    ? contest.startsAt
+    : correctSubmissions.find((submission) => submission.clueId === previousClue?.id)?.submittedAt
+      ?? contest.startsAt;
 
   if (data.clueId !== currentClue.id) {
     throw new Error("CLUE_NOT_CURRENT");
@@ -449,7 +459,7 @@ export async function submitAnswer(
     normalizeAnswer(data.answer) ===
     normalizeAnswer(currentClue.correctAnswer);
 
-  const responseTimeMs = calculateResponseTimeMs(now, [contest.startsAt]);
+  const responseTimeMs = calculateResponseTimeMs(now, [clueAvailableAt]);
 
   await prisma.submission.create({
     data: {
