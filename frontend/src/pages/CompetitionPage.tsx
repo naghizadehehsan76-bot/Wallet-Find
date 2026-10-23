@@ -677,7 +677,16 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                   : "The round has ended. No further answers are accepted after 15 minutes; incomplete participants receive no prize."}
               </div>
             )}
-            {feedback && <div className={"inline-feedback round-notice round-notice--" + feedbackTone} role="status" aria-live="polite">{localizeUiMessage(feedback, language)}</div>}
+            {feedback && (
+              <div className={"inline-feedback round-notice round-notice--" + feedbackTone} role="status" aria-live="polite">
+                {feedback === "ثبت شد؛ دور بعد در زمان ثابت شروع می‌شود. صفحه به‌صورت خودکار آماده خواهد شد." ||
+                feedback === "Scheduled. The next round starts at its fixed boundary; this page will update automatically."
+                  ? (isPersian
+                      ? "مسابقه تا " + formatCountdown(roundRemainingMs ?? 0) + " دیگر شروع می‌شود."
+                      : "Contest starts in " + formatCountdown(roundRemainingMs ?? 0) + ".")
+                  : localizeUiMessage(feedback, language)}
+              </div>
+            )}
             {error && <div className="inline-feedback round-error">{localizeApiError(error, language)}</div>}
 
             <div className="section-title">
