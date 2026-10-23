@@ -135,7 +135,11 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   }, [isPersian]);
 
   useEffect(() => {
-    if (!contestId || !waitingForClue) return;
+    // A late joiner must not remain stuck with every answer box locked if the
+    // first current-clue request races round activation or returns no clue.
+    // Retry while waiting for the next round OR while no usable clue has been
+    // received. Once a clue arrives, the effect cleans up its polling timer.
+    if (!contestId || completed || (!waitingForClue && currentClueId)) return;
 
     let cancelled = false;
     const pollForClue = () => {
@@ -145,12 +149,12 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
 
           applyCurrentClue(current);
 
-          if (current.status === "READY") {
+          if (current.status === "READY" && current.clue?.id) {
             setFeedbackTone("info");
             setFeedback(
               isPersian
-                ? "راند جدید آماده است؛ راهنما را بخوان و کلمه را پیدا کن."
-                : "The next round is ready. Read the hint and find the word.",
+                ? "مسابقه آماده است؛ از اولین کلمه‌ی حل‌نشده شروع کن."
+                : "The contest is ready. Start with your first unsolved word.",
             );
           } else if (current.status === "CONTEST_COMPLETED") {
             setFeedback(
@@ -164,8 +168,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           if (!cancelled) {
             setFeedback(
               isPersian
-                ? "ارتباط موقتاً قطع شده؛ دوباره به‌صورت خودکار تلاش می‌کنیم."
-                : "Connection interrupted. Retrying automatically.",
+                ? "در حال همگام‌سازی وضعیت مسابقه؛ دوباره خودکار تلاش می‌کنیم."
+                : "Syncing contest status. Retrying automatically.",
             );
           }
         });
@@ -176,7 +180,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [contestId, waitingForClue, isPersian]);
+  }, [contestId, waitingForClue, currentClueId, completed, isPersian]);
 
   async function refreshCurrentClue() {
     if (!contestId) return;
