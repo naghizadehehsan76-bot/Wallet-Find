@@ -1,4 +1,5 @@
 import prisma from "../../config/prisma.js";
+import { CONTEST_DURATION_MS } from "./contest.logic.js";
 
 const MICRO = 1_000_000n;
 const POOL_PERCENTAGES = [50n, 20n, 10n] as const;
@@ -313,7 +314,9 @@ export async function settlePrizePool(contestId: string, actorUserId?: string) {
 
     // The final 20% is only available to finishers whose competition rank is 4+.
     const lowerPool = totalPool * 20n / 100n;
-    const lower = finishers.filter((person) => person.rank >= 4);
+    const lower = contest.startsAt
+      ? finishers.filter((person) => person.rank >= 4 && person.elapsedMs < CONTEST_DURATION_MS)
+      : [];
     if (lower.length) {
       const scores = lower.map((person) => BigInt(Math.max(0, 900_000 - person.elapsedMs)));
       const scoreTotal = scores.reduce((sum, score) => sum + score, 0n);
