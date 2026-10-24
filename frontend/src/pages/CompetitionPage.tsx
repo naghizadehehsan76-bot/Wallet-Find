@@ -473,8 +473,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           aria-label={isPersian ? "خانه" : "Home"}
           onClick={() => onNavigate("home")}
         >
-          <span className="brand-dot" />
-          <span>Wallet Find</span>
+          <span className="brand-wallet">Wallet</span><span className="brand-find">Find</span>
         </button>
         <div className="topbar-actions"><LanguageSwitcher /></div>
       </header>
