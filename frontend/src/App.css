@@ -1460,9 +1460,9 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 
 
 
-/* Move only the Home concept illustration up by 1 cm. */
+/* Move only the Home concept illustration up by an additional 2 mm. */
 .home-concept-vector {
-  transform: translateY(-1cm);
+  transform: translateY(calc(-1cm - 2mm));
 }
 
 
