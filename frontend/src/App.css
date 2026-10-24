@@ -1306,3 +1306,34 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
  .home-challenge-card__top>strong { font-size:15px; }
  .home-challenge-card__timer { min-width:100px; }
 }
+
+
+/* Generated home reference: tighter, portrait-first composition */
+.home-shell { max-width:480px; min-height:100dvh; margin:0 auto; border-radius:0; }
+.home-topbar { padding-top:12px; padding-bottom:8px; border-bottom:1px solid rgba(0,155,255,.08); }
+.home-topbar__brand .brand.brand--home { font-size:clamp(25px,6.7vw,32px) !important; }
+.home-page { padding-inline:16px; }
+.home-wallet-art { height:clamp(225px,62vw,270px); margin-top:0; margin-bottom:0; }
+.home-wallet-art__wallet { top:38%; }
+.home-wallet-art__lens { top:39%; }
+.home-wallet-art__orbit { top:75%; }
+.home-showcase__title { margin-top:0; margin-bottom:8px; font-size:clamp(21px,5.4vw,27px); line-height:1.65; }
+.home-showcase__description { font-size:clamp(14px,3.8vw,17px); line-height:1.85; }
+.home-challenge-card { margin-top:20px; margin-bottom:18px; padding:14px 12px 12px; }
+.home-challenge-card__progress { margin-top:16px; }
+.home-key-grid { gap:12px; margin-bottom:18px; }
+.home-key-tile { border-radius:17px; }
+.home-key-tile__number { font-size:clamp(22px,6vw,28px); }
+.home-key-tile__lock { transform:scale(.94); }
+.home-page .cta-group { margin-top:18px; }
+.home-page .stat-row { margin-top:18px; }
+.home-page .how-section { margin-top:20px; }
+@media (max-width:380px) {
+ .home-page { padding-inline:12px; }
+ .home-wallet-art { height:228px; }
+ .home-showcase__title { font-size:21px; }
+ .home-showcase__description { font-size:14px; }
+ .home-challenge-card { margin-top:18px; }
+ .home-key-grid { gap:9px; }
+ .home-key-tile { border-radius:14px; }
+}
