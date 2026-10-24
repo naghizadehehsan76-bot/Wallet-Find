@@ -1464,3 +1464,11 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 .home-concept-vector {
   transform: translateY(-1cm);
 }
+
+
+/* Keep the Wallet Find brand name in English word order in every language. */
+.brand--home,
+.sidebar-brand--home {
+  direction: ltr !important;
+  unicode-bidi: isolate;
+}
