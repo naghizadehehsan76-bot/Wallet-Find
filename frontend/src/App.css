@@ -688,7 +688,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 
-/* Findoo brand mark: a compact 3-by-4 grid inside a vault-like frame. */
+/* Wallet Find brand mark: a compact 3-by-4 grid inside a vault-like frame. */
 .brand-dot {
   display: inline-block;
   width: 34px;
@@ -923,7 +923,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 
-/* Align the global drawer button directly beside the Findoo title. */
+/* Align the global drawer button directly beside the Wallet Find title. */
 .topbar .brand-dot { visibility: hidden; }
 .global-sidebar-trigger {
   top: 16px;
@@ -959,7 +959,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 
-/* Refined, keyboard-accessible Findoo wordmark that returns to Home. */
+/* Refined, keyboard-accessible Wallet Find wordmark that returns to Home. */
 .brand--home {
   appearance: none;
   padding: 0;

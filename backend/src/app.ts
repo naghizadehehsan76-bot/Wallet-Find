@@ -50,7 +50,7 @@ app.get("/health", (_req, res) => {
     success: true,
     data: {
       status: "ok",
-      project: "Findoo",
+      project: "Wallet Hunt",
     },
   });
 });
