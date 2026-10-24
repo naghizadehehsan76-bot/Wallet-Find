@@ -474,7 +474,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           onClick={() => onNavigate("home")}
         >
           <span className="brand-dot" />
-          <span>Wallet Find</span>
+          <span>Findoo</span>
         </button>
         <div className="topbar-actions"><LanguageSwitcher /></div>
       </header>
