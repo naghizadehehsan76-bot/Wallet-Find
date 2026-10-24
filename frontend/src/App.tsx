@@ -136,22 +136,7 @@ function HomePage({
 
         <main className="page home-page">
         <section className="home-showcase">
-          <div className="home-wallet-art" aria-hidden="true">
-            <div className="home-wallet-art__orbit home-wallet-art__orbit--outer" />
-            <div className="home-wallet-art__orbit home-wallet-art__orbit--inner" />
-            <div className="home-wallet-art__wallet">
-              <span className="home-wallet-art__letter">W</span>
-            </div>
-            <div className="home-wallet-art__lens" />
-            <span className="home-wallet-art__spark home-wallet-art__spark--one" />
-            <span className="home-wallet-art__spark home-wallet-art__spark--two" />
-          </div>
-          <h1 className="home-showcase__title">
-            {isPersian ? <>کیف پول رو پیدا کن، <span>کریپتو بگیر</span></> : <>Find the wallet, <span>get crypto</span></>}
-          </h1>
-          <p className="home-showcase__description">
-            {isPersian ? <>هر روز سرنخ‌ها رو بهت میدیم ...<br />هر چقدر سریعتر باشی درآمدت بیشتره.</> : <>We give you clues every day...<br />The faster you are, the more you earn.</>}
-          </p>
+          <img className="home-concept-vector" src="/images/home-concept.svg" alt={isPersian ? "کیف پول نئونی با ذره‌بین؛ کیف پول رو پیدا کن، کریپتو بگیر" : "Neon wallet and magnifying glass — Find the wallet, get crypto"} />
         </section>
 
         <section className="home-challenge-card" aria-label={isPersian ? "چالش امروز" : "Today's challenge"}>
