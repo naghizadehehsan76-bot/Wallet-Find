@@ -35,8 +35,8 @@ export const fa = {
   },
   competition: {
     defaultTitle: "چالش واژه‌یابی",
-    generatedTitle: "چالش واژه‌یابی انگلیسی Wallet Find",
-    generatedTitleEnglish: "Wallet Find English Word-Finding Challenge",
+    generatedTitle: "چالش واژه‌یابی انگلیسی Findoo",
+    generatedTitleEnglish: "Findoo English Word-Finding Challenge",
     activeContest: "چالش فعال",
     loading: "در حال دریافت چالش...",
     loadingEnglish: "Loading challenge...",
@@ -136,7 +136,7 @@ export const fa = {
     mockClue: "نامی که در سه شهر ایران به یک میدان تاریخی داده شده و در فارسی معنای «سکه» هم دارد. حرف اول را با عدد نمادین این شهرها جمع بزن.",
   },
   auth: {
-    welcome: "به Wallet Find خوش آمدی",
+    welcome: "به Findoo خوش آمدی",
     login: "ورود",
     signup: "ثبت‌نام",
     email: "ایمیل",
@@ -149,7 +149,7 @@ export const fa = {
     signupButton: "ساخت حساب",
     loading: "در حال بررسی...",
     back: "بازگشت",
-    privacy: "با ادامه، قوانین چالش و حریم خصوصی Wallet Find را می‌پذیری.",
+    privacy: "با ادامه، قوانین چالش و حریم خصوصی Findoo را می‌پذیری.",
   },
   admin: {
     back: "بازگشت",
@@ -225,7 +225,7 @@ export const fa = {
     },
     terms: {
       title: "شرایط استفاده",
-      description: "اطلاعات مهم دربارهٔ نسخهٔ آزمایشی Wallet Find.",
+      description: "اطلاعات مهم دربارهٔ نسخهٔ آزمایشی Findoo.",
       detail: "این نسخه هنوز آزمایشی است. قوانین نهایی چالش، شرایط شرکت، داوری و پرداخت پیش از راه‌اندازی عمومی منتشر می‌شوند. در حال حاضر از این سایت انتظار پرداخت واقعی نداشته باش؛ پرداخت واقعی فعال نیست.",
     },
   },

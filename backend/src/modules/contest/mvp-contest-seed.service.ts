@@ -438,7 +438,7 @@ async function ensureMvpActiveContestInternal() {
   const status = startsAt.getTime() <= Date.now() ? "ACTIVE" : "SCHEDULED";
   const contest = await prisma.contest.create({
     data: {
-      title: "مسابقه واژه‌یابی انگلیسی Wallet Find",
+      title: "مسابقه واژه‌یابی انگلیسی Findoo",
       description: "۱۲ راند واژه‌یابی؛ راهنما را بخوان، لینک منبع را باز کن و کلمه را از میان ۱۲ گزینه انتخاب کن.",
       status,
       startsAt,
@@ -669,7 +669,7 @@ export async function startNextMvpContest(userId: string, completedContestId: st
 
       const created = await tx.contest.create({
         data: {
-          title: "مسابقه واژه‌یابی انگلیسی Wallet Find",
+          title: "مسابقه واژه‌یابی انگلیسی Findoo",
           description: "۱۲ راند واژه‌یابی؛ راهنما را بخوان، لینک منبع را باز کن و کلمه را از میان ۱۲ گزینه انتخاب کن.",
           status: "SCHEDULED",
           startsAt,
@@ -785,7 +785,7 @@ export async function ensureScheduledMvpContest(now = new Date()) {
 
       const round = await tx.contest.create({
         data: {
-          title: "مسابقه واژه‌یابی انگلیسی Wallet Find",
+          title: "مسابقه واژه‌یابی انگلیسی Findoo",
           description: "۱۲ راند واژه‌یابی؛ راهنما را بخوان و کلمه را از منبع پیدا کن.",
           status: "SCHEDULED",
           startsAt,

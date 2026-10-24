@@ -1,4 +1,4 @@
-# Wallet-Find / 12Keys — Security Rules
+# Findoo / 12Keys — Security Rules
 
 ## Secrets
 
@@ -98,7 +98,7 @@ Audit logs may record administrative actions and entity identifiers.
 
 MVP wallet UI is display-only.
 
-No private key or seed phrase should ever be collected by Wallet-Find for a real wallet account.
+No private key or seed phrase should ever be collected by Findoo for a real wallet account.
 
 Real withdrawal implementation must use a dedicated security review and transaction-signing architecture.
 

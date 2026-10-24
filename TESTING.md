@@ -1,4 +1,4 @@
-# Wallet-Find / 12Keys — Testing Strategy
+# Findoo / 12Keys — Testing Strategy
 
 ## Build checks
 

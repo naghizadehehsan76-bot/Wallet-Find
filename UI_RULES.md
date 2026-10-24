@@ -1,4 +1,4 @@
-# Wallet-Find / 12Keys — UI Rules
+# Findoo / 12Keys — UI Rules
 
 ## 1. Visual Source of Truth
 
@@ -402,7 +402,7 @@ The 12-word entry experience should communicate:
 5. direct word entry
 6. clear progression from one position to the next
 
-The experience should feel familiar to users who have seen wallet recovery-word entry flows while remaining visually unique to Wallet-Find.
+The experience should feel familiar to users who have seen wallet recovery-word entry flows while remaining visually unique to Findoo.
 
 ## 26. Visual Regression Rule
 

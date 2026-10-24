@@ -1,4 +1,4 @@
-# Wallet-Find / 12Keys — MVP Checklist
+# Findoo / 12Keys — MVP Checklist
 
 ## Current Status
 
