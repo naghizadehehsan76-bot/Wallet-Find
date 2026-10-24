@@ -60,7 +60,13 @@ function HomePage({
 }) {
   const { translation: t } = useI18n();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [homeTimerNow, setHomeTimerNow] = useState(() => Date.now());
   const isPersian = language === "fa";
+
+  useEffect(() => {
+    const timerId = window.setInterval(() => setHomeTimerNow(Date.now()), 250);
+    return () => window.clearInterval(timerId);
+  }, []);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
@@ -72,6 +78,11 @@ function HomePage({
   }, [mobileMenuOpen]);
   const stats = isPersian ? faStats : enStats;
   const steps = isPersian ? faSteps : enSteps;
+  const homeRoundRemainingMs = 15 * 60_000 - (homeTimerNow % (15 * 60_000));
+  const homeTimerSeconds = Math.ceil(homeRoundRemainingMs / 1000);
+  const homeTimerText = [Math.floor(homeTimerSeconds / 60), homeTimerSeconds % 60]
+    .map((value) => String(value).padStart(2, "0"))
+    .join(":");
 
   return (
     <div className="app-shell home-shell">
@@ -150,7 +161,7 @@ function HomePage({
             <div className="home-challenge-card__bolt" aria-hidden="true">ϟ</div>
             <strong>{isPersian ? "چالش امروز" : "Today's Challenge"}</strong>
             <div className="home-challenge-card__timer">
-              <span><span aria-hidden="true">◷</span> ۱۵:۰۰</span>
+              <span><span aria-hidden="true">◷</span> {homeTimerText}</span>
               <small>{isPersian ? "تا شروع دور جدید" : "Until next round"}</small>
             </div>
           </div>
