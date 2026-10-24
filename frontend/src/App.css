@@ -1429,3 +1429,25 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
     letter-spacing: -0.8px;
   }
 }
+
+
+/* Minimal, consistent bottom navigation icons */
+.bottom-nav .nav-item .nav-icon {
+  width: auto;
+  height: 22px;
+  min-width: 24px;
+  margin: 0 auto 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: currentColor;
+  font-family: Arial, sans-serif;
+  font-size: 21px;
+  font-weight: 400;
+  line-height: 1;
+  text-shadow: none;
+}
+.bottom-nav .nav-item { gap: 3px; }
+.bottom-nav .nav-item--active .nav-icon { color: currentColor; }
