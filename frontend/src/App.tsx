@@ -177,11 +177,11 @@ function HomePage({
             <button
               key={index}
               type="button"
-              className={`home-key-tile ${index === 0 ? "home-key-tile--current" : "home-key-tile--locked"}`}
+              className={`home-key-tile ${index < 3 ? "home-key-tile--current home-key-tile--word" : "home-key-tile--locked"}`}
               onClick={() => onNavigate("competition")}
-              aria-label={index === 0 ? (isPersian ? "خانهٔ اول، ورود به چالش" : "Key 1, enter challenge") : (isPersian ? `خانهٔ قفل‌شدهٔ ${index + 1}` : `Locked key ${index + 1}`)}
+              aria-label={index < 3 ? (isPersian ? ["چالش", "تو", "سرعت"][index] : ["Challenge", "Your", "Speed"][index]) : (isPersian ? `خانهٔ قفل‌شدهٔ ${index + 1}` : `Locked key ${index + 1}`)}
             >
-              {index === 0 ? <><span className="home-key-tile__number">۱</span><span className="home-key-tile__subnumber">۱</span></> : <><span className="home-key-tile__lock" aria-hidden="true"><i /></span><span className="home-key-tile__number">{(index + 1).toLocaleString(isPersian ? "fa-IR" : "en-US")}</span></>}
+              {index < 3 ? <span className="home-key-tile__word">{(isPersian ? ["چالش", "تو", "سرعت"] : ["Challenge", "Your", "Speed"])[index]}</span> : <><span className="home-key-tile__lock" aria-hidden="true"><i /></span><span className="home-key-tile__number">{(index + 1).toLocaleString(isPersian ? "fa-IR" : "en-US")}</span></>}
             </button>
           ))}
         </section>
