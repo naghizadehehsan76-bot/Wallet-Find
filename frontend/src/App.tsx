@@ -135,56 +135,53 @@ function HomePage({
         </aside>
 
         <main className="page home-page">
-        <section className="hero">
-          <div className="eyebrow">{isPersian ? "چالش روزانه" : "DAILY CHALLENGE"}</div>
-          <h1 className="hero-title">
-            {isPersian ? <><span>۱۲ کلید، ۱۲ سرنخ</span><br />و یک کیف پول</> : <><span>12 Keys, 12 Clues</span><br />and One Wallet</>}
+        <section className="home-showcase">
+          <div className="home-wallet-art" aria-hidden="true">
+            <div className="home-wallet-art__orbit home-wallet-art__orbit--outer" />
+            <div className="home-wallet-art__orbit home-wallet-art__orbit--inner" />
+            <div className="home-wallet-art__wallet">
+              <span className="home-wallet-art__letter">W</span>
+            </div>
+            <div className="home-wallet-art__lens" />
+            <span className="home-wallet-art__spark home-wallet-art__spark--one" />
+            <span className="home-wallet-art__spark home-wallet-art__spark--two" />
+          </div>
+          <h1 className="home-showcase__title">
+            {isPersian ? <>کیف پول رو پیدا کن، <span>کریپتو بگیر</span></> : <>Find the wallet, <span>get crypto</span></>}
           </h1>
-          <p className="hero-description">
-            {isPersian ? "همهٔ شرکت‌کننده‌ها جایزه می‌برن؛ هرچقدر سریع‌تر باشی، جایزه‌ات بیشتره. سریع‌تر از بقیه به کلمهٔ آخر کیف پول برس و جایزهٔ USDT رو ببر." : "Every participant wins a prize—the faster you are, the bigger your reward. Reach the wallet’s final word before everyone else and win USDT."}
+          <p className="home-showcase__description">
+            {isPersian ? <>هر روز سرنخ‌ها رو بهت میدیم ...<br />هر چقدر سریعتر باشی درآمدت بیشتره.</> : <>We give you clues every day...<br />The faster you are, the more you earn.</>}
           </p>
         </section>
 
-        <section className="challenge-grid-visual" aria-label={t.landing.gridTitle}>
-          <div className="challenge-grid-heading">
-            <div>
-              <strong>{t.landing.gridTitle}</strong>
-              {t.landing.gridSubtitle && <span>{t.landing.gridSubtitle}</span>}
+        <section className="home-challenge-card" aria-label={isPersian ? "چالش امروز" : "Today's challenge"}>
+          <div className="home-challenge-card__top">
+            <div className="home-challenge-card__bolt" aria-hidden="true">ϟ</div>
+            <strong>{isPersian ? "چالش امروز" : "Today's Challenge"}</strong>
+            <div className="home-challenge-card__timer">
+              <span><span aria-hidden="true">◷</span> ۱۵:۰۰</span>
+              <small>{isPersian ? "تا شروع دور جدید" : "Until next round"}</small>
             </div>
           </div>
-          <div className="challenge-grid">
-            {Array.from({ length: 12 }).map((_, index) => {
-              const status = index < 4 ? "solved" : index === 4 ? "current" : "locked";
-              const statusText = status === "solved"
-                ? t.landing.solved
-                : status === "current"
-                  ? t.landing.current
-                  : t.landing.locked;
-              return (
-                <div key={index} className={`challenge-tile challenge-tile--${status}${index < 5 ? " challenge-tile--worded" : ""}`}>
-                  {index < 5 ? (
-                    <>
-                      <span className="challenge-tile__word-number mono">{(index + 1).toLocaleString(isPersian ? "fa-IR" : "en-US")}</span>
-                      <span className={`challenge-tile__word${index === 4 ? " challenge-tile__word--gold" : ""}`}>
-                        {["challenge", "your", "speed", "every", "day"][index]}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="challenge-tile__number mono">{(index + 1).toLocaleString(isPersian ? "fa-IR" : "en-US")}</span>
-                  )}
-                  <span className="challenge-tile__status" aria-hidden="true">
-                    {status === "solved" ? "✓" : status === "current" ? "●" : "◇"}
-                  </span>
-                  <span className="challenge-tile__sr-only">{statusText}</span>
-                </div>
-              );
-            })}
+          <div className="home-challenge-card__progress">
+            <strong>۰/۱۲</strong>
+            <span>{isPersian ? "پیشرفت شما" : "Your progress"}</span>
+            <i><b /></i>
           </div>
-          <div className="challenge-grid-legend" aria-label={t.landing.gridLegend}>
-            <span><i className="challenge-legend-dot challenge-legend-dot--solved" />{t.landing.solved}</span>
-            <span><i className="challenge-legend-dot challenge-legend-dot--current" />{t.landing.current}</span>
-            <span><i className="challenge-legend-dot challenge-legend-dot--locked" />{t.landing.locked}</span>
-          </div>
+        </section>
+
+        <section className="home-key-grid" aria-label={isPersian ? "۱۲ خانهٔ چالش" : "12 challenge keys"}>
+          {Array.from({ length: 12 }).map((_, index) => (
+            <button
+              key={index}
+              type="button"
+              className={`home-key-tile ${index === 0 ? "home-key-tile--current" : "home-key-tile--locked"}`}
+              onClick={() => onNavigate("competition")}
+              aria-label={index === 0 ? (isPersian ? "خانهٔ اول، ورود به چالش" : "Key 1, enter challenge") : (isPersian ? `خانهٔ قفل‌شدهٔ ${index + 1}` : `Locked key ${index + 1}`)}
+            >
+              {index === 0 ? <><span className="home-key-tile__number">۱</span><span className="home-key-tile__subnumber">۱</span></> : <><span className="home-key-tile__lock" aria-hidden="true"><i /></span><span className="home-key-tile__number">{(index + 1).toLocaleString(isPersian ? "fa-IR" : "en-US")}</span></>}
+            </button>
+          ))}
         </section>
 
         <section className="cta-group">
