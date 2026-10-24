@@ -1352,6 +1352,7 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   overflow-wrap: anywhere;
 }
 .home-concept-title {
+  transform: translateY(-5mm);
   margin: 2px 0 10px;
   color: #f3f8ff;
   font-size: clamp(23px, 5.8vw, 29px);
