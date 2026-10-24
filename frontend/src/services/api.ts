@@ -162,6 +162,20 @@ export async function login(
   });
 }
 
+export async function requestLoginCode(email: string): Promise<{ message: string }> {
+  return request<{ message: string }>("/auth/login/request-code", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function verifyLoginCode(email: string, code: string): Promise<AuthResult> {
+  return request<AuthResult>("/auth/login/verify-code", {
+    method: "POST",
+    body: JSON.stringify({ email, code }),
+  });
+}
+
 export async function getActiveContest(): Promise<ActiveContest> {
   return request<ActiveContest>("/contests/active", {}, true);
 }
