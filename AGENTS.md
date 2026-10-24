@@ -1,8 +1,8 @@
-# Findoo / 12Keys — Agent Instructions
+# Wallet-Find / 12Keys — Agent Instructions
 
 ## Mission
 
-Build and maintain Findoo as a production-ready, multilingual, mobile-first web application based on the existing product concept and UI prototype.
+Build and maintain Wallet-Find as a production-ready, multilingual, mobile-first web application based on the existing product concept and UI prototype.
 
 The primary goal is to complete the product from the current repository state to a tested MVP and then to a production-ready version.
 
