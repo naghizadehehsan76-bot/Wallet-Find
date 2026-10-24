@@ -1477,5 +1477,5 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 
 /* Move the Today's Challenge card upward by an additional 2 cm on the Home page. */
 .home-challenge-card {
-  transform: translateY(-2cm);
+  transform: translateY(calc(-2cm - 5mm));
 }
