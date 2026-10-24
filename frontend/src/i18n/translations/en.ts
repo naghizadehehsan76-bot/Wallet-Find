@@ -35,8 +35,8 @@ export const en = {
   },
   competition: {
     defaultTitle: "Word-Finding Challenge",
-    generatedTitle: "Findoo English Word-Finding Challenge",
-    generatedTitleEnglish: "Findoo English Word-Finding Challenge",
+    generatedTitle: "Wallet Find English Word-Finding Challenge",
+    generatedTitleEnglish: "Wallet Find English Word-Finding Challenge",
     activeContest: "Active challenge",
     loading: "Loading challenge...",
     loadingEnglish: "Loading challenge...",
@@ -136,7 +136,7 @@ export const en = {
     mockClue: "A historical square in three Iranian cities shares a name that also means “coin” in Persian. Combine its first letter with the symbolic number of those cities.",
   },
   auth: {
-    welcome: "Welcome to Findoo",
+    welcome: "Welcome to Wallet Find",
     login: "Login",
     signup: "Sign Up",
     email: "Email",
@@ -149,7 +149,7 @@ export const en = {
     signupButton: "Create account",
     loading: "Checking...",
     back: "Back",
-    privacy: "By continuing, you agree to the Findoo challenge rules and privacy policy.",
+    privacy: "By continuing, you agree to the Wallet Find challenge rules and privacy policy.",
   },
   admin: {
     back: "Back",
@@ -225,7 +225,7 @@ export const en = {
     },
     terms: {
       title: "Terms of Use",
-      description: "Important information about the Findoo preview release.",
+      description: "Important information about the Wallet Find preview release.",
       detail: "This version is still a preview. The final challenge rules, eligibility, judging, and payout terms will be published before public launch. Do not expect real payouts from this site yet; real payments are not enabled.",
     },
   },
