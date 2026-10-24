@@ -78,8 +78,7 @@ function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
     <div className="app-shell">
       <header className="topbar">
         <div className="brand">
-          <span className="brand-dot" />
-          <span>Wallet Find</span>
+          <span className="brand-wallet">Wallet</span><span className="brand-find">Find</span>
         </div>
         <div className="topbar-actions"><LanguageSwitcher /></div>
       </header>
