@@ -1173,9 +1173,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .home-topbar .home-topbar__brand .brand--home { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:2; display:flex; gap:0; white-space:nowrap; font-family:'Space Grotesk','Vazirmatn',sans-serif; font-size:21px; letter-spacing:-.65px; line-height:1; }
 .brand .brand-dot,.sidebar-brand .brand-dot { display:none; }
 .brand-wallet { color:#f7fbff; font-weight:800; }
-.brand-find { position:relative; display:inline-block; margin-left:5px; padding-right:17px; color:var(--verdigris); font-weight:900; background:linear-gradient(105deg,#00e0b8 0%,#00c8ef 58%,#2583ff 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; filter:drop-shadow(0 0 7px rgba(0,220,200,.16)); }
-.brand-find::before { content:''; position:absolute; right:3px; top:0; width:10px; height:10px; border:2px solid #00d8c0; border-radius:50%; background:rgba(3,16,29,.72); -webkit-text-fill-color:initial; }
-.brand-find::after { content:''; position:absolute; right:-1px; top:11px; width:7px; height:2px; border-radius:2px; background:#2583ff; transform:rotate(48deg); transform-origin:left center; }
+.brand-find { position:relative; display:inline-block; margin-left:5px; padding-right:17px; color:var(--brass-light); font-weight:900; background:linear-gradient(105deg,#ffe08a 0%,#f6b817 48%,#f07822 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; filter:drop-shadow(0 0 7px rgba(246,184,23,.18)); }
+.brand-find::before { content:''; position:absolute; right:3px; top:0; width:10px; height:10px; border:2px solid #f6b817; border-radius:50%; background:rgba(3,16,29,.72); -webkit-text-fill-color:initial; }
+.brand-find::after { content:''; position:absolute; right:-1px; top:11px; width:7px; height:2px; border-radius:2px; background:#f07822; transform:rotate(48deg); transform-origin:left center; }
 .sidebar-brand--home { gap:5px; } .sidebar-brand--home strong { display:inline-flex; gap:0; font-family:'Space Grotesk','Vazirmatn',sans-serif; }
 .topbar-actions { position:relative; z-index:3; margin-left:auto; } .home-topbar__brand { position:static; } .home-topbar__brand .sidebar-toggle { position:relative; z-index:4; }
 .language-switcher { border-color:rgba(0,218,194,.25); } .language-switcher button.active { background:linear-gradient(110deg,#00e0b8,#2583ff); color:#03101d; }
