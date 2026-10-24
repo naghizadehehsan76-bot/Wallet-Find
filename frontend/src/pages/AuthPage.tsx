@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { login, register } from "../services/api";
+import { register, requestLoginCode, verifyLoginCode } from "../services/api";
 import { useI18n } from "../i18n";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import { localizeApiError } from "../i18n/localize";
@@ -19,36 +19,51 @@ function AuthPage({ onAuthenticated, onBack, initialMode = "login" }: AuthPagePr
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setNotice("");
     setLoading(true);
 
     try {
-      const result =
-        mode === "login"
-          ? await login(email, password)
-          : await register(email, username, password);
+      if (mode === "signup") {
+        const result = await register(email, username, password);
+        localStorage.setItem("walletFindToken", result.token);
+        localStorage.setItem("walletFindUser", JSON.stringify(result.user));
+        onAuthenticated(result.token);
+        return;
+      }
 
+      if (!codeSent) {
+        await requestLoginCode(email);
+        setCodeSent(true);
+        setNotice(t.auth.codeSent);
+        return;
+      }
+
+      const result = await verifyLoginCode(email, code);
       localStorage.setItem("walletFindToken", result.token);
-      localStorage.setItem(
-        "walletFindUser",
-        JSON.stringify(result.user),
-      );
-
+      localStorage.setItem("walletFindUser", JSON.stringify(result.user));
       onAuthenticated(result.token);
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "NETWORK_ERROR",
-      );
+      setError(localizeApiError(err, language));
     } finally {
       setLoading(false);
     }
+  }
+
+  function changeMode(nextMode: AuthMode) {
+    setMode(nextMode);
+    setCodeSent(false);
+    setCode("");
+    setError("");
+    setNotice("");
   }
 
   return (
@@ -69,25 +84,10 @@ function AuthPage({ onAuthenticated, onBack, initialMode = "login" }: AuthPagePr
         <h1 className="auth-title">{t.auth.welcome}</h1>
 
         <div className="auth-toggle">
-          <button
-            className={mode === "login" ? "active" : ""}
-            type="button"
-            onClick={() => {
-              setMode("login");
-              setError("");
-            }}
-          >
+          <button className={mode === "login" ? "active" : ""} type="button" onClick={() => changeMode("login")}>
             {t.auth.login}
           </button>
-
-          <button
-            className={mode === "signup" ? "active" : ""}
-            type="button"
-            onClick={() => {
-              setMode("signup");
-              setError("");
-            }}
-          >
+          <button className={mode === "signup" ? "active" : ""} type="button" onClick={() => changeMode("signup")}>
             {t.auth.signup}
           </button>
         </div>
@@ -103,60 +103,87 @@ function AuthPage({ onAuthenticated, onBack, initialMode = "login" }: AuthPagePr
               placeholder={t.auth.emailPlaceholder}
               required
               autoComplete="email"
+              readOnly={mode === "login" && codeSent}
             />
           </div>
 
           {mode === "signup" && (
-            <div className="field">
-              <label htmlFor="username">{t.auth.username}</label>
-              <input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-                placeholder={t.auth.usernamePlaceholder}
-                minLength={3}
-                maxLength={30}
-                required
-                autoComplete="username"
-              />
-            </div>
+            <>
+              <div className="field">
+                <label htmlFor="username">{t.auth.username}</label>
+                <input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  placeholder={t.auth.usernamePlaceholder}
+                  minLength={3}
+                  maxLength={30}
+                  required
+                  autoComplete="username"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="password">{t.auth.password}</label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder={t.auth.passwordHint}
+                  minLength={8}
+                  maxLength={100}
+                  required
+                  autoComplete="new-password"
+                />
+              </div>
+            </>
           )}
 
-          <div className="field">
-            <label htmlFor="password">{t.auth.password}</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder={t.auth.passwordHint}
-              minLength={8}
-              required
-              autoComplete={
-                mode === "login" ? "current-password" : "new-password"
-              }
-            />
-          </div>
-
-          {error && (
-            <div className="auth-error" role="alert">
-              {localizeApiError(error, language)}
-            </div>
+          {mode === "login" && codeSent && (
+            <>
+              <div className="field">
+                <label htmlFor="login-code">{t.auth.codeLabel}</label>
+                <input
+                  id="login-code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]{6}"
+                  minLength={6}
+                  maxLength={6}
+                  value={code}
+                  onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="000000"
+                  required
+                />
+              </div>
+              <p className="auth-hint">{t.auth.codeHint}</p>
+              <button
+                className="back-button"
+                type="button"
+                onClick={() => { setCodeSent(false); setCode(""); setNotice(""); setError(""); }}
+              >
+                {t.auth.changeEmail}
+              </button>
+            </>
           )}
+
+          {error && <div className="auth-error" role="alert">{error}</div>}
+          {notice && <p className="auth-hint" role="status">{notice}</p>}
 
           <button className="cta-button" type="submit" disabled={loading}>
             {loading
               ? t.auth.loading
-              : mode === "login"
-                ? t.auth.loginButton
-                : t.auth.signupButton}
+              : mode === "signup"
+                ? t.auth.signupButton
+                : codeSent
+                  ? t.auth.verifyCodeButton
+                  : t.auth.sendCodeButton}
           </button>
         </form>
 
-        <p className="auth-hint">
-          {t.auth.privacy}
-        </p>
+        <p className="auth-hint">{t.auth.privacy}</p>
       </main>
     </div>
   );
