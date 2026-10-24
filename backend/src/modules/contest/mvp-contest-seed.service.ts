@@ -174,15 +174,30 @@ async function fetchWikipediaDocuments(limit: number): Promise<SourceDocument[]>
   }
 }
 
+// Source texts can contain hundreds of thousands of characters. Cache tokenization
+// and normalization across attempts so the round generator does not repeatedly
+// perform expensive synchronous work on the event loop while Render is checking
+// the /health endpoint during startup.
+const sourceAnalysisCache = new WeakMap<SourceDocument, {
+  matches: WordMatch[];
+  normalizedSource: string;
+}>();
+
 function buildRoundFromSource(
   source: SourceDocument,
   usedAnswers: ReadonlySet<string>,
   optionWords: readonly string[],
 ): GeneratedRound | null {
-  const matches = getWordMatches(source.text);
+  let analysis = sourceAnalysisCache.get(source);
+  if (!analysis) {
+    analysis = {
+      matches: getWordMatches(source.text),
+      normalizedSource: source.text.replace(/\s+/g, " ").trim().toLowerCase(),
+    };
+    sourceAnalysisCache.set(source, analysis);
+  }
+  const { matches, normalizedSource } = analysis;
   if (matches.length < 20) return null;
-
-  const normalizedSource = source.text.replace(/\s+/g, " ").trim().toLowerCase();
   const candidateIndexes = shuffle(
     matches.map((_, index) => index).filter((index) => index >= 5),
   );
