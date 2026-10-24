@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "Wallet Hunt Backend",
+  "description": "Findoo Backend",
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
