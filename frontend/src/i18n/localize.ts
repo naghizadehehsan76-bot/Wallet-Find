@@ -131,8 +131,8 @@ export function localizeContestTitle(title: string | null | undefined, language:
     normalized === "wallet find english word-finding contest"
   ) {
     return language === "fa"
-      ? "چالش واژه‌یابی انگلیسی Wallet Find"
-      : "Wallet Find English Word-Finding Challenge";
+      ? "چالش واژه‌یابی انگلیسی Findoo"
+      : "Findoo English Word-Finding Challenge";
   }
   return title ?? (language === "fa" ? "چالش واژه‌یابی" : "Word-Finding Challenge");
 }
