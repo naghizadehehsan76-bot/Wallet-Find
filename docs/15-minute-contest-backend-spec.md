@@ -1,7 +1,7 @@
-# Findoo: 15-Minute Contest Backend Specification
+# Wallet-Find: 15-Minute Contest Backend Specification
 
 Status: approved rules implemented on a separate branch; latest backend tests/build and frontend build/lint pass. Not merged or deployed.
-Target repository: Findoo
+Target repository: Wallet-Find
 Branch: spec/15-minute-contest-rules
 
 ## 1. Purpose
