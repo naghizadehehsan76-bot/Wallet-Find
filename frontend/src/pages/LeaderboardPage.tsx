@@ -79,7 +79,7 @@ function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
       <header className="topbar">
         <div className="brand">
           <span className="brand-dot" />
-          <span>Wallet Find</span>
+          <span>Findoo</span>
         </div>
         <div className="topbar-actions"><LanguageSwitcher /></div>
       </header>
