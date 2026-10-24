@@ -1,4 +1,4 @@
-# Findoo / 12Keys — Architecture
+# Wallet-Find / 12Keys — Architecture
 
 ## 1. Repository Structure
 
