@@ -1,6 +1,6 @@
-# Wallet-Find / 12Keys
+# Findoo / 12Keys
 
-Wallet-Find is a mobile-first, bilingual (Persian/English) twelve-clue contest application. Players solve clues in order; the server validates answers, records attempts and response timing, and calculates the leaderboard. The wallet screen is a display-only MVP placeholder.
+Findoo is a mobile-first, bilingual (Persian/English) twelve-clue contest application. Players solve clues in order; the server validates answers, records attempts and response timing, and calculates the leaderboard. The wallet screen is a display-only MVP placeholder.
 
 ## Stack
 
