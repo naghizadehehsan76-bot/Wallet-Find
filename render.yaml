@@ -5,7 +5,7 @@ services:
     plan: free
     region: frankfurt
     buildCommand: cd backend && npm ci --include=dev && npx prisma generate && npm run build && cd ../frontend && npm ci --include=dev && npm run build
-    startCommand: cd backend && npx prisma migrate deploy && npm start
+    startCommand: cd backend && npm start
     healthCheckPath: /health
     autoDeployTrigger: commit
     envVars:
