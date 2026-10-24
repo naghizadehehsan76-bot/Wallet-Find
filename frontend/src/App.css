@@ -1458,12 +1458,3 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   transform: translateY(-1cm);
 }
 
-
-/* Keep the Home header and the rest of the page on one uniform background. */
-.home-shell {
-  background: #020c1a !important;
-}
-.home-shell .home-topbar {
-  background: #020c1a !important;
-  border-bottom-color: transparent !important;
-}
