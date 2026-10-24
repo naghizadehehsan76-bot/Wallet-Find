@@ -56,7 +56,7 @@ function AuthPage({ onAuthenticated, onBack, initialMode = "login" }: AuthPagePr
       <header className="topbar">
         <button className="brand brand--home" type="button" aria-label={t.auth.back} onClick={onBack}>
           <span className="brand-dot" />
-          <span>Findoo</span>
+          <span>Wallet Find</span>
         </button>
         <div className="topbar-actions"><LanguageSwitcher /></div>
       </header>
