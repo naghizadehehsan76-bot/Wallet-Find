@@ -1,7 +1,6 @@
 import { useState } from "react";
 import BottomNav from "../components/BottomNav";
 import { useI18n } from "../i18n";
-import LanguageSwitcher from "../components/LanguageSwitcher";
 
 type Page =
   | "home"
@@ -46,7 +45,7 @@ function KeyStagePage({
           <span className="brand-wallet">Wallet</span><span className="brand-find">Find</span>
         </div>
 
-        <div className="topbar-actions"><LanguageSwitcher /></div>
+        
       </header>
 
       <main className="page">
