@@ -5,7 +5,7 @@ import KeyStagePage from "./pages/KeyStagePage";
 import LeaderboardPage from "./pages/LeaderboardPage";
 import ProfilePage from "./pages/ProfilePage";
 import AdminPage from "./pages/AdminPage";
-import { useI18n, type Language } from "./i18n";
+import { useI18n } from "./i18n";
 import SharedLanguageSwitcher from "./components/LanguageSwitcher";
 import "./App.css";
 
@@ -24,25 +24,6 @@ type Page =
   | "terms"
   | "rules"
   | "admin";
-
-function LanguageSwitcher({
-  language,
-  onChange,
-}: {
-  language: Language;
-  onChange: (language: Language) => void;
-}) {
-  return (
-    <div className="language-switcher">
-      <button type="button" className={language === "fa" ? "active" : ""} onClick={() => onChange("fa")}>
-        {language === "fa" ? "فارسی" : "Persian"}
-      </button>
-      <button type="button" className={language === "en" ? "active" : ""} onClick={() => onChange("en")}>
-        {language === "fa" ? "انگلیسی" : "English"}
-      </button>
-    </div>
-  );
-}
 
 const faStats = [
   { value: "۲٬۴۱۸", label: "شرکت‌کننده امشب" },
@@ -72,12 +53,10 @@ function HomePage({
   onNavigate,
   onAuth,
   language,
-  onLanguageChange,
 }: {
   onNavigate: (page: Page) => void;
   onAuth: (mode: AuthMode) => void;
   language: Language;
-  onLanguageChange: (language: Language) => void;
 }) {
   const { translation: t } = useI18n();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -109,9 +88,6 @@ function HomePage({
             {mobileMenuOpen ? "×" : "☰"}
           </button>
           <button className="brand brand--home" type="button" aria-label={t.navigation.home} onClick={() => onNavigate("home")}><span className="brand-wallet">Wallet</span><span className="brand-find">Find</span></button>
-        </div>
-        <div className="topbar-actions">
-          <LanguageSwitcher language={language} onChange={onLanguageChange} />
         </div>
       </header>
 
@@ -248,7 +224,7 @@ function InfoPage({
     <div className="app-shell info-shell">
       <header className="topbar">
         <button className="brand brand--home" type="button" aria-label={t.navigation.home} onClick={() => onNavigate("home")}><span className="brand-wallet">Wallet</span><span className="brand-find">Find</span></button>
-        <div className="topbar-actions"><SharedLanguageSwitcher /></div>
+        
       </header>
       <main className="page info-page">
         <button className="back-button" type="button" onClick={() => onNavigate("home")}>
@@ -384,11 +360,9 @@ function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }
           <button type="button" className="sidebar-brand sidebar-brand--home" aria-label={t.navigation.home} onClick={() => navigateTo("home")}><strong><span className="brand-wallet">Wallet</span><span className="brand-find">Find</span></strong></button>
           <button type="button" className="global-sidebar__close" onClick={() => setIsOpen(false)} aria-label={t.sidebar.closeMenu}>×</button>
         </div>
-        {currentPage === "home" && (
-          <div className="sidebar-home-tools" aria-label={language === "fa" ? "تنظیمات سریع" : "Quick settings"}>
-            <SharedLanguageSwitcher />
-          </div>
-        )}
+        <div className="sidebar-home-tools" aria-label={language === "fa" ? "تنظیمات سریع" : "Quick settings"}>
+          <SharedLanguageSwitcher />
+        </div>
         <p className="sidebar-kicker">{t.sidebar.title}</p>
         <nav className="sidebar-nav">
           {items.map((item) => (
@@ -423,7 +397,7 @@ function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }
 }
 
 function App() {
-  const { language, changeLanguage, isRTL, translation: t } = useI18n();
+  const { language, isRTL, translation: t } = useI18n();
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -475,10 +449,10 @@ function App() {
   } else if (page === "wallet") {
     currentView = (
       <div className="app-shell">
-        <header className="topbar"><button className="brand brand--home" type="button" aria-label={t.navigation.home} onClick={() => setPage("home")}><span className="brand-wallet">Wallet</span><span className="brand-find">Find</span></button><div className="topbar-actions"><SharedLanguageSwitcher /></div></header><main className="page"><div className="section-title">{t.wallet.title}</div><div className="balance-card"><div className="balance-label">{t.wallet.displayBalance}</div><div className="balance-amount mono">{t.wallet.balance}</div><div className="balance-network">Polygon</div></div><div className="inline-feedback">{t.wallet.notice}</div></main><BottomNavShim activePage="wallet" onNavigate={setPage} /></div>
+        <header className="topbar"><button className="brand brand--home" type="button" aria-label={t.navigation.home} onClick={() => setPage("home")}><span className="brand-wallet">Wallet</span><span className="brand-find">Find</span></button></header><main className="page"><div className="section-title">{t.wallet.title}</div><div className="balance-card"><div className="balance-label">{t.wallet.displayBalance}</div><div className="balance-amount mono">{t.wallet.balance}</div><div className="balance-network">Polygon</div></div><div className="inline-feedback">{t.wallet.notice}</div></main><BottomNavShim activePage="wallet" onNavigate={setPage} /></div>
     );
   } else {
-    currentView = <HomePage onNavigate={setPage} onAuth={openAuth} language={language} onLanguageChange={changeLanguage} />;
+    currentView = <HomePage onNavigate={setPage} onAuth={openAuth} language={language} />;
   }
 
   return (
