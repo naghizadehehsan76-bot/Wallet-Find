@@ -55,9 +55,9 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div className="brand">
+        <button className="brand brand--home" type="button" aria-label={language === "fa" ? "خانه" : "Home"} onClick={() => onNavigate("home")}>
           <span className="brand-wallet">Wallet</span><span className="brand-find">Find</span>
-        </div>
+        </button>
         
       </header>
 
