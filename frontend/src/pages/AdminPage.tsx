@@ -231,7 +231,7 @@ function AdminPage(_props: AdminPageProps) {
           onClick={() => _props.onNavigate("home")}
         >
           <span className="brand-dot" />
-          <span>Findoo {isPersian ? "مدیریت" : "Admin"}</span>
+          <span>Wallet Find {isPersian ? "مدیریت" : "Admin"}</span>
         </button>
         <div className="topbar-actions">
           <LanguageSwitcher />
