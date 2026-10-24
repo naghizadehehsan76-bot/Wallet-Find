@@ -1380,3 +1380,52 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 .home-concept-tagline[lang="en"] {
   font-family: "Space Grotesk", "Anjoman", "Vazirmatn", sans-serif;
 }
+
+
+/* Wallet Find wordmark — concept 6: clean geometric typography with blue gradient */
+.brand,
+.sidebar-brand strong,
+.brand-wallet,
+.brand-find {
+  font-family: "Space Grotesk", "Vazirmatn", sans-serif !important;
+  font-weight: 700 !important;
+  letter-spacing: -1.15px;
+  line-height: 1.05;
+  font-synthesis: none;
+  text-rendering: geometricPrecision;
+}
+.brand,
+.sidebar-brand strong {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.16em;
+  white-space: nowrap;
+}
+.brand-wallet {
+  color: #f5f8ff !important;
+  -webkit-text-fill-color: #f5f8ff !important;
+  background: none !important;
+  text-shadow: 0 1px 0 rgba(255,255,255,.12);
+}
+.brand-find {
+  color: #3988ff;
+  background: linear-gradient(100deg, #82b8ff 0%, #3988ff 48%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  margin-left: 0 !important;
+  padding-right: 0 !important;
+}
+.sidebar-brand strong .brand-find {
+  background: linear-gradient(100deg, #82b8ff 0%, #3988ff 48%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+@media (max-width: 420px) {
+  .topbar > .brand,
+  .home-topbar .home-topbar__brand .brand--home {
+    letter-spacing: -0.8px;
+  }
+}
