@@ -1342,3 +1342,27 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 /* Scalable vector concept art for the Home hero */
 .home-concept-vector { display:block; width:calc(100% + 32px); max-width:none; height:auto; aspect-ratio:1000 / 805; object-fit:contain; margin:0 -16px 8px; }
 @media (max-width:380px) { .home-concept-vector { width:calc(100% + 24px); margin-inline:-12px; } }
+
+
+/* Keep hero copy as live text so it uses the site's real Persian/English fonts. */
+.home-showcase .home-showcase__title {
+  margin: 8px 0 8px;
+  font-family: 'Space Grotesk', 'Anjoman', 'Vazirmatn', sans-serif;
+  font-size: clamp(22px, 5.8vw, 29px);
+  font-weight: 800;
+  line-height: 1.65;
+  letter-spacing: 0;
+}
+.home-showcase .home-showcase__title span {
+  color: #00f0d0;
+  text-shadow: 0 0 18px rgba(0,240,208,.32);
+}
+.home-showcase .home-showcase__description {
+  margin: 0 0 4px;
+  font-family: 'Space Grotesk', 'Anjoman', 'Vazirmatn', sans-serif;
+  font-size: clamp(15px, 4vw, 18px);
+  font-weight: 500;
+  line-height: 1.9;
+  color: #9bb8d0;
+}
+.home-concept-vector { aspect-ratio: 1000 / 560; margin-bottom: 0; }
