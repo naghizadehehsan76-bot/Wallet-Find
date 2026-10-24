@@ -1483,5 +1483,5 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 
 /* Move the 12 challenge cells below Today's Challenge up by 3 cm. */
 .home-key-grid {
-  transform: translateY(-3cm);
+  transform: translateY(calc(-3cm + 2mm));
 }
