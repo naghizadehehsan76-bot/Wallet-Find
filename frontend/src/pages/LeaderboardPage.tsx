@@ -7,7 +7,6 @@ import {
 } from "../services/api";
 import { useI18n } from "../i18n";
 import "./LeaderboardPage.css";
-import LanguageSwitcher from "../components/LanguageSwitcher";
 import { localizeApiError, localizeContestTitle } from "../i18n/localize";
 
 type Page =
@@ -80,7 +79,7 @@ function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
         <div className="brand">
           <span className="brand-wallet">Wallet</span><span className="brand-find">Find</span>
         </div>
-        <div className="topbar-actions"><LanguageSwitcher /></div>
+        
       </header>
 
       <main className="page">
