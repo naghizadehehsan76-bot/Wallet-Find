@@ -1479,3 +1479,9 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 .home-challenge-card {
   transform: translateY(calc(-2cm - 5mm));
 }
+
+
+/* Move the 12 challenge cells below Today's Challenge up by 3 cm. */
+.home-key-grid {
+  transform: translateY(-3cm);
+}
