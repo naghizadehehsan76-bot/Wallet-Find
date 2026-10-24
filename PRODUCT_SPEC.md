@@ -1,8 +1,8 @@
-# Wallet-Find / 12Keys — Product Specification
+# Findoo / 12Keys — Product Specification
 
 ## 1. Product Overview
 
-Wallet-Find is a web-based 12-key contest.
+Findoo is a web-based 12-key contest.
 
 Each contest contains exactly 12 sequential clues.
 
@@ -73,7 +73,7 @@ The user must not be redirected to another page to enter a normal clue answer.
 
 The 12-key interaction should be visually and behaviorally inspired by the familiar experience of entering an ordered recovery phrase in MetaMask and similar wallet applications.
 
-The goal is to create a familiar wallet-like phrase-entry experience while retaining the unique Wallet-Find / 12Keys visual identity.
+The goal is to create a familiar wallet-like phrase-entry experience while retaining the unique Findoo / 12Keys visual identity.
 
 Requirements:
 
