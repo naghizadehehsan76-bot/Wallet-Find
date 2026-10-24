@@ -1346,6 +1346,7 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 /* Home hero copy uses the same site fonts rather than text baked into the SVG */
 .home-concept-title,
 .home-concept-tagline {
+  transform: translateY(calc(-1cm - 2mm));
   font-family: "Space Grotesk", "Anjoman", "Vazirmatn", sans-serif;
   text-align: center;
   overflow-wrap: anywhere;
