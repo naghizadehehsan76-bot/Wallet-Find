@@ -2,7 +2,6 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { login, register } from "../services/api";
 import { useI18n } from "../i18n";
-import LanguageSwitcher from "../components/LanguageSwitcher";
 import { localizeApiError } from "../i18n/localize";
 
 type AuthMode = "login" | "signup";
@@ -57,7 +56,7 @@ function AuthPage({ onAuthenticated, onBack, initialMode = "login" }: AuthPagePr
         <button className="brand brand--home" type="button" aria-label={t.auth.back} onClick={onBack}>
           <span className="brand-wallet">Wallet</span><span className="brand-find">Find</span>
         </button>
-        <div className="topbar-actions"><LanguageSwitcher /></div>
+        
       </header>
 
       <main className="page auth-page">
