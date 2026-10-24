@@ -1173,16 +1173,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .home-topbar .home-topbar__brand .brand--home { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:2; display:flex; gap:0; white-space:nowrap; font-family:'Space Grotesk','Vazirmatn',sans-serif; font-size:21px; letter-spacing:-.65px; line-height:1; }
 .brand .brand-dot,.sidebar-brand .brand-dot { display:none; }
 .brand-wallet { color:#f7fbff; font-weight:800; }
-.brand-find { position:relative; display:inline-block; margin-left:5px; padding-right:17px; color:var(--brass-light); font-weight:900; background:linear-gradient(105deg,#ffe08a 0%,#f6b817 48%,#f07822 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; filter:drop-shadow(0 0 7px rgba(246,184,23,.18)); }
-.brand-find::before { content:''; position:absolute; right:3px; top:0; width:10px; height:10px; border:2px solid #f6b817; border-radius:50%; background:rgba(3,16,29,.72); -webkit-text-fill-color:initial; }
-.brand-find::after { content:''; position:absolute; right:-1px; top:11px; width:7px; height:2px; border-radius:2px; background:#f07822; transform:rotate(48deg); transform-origin:left center; }
+.brand-find { position:relative; display:inline-block; margin-left:5px; padding-right:0; color:#6b8cff; font-weight:900; background:linear-gradient(105deg,#5ea5ff 0%,#3988ff 48%,#8b5cf6 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; filter:drop-shadow(0 0 7px rgba(75,134,255,.18)); }
+.brand-find::before, .brand-find::after { content:none !important; display:none !important; }
 .sidebar-brand--home { gap:5px; } .sidebar-brand--home strong { display:inline-flex; gap:0; font-family:'Space Grotesk','Vazirmatn',sans-serif; }
 .topbar-actions { position:relative; z-index:3; margin-left:auto; } .home-topbar__brand { position:static; } .home-topbar__brand .sidebar-toggle { position:relative; z-index:4; }
 .language-switcher { border-color:rgba(0,218,194,.25); } .language-switcher button.active { background:linear-gradient(110deg,#00e0b8,#2583ff); color:#03101d; }
 .cta-button { background:linear-gradient(110deg,#00e0b8 0%,#00c8ef 55%,#2583ff 100%); color:#03101d; box-shadow:0 8px 24px rgba(0,205,210,.18); }
 .cta-button--ghost { border-color:rgba(0,218,194,.3); color:#69f6d5; background:transparent; box-shadow:none; } .nav-item--active { color:#00e0b8; }
 @media(max-width:420px){.topbar > .brand,.home-topbar .home-topbar__brand .brand--home{font-size:18px}.topbar{padding-inline:14px}}
-@media(max-width:360px){.topbar > .brand,.home-topbar .home-topbar__brand .brand--home{font-size:16px}.brand-find{padding-right:14px}.brand-find::before{width:8px;height:8px}.brand-find::after{top:9px}}
+@media(max-width:360px){.topbar > .brand,.home-topbar .home-topbar__brand .brand--home{font-size:16px}.brand-find{padding-right:0}}
 
 
 /* Wallet Find neon-spectrum visual refresh: navigation, home concept and locks */
@@ -1217,7 +1216,7 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 .challenge-tile--locked .challenge-tile__status { border-color:rgba(69,172,255,.35); color:#55baff; background:rgba(0,137,255,.09); }
 .keycell-lock, .word-entry__lock-icon { color:#45baff; filter:drop-shadow(0 0 8px rgba(0,160,255,.36)); }
 .word-entry__lock-icon { display:inline-block; }
-.brand-find { background:linear-gradient(105deg,#00f0d0 0%,#00baff 58%,#4b86ff 100%); }
+.brand-find { background:linear-gradient(105deg,#5ea5ff 0%,#3988ff 48%,#8b5cf6 100%); }
 @media (prefers-reduced-motion: reduce) { .nav-item { transition:none; } }
 
 
@@ -1271,8 +1270,8 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 .home-topbar__brand { position:relative; display:flex; min-height:48px; align-items:center; justify-content:center; width:100%; }
 .home-topbar__brand .brand.brand--home { display:inline-flex !important; align-items:center; justify-content:center; gap:0 !important; min-width:0; padding:0 !important; margin:0 auto; border:0 !important; background:transparent !important; color:#f3fbff !important; font-size:clamp(26px,7.1vw,34px) !important; font-weight:900; line-height:1.1; letter-spacing:-1px; white-space:nowrap; box-shadow:none !important; }
 .home-topbar__brand .brand-wallet { color:#f3fbff !important; -webkit-text-fill-color:#f3fbff !important; background:none !important; }
-.home-topbar__brand .brand-find { margin-left:5px; color:#00f0d0 !important; -webkit-text-fill-color:transparent !important; background:linear-gradient(100deg,#00f0d0,#00baff,#4b86ff) !important; background-clip:text !important; -webkit-background-clip:text !important; }
-.home-topbar__brand .brand-find::after { content:""; display:inline-block; width:9px; height:9px; margin-left:-1px; border:2px solid #8fffee; border-radius:50%; transform:translateY(-12px); box-shadow:0 0 8px rgba(0,240,208,.6); }
+.home-topbar__brand .brand-find { margin-left:5px; padding-right:0; color:#3988ff !important; -webkit-text-fill-color:transparent !important; background:linear-gradient(100deg,#5ea5ff,#3988ff,#8b5cf6) !important; background-clip:text !important; -webkit-background-clip:text !important; }
+.home-topbar__brand .brand-find::after { content:none !important; display:none !important; }
 .home-topbar__brand .sidebar-toggle { position:absolute; left:0; top:50%; transform:translateY(-50%); z-index:2; width:42px; height:42px; padding:0; display:grid; place-items:center; border:1px solid rgba(0,209,255,.25); border-radius:12px; background:rgba(0,24,43,.7); color:#e9fbff; font-size:25px; }
 .home-content { min-width:0; }
 .home-page { padding:0 16px 20px; }
