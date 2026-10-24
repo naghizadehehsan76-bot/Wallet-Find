@@ -1,4 +1,4 @@
-name: Verify Wallet-Find
+name: Verify Findoo
 
 on:
   pull_request:
