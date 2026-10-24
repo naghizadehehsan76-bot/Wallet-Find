@@ -1347,7 +1347,7 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 /* Home hero copy uses the same site fonts rather than text baked into the SVG */
 .home-concept-title,
 .home-concept-tagline {
-  font-family: "Space Grotesk", "Vazirmatn", sans-serif;
+  font-family: "Space Grotesk", "Anjoman", "Vazirmatn", sans-serif;
   text-align: center;
   overflow-wrap: anywhere;
 }
@@ -1375,9 +1375,9 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 }
 .home-concept-title[lang="fa"],
 .home-concept-tagline[lang="fa"] {
-  font-family: "Vazirmatn", "Space Grotesk", sans-serif;
+  font-family: "Anjoman", "Vazirmatn", "Space Grotesk", sans-serif;
 }
 .home-concept-title[lang="en"],
 .home-concept-tagline[lang="en"] {
-  font-family: "Space Grotesk", "Vazirmatn", sans-serif;
+  font-family: "Space Grotesk", "Anjoman", "Vazirmatn", sans-serif;
 }
