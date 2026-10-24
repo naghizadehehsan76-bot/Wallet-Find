@@ -5,7 +5,7 @@ import KeyStagePage from "./pages/KeyStagePage";
 import LeaderboardPage from "./pages/LeaderboardPage";
 import ProfilePage from "./pages/ProfilePage";
 import AdminPage from "./pages/AdminPage";
-import { useI18n } from "./i18n";
+import { useI18n, type Language } from "./i18n";
 import SharedLanguageSwitcher from "./components/LanguageSwitcher";
 import "./App.css";
 
