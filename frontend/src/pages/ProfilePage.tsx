@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import BottomNav from "../components/BottomNav";
 import { getProfile, type ProfileResult } from "../services/api";
 import { useI18n } from "../i18n";
-import LanguageSwitcher from "../components/LanguageSwitcher";
 import { localizeApiError } from "../i18n/localize";
 
 type Page =
@@ -59,7 +58,7 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
         <div className="brand">
           <span className="brand-wallet">Wallet</span><span className="brand-find">Find</span>
         </div>
-        <div className="topbar-actions"><LanguageSwitcher /></div>
+        
       </header>
 
       <main className="page profile-page">
