@@ -1263,3 +1263,46 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 .home-page { padding-top:0; }
 .home-page .cta-group,.home-page .stat-row,.home-page .how-section { margin-top:24px; }
 @media (max-width:380px) { .home-key-grid { gap:10px; }.home-key-tile { border-radius:15px; }.home-challenge-card__bolt { flex-basis:54px;height:54px;font-size:43px; }.home-challenge-card__top { gap:9px; }.home-challenge-card__top>strong { font-size:16px; } }
+
+
+/* Reference-match correction: restore the intended mobile proportions and wordmark */
+.home-shell { width:100%; max-width:480px; margin-inline:auto; overflow:hidden; padding-bottom:94px; background:radial-gradient(ellipse at 50% 14%,rgba(0,121,218,.18),transparent 42%),linear-gradient(180deg,#020c1a 0%,#03172a 46%,#020b17 100%); border-color:rgba(0,168,255,.12); }
+.home-topbar { display:block; padding:14px 14px 0; }
+.home-topbar__brand { position:relative; display:flex; min-height:48px; align-items:center; justify-content:center; width:100%; }
+.home-topbar__brand .brand.brand--home { display:inline-flex !important; align-items:center; justify-content:center; gap:0 !important; min-width:0; padding:0 !important; margin:0 auto; border:0 !important; background:transparent !important; color:#f3fbff !important; font-size:clamp(26px,7.1vw,34px) !important; font-weight:900; line-height:1.1; letter-spacing:-1px; white-space:nowrap; box-shadow:none !important; }
+.home-topbar__brand .brand-wallet { color:#f3fbff !important; -webkit-text-fill-color:#f3fbff !important; background:none !important; }
+.home-topbar__brand .brand-find { margin-left:5px; color:#00f0d0 !important; -webkit-text-fill-color:transparent !important; background:linear-gradient(100deg,#00f0d0,#00baff,#4b86ff) !important; background-clip:text !important; -webkit-background-clip:text !important; }
+.home-topbar__brand .brand-find::after { content:""; display:inline-block; width:9px; height:9px; margin-left:-1px; border:2px solid #8fffee; border-radius:50%; transform:translateY(-12px); box-shadow:0 0 8px rgba(0,240,208,.6); }
+.home-topbar__brand .sidebar-toggle { position:absolute; left:0; top:50%; transform:translateY(-50%); z-index:2; width:42px; height:42px; padding:0; display:grid; place-items:center; border:1px solid rgba(0,209,255,.25); border-radius:12px; background:rgba(0,24,43,.7); color:#e9fbff; font-size:25px; }
+.home-content { min-width:0; }
+.home-page { padding:0 16px 20px; }
+.home-wallet-art { height:clamp(240px,68vw,300px); margin:0 -16px 2px; background:radial-gradient(ellipse at 50% 72%,rgba(0,245,222,.2),transparent 34%),radial-gradient(ellipse at 50% 48%,rgba(0,113,255,.18),transparent 58%),linear-gradient(180deg,rgba(0,12,26,.1),rgba(0,10,20,.25)); }
+.home-wallet-art__wallet { width:clamp(156px,46vw,210px); height:clamp(120px,36vw,164px); top:38%; border-width:3px; border-radius:20px 20px 26px 20px; }
+.home-wallet-art__lens { left:calc(50% + 20px); top:39%; width:clamp(68px,19vw,88px); height:clamp(68px,19vw,88px); border-width:6px; }
+.home-wallet-art__orbit { top:76%; }
+.home-wallet-art__orbit--outer { width:88%; height:25%; }
+.home-wallet-art__orbit--inner { width:68%; height:17%; }
+.home-showcase__title { margin:8px 0 10px; font-size:clamp(22px,5.8vw,28px); line-height:1.65; letter-spacing:0; }
+.home-showcase__description { font-size:clamp(15px,4vw,18px); line-height:1.95; }
+.home-challenge-card { margin:24px -4px 20px; padding:16px 13px 14px; border-radius:22px; }
+.home-challenge-card__top { gap:12px; }
+.home-challenge-card__bolt { flex-basis:66px; height:66px; }
+.home-challenge-card__timer { min-width:112px; }
+.home-key-grid { gap:14px 13px; margin:0 0 24px; }
+.home-key-tile { border-radius:20px; }
+.home-key-tile--locked { overflow:visible; }
+.home-key-tile__lock { flex-shrink:0; }
+.home-page .cta-group { margin-top:22px; }
+.home-page .stat-row { margin-top:22px; }
+.home-page .how-section { margin-top:22px; }
+@media (max-width:380px) {
+ .home-page { padding-inline:12px; }
+ .home-topbar { padding-inline:12px; }
+ .home-wallet-art { margin-inline:-12px; height:244px; }
+ .home-key-grid { gap:10px; }
+ .home-key-tile { border-radius:15px; }
+ .home-challenge-card__top { gap:8px; }
+ .home-challenge-card__bolt { flex-basis:52px; height:52px; font-size:42px; }
+ .home-challenge-card__top>strong { font-size:15px; }
+ .home-challenge-card__timer { min-width:100px; }
+}
