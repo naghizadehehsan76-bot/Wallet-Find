@@ -33,18 +33,28 @@ async function ensurePool(tx: any, contestId: string) {
     create: { contestId, testOnly: true, currency: "USDT" },
   });
 
-  // Create a fictional 100 USDT demo balance for the initial test pool only.
-  // This is a ledger fixture only and cannot trigger any blockchain transfer.
+  // Initialize each round's hypothetical base pool from the admin setting.
+  // This is simulated ledger accounting only; no real crypto is transferred.
   const initialFundingKey = `test-funding-initial:${contestId}`;
   const initialFunding = await tx.prizeLedger.findUnique({
     where: { referenceKey: initialFundingKey },
     select: { id: true },
   });
-  const otherPoolsExist = await tx.prizePool.count({
-    where: { contestId: { not: contestId } },
-  });
-  if (!initialFunding && otherPoolsExist === 0 && BigInt(pool.seededMicro) === 0n && pool.status === "OPEN") {
-    const demoAmount = 100n * MICRO;
+  if (!initialFunding && BigInt(pool.seededMicro) === 0n && pool.status === "OPEN") {
+    const configuredSetting = await tx.systemSetting.findUnique({
+      where: { key: "hypothetical_prize_pool_per_round" },
+      select: { value: true },
+    });
+    let demoAmount = 100n * MICRO;
+    if (configuredSetting) {
+      try {
+        demoAmount = parseUsdt(configuredSetting.value);
+        if (demoAmount <= 0n) demoAmount = 100n * MICRO;
+      } catch {
+        // Keep the safe default if a value was entered through the generic settings editor.
+        demoAmount = 100n * MICRO;
+      }
+    }
     pool = await tx.prizePool.update({
       where: { contestId },
       data: { seededMicro: { increment: demoAmount }, testOnly: true },
@@ -54,7 +64,7 @@ async function ensurePool(tx: any, contestId: string) {
         contestId,
         type: "TEST_FUNDING",
         amountMicro: demoAmount,
-        note: "INITIAL DEMO BALANCE 100.000000 USDT; simulated only, no real assets transferred",
+        note: `SIMULATED BASE PRIZE POOL ${formatMicro(demoAmount)} USDT for round ${contestId}; no real assets transferred`,
         referenceKey: initialFundingKey,
       },
     });

@@ -30,6 +30,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [notice, setNotice] = useState("");
   const [key, setKey] = useState("");
   const [value, setValue] = useState("");
+  const [hypotheticalPoolAmount, setHypotheticalPoolAmount] = useState("100");
 
   const copy = {
     title: fa ? "مرکز کنترل Wallet-Find" : "Wallet-Find Control Center",
@@ -67,6 +68,12 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     loading: fa ? "در حال دریافت اطلاعات…" : "Loading dashboard…",
     refreshError: fa ? "دریافت اطلاعات ناموفق بود. دسترسی مدیر و اتصال سرور را بررسی کن." : "Could not load dashboard data. Check admin access and server connectivity.",
     keyError: fa ? "کلید باید با حرف انگلیسی شروع شود و فقط شامل حروف، عدد، نقطه، خط تیره یا زیرخط باشد." : "Key must start with a letter and contain only letters, numbers, dots, dashes or underscores.",
+    poolTitle: fa ? "استخر جایزهٔ فرضی هر دور" : "Hypothetical prize pool per round",
+    poolAmount: fa ? "مقدار پایه برای هر دور (USDT فرضی)" : "Base amount per round (simulated USDT)",
+    poolHelp: fa ? "این مبلغ فقط در دفترکل آزمایشی ثبت می‌شود و هیچ انتقال واقعی رمزارز انجام نمی‌دهد. مبالغ انتقالی از دورهای قبل جداگانه به آن اضافه می‌شوند." : "This amount is recorded only in the simulated ledger; no real crypto is transferred. Rollover from previous rounds is added separately.",
+    savePool: fa ? "ذخیرهٔ استخر جایزه" : "Save prize pool amount",
+    invalidPool: fa ? "مبلغ باید عددی مثبت با حداکثر ۶ رقم اعشار باشد." : "Enter a positive amount with up to 6 decimal places.",
+    poolSaved: fa ? "مبلغ پایهٔ استخر جایزه برای دورهای جدید ذخیره شد." : "Base prize pool amount saved for new rounds.",
   };
 
   const load = useCallback(async () => {
@@ -80,6 +87,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       ]);
       setOverview(stats);
       setSettings(settingRows);
+      setHypotheticalPoolAmount(settingRows.find((setting) => setting.key === "hypothetical_prize_pool_per_round")?.value ?? "100");
       setLogs(auditRows);
     } catch {
       setError(copy.refreshError);
@@ -105,6 +113,27 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       setNotice(copy.saved);
       setKey("");
       setValue("");
+      await load();
+    } catch {
+      setError(copy.refreshError);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSaveHypotheticalPool(event: FormEvent) {
+    event.preventDefault();
+    const amount = hypotheticalPoolAmount.trim();
+    if (!/^\d{1,12}(\.\d{1,6})?$/.test(amount) || Number(amount) <= 0) {
+      setError(copy.invalidPool);
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await saveSystemSetting("hypothetical_prize_pool_per_round", amount);
+      setNotice(copy.poolSaved);
       await load();
     } catch {
       setError(copy.refreshError);
@@ -206,6 +235,12 @@ export default function AdminControlCenter({ onNavigate }: Props) {
         {section === "settings" && (
           <section className="admin-panel">
             <h2>{copy.settings}</h2>
+            <form className="admin-setting-form" onSubmit={handleSaveHypotheticalPool}>
+              <h3>{copy.poolTitle}</h3>
+              <label>{copy.poolAmount}<input type="number" inputMode="decimal" min="0.000001" max="999999999999.999999" step="0.000001" value={hypotheticalPoolAmount} onChange={(event) => setHypotheticalPoolAmount(event.target.value)} required /></label>
+              <p className="admin-footnote">{copy.poolHelp}</p>
+              <button className="cta-button" type="submit" disabled={saving}>{saving ? copy.saving : copy.savePool}</button>
+            </form>
             <form className="admin-setting-form" onSubmit={handleSave}>
               <label>{copy.keyLabel}<input value={key} onChange={(event) => setKey(event.target.value)} required maxLength={80} autoComplete="off" /></label>
               <label>{copy.valueLabel}<textarea value={value} onChange={(event) => setValue(event.target.value)} required maxLength={4000} rows={3} /></label>
