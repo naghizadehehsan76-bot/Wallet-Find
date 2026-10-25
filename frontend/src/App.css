@@ -1511,3 +1511,147 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   text-align: center;
   overflow-wrap: anywhere;
 }
+
+
+/* Desktop layout repair: mobile-first homepage overrides must not constrain desktop. */
+@media (min-width: 900px) {
+  .app-shell.home-shell {
+    width: 100%;
+    max-width: 1240px;
+    min-height: 100vh;
+    min-height: 100svh;
+    margin-inline: auto;
+    padding-bottom: 112px;
+    overflow: visible;
+    border-radius: 0 0 24px 24px;
+  }
+
+  .home-shell .home-topbar {
+    padding: 24px 42px 14px;
+  }
+
+  .home-shell > .home-content {
+    display: block;
+    width: 100%;
+    max-width: 1240px;
+    margin-inline: auto;
+    padding: 8px 34px 44px;
+    box-sizing: border-box;
+    transform: none;
+  }
+
+  .home-shell .home-content .home-page {
+    display: grid;
+    width: 100%;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0;
+    box-sizing: border-box;
+    grid-template-columns: minmax(0, 1.05fr) minmax(350px, .95fr);
+    grid-template-rows: auto auto auto auto auto;
+    column-gap: 42px;
+    row-gap: 22px;
+    align-items: start;
+  }
+
+  .home-page .home-showcase {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    min-width: 0;
+    align-self: center;
+    padding: 0;
+  }
+
+  .home-page .home-concept-vector {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto 8px;
+    transform: none;
+  }
+
+  .home-page .home-concept-title,
+  .home-page .home-concept-tagline {
+    transform: none;
+  }
+
+  .home-page .home-concept-title {
+    margin-top: 4px;
+    font-size: clamp(26px, 2.7vw, 36px);
+    line-height: 1.45;
+  }
+
+  .home-page .home-concept-tagline {
+    font-size: 16px;
+    line-height: 1.8;
+    margin-bottom: 4px;
+  }
+
+  .home-page .home-challenge-card {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: end;
+    margin: 0 0 16px;
+    transform: none;
+  }
+
+  .home-page .home-key-grid {
+    grid-column: 2;
+    grid-row: 2;
+    margin: 0;
+    gap: 12px;
+    transform: none;
+  }
+
+  .home-page .home-key-tile {
+    border-radius: 16px;
+  }
+
+  .home-page .cta-group {
+    grid-column: 1;
+    grid-row: 3;
+    display: flex;
+    flex-direction: row;
+    align-self: start;
+    gap: 12px;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    transform: none;
+  }
+
+  .home-page .cta-group .cta-button {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .home-page .stat-row {
+    grid-column: 1 / -1;
+    grid-row: 4;
+    gap: 18px;
+    margin: 0;
+    transform: none;
+  }
+
+  .home-page .how-section {
+    grid-column: 1 / -1;
+    grid-row: 5;
+    margin: 0;
+    transform: none;
+  }
+
+  .home-page .steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    border-top: 0;
+  }
+
+  .home-page .step {
+    padding: 18px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: rgba(13, 17, 18, .62);
+  }
+}
