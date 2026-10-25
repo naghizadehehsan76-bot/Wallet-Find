@@ -20,6 +20,16 @@ type AdminDestination = "home" | "admin-manage";
 type Props = { onNavigate: (page: AdminDestination) => void };
 type Section = "overview" | "users" | "finance" | "prizes" | "ads" | "security" | "support" | "wallets" | "settings" | "audit";
 
+const DEFAULT_EN_SOURCES = ["https://en.wikipedia.org/w/api.php", "https://www.gutenberg.org/cache/epub/11/pg11.txt", "https://www.gutenberg.org/cache/epub/1342/pg1342.txt", "https://www.gutenberg.org/cache/epub/84/pg84.txt", "https://www.gutenberg.org/cache/epub/1661/pg1661.txt"];
+const DEFAULT_FA_SOURCES = ["https://fa.wikipedia.org/w/api.php"];
+function parseSourceUrls(value: string | undefined, fallback: string[]): string[] {
+  if (!value) return [...fallback];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? [...new Set(parsed.filter((item): item is string => typeof item === "string" && item.startsWith("https://")))] : [...fallback];
+  } catch { return [...fallback]; }
+}
+
 function formatDuration(milliseconds: number, fa: boolean): string {
   const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
   const hours = Math.floor(totalSeconds / 3600);
@@ -46,6 +56,10 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [key, setKey] = useState("");
   const [value, setValue] = useState("");
   const [hypotheticalPoolAmount, setHypotheticalPoolAmount] = useState("100");
+  const [sourceUrlsEn, setSourceUrlsEn] = useState<string[]>(DEFAULT_EN_SOURCES);
+  const [sourceUrlsFa, setSourceUrlsFa] = useState<string[]>(DEFAULT_FA_SOURCES);
+  const [sourceDraftEn, setSourceDraftEn] = useState("");
+  const [sourceDraftFa, setSourceDraftFa] = useState("");
 
   const copy = {
     title: fa ? "مرکز کنترل Wallet-Find" : "Wallet-Find Control Center",
@@ -112,7 +126,16 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     usersBody: fa ? "جست‌وجو و مشاهدهٔ کاربران، نقش‌ها، وضعیت حساب، تأیید ایمیل و محدودیت‌های دسترسی." : "Search users, review roles and account status, email verification, and access restrictions.",
     financeBody: fa ? "بررسی تراکنش‌ها، درخواست‌های واریز و برداشت، دفترکل و مغایرت‌های مالی." : "Review transactions, deposit and withdrawal requests, the ledger, and financial discrepancies.",
     prizesBody: fa ? "مشاهدهٔ صندوق هر دور، انتقال مانده، جوایز ثبت‌شده، تسویه‌ها و گزارش حسابداری آزمایشی یا واقعی." : "Inspect each round's prize pool, rollover, awards, settlements, and simulated or real accounting.",
-    adsBody: fa ? "مدیریت تبلیغ‌دهندگان، اسپانسرها، کمپین‌ها، سفارش‌ها و وضعیت پرداخت تبلیغات." : "Manage advertisers, sponsors, campaigns, orders, and advertising payment status.",
+    adsBody: fa ? "منابع فعال ساخت سرنخ برای هر زبان را ببین، آدرس منابع جدید اضافه کن یا منابع را حذف کن. منابع سفارشی باید صفحهٔ HTTPS عمومی و دارای متن قابل خواندن باشند." : "Review enabled clue sources for each language, add source URLs, or remove sources. Custom sources must be public HTTPS pages with readable text.",
+    sourceEn: fa ? "منابع چالش انگلیسی" : "English challenge sources",
+    sourceFa: fa ? "منابع چالش فارسی" : "Persian challenge sources",
+    addSource: fa ? "افزودن منبع" : "Add source",
+    saveSources: fa ? "ذخیره منابع" : "Save sources",
+    removeSource: fa ? "حذف" : "Remove",
+    sourceUrl: fa ? "آدرس کامل منبع HTTPS" : "Full HTTPS source URL",
+    sourceSaved: fa ? "فهرست منابع ذخیره شد؛ در ساخت دورهای بعدی استفاده می‌شود." : "Source lists saved. They will be used for future rounds.",
+    invalidSource: fa ? "آدرس باید معتبر و با https:// شروع شود." : "Enter a valid URL beginning with https://.",
+    noSources: fa ? "منبعی ثبت نشده است." : "No sources configured.",
     securityBody: fa ? "بررسی فعالیت مشکوک، تلاش‌های ورود، گزارش‌های ضدتقلب، مسدودسازی و کنترل دسترسی مدیران." : "Review suspicious activity, login attempts, anti-fraud alerts, account restrictions, and administrator access.",
     supportBody: fa ? "مدیریت پیام‌های پشتیبانی، گزارش خطا، شکایت‌ها و درخواست‌های کاربران." : "Handle support messages, bug reports, complaints, and user requests.",
   };
@@ -130,6 +153,8 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       ]);
       setOverview(stats);
       setSettings(settingRows);
+      setSourceUrlsEn(parseSourceUrls(settingRows.find((setting) => setting.key === "clue_sources_en")?.value, DEFAULT_EN_SOURCES));
+      setSourceUrlsFa(parseSourceUrls(settingRows.find((setting) => setting.key === "clue_sources_fa")?.value, DEFAULT_FA_SOURCES));
       setHypotheticalPoolAmount(settingRows.find((setting) => setting.key === "hypothetical_prize_pool_per_round")?.value ?? "100");
       setLogs(auditRows);
       setWallets(walletRows);
@@ -196,6 +221,41 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     try {
       await saveSystemSetting(setting.key, edited);
       setNotice(copy.saved);
+      await load();
+    } catch {
+      setError(copy.refreshError);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function addSource(language: "en" | "fa") {
+    const draft = (language === "fa" ? sourceDraftFa : sourceDraftEn).trim();
+    try {
+      const parsed = new URL(draft);
+      if (parsed.protocol !== "https:" || draft.length > 500) throw new Error("invalid");
+    } catch {
+      setError(copy.invalidSource);
+      return;
+    }
+    if (language === "fa") {
+      if (!sourceUrlsFa.includes(draft)) setSourceUrlsFa((current) => [...current, draft]);
+      setSourceDraftFa("");
+    } else {
+      if (!sourceUrlsEn.includes(draft)) setSourceUrlsEn((current) => [...current, draft]);
+      setSourceDraftEn("");
+    }
+    setError("");
+    setNotice("");
+  }
+
+  async function saveSources(language: "en" | "fa") {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await saveSystemSetting(language === "fa" ? "clue_sources_fa" : "clue_sources_en", JSON.stringify(language === "fa" ? sourceUrlsFa : sourceUrlsEn));
+      setNotice(copy.sourceSaved);
       await load();
     } catch {
       setError(copy.refreshError);
@@ -309,7 +369,37 @@ export default function AdminControlCenter({ onNavigate }: Props) {
           </section>
         )}
 
-        {(["finance", "prizes", "ads", "security", "support"] as Section[]).includes(section) && (
+        {section === "ads" && (
+          <section className="admin-panel">
+            <h2>{copy.ads}</h2>
+            <p className="admin-footnote">{copy.adsBody}</p>
+            {([
+              { language: "en" as const, title: copy.sourceEn, urls: sourceUrlsEn, setUrls: setSourceUrlsEn, draft: sourceDraftEn, setDraft: setSourceDraftEn },
+              { language: "fa" as const, title: copy.sourceFa, urls: sourceUrlsFa, setUrls: setSourceUrlsFa, draft: sourceDraftFa, setDraft: setSourceDraftFa },
+            ]).map((sourceGroup) => (
+              <div className="admin-setting-form" key={sourceGroup.language}>
+                <h3>{sourceGroup.title}</h3>
+                <form onSubmit={(event) => { event.preventDefault(); addSource(sourceGroup.language); }}>
+                  <label>{copy.sourceUrl}<input type="url" value={sourceGroup.draft} onChange={(event) => sourceGroup.setDraft(event.target.value)} placeholder="https://..." /></label>
+                  <button className="cta-button" type="submit" disabled={saving}>{copy.addSource}</button>
+                </form>
+                {sourceGroup.urls.length === 0 ? <p className="admin-empty">{copy.noSources}</p> : (
+                  <div className="admin-settings-list">
+                    {sourceGroup.urls.map((url) => (
+                      <article className="admin-setting-row" key={url}>
+                        <div><strong>{new URL(url).hostname}</strong><code>{url}</code></div>
+                        <button type="button" onClick={() => sourceGroup.setUrls((current) => current.filter((item) => item !== url))} disabled={saving}>{copy.removeSource}</button>
+                      </article>
+                    ))}
+                  </div>
+                )}
+                <button className="cta-button" type="button" onClick={() => void saveSources(sourceGroup.language)} disabled={saving}>{saving ? copy.saving : copy.saveSources}</button>
+              </div>
+            ))}
+          </section>
+        )}
+
+        {(["finance", "prizes", "security", "support"] as Section[]).includes(section) && (
           <section className="admin-panel">
             <h2>{({
               finance: copy.finance,
