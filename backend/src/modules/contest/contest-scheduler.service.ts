@@ -107,8 +107,8 @@ export async function runContestScheduler(now = new Date()) {
 }
 
 export function startContestScheduler() {
-  const intervalMs = Number.parseInt(process.env.CONTEST_SCHEDULER_INTERVAL_MS ?? "30000", 10);
-  const safeInterval = Number.isFinite(intervalMs) && intervalMs >= 5_000 ? intervalMs : 30_000;
+  const intervalMs = Number.parseInt(process.env.CONTEST_SCHEDULER_INTERVAL_MS ?? "10000", 10);
+  const safeInterval = Number.isFinite(intervalMs) && intervalMs >= 5_000 ? intervalMs : 10_000;
   let running = false;
 
   const tick = async () => {
