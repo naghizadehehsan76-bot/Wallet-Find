@@ -1655,3 +1655,11 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
     background: rgba(13, 17, 18, .62);
   }
 }
+
+
+/* Raise the conceptual illustration by 3 cm on desktop only. */
+@media (min-width: 900px) {
+  .home-page .home-concept-vector {
+    transform: translateY(-3cm);
+  }
+}
