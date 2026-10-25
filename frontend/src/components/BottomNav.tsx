@@ -34,7 +34,7 @@ function BottomNav({ activePage, onNavigate }: BottomNavProps) {
           onClick={() => onNavigate(item.page)}
           aria-current={activePage === item.page ? "page" : undefined}
         >
-          <span className={"nav-icon" + (item.page === "competition" ? " nav-icon--challenge" : item.page === "leaderboard" ? " nav-icon--leaderboard" : "")} aria-hidden="true">
+          <span className={"nav-icon" + (item.page === "competition" ? " nav-icon--challenge" : item.page === "leaderboard" ? " nav-icon--leaderboard" : item.page === "profile" ? " nav-icon--profile" : "")} aria-hidden="true">
             {item.page === "competition" ? (
               <svg className="nav-icon__key-svg" viewBox="0 0 24 24" fill="none">
                 <circle cx="8" cy="8" r="4.5" stroke="currentColor" strokeWidth="2.5" />
@@ -48,6 +48,11 @@ function BottomNav({ activePage, onNavigate }: BottomNavProps) {
               </svg>
             ) : item.page === "leaderboard" ? (
               <span className="nav-icon__trophy">{item.icon}</span>
+            ) : item.page === "profile" ? (
+              <svg className="nav-icon__profile-svg" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8" />
+                <path d="M4.5 21a7.5 7.5 0 0 1 15 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
             ) : item.icon}
           </span>
           <span>{item.label}</span>
