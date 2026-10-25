@@ -446,3 +446,18 @@ export async function requestWalletDeposit(amount: string): Promise<{ transactio
 export async function requestWalletWithdrawal(amount: string): Promise<{ transaction: WalletTransaction; message: string }> {
   return request("/wallet/withdraw", { method: "POST", body: JSON.stringify({ amount }) }, true);
 }
+
+
+export type AdminWalletSummary = {
+  userId: string;
+  username: string;
+  email: string;
+  balance: string;
+  availableBalance: string;
+  pendingDepositRequests: number;
+  pendingWithdrawalRequests: number;
+};
+
+export async function getAdminWallets(): Promise<AdminWalletSummary[]> {
+  return request<AdminWalletSummary[]>("/admin/wallets", {}, true);
+}
