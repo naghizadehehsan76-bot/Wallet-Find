@@ -475,6 +475,8 @@ function App() {
   if (page === "auth") {
     currentView = <AuthPage initialMode={authMode} onAuthenticated={handleAuthenticated} onBack={() => setPage("home")} />;
   } else if (page === "admin" && isAdmin) {
+    currentView = <AdminControlCenter onNavigate={setPage} />;
+  } else if (page === "admin-manage" && isAdmin) {
     currentView = <AdminPage onNavigate={setPage} />;
   } else if (page === "competition") {
     currentView = <CompetitionPage onNavigate={setPage} />;
