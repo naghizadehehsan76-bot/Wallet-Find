@@ -7,7 +7,6 @@ import {
   getAdminOverview,
   getSystemSettings,
   saveSystemSetting,
-  type AdminAuditLog,
   type AdminOverview,
   type SystemSettingRecord,
 } from "../services/api";
