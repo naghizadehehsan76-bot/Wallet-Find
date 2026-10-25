@@ -139,12 +139,9 @@ export async function getActiveContest() {
     return { ...due, status: "ACTIVE" as const };
   }
 
-  const upcoming = await prisma.contest.findFirst({
-    where: { status: "SCHEDULED", startsAt: { gt: now } },
-    orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
-    select: { id: true, title: true, description: true, status: true, startsAt: true, endsAt: true },
-  });
-  if (upcoming) return upcoming;
+  // Do not return the next future round as if it were the current one.
+  // If no round is active, the controller invokes recovery to restore a
+  // playable round for the current fixed 15-minute window.
   throw new Error("ACTIVE_CONTEST_NOT_FOUND");
 }
 
