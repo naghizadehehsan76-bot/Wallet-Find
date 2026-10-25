@@ -177,7 +177,6 @@ function AuthPage({ onAuthenticated, onBack, onOpenTerms, initialMode = "login" 
           </button>
         </form>
 
-        {mode === "login" && <p className="auth-hint">{t.auth.privacy}</p>}
       </main>
     </div>
   );
