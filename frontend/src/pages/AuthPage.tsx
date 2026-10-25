@@ -9,10 +9,11 @@ type AuthMode = "login" | "signup";
 type AuthPageProps = {
   onAuthenticated: (token: string) => void;
   onBack: () => void;
+  onOpenTerms: () => void;
   initialMode?: AuthMode;
 };
 
-function AuthPage({ onAuthenticated, onBack, initialMode = "login" }: AuthPageProps) {
+function AuthPage({ onAuthenticated, onBack, onOpenTerms, initialMode = "login" }: AuthPageProps) {
   const { language, translation: t } = useI18n();
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
@@ -20,6 +21,7 @@ function AuthPage({ onAuthenticated, onBack, initialMode = "login" }: AuthPagePr
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -64,7 +66,7 @@ function AuthPage({ onAuthenticated, onBack, initialMode = "login" }: AuthPagePr
           ‹ {t.auth.back}
         </button>
 
-        <h1 className="auth-title">{t.auth.welcome}</h1>
+        {mode === "login" && <h1 className="auth-title">{t.auth.welcome}</h1>}
 
         <div className="auth-toggle">
           <button
@@ -72,6 +74,7 @@ function AuthPage({ onAuthenticated, onBack, initialMode = "login" }: AuthPagePr
             type="button"
             onClick={() => {
               setMode("login");
+              setAcceptedTerms(false);
               setError("");
             }}
           >
@@ -83,6 +86,7 @@ function AuthPage({ onAuthenticated, onBack, initialMode = "login" }: AuthPagePr
             type="button"
             onClick={() => {
               setMode("signup");
+              setAcceptedTerms(false);
               setError("");
             }}
           >
@@ -143,7 +147,26 @@ function AuthPage({ onAuthenticated, onBack, initialMode = "login" }: AuthPagePr
             </div>
           )}
 
-          <button className="cta-button" type="submit" disabled={loading}>
+          {mode === "signup" && (
+            <label className="auth-terms">
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(event) => setAcceptedTerms(event.target.checked)}
+                required
+                aria-describedby="auth-terms-copy"
+              />
+              <span id="auth-terms-copy">
+                {t.auth.privacyBefore}{" "}
+                <button className="auth-terms-link" type="button" onClick={onOpenTerms}>
+                  {t.auth.privacyLink}
+                </button>{" "}
+                {t.auth.privacyAfter}
+              </span>
+            </label>
+          )}
+
+          <button className="cta-button" type="submit" disabled={loading || (mode === "signup" && !acceptedTerms)}>
             {loading
               ? t.auth.loading
               : mode === "login"
@@ -152,9 +175,7 @@ function AuthPage({ onAuthenticated, onBack, initialMode = "login" }: AuthPagePr
           </button>
         </form>
 
-        <p className="auth-hint">
-          {t.auth.privacy}
-        </p>
+        {mode === "login" && <p className="auth-hint">{t.auth.privacy}</p>}
       </main>
     </div>
   );
