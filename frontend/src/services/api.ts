@@ -380,6 +380,18 @@ export type SystemSettingRecord = {
   updatedAt: string;
 };
 
+export async function bootstrapAdmin(input: {
+  setupSecret: string;
+  email: string;
+  username: string;
+  password: string;
+}): Promise<{ user: AuthUser }> {
+  return request<{ user: AuthUser }>("/admin-bootstrap/bootstrap", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export async function getAdminOverview(): Promise<AdminOverview> {
   return request<AdminOverview>("/admin/overview", {}, true);
 }
