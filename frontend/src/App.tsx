@@ -7,6 +7,7 @@ import ProfilePage from "./pages/ProfilePage";
 import AdminPage from "./pages/AdminPage";
 import { useI18n, type Language } from "./i18n";
 import SharedLanguageSwitcher from "./components/LanguageSwitcher";
+import { getActiveContest, getCurrentClue } from "./services/api";
 import "./App.css";
 
 type AuthMode = "login" | "signup";
@@ -53,20 +54,57 @@ function HomePage({
   onNavigate,
   onAuth,
   language,
+  isLoggedIn,
 }: {
   onNavigate: (page: Page) => void;
   onAuth: (mode: AuthMode) => void;
   language: Language;
+  isLoggedIn: boolean;
 }) {
   const { translation: t } = useI18n();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [homeTimerNow, setHomeTimerNow] = useState(() => Date.now());
+  const [homeSolvedCount, setHomeSolvedCount] = useState(0);
   const isPersian = language === "fa";
+  const homeProgressPercent = Math.min(100, (homeSolvedCount / 12) * 100);
+  const formatHomeNumber = (value: number) => value.toLocaleString(isPersian ? "fa-IR" : "en-US");
 
   useEffect(() => {
     const timerId = window.setInterval(() => setHomeTimerNow(Date.now()), 250);
     return () => window.clearInterval(timerId);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let refreshing = false;
+
+    async function refreshHomeProgress() {
+      if (!isLoggedIn || !localStorage.getItem("walletFindToken")) {
+        setHomeSolvedCount(0);
+        return;
+      }
+      if (refreshing) return;
+      refreshing = true;
+      try {
+        const contest = await getActiveContest();
+        const current = await getCurrentClue(contest.id);
+        if (!cancelled) {
+          setHomeSolvedCount(Math.max(0, Math.min(12, current.solvedCount ?? 0)));
+        }
+      } catch {
+        // Keep the last confirmed count during brief network or server interruptions.
+      } finally {
+        refreshing = false;
+      }
+    }
+
+    void refreshHomeProgress();
+    const intervalId = window.setInterval(() => void refreshHomeProgress(), 3000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [isLoggedIn]);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
@@ -166,9 +204,9 @@ function HomePage({
             </div>
           </div>
           <div className="home-challenge-card__progress">
-            <strong>۰/۱۲</strong>
+            <strong>{formatHomeNumber(homeSolvedCount)} / {formatHomeNumber(12)}</strong>
             <span>{isPersian ? "پیشرفت شما" : "Your progress"}</span>
-            <i><b /></i>
+            <i role="progressbar" aria-valuemin={0} aria-valuemax={12} aria-valuenow={homeSolvedCount} aria-label={isPersian ? "پیشرفت چالش" : "Challenge progress"}><b style={{ width: homeProgressPercent + "%" }} /></i>
           </div>
         </section>
 
@@ -451,7 +489,7 @@ function App() {
         <header className="topbar"><button className="brand brand--home" type="button" aria-label={t.navigation.home} onClick={() => setPage("home")}><span className="brand-wallet">Wallet</span><span className="brand-find">Find</span></button></header><main className="page"><div className="section-title">{t.wallet.title}</div><div className="balance-card"><div className="balance-label">{t.wallet.displayBalance}</div><div className="balance-amount mono">{t.wallet.balance}</div><div className="balance-network">Polygon</div></div><div className="inline-feedback">{t.wallet.notice}</div></main><BottomNavShim activePage="wallet" onNavigate={setPage} /></div>
     );
   } else {
-    currentView = <HomePage onNavigate={setPage} onAuth={openAuth} language={language} />;
+    currentView = <HomePage onNavigate={setPage} onAuth={openAuth} language={language} isLoggedIn={isLoggedIn} />;
   }
 
   return (
