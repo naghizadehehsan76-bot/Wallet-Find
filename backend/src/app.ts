@@ -8,6 +8,7 @@ import rateLimit from "express-rate-limit";
 import authRoutes from "./modules/auth/auth.routes.js";
 import contestRoutes from "./modules/contest/contest.routes.js";
 import adminRoutes from "./modules/admin/admin.routes.js";
+import adminBootstrapRoutes from "./modules/admin/admin-bootstrap.routes.js";
 import profileRoutes from "./modules/profile/profile.routes.js";
 
 const app = express();
@@ -63,6 +64,7 @@ app.use("/api/contests", (req, res, next) => {
   return next();
 });
 app.use("/api/contests", contestRoutes);
+app.use("/api/admin-bootstrap", authLimiter, adminBootstrapRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/profile", profileRoutes);
 
