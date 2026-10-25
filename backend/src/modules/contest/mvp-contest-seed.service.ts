@@ -316,8 +316,15 @@ async function fetchConfiguredWebDocument(url: string): Promise<SourceDocument |
 }
 
 async function getConfiguredSourceUrls(language: "en" | "fa"): Promise<string[]> {
-  const defaults = language === "fa" ? ["https://fa.wikipedia.org/w/api.php"] : [
+  const defaults = language === "fa" ? [
+    "https://fa.wikipedia.org/w/api.php",
+    "https://fa.wikipedia.org/wiki/ایران", "https://fa.wikipedia.org/wiki/تهران",
+    "https://fa.wikipedia.org/wiki/فردوسی", "https://fa.wikipedia.org/wiki/شاهنامه",
+    "https://fa.wikipedia.org/wiki/هوش_مصنوعی",
+  ] : [
     "https://en.wikipedia.org/w/api.php", ...GUTENBERG_BOOKS.map((book) => book.textUrl),
+    "https://en.wikipedia.org/wiki/Artificial_intelligence", "https://en.wikipedia.org/wiki/Paris",
+    "https://en.wikipedia.org/wiki/Albert_Einstein", "https://en.wikipedia.org/wiki/History_of_science",
   ];
   const setting = await prisma.systemSetting.findUnique({ where: { key: `clue_sources_${language}` }, select: { value: true } });
   if (!setting) return defaults;
@@ -504,7 +511,7 @@ async function ensureMvpActiveContestInternal(language: "en" | "fa" = "en") {
     },
   });
 
-  console.log("Created playable English word-finding contest:", contest.id);
+  console.log(`Created playable ${language === "fa" ? "Persian" : "English"} word-finding contest:`, contest.id);
   return contest.id;
 }
 
