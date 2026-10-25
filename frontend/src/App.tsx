@@ -423,7 +423,7 @@ function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }
         <div className="sidebar-auth">
           {isLoggedIn ? (
             <button type="button" className="sidebar-login sidebar-logout" onClick={() => { onLogout(); setIsOpen(false); }}>
-              <span aria-hidden="true">↪</span>{t.profile.logout}
+              {t.profile.logout}
             </button>
           ) : (
             <>
