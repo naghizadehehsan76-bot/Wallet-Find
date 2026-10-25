@@ -2061,11 +2061,11 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 .info-panel p { white-space: pre-line; }
 
 
-/* Keep the welcome heading visible on both login and signup, fitting on one line. */
+/* Welcome heading: slightly larger, with natural right-to-left alignment for Persian. */
 .auth-page .auth-title {
   margin: 0 0 16px;
-  font-size: clamp(17px, 4.5vw, 21px);
-  line-height: 1.35;
+  font-size: clamp(19px, 5vw, 23px);
+  line-height: 1.4;
   white-space: nowrap;
-  text-align: center;
+  text-align: start;
 }
