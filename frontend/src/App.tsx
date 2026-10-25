@@ -158,7 +158,7 @@ function HomePage({
 
         <section className="home-challenge-card" aria-label={isPersian ? "چالش امروز" : "Today's challenge"}>
           <div className="home-challenge-card__top">
-            <div className="home-challenge-card__bolt" aria-hidden="true">ϟ</div>
+            <div className="home-challenge-card__bolt" aria-hidden="true"><svg className="home-challenge-card__magnifier" viewBox="0 0 24 24" fill="none"><circle cx="10.5" cy="10.5" r="6.4" stroke="currentColor" strokeWidth="2.1"/><path d="m15.2 15.2 5 5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/><path d="M10.5 6.8v7.4M6.8 10.5h7.4" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity=".4"/></svg></div>
             <strong>{isPersian ? "چالش امروز" : "Today's Challenge"}</strong>
             <div className="home-challenge-card__timer">
               <span><span aria-hidden="true">◷</span> {homeTimerText}</span>
