@@ -1698,3 +1698,26 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
     transform: translateY(calc(-3cm + 3mm));
   }
 }
+
+
+/* Match the shared sidebar panel to Wallet Find's deep navy and neon-blue theme. */
+.global-sidebar {
+  background:
+    radial-gradient(ellipse at 12% 0%, rgba(0, 153, 255, .14), transparent 26rem),
+    radial-gradient(ellipse at 100% 38%, rgba(0, 224, 208, .055), transparent 30rem),
+    linear-gradient(155deg, rgba(4, 20, 38, .99), rgba(2, 8, 18, .995)) !important;
+  border-inline-end-color: rgba(0, 170, 255, .28);
+  border-inline-start-color: rgba(0, 170, 255, .28);
+  box-shadow: 18px 0 55px rgba(0, 0, 0, .42);
+}
+.global-sidebar .sidebar-link {
+  border-color: transparent;
+}
+.global-sidebar .sidebar-link:hover {
+  border-color: rgba(0, 170, 255, .2);
+  background: rgba(0, 145, 255, .075);
+}
+.global-sidebar .sidebar-link--active {
+  border-color: rgba(0, 190, 255, .28);
+  background: linear-gradient(110deg, rgba(0, 153, 255, .14), rgba(0, 224, 208, .07));
+}
