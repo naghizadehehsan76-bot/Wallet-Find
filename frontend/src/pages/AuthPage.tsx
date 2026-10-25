@@ -148,22 +148,24 @@ function AuthPage({ onAuthenticated, onBack, onOpenTerms, initialMode = "login" 
           )}
 
           {mode === "signup" && (
-            <label className="auth-terms">
+            <div className="auth-terms">
               <input
+                id="auth-terms-accepted"
                 type="checkbox"
                 checked={acceptedTerms}
                 onChange={(event) => setAcceptedTerms(event.target.checked)}
                 required
+                aria-label={`${t.auth.privacyBefore} ${t.auth.privacyLink} ${t.auth.privacyAfter}`}
                 aria-describedby="auth-terms-copy"
               />
               <span id="auth-terms-copy">
-                {t.auth.privacyBefore}{" "}
+                <label htmlFor="auth-terms-accepted">{t.auth.privacyBefore}</label>{" "}
                 <button className="auth-terms-link" type="button" onClick={onOpenTerms}>
                   {t.auth.privacyLink}
                 </button>{" "}
                 {t.auth.privacyAfter}
               </span>
-            </label>
+            </div>
           )}
 
           <button className="cta-button" type="submit" disabled={loading || (mode === "signup" && !acceptedTerms)}>
