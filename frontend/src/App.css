@@ -1848,3 +1848,30 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   line-height: 1;
   filter: brightness(0) saturate(100%) invert(72%) sepia(55%) saturate(1500%) hue-rotate(170deg) brightness(102%) contrast(104%);
 }
+
+
+/* Wallet-shaped icon styling shared by the sidebar and both bottom-nav variants. */
+.global-sidebar .sidebar-link__icon--wallet .sidebar-link__wallet-svg {
+  display: block;
+  width: 19px;
+  height: 19px;
+  color: #62caff;
+  filter: drop-shadow(0 0 4px rgba(0, 170, 255, .38));
+}
+.global-sidebar .sidebar-link:hover .sidebar-link__icon--wallet .sidebar-link__wallet-svg {
+  color: #75ffe9;
+  filter: drop-shadow(0 0 5px rgba(0, 224, 208, .48));
+}
+.global-sidebar .sidebar-link--active .sidebar-link__icon--wallet .sidebar-link__wallet-svg {
+  color: #031526;
+  filter: none;
+}
+.bottom-nav .nav-icon__wallet-svg {
+  display: block;
+  width: 21px;
+  height: 21px;
+  color: currentColor;
+}
+.bottom-nav .nav-item:hover .nav-icon__wallet-svg {
+  filter: drop-shadow(0 0 4px rgba(0, 170, 255, .35));
+}
