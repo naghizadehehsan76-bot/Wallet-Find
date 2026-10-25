@@ -97,11 +97,13 @@ export async function runContestScheduler(now = new Date()) {
     }
   }
 
-  const nextRound = await ensureScheduledMvpContest(now);
+  const nextRound = await ensureScheduledMvpContest(now, "en");
+  const nextPersianRound = await ensureScheduledMvpContest(now, "fa");
   return {
     scheduledChecked: scheduled.length,
     settlementsChecked: awaitingSettlement.length,
     nextRound,
+    nextPersianRound,
     now: now.toISOString(),
   };
 }
