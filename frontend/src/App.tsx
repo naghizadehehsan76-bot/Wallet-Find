@@ -442,7 +442,7 @@ function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }
 }
 
 function App() {
-  const { language, isRTL, translation: t } = useI18n();
+  const { language, isRTL } = useI18n();
 
   useEffect(() => {
     document.documentElement.lang = language;
