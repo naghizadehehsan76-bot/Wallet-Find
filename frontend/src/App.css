@@ -2023,3 +2023,39 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 .contest-language-choice { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
 .contest-language-choice button { border:1px solid var(--line); border-radius:9px; padding:7px 10px; background:var(--ink-2); color:var(--muted); font-size:11px; cursor:pointer; }
 .contest-language-choice button.is-active { border-color:var(--brass); background:rgba(206,171,92,.12); color:var(--brass-light); }
+
+
+/* Required terms acceptance shown on registration only. */
+.auth-terms {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 4px 0 16px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.9;
+  cursor: pointer;
+}
+.auth-terms input {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 3px 0 0;
+  accent-color: var(--verdigris);
+  cursor: pointer;
+}
+.auth-terms > span { min-width: 0; }
+.auth-terms-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--verdigris);
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.auth-terms-link:hover { color: #b0fff5; }
+.info-panel p { white-space: pre-line; }
