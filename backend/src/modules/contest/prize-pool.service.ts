@@ -77,7 +77,7 @@ async function ensurePool(tx: any, contestId: string) {
   // round's pool is first accessed. Ledger reference keys make retries safe.
   const currentContest = await tx.contest.findUnique({
     where: { id: contestId },
-    select: { startsAt: true },
+    select: { startsAt: true, language: true },
   });
   if (currentContest?.startsAt && pool.status === "OPEN") {
     const previousPools = await tx.prizePool.findMany({
@@ -85,7 +85,7 @@ async function ensurePool(tx: any, contestId: string) {
         contestId: { not: contestId },
         status: "SETTLED",
         rolloverOutMicro: { gt: 0n },
-        contest: { is: { startsAt: { lt: currentContest.startsAt } } },
+        contest: { is: { startsAt: { lt: currentContest.startsAt }, language: currentContest.language } },
       },
       select: { contestId: true, rolloverOutMicro: true },
       orderBy: { contest: { startsAt: "asc" } },
