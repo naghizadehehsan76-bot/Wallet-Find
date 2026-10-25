@@ -17,7 +17,7 @@ import {
 type AdminDestination = "home" | "admin-manage";
 
 type Props = { onNavigate: (page: AdminDestination) => void };
-type Section = "overview" | "wallets" | "settings" | "audit";
+type Section = "overview" | "users" | "finance" | "prizes" | "ads" | "security" | "support" | "wallets" | "settings" | "audit";
 
 export default function AdminControlCenter({ onNavigate }: Props) {
   const { language } = useI18n();
@@ -39,8 +39,14 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     title: fa ? "مرکز کنترل Wallet-Find" : "Wallet-Find Control Center",
     subtitle: fa ? "مدیریت مرکزی سایت، تنظیمات و رویدادهای مدیریتی" : "Central administration for site settings and operational activity",
     overview: fa ? "نمای کلی" : "Overview",
+    usersTab: fa ? "مدیریت کاربران" : "Users",
+    finance: fa ? "امور مالی" : "Finance",
+    prizes: fa ? "صندوق جوایز و تسویه" : "Prize pool & settlement",
+    ads: fa ? "تبلیغات و اسپانسرها" : "Ads & sponsors",
+    security: fa ? "امنیت و ضدتقلب" : "Security & anti-fraud",
+    support: fa ? "پشتیبانی و گزارش‌ها" : "Support & reports",
     settings: fa ? "تنظیمات سایت" : "Site settings",
-    wallets: fa ? "کیف پول کاربران" : "User wallets",
+    wallets: fa ? "کیف پول و تراکنش‌ها" : "Wallets & transactions",
     walletBalance: fa ? "موجودی آزمایشی" : "Simulated balance",
     walletAvailable: fa ? "موجودی قابل برداشت" : "Available balance",
     pendingDeposits: fa ? "واریزهای در انتظار" : "Pending deposits",
@@ -48,7 +54,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     noWallets: fa ? "کاربری برای نمایش وجود ندارد." : "No users to display.",
     walletNote: fa ? "این فهرست فقط دفترکل آزمایشی را نشان می‌دهد؛ پرداخت واقعی انجام نمی‌شود." : "This list shows simulated ledger balances only; no real payments are made.",
     audit: fa ? "گزارش فعالیت‌ها" : "Activity log",
-    challenge: fa ? "مدیریت چالش‌ها" : "Challenge management",
     users: fa ? "کاربران" : "Users",
     contests: fa ? "چالش‌های ثبت‌شده" : "Challenges",
     active: fa ? "چالش فعال" : "Active challenges",
@@ -84,6 +89,14 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     savePool: fa ? "ذخیرهٔ استخر جایزه" : "Save prize pool amount",
     invalidPool: fa ? "مبلغ باید عددی مثبت با حداکثر ۶ رقم اعشار باشد." : "Enter a positive amount with up to 6 decimal places.",
     poolSaved: fa ? "مبلغ پایهٔ استخر جایزه برای دورهای جدید ذخیره شد." : "Base prize pool amount saved for new rounds.",
+    conceptTitle: fa ? "بخش در حال طراحی" : "Module concept",
+    conceptBody: fa ? "این بخش فعلاً فقط به‌عنوان جایگاه در پنل مدیریت اضافه شده است. قابلیت‌ها و عملیات آن در مراحل بعدی، جداگانه طراحی و پیاده‌سازی می‌شوند." : "This section is currently a placeholder in the admin panel. Its tools and workflows will be designed and implemented separately in later phases.",
+    usersBody: fa ? "جست‌وجو و مشاهدهٔ کاربران، نقش‌ها، وضعیت حساب، تأیید ایمیل و محدودیت‌های دسترسی." : "Search users, review roles and account status, email verification, and access restrictions.",
+    financeBody: fa ? "بررسی تراکنش‌ها، درخواست‌های واریز و برداشت، دفترکل و مغایرت‌های مالی." : "Review transactions, deposit and withdrawal requests, the ledger, and financial discrepancies.",
+    prizesBody: fa ? "مشاهدهٔ صندوق هر دور، انتقال مانده، جوایز ثبت‌شده، تسویه‌ها و گزارش حسابداری آزمایشی یا واقعی." : "Inspect each round's prize pool, rollover, awards, settlements, and simulated or real accounting.",
+    adsBody: fa ? "مدیریت تبلیغ‌دهندگان، اسپانسرها، کمپین‌ها، سفارش‌ها و وضعیت پرداخت تبلیغات." : "Manage advertisers, sponsors, campaigns, orders, and advertising payment status.",
+    securityBody: fa ? "بررسی فعالیت مشکوک، تلاش‌های ورود، گزارش‌های ضدتقلب، مسدودسازی و کنترل دسترسی مدیران." : "Review suspicious activity, login attempts, anti-fraud alerts, account restrictions, and administrator access.",
+    supportBody: fa ? "مدیریت پیام‌های پشتیبانی، گزارش خطا، شکایت‌ها و درخواست‌های کاربران." : "Handle support messages, bug reports, complaints, and user requests.",
   };
 
   const load = useCallback(async () => {
@@ -200,9 +213,19 @@ export default function AdminControlCenter({ onNavigate }: Props) {
         </div>
 
         <nav className="admin-center__tabs" aria-label={copy.title}>
-          {(["overview", "wallets", "settings", "audit"] as Section[]).map((item) => (
+          {([
+            ["overview", copy.overview],
+            ["users", copy.usersTab],
+            ["finance", copy.finance],
+            ["prizes", copy.prizes],
+            ["ads", copy.ads],
+            ["security", copy.security],
+            ["support", copy.support],
+            ["settings", copy.settings],
+            ["audit", copy.audit],
+          ] as [Section, string][]).map(([item, label]) => (
             <button key={item} type="button" className={section === item ? "is-active" : ""} onClick={() => setSection(item)}>
-              {copy[item]}
+              {label}
             </button>
           ))}
         </nav>
@@ -222,9 +245,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                 </article>
               ))}
             </section>
-            <button className="cta-button admin-primary-action" type="button" onClick={() => onNavigate("admin-manage")}>
-              {copy.challenge} <span aria-hidden="true">↗</span>
-            </button>
             <h2 className="section-title">{copy.modules}</h2>
             <section className="admin-module-grid">
               {[
@@ -242,6 +262,29 @@ export default function AdminControlCenter({ onNavigate }: Props) {
             </section>
             {overview?.generatedAt && <p className="admin-footnote">{fa ? "آخرین بروزرسانی: " : "Last refreshed: "}{new Date(overview.generatedAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</p>}
           </>
+        )}
+
+        {(["users", "finance", "prizes", "ads", "security", "support"] as Section[]).includes(section) && (
+          <section className="admin-panel">
+            <h2>{({
+              users: copy.usersTab,
+              finance: copy.finance,
+              prizes: copy.prizes,
+              ads: copy.ads,
+              security: copy.security,
+              support: copy.support,
+            } as Record<string, string>)[section]}</h2>
+            <p>{copy.conceptTitle}</p>
+            <p className="admin-footnote">{({
+              users: copy.usersBody,
+              finance: copy.financeBody,
+              prizes: copy.prizesBody,
+              ads: copy.adsBody,
+              security: copy.securityBody,
+              support: copy.supportBody,
+            } as Record<string, string>)[section]}</p>
+            <p className="admin-footnote">{copy.conceptBody}</p>
+          </section>
         )}
 
         {section === "wallets" && (
