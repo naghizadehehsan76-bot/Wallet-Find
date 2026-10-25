@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import prisma from "../../config/prisma.js";
 
 import type { AuthenticatedRequest } from "../../middleware/auth.middleware.js";
 
@@ -14,6 +15,48 @@ import {
   updateContestSettings,
   getAuditLogs,
 } from "./admin.service.js";
+
+export async function getAdminOverviewHandler(
+  _req: AuthenticatedRequest,
+  res: Response
+) {
+  const [
+    users,
+    contests,
+    activeContests,
+    submissions,
+    advertiserOrders,
+    pendingAdPayments,
+    recentAuditLogs,
+  ] = await Promise.all([
+    prisma.user.count(),
+    prisma.contest.count(),
+    prisma.contest.count({ where: { status: "ACTIVE" } }),
+    prisma.submission.count(),
+    prisma.advertisementOrder.count(),
+    prisma.advertisementPayment.count({ where: { status: "PENDING" } }),
+    prisma.auditLog.findMany({
+      take: 8,
+      orderBy: { createdAt: "desc" },
+      include: { user: { select: { username: true, email: true } } },
+    }),
+  ]);
+
+  return res.json({
+    success: true,
+    data: {
+      users,
+      contests,
+      activeContests,
+      submissions,
+      advertiserOrders,
+      pendingAdPayments,
+      recentAuditLogs,
+      generatedAt: new Date().toISOString(),
+      note: "Statistics are read-only summaries of current database records.",
+    },
+  });
+}
 
 export async function getSystemSettingsHandler(
   _req: AuthenticatedRequest,
@@ -31,8 +74,7 @@ export async function upsertSystemSettingHandler(
   req: AuthenticatedRequest,
   res: Response
 ) {
-  const parsed =
-    upsertSystemSettingSchema.safeParse(req.body);
+  const parsed = upsertSystemSettingSchema.safeParse(req.body);
 
   if (!parsed.success) {
     return res.status(400).json({
@@ -42,10 +84,7 @@ export async function upsertSystemSettingHandler(
     });
   }
 
-  const setting = await upsertSystemSetting(
-    parsed.data,
-    req.user?.userId
-  );
+  const setting = await upsertSystemSetting(parsed.data, req.user?.userId);
 
   return res.json({
     success: true,
@@ -58,9 +97,7 @@ export async function getContestSettingsHandler(
   res: Response
 ) {
   const contestId = String(req.params.contestId);
-
-  const settings =
-    await getContestSettings(contestId);
+  const settings = await getContestSettings(contestId);
 
   return res.json({
     success: true,
@@ -73,9 +110,7 @@ export async function updateContestSettingsHandler(
   res: Response
 ) {
   const contestId = String(req.params.contestId);
-
-  const parsed =
-    updateContestSettingSchema.safeParse(req.body);
+  const parsed = updateContestSettingSchema.safeParse(req.body);
 
   if (!parsed.success) {
     return res.status(400).json({
@@ -86,12 +121,11 @@ export async function updateContestSettingsHandler(
   }
 
   try {
-    const settings =
-      await updateContestSettings(
-        contestId,
-        parsed.data,
-        req.user?.userId
-      );
+    const settings = await updateContestSettings(
+      contestId,
+      parsed.data,
+      req.user?.userId
+    );
 
     return res.json({
       success: true,
@@ -110,9 +144,5 @@ export async function getAuditLogsHandler(
   res: Response
 ) {
   const logs = await getAuditLogs();
-
-  return res.json({
-    success: true,
-    data: logs,
-  });
+  return res.json({ success: true, data: logs });
 }

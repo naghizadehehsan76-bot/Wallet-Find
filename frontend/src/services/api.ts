@@ -348,3 +348,69 @@ export async function getContestPrizePool(contestId: string): Promise<{
     true,
   );
 }
+
+
+export type AdminAuditLog = {
+  id: string;
+  userId: string | null;
+  action: string;
+  entity: string;
+  entityId: string | null;
+  metadata: unknown;
+  createdAt: string;
+  user?: { username: string; email: string } | null;
+};
+
+export type AdminOverview = {
+  users: number;
+  contests: number;
+  activeContests: number;
+  submissions: number;
+  advertiserOrders: number;
+  pendingAdPayments: number;
+  recentAuditLogs: AdminAuditLog[];
+  generatedAt: string;
+  note: string;
+};
+
+export type SystemSettingRecord = {
+  key: string;
+  value: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function bootstrapAdmin(input: {
+  setupSecret: string;
+  email: string;
+  username: string;
+  password: string;
+}): Promise<{ user: AuthUser }> {
+  return request<{ user: AuthUser }>("/admin-bootstrap/bootstrap", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function getAdminOverview(): Promise<AdminOverview> {
+  return request<AdminOverview>("/admin/overview", {}, true);
+}
+
+export async function getSystemSettings(): Promise<SystemSettingRecord[]> {
+  return request<SystemSettingRecord[]>("/admin/settings", {}, true);
+}
+
+export async function saveSystemSetting(
+  key: string,
+  value: string,
+): Promise<SystemSettingRecord> {
+  return request<SystemSettingRecord>(
+    "/admin/settings",
+    { method: "POST", body: JSON.stringify({ key, value }) },
+    true,
+  );
+}
+
+export async function getAdminAuditLogs(): Promise<AdminAuditLog[]> {
+  return request<AdminAuditLog[]>("/admin/audit-logs", {}, true);
+}

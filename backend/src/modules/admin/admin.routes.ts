@@ -6,6 +6,7 @@ import {
 } from "../../middleware/auth.middleware.js";
 
 import {
+  getAdminOverviewHandler,
   getSystemSettingsHandler,
   upsertSystemSettingHandler,
   getContestSettingsHandler,
@@ -26,6 +27,7 @@ const router = Router();
 
 router.use(requireAuth, requireAdmin);
 
+router.get("/overview", getAdminOverviewHandler);
 router.get("/settings", getSystemSettingsHandler);
 router.post("/settings", upsertSystemSettingHandler);
 
