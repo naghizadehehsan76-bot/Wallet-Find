@@ -14,6 +14,7 @@ import {
   getContestSettings,
   updateContestSettings,
   getAuditLogs,
+  getAdminUsers,
 } from "./admin.service.js";
 
 export async function getAdminOverviewHandler(
@@ -145,4 +146,17 @@ export async function getAuditLogsHandler(
 ) {
   const logs = await getAuditLogs();
   return res.json({ success: true, data: logs });
+}
+
+export async function getAdminUsersHandler(
+  _req: AuthenticatedRequest,
+  res: Response
+) {
+  try {
+    const users = await getAdminUsers();
+    return res.json({ success: true, data: users });
+  } catch (error) {
+    console.error("Admin user listing failed", error);
+    return res.status(500).json({ success: false, error: "INTERNAL_SERVER_ERROR" });
+  }
 }

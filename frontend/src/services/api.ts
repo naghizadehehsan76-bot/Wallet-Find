@@ -461,3 +461,21 @@ export type AdminWalletSummary = {
 export async function getAdminWallets(): Promise<AdminWalletSummary[]> {
   return request<AdminWalletSummary[]>("/admin/wallets", {}, true);
 }
+
+
+export type AdminUserSummary = {
+  id: string;
+  email: string;
+  username: string;
+  role: string;
+  createdAt: string;
+  walletBalance: string;
+  availableBalance: string;
+  contestsParticipated: number;
+  completedContests: number;
+  bestCompletionTimeMs: number | null;
+};
+
+export async function getAdminUsers(): Promise<AdminUserSummary[]> {
+  return request<AdminUserSummary[]>("/admin/users", {}, true);
+}

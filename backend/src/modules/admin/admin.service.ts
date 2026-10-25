@@ -152,3 +152,85 @@ export async function getAuditLogs(
     },
   });
 }
+
+const ADMIN_MICRO = 1_000_000n;
+function formatAdminMicro(value: bigint): string {
+  const whole = value / ADMIN_MICRO;
+  const fraction = (value % ADMIN_MICRO).toString().padStart(6, "0");
+  return whole.toString() + "." + fraction;
+}
+
+export async function getAdminUsers() {
+  const users = await prisma.user.findMany({
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      role: true,
+      createdAt: true,
+      walletTransactions: { select: { type: true, status: true, amountMicro: true } },
+      submissions: {
+        select: {
+          contestId: true,
+          isCorrect: true,
+          submittedAt: true,
+          clue: { select: { sequence: true } },
+          contest: { select: { startsAt: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return users.map((user) => {
+    let balance = 0n;
+    let pendingWithdrawals = 0n;
+    for (const row of user.walletTransactions) {
+      const amount = BigInt(row.amountMicro);
+      if (row.status === "COMPLETED") {
+        if (row.type === "PRIZE_CREDIT" || row.type === "DEPOSIT") balance += amount;
+        if (row.type === "WITHDRAWAL") balance -= amount;
+      }
+      if (row.type === "WITHDRAWAL_REQUEST" && row.status === "PENDING") pendingWithdrawals += amount;
+    }
+
+    const contests = new Map<string, { startsAt: Date | null; correctBySequence: Map<number, Date> }>();
+    for (const submission of user.submissions) {
+      let contest = contests.get(submission.contestId);
+      if (!contest) {
+        contest = { startsAt: submission.contest.startsAt, correctBySequence: new Map<number, Date>() };
+        contests.set(submission.contestId, contest);
+      }
+      if (submission.isCorrect) {
+        const sequence = submission.clue.sequence;
+        const previous = contest.correctBySequence.get(sequence);
+        if (!previous || submission.submittedAt < previous) {
+          contest.correctBySequence.set(sequence, submission.submittedAt);
+        }
+      }
+    }
+
+    let bestCompletionTimeMs: number | null = null;
+    for (const contest of contests.values()) {
+      if (contest.correctBySequence.size < 12 || !contest.startsAt) continue;
+      const lastAnswerAt = contest.correctBySequence.get(12);
+      if (!lastAnswerAt) continue;
+      const duration = lastAnswerAt.getTime() - contest.startsAt.getTime();
+      if (duration < 0) continue;
+      if (bestCompletionTimeMs === null || duration < bestCompletionTimeMs) bestCompletionTimeMs = duration;
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      role: user.role,
+      createdAt: user.createdAt,
+      walletBalance: formatAdminMicro(balance),
+      availableBalance: formatAdminMicro(balance - pendingWithdrawals),
+      contestsParticipated: contests.size,
+      completedContests: [...contests.values()].filter((contest) => contest.correctBySequence.size >= 12).length,
+      bestCompletionTimeMs,
+    };
+  });
+}
