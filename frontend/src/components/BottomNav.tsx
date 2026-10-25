@@ -40,6 +40,12 @@ function BottomNav({ activePage, onNavigate }: BottomNavProps) {
                 <circle cx="8" cy="8" r="4.5" stroke="currentColor" strokeWidth="2.5" />
                 <path d="M11.3 11.3 20 20m-4-4 2.2-2.2m-.2 4.2 2.2-2.2" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
+            ) : item.page === "wallet" ? (
+              <svg className="nav-icon__wallet-svg" viewBox="0 0 24 24" fill="none">
+                <path d="M20 8V5a2 2 0 0 0-2-2H6a3 3 0 0 0 0 6h14v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M3 8v11a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2H6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M16 15h.01" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+              </svg>
             ) : item.page === "leaderboard" ? (
               <span className="nav-icon__trophy">{item.icon}</span>
             ) : item.icon}
