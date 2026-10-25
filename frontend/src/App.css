@@ -2110,3 +2110,17 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   visibility: visible;
   pointer-events: auto;
 }
+
+
+/* Home illustration: blend the image edges into the surrounding dark blue theme. */
+.home-page .home-showcase {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse at 50% 46%, rgba(0, 190, 220, 0.13) 0%, rgba(0, 105, 160, 0.08) 38%, transparent 72%);
+}
+.home-page .home-concept-vector {
+  -webkit-mask-image: radial-gradient(ellipse 76% 78% at 50% 48%, #000 56%, rgba(0, 0, 0, 0.92) 68%, rgba(0, 0, 0, 0.45) 84%, transparent 100%);
+  mask-image: radial-gradient(ellipse 76% 78% at 50% 48%, #000 56%, rgba(0, 0, 0, 0.92) 68%, rgba(0, 0, 0, 0.45) 84%, transparent 100%);
+  filter: saturate(1.04);
+}
