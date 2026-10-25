@@ -416,27 +416,6 @@ async function ensureMvpActiveContestInternal() {
     return playableContest.id;
   }
 
-  const scheduledContests = await prisma.contest.findMany({
-    where: { status: "SCHEDULED", startsAt: { gt: now } },
-    select: {
-      id: true,
-      startsAt: true,
-      endsAt: true,
-      clues: {
-        select: {
-          sequence: true,
-          sourceUrl: true,
-          hintAnchor: true,
-          options: true,
-        },
-      },
-    },
-    orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
-  });
-  const playableScheduledContest = scheduledContests.find((contest) =>
-    isPlayable(contest) && (!contest.endsAt || contest.endsAt > now),
-  );
-
   // Keep any future round queued, but do not return it as the current round.
   // If there is no active round, create one for the current 15-minute window.
   // Generate and validate all rounds before changing the current contest.
