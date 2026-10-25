@@ -368,7 +368,7 @@ function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }
             <button
               key={item.page}
               type="button"
-              className={"sidebar-link" + (item.page === "competition" ? " sidebar-link--challenge" : "") + (item.page === "leaderboard" ? " sidebar-link--leaderboard" : "") + (currentPage === item.page ? " sidebar-link--active" : "")}
+              className={"sidebar-link" + (currentPage === item.page ? " sidebar-link--active" : "")}
               onClick={() => navigateTo(item.page)}
               aria-current={currentPage === item.page ? "page" : undefined}
             >
