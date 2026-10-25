@@ -414,3 +414,35 @@ export async function saveSystemSetting(
 export async function getAdminAuditLogs(): Promise<AdminAuditLog[]> {
   return request<AdminAuditLog[]>("/admin/audit-logs", {}, true);
 }
+
+
+export type WalletTransaction = {
+  id: string;
+  type: string;
+  status: string;
+  amount: string;
+  currency: string;
+  note: string;
+  contestId: string | null;
+  createdAt: string;
+};
+
+export type WalletResult = {
+  currency: string;
+  simulatedOnly: boolean;
+  balance: string;
+  availableBalance: string;
+  transactions: WalletTransaction[];
+};
+
+export async function getWallet(): Promise<WalletResult> {
+  return request<WalletResult>("/wallet/me", {}, true);
+}
+
+export async function requestWalletDeposit(amount: string): Promise<{ transaction: WalletTransaction; message: string }> {
+  return request("/wallet/deposit", { method: "POST", body: JSON.stringify({ amount }) }, true);
+}
+
+export async function requestWalletWithdrawal(amount: string): Promise<{ transaction: WalletTransaction; message: string }> {
+  return request("/wallet/withdraw", { method: "POST", body: JSON.stringify({ amount }) }, true);
+}
