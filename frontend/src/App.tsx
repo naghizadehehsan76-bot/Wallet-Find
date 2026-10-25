@@ -372,7 +372,7 @@ function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }
               onClick={() => navigateTo(item.page)}
               aria-current={currentPage === item.page ? "page" : undefined}
             >
-              <span aria-hidden="true">{item.icon}</span><span>{item.label}</span>
+              <span className={"sidebar-link__icon" + (item.page === "competition" ? " sidebar-link__icon--challenge" : item.page === "leaderboard" ? " sidebar-link__icon--leaderboard" : "")} aria-hidden="true"><span className="sidebar-link__glyph">{item.icon}</span></span><span>{item.label}</span>
             </button>
           ))}
         </nav>
