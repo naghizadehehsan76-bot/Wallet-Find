@@ -11,7 +11,7 @@ import { settlePrizePool } from "./prize-pool.service.js";
 export async function runContestScheduler(now = new Date()) {
   const scheduled = await prisma.contest.findMany({
     where: { status: "SCHEDULED" },
-    select: { id: true, startsAt: true, endsAt: true },
+    select: { id: true, language: true, startsAt: true, endsAt: true },
   });
 
   for (const contest of scheduled) {
@@ -32,6 +32,7 @@ export async function runContestScheduler(now = new Date()) {
     const anotherActive = await prisma.contest.findFirst({
       where: {
         status: "ACTIVE",
+        language: contest.language,
         id: { not: contest.id },
         OR: [{ endsAt: null }, { endsAt: { gt: now } }],
       },
