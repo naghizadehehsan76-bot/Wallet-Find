@@ -1680,3 +1680,12 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
     transform: translateY(-3cm);
   }
 }
+
+
+/* Raise the Home page stats and challenge instructions by 3 cm on desktop only. */
+@media (min-width: 900px) {
+  .home-page .stat-row,
+  .home-page .how-section {
+    transform: translateY(-3cm);
+  }
+}
