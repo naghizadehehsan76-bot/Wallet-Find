@@ -2059,3 +2059,13 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 }
 .auth-terms-link:hover { color: #b0fff5; }
 .info-panel p { white-space: pre-line; }
+
+
+/* Keep the welcome heading visible on both login and signup, fitting on one line. */
+.auth-page .auth-title {
+  margin: 0 0 16px;
+  font-size: clamp(17px, 4.5vw, 21px);
+  line-height: 1.35;
+  white-space: nowrap;
+  text-align: center;
+}
