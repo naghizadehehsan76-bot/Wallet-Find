@@ -12,6 +12,7 @@ import {
   getContestSettingsHandler,
   updateContestSettingsHandler,
   getAuditLogsHandler,
+  getAdminUsersHandler,
 } from "./admin.controller.js";
 import {
   activateContestHandler,
@@ -29,6 +30,7 @@ const router = Router();
 router.use(requireAuth, requireAdmin);
 
 router.get("/overview", getAdminOverviewHandler);
+router.get("/users", getAdminUsersHandler);
 router.get("/settings", getSystemSettingsHandler);
 router.post("/settings", upsertSystemSettingHandler);
 
