@@ -169,7 +169,10 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     }
   }, [copy.refreshError]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   async function handleSave(event: FormEvent) {
     event.preventDefault();
