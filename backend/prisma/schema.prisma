@@ -119,6 +119,7 @@ model Contest {
 
   @@index([status])
   @@index([startsAt])
+  @@index([language, status, startsAt])
   @@map("contests")
 }
 
