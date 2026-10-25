@@ -124,7 +124,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   async function handleSaveHypotheticalPool(event: FormEvent) {
     event.preventDefault();
     const amount = hypotheticalPoolAmount.trim();
-    if (!/^\\d{1,12}(\\.\\d{1,6})?$/.test(amount) || Number(amount) <= 0) {
+    if (!/^\d{1,12}(\.\d{1,6})?$/.test(amount) || Number(amount) <= 0) {
       setError(copy.invalidPool);
       return;
     }
