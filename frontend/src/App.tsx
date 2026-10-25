@@ -443,6 +443,22 @@ function App() {
   const [authStatus, setAuthStatus] = useState<"checking" | "authenticated" | "unauthenticated">(
     () => localStorage.getItem("walletFindToken") ? "checking" : "unauthenticated",
   );
+  const initialSavedUser = safelyReadSavedUser();
+  const initialIsAdmin = initialSavedUser?.role === "ADMIN";
+
+  const [page, setPage] = useState<Page>(() => {
+    const hasToken = Boolean(localStorage.getItem("walletFindToken"));
+    if (window.location.pathname === "/admin-setup") {
+      window.history.replaceState({}, "", initialIsAdmin && hasToken ? "/admin" : "/");
+      if (initialIsAdmin && hasToken) return "admin";
+    }
+    if (hasToken) return window.location.pathname === "/admin" ? "admin" : "competition";
+    // A browser with no saved session starts directly at registration.
+    return "auth";
+  });
+  const [authMode, setAuthMode] = useState<AuthMode>(() =>
+    localStorage.getItem("walletFindToken") ? "login" : "signup",
+  );
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -454,7 +470,7 @@ function App() {
     if (!token) {
       localStorage.removeItem("walletFindUser");
       setAuthStatus("unauthenticated");
-      setAuthModeSafeSignup();
+      setAuthMode("signup");
       return;
     }
 
@@ -478,18 +494,17 @@ function App() {
           localStorage.removeItem("walletFindToken");
           localStorage.removeItem("walletFindUser");
           setAuthStatus("unauthenticated");
-          setAuthModeSafeSignup();
+          setAuthMode("signup");
           setPage("auth");
           return;
         }
 
-        // Keep a previously confirmed local session during a temporary network/server failure.
-        const savedUser = safelyReadSavedUser();
-        if (savedUser) {
+        // Keep a previously confirmed local session during temporary network/server failures.
+        if (safelyReadSavedUser()) {
           setAuthStatus("authenticated");
         } else {
           setAuthStatus("unauthenticated");
-          setAuthModeSafeSignup();
+          setAuthMode("signup");
           setPage("auth");
         }
       });
@@ -497,26 +512,8 @@ function App() {
     return () => { cancelled = true; };
   }, []);
 
-  function setAuthModeSafeSignup() {
-    setAuthMode("signup");
-  }
-
   const savedUser = safelyReadSavedUser();
   const isAdmin = authStatus === "authenticated" && savedUser?.role === "ADMIN";
-
-  const [page, setPage] = useState<Page>(() => {
-    // Older sessions may still have /admin-setup in the address bar.
-    if (window.location.pathname === "/admin-setup") {
-      window.history.replaceState({}, "", isAdmin ? "/admin" : "/");
-      if (isAdmin) return "admin";
-    }
-    if (localStorage.getItem("walletFindToken")) return window.location.pathname === "/admin" ? "admin" : "competition";
-    // New devices and browsers start at registration, not in a half-authenticated home view.
-    return "auth";
-  });
-  const [authMode, setAuthMode] = useState<AuthMode>(() =>
-    localStorage.getItem("walletFindToken") ? "login" : "signup",
-  );
 
   function openAuth(mode: AuthMode) {
     setAuthMode(mode);
