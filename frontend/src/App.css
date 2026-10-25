@@ -1927,3 +1927,17 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 .global-sidebar .sidebar-home-tools .language-switcher button {
   white-space: nowrap;
 }
+
+
+/* Neon magnifying-glass mark for the Home page Today's Challenge card. */
+.home-challenge-card__bolt .home-challenge-card__magnifier {
+  display: block;
+  width: 36px;
+  height: 36px;
+  color: #62caff;
+  filter: drop-shadow(0 0 4px rgba(0, 170, 255, .46)) drop-shadow(0 0 9px rgba(0, 224, 208, .2));
+}
+.home-challenge-card__bolt .home-challenge-card__magnifier circle,
+.home-challenge-card__bolt .home-challenge-card__magnifier path {
+  vector-effect: non-scaling-stroke;
+}
