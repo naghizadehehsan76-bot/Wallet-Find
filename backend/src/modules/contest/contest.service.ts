@@ -134,7 +134,7 @@ export async function getActiveContest(language: "en" | "fa" = "en") {
       OR: [{ endsAt: null }, { endsAt: { gt: now } }],
     },
     orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }],
-    select: { id: true, title: true, description: true, status: true, startsAt: true, endsAt: true },
+    select: { id: true, title: true, description: true, status: true, language: true, startsAt: true, endsAt: true },
   });
   if (due) {
     await prisma.contest.update({ where: { id: due.id }, data: { status: "ACTIVE" } });
