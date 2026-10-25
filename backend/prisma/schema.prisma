@@ -99,6 +99,7 @@ model Contest {
   title       String
   description String?
   status      ContestStatus @default(DRAFT)
+  language    String        @default("en")
 
   startsAt DateTime?
   endsAt   DateTime?
