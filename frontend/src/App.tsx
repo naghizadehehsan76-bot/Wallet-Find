@@ -302,7 +302,6 @@ function ContestRulesPage({ onNavigate }: { onNavigate: (page: Page) => void }) 
     <div className="app-shell info-shell">
       <header className="topbar">
         <button className="brand brand--home" type="button" aria-label={t.navigation.home} onClick={() => onNavigate("home")}><span className="brand-wallet">Wallet</span><span className="brand-find">Find</span></button>
-        <div className="topbar-actions"><SharedLanguageSwitcher /></div>
       </header>
       <main className="page info-page challenge-rules-page">
         <button className="back-button" type="button" onClick={() => onNavigate("home")}>
