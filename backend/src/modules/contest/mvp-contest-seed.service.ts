@@ -74,7 +74,7 @@ function shuffle<T>(items: readonly T[]): T[] {
 }
 
 function getWordMatches(text: string, language: "en" | "fa" = "en"): WordMatch[] {
-  return Array.from(text.matchAll(language === "fa" ? /[\u0621-\u063A\u0641-\u064A\u067E\u0686\u0698\u06A9\u06AF\u06BE\u06CC]{3,16}/g : /\b[A-Za-z]{4,12}\b/g)).map((match) => ({
+  return Array.from(text.matchAll(language === "fa" ? /[\u0621-\u063A\u0641-\u064A\u067E\u0686\u0698\u06A9\u06AF\u06BE\u06CC\u200C]{3,16}/g : /\b[A-Za-z]{4,12}\b/g)).map((match) => ({
     word: match[0].toLowerCase(),
     raw: match[0],
     index: match.index ?? 0,
