@@ -546,7 +546,7 @@ function App() {
   let currentView: ReactNode;
 
   if (page === "auth") {
-    currentView = <AuthPage initialMode={authMode} onAuthenticated={handleAuthenticated} onBack={() => {
+    currentView = <AuthPage initialMode={authMode} onAuthenticated={handleAuthenticated} onOpenTerms={() => setPage("terms")} onBack={() => {
       if (!isLoggedIn) {
         setAuthMode("signup");
         setPage("auth");
@@ -561,13 +561,13 @@ function App() {
   } else if (page === "competition") {
     currentView = isLoggedIn
       ? <CompetitionPage onNavigate={setPage} />
-      : <AuthPage initialMode="signup" onAuthenticated={handleAuthenticated} onBack={() => setPage("auth")} />;
+      : <AuthPage initialMode="signup" onAuthenticated={handleAuthenticated} onOpenTerms={() => setPage("terms")} onBack={() => setPage("auth")} />;
   } else if (page === "leaderboard") {
     currentView = <LeaderboardPage onNavigate={setPage} />;
   } else if (page === "profile") {
     currentView = isLoggedIn
       ? <ProfilePage onNavigate={setPage} onLogout={handleLogout} />
-      : <AuthPage initialMode="signup" onAuthenticated={handleAuthenticated} onBack={() => setPage("auth")} />;
+      : <AuthPage initialMode="signup" onAuthenticated={handleAuthenticated} onOpenTerms={() => setPage("terms")} onBack={() => setPage("auth")} />;
   } else if (page === "key") {
     currentView = <KeyStagePage onNavigate={setPage} />;
   } else if (page === "rewards" || page === "help" || page === "terms") {
@@ -577,7 +577,7 @@ function App() {
   } else if (page === "wallet") {
     currentView = isLoggedIn
       ? <WalletPage onNavigate={setPage} />
-      : <AuthPage initialMode="signup" onAuthenticated={handleAuthenticated} onBack={() => setPage("auth")} />;
+      : <AuthPage initialMode="signup" onAuthenticated={handleAuthenticated} onOpenTerms={() => setPage("terms")} onBack={() => setPage("auth")} />;
   } else {
     currentView = <HomePage onNavigate={setPage} onAuth={openAuth} language={language} isLoggedIn={isLoggedIn} />;
   }
