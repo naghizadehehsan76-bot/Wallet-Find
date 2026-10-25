@@ -18,10 +18,10 @@ function BottomNav({ activePage, onNavigate }: BottomNavProps) {
   const { translation: t } = useI18n();
   const items: { page: Page; icon: string; label: string }[] = [
     { page: "home", icon: "⌂", label: t.navigation.home },
-    { page: "competition", icon: "◇", label: t.navigation.competition },
-    { page: "leaderboard", icon: "≡", label: t.navigation.leaderboard },
-    { page: "wallet", icon: "▱", label: t.navigation.wallet },
-    { page: "profile", icon: "○", label: t.navigation.profile },
+    { page: "competition", icon: "", label: t.navigation.competition },
+    { page: "leaderboard", icon: "🏆", label: t.navigation.leaderboard },
+    { page: "wallet", icon: "◈", label: t.navigation.wallet },
+    { page: "profile", icon: "◎", label: t.navigation.profile },
   ];
 
   return (
@@ -34,7 +34,16 @@ function BottomNav({ activePage, onNavigate }: BottomNavProps) {
           onClick={() => onNavigate(item.page)}
           aria-current={activePage === item.page ? "page" : undefined}
         >
-          <span className="nav-icon" aria-hidden="true">{item.icon}</span>
+          <span className={"nav-icon" + (item.page === "competition" ? " nav-icon--challenge" : item.page === "leaderboard" ? " nav-icon--leaderboard" : "")} aria-hidden="true">
+            {item.page === "competition" ? (
+              <svg className="nav-icon__key-svg" viewBox="0 0 24 24" fill="none">
+                <circle cx="8" cy="8" r="4.5" stroke="currentColor" strokeWidth="2.5" />
+                <path d="M11.3 11.3 20 20m-4-4 2.2-2.2m-.2 4.2 2.2-2.2" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            ) : item.page === "leaderboard" ? (
+              <span className="nav-icon__trophy">{item.icon}</span>
+            ) : item.icon}
+          </span>
           <span>{item.label}</span>
         </button>
       ))}
