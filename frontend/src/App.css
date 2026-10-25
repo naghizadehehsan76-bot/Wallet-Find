@@ -1829,3 +1829,22 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   color: #031526;
   filter: none;
 }
+
+
+/* Reuse the sidebar's neon Challenge key and blue Leaderboard trophy in bottom navigation. */
+.bottom-nav .nav-icon--challenge .nav-icon__key-svg {
+  display: block;
+  width: 21px;
+  height: 21px;
+  color: #62caff;
+  filter: drop-shadow(0 0 4px rgba(0, 170, 255, .42));
+}
+.bottom-nav .nav-item:hover .nav-icon--challenge .nav-icon__key-svg {
+  color: #75ffe9;
+  filter: drop-shadow(0 0 5px rgba(0, 224, 208, .52));
+}
+.bottom-nav .nav-icon--leaderboard .nav-icon__trophy {
+  display: inline-block;
+  line-height: 1;
+  filter: brightness(0) saturate(100%) invert(72%) sepia(55%) saturate(1500%) hue-rotate(170deg) brightness(102%) contrast(104%);
+}
