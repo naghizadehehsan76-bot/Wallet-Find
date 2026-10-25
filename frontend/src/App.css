@@ -1794,3 +1794,33 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   border-color: rgba(0, 224, 208, .58);
   background: rgba(0, 170, 255, .18);
 }
+
+
+/* Give Challenge and Leaderboard their own explicit theme styling in the global sidebar. */
+.global-sidebar .sidebar-link.sidebar-link--challenge,
+.global-sidebar .sidebar-link.sidebar-link--leaderboard {
+  color: #d9f5ff !important;
+  border: 1px solid rgba(0, 174, 255, .34) !important;
+  background: linear-gradient(110deg, rgba(0, 126, 255, .17), rgba(0, 224, 208, .09)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .025);
+}
+.global-sidebar .sidebar-link.sidebar-link--challenge > span:first-child,
+.global-sidebar .sidebar-link.sidebar-link--leaderboard > span:first-child {
+  color: #73e6ff !important;
+  border-color: rgba(0, 190, 255, .42) !important;
+  background: linear-gradient(145deg, rgba(0, 140, 255, .22), rgba(0, 224, 208, .10)) !important;
+}
+.global-sidebar .sidebar-link.sidebar-link--challenge:hover,
+.global-sidebar .sidebar-link.sidebar-link--leaderboard:hover {
+  color: #f2ffff !important;
+  border-color: rgba(0, 224, 208, .7) !important;
+  background: linear-gradient(110deg, rgba(0, 145, 255, .28), rgba(0, 224, 208, .17)) !important;
+  box-shadow: 0 0 18px rgba(0, 174, 255, .15);
+}
+.global-sidebar .sidebar-link.sidebar-link--challenge.sidebar-link--active,
+.global-sidebar .sidebar-link.sidebar-link--leaderboard.sidebar-link--active {
+  color: #f2ffff !important;
+  border-color: #00e0d0 !important;
+  background: linear-gradient(110deg, rgba(0, 145, 255, .34), rgba(0, 224, 208, .22)) !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 224, 208, .13), 0 0 20px rgba(0, 174, 255, .17);
+}
