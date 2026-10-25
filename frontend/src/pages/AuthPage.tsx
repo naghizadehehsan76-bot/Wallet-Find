@@ -66,7 +66,7 @@ function AuthPage({ onAuthenticated, onBack, onOpenTerms, initialMode = "login" 
           ‹ {t.auth.back}
         </button>
 
-        <h1 className="auth-title">{t.auth.welcome}</h1>
+        <h1 className="auth-title" dir={language === "fa" ? "rtl" : "ltr"}>{t.auth.welcome}</h1>
 
         <div className="auth-toggle">
           <button
