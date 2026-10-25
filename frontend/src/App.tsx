@@ -9,7 +9,7 @@ import AdminControlCenter from "./pages/AdminControlCenter";
 import WalletPage from "./pages/WalletPage";
 import { useI18n, type Language } from "./i18n";
 import SharedLanguageSwitcher from "./components/LanguageSwitcher";
-import { getActiveContest, getCurrentClue } from "./services/api";
+import { getActiveContest, getCurrentClue, getProfile } from "./services/api";
 import "./App.css";
 
 type AuthMode = "login" | "signup";
@@ -440,28 +440,80 @@ function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }
 
 function App() {
   const { language, isRTL } = useI18n();
+  const [authStatus, setAuthStatus] = useState<"checking" | "authenticated" | "unauthenticated">(
+    () => localStorage.getItem("walletFindToken") ? "checking" : "unauthenticated",
+  );
+  const initialSavedUser = safelyReadSavedUser();
+  const initialIsAdmin = initialSavedUser?.role === "ADMIN";
+
+  const [page, setPage] = useState<Page>(() => {
+    const hasToken = Boolean(localStorage.getItem("walletFindToken"));
+    if (window.location.pathname === "/admin-setup") {
+      window.history.replaceState({}, "", initialIsAdmin && hasToken ? "/admin" : "/");
+      if (initialIsAdmin && hasToken) return "admin";
+    }
+    if (hasToken) return window.location.pathname === "/admin" ? "admin" : "competition";
+    // A browser with no saved session starts directly at registration.
+    return "auth";
+  });
+  const [authMode, setAuthMode] = useState<AuthMode>(() =>
+    localStorage.getItem("walletFindToken") ? "login" : "signup",
+  );
 
   useEffect(() => {
     document.documentElement.lang = language;
     document.documentElement.dir = isRTL ? "rtl" : "ltr";
   }, [language, isRTL]);
 
-  const savedUser = localStorage.getItem("walletFindUser");
-  const savedRole = savedUser ? (JSON.parse(savedUser) as { role?: string }).role : undefined;
-  const isAdmin = savedRole === "ADMIN";
-
-  const [page, setPage] = useState<Page>(() => {
-    // Older sessions may still have /admin-setup in the address bar even
-    // though the administrator account has already been created.
-    if (window.location.pathname === "/admin-setup") {
-      window.history.replaceState({}, "", isAdmin ? "/admin" : "/");
-      if (isAdmin) return "admin";
-      return localStorage.getItem("walletFindToken") ? "competition" : "home";
+  useEffect(() => {
+    const token = localStorage.getItem("walletFindToken");
+    if (!token) {
+      localStorage.removeItem("walletFindUser");
+      setAuthStatus("unauthenticated");
+      setAuthMode("signup");
+      return;
     }
-    if (window.location.pathname === "/admin") return "admin";
-    return localStorage.getItem("walletFindToken") ? "competition" : "home";
-  });
-  const [authMode, setAuthMode] = useState<AuthMode>("login");
+
+    let cancelled = false;
+    getProfile()
+      .then((profile) => {
+        if (cancelled) return;
+        localStorage.setItem("walletFindUser", JSON.stringify({
+          id: profile.id,
+          email: profile.email,
+          username: profile.username,
+          role: profile.role,
+          createdAt: profile.createdAt,
+        }));
+        setAuthStatus("authenticated");
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        const message = error instanceof Error ? error.message : "";
+        if (message === "AUTHENTICATION_REQUIRED" || message === "USER_NOT_FOUND") {
+          localStorage.removeItem("walletFindToken");
+          localStorage.removeItem("walletFindUser");
+          setAuthStatus("unauthenticated");
+          setAuthMode("signup");
+          setPage("auth");
+          return;
+        }
+
+        // Keep a previously confirmed local session during temporary network/server failures.
+        if (safelyReadSavedUser()) {
+          setAuthStatus("authenticated");
+        } else {
+          setAuthStatus("unauthenticated");
+          setAuthMode("signup");
+          setPage("auth");
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, []);
+
+  const savedUser = safelyReadSavedUser();
+  const isAdmin = authStatus === "authenticated" && savedUser?.role === "ADMIN";
 
   function openAuth(mode: AuthMode) {
     setAuthMode(mode);
@@ -470,30 +522,52 @@ function App() {
 
   function handleAuthenticated(token: string) {
     localStorage.setItem("walletFindToken", token);
+    setAuthStatus("authenticated");
     setPage("competition");
   }
 
   function handleLogout() {
     localStorage.removeItem("walletFindToken");
     localStorage.removeItem("walletFindUser");
-    setPage("home");
+    setAuthStatus("unauthenticated");
+    setAuthMode("signup");
+    setPage("auth");
   }
 
-  const isLoggedIn = Boolean(localStorage.getItem("walletFindToken"));
+  const isLoggedIn = authStatus === "authenticated";
+  if (authStatus === "checking") {
+    return (
+      <div className="app-shell session-checking" role="status" aria-live="polite">
+        {language === "fa" ? "در حال بررسی وضعیت ورود..." : "Checking your session..."}
+      </div>
+    );
+  }
+
   let currentView: ReactNode;
 
   if (page === "auth") {
-    currentView = <AuthPage initialMode={authMode} onAuthenticated={handleAuthenticated} onBack={() => setPage("home")} />;
+    currentView = <AuthPage initialMode={authMode} onAuthenticated={handleAuthenticated} onBack={() => {
+      if (!isLoggedIn) {
+        setAuthMode("signup");
+        setPage("auth");
+      } else {
+        setPage("home");
+      }
+    }} />;
   } else if (page === "admin" && isAdmin) {
     currentView = <AdminControlCenter onNavigate={setPage} />;
   } else if (page === "admin-manage" && isAdmin) {
     currentView = <AdminPage onNavigate={setPage} />;
   } else if (page === "competition") {
-    currentView = <CompetitionPage onNavigate={setPage} />;
+    currentView = isLoggedIn
+      ? <CompetitionPage onNavigate={setPage} />
+      : <AuthPage initialMode="signup" onAuthenticated={handleAuthenticated} onBack={() => setPage("auth")} />;
   } else if (page === "leaderboard") {
     currentView = <LeaderboardPage onNavigate={setPage} />;
   } else if (page === "profile") {
-    currentView = <ProfilePage onNavigate={setPage} onLogout={handleLogout} />;
+    currentView = isLoggedIn
+      ? <ProfilePage onNavigate={setPage} onLogout={handleLogout} />
+      : <AuthPage initialMode="signup" onAuthenticated={handleAuthenticated} onBack={() => setPage("auth")} />;
   } else if (page === "key") {
     currentView = <KeyStagePage onNavigate={setPage} />;
   } else if (page === "rewards" || page === "help" || page === "terms") {
@@ -501,7 +575,9 @@ function App() {
   } else if (page === "rules") {
     currentView = <ContestRulesPage onNavigate={setPage} />;
   } else if (page === "wallet") {
-    currentView = isLoggedIn ? <WalletPage onNavigate={setPage} /> : <AuthPage initialMode="login" onAuthenticated={handleAuthenticated} onBack={() => setPage("home")} />;
+    currentView = isLoggedIn
+      ? <WalletPage onNavigate={setPage} />
+      : <AuthPage initialMode="signup" onAuthenticated={handleAuthenticated} onBack={() => setPage("auth")} />;
   } else {
     currentView = <HomePage onNavigate={setPage} onAuth={openAuth} language={language} isLoggedIn={isLoggedIn} />;
   }
@@ -511,13 +587,30 @@ function App() {
       <GlobalSidebar
         currentPage={page}
         isLoggedIn={isLoggedIn}
-        onNavigate={setPage}
+        onNavigate={(nextPage) => {
+          if (!isLoggedIn && ["competition", "profile", "wallet", "key"].includes(nextPage)) {
+            setAuthMode("signup");
+            setPage("auth");
+            return;
+          }
+          setPage(nextPage);
+        }}
         onAuth={openAuth}
         onLogout={handleLogout}
       />
       {currentView}
     </>
   );
+}
+
+function safelyReadSavedUser(): { id?: string; email?: string; username?: string; role?: string; createdAt?: string } | null {
+  try {
+    const raw = localStorage.getItem("walletFindUser");
+    return raw ? JSON.parse(raw) as { id?: string; email?: string; username?: string; role?: string; createdAt?: string } : null;
+  } catch {
+    localStorage.removeItem("walletFindUser");
+    return null;
+  }
 }
 
 function BottomNavShim({ activePage, onNavigate }: { activePage: Page; onNavigate: (page: Page) => void }) {
