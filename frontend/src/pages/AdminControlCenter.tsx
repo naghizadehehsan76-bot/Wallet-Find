@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useI18n } from "../i18n";
-import LanguageSwitcher from "../components/LanguageSwitcher";
 import {
   getAdminAuditLogs,
   getAdminOverview,
@@ -197,7 +196,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
           <span className="brand-dot" />
           <span>Wallet Find <small>{fa ? "مدیریت" : "ADMIN"}</small></span>
         </button>
-        <div className="topbar-actions"><LanguageSwitcher /></div>
       </header>
       <main className="page admin-center">
         <div className="admin-center__heading">
