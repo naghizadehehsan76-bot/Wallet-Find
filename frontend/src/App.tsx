@@ -372,7 +372,7 @@ function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }
               onClick={() => navigateTo(item.page)}
               aria-current={currentPage === item.page ? "page" : undefined}
             >
-              <span className={"sidebar-link__icon" + (item.page === "competition" ? " sidebar-link__icon--challenge" : item.page === "leaderboard" ? " sidebar-link__icon--leaderboard" : "")} aria-hidden="true"><span className="sidebar-link__glyph">{item.icon}</span></span><span>{item.label}</span>
+              <span className={"sidebar-link__icon" + (item.page === "competition" ? " sidebar-link__icon--challenge" : item.page === "leaderboard" ? " sidebar-link__icon--leaderboard" : "")} aria-hidden="true">{item.page === "competition" ? <svg className="sidebar-link__key-svg" viewBox="0 0 24 24" fill="none"><circle cx="8" cy="8" r="4.5" stroke="currentColor" strokeWidth="2.5"/><path d="M11.3 11.3 20 20m-4-4 2.2-2.2m-.2 4.2 2.2-2.2" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg> : <span className="sidebar-link__glyph">{item.icon}</span>}</span><span>{item.label}</span>
             </button>
           ))}
         </nav>
