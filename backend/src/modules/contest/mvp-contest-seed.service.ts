@@ -784,7 +784,7 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
   // required a prior ACTIVE/FINISHED round, so a fresh/empty database could
   // never create its first contest and /contests/active returned 404 forever.
   try {
-    const clues = await generateMvpRounds();
+    const clues = await generateMvpRounds(language);
     const intervalMs = 15 * 60_000;
     const nextBoundary = Math.ceil(now.getTime() / intervalMs) * intervalMs;
     const previousBoundary = previous?.startsAt
