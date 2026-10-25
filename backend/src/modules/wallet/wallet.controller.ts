@@ -24,3 +24,13 @@ export async function requestWithdrawalHandler(req: AuthenticatedRequest, res: R
   const id = getUserId(req, res); if (!id) return;
   try { return res.status(201).json({ success: true, data: await requestWalletWithdrawal(id, req.body?.amount) }); } catch (error) { return sendError(res, error); }
 }
+
+export async function getAdminWalletsHandler(_req: AuthenticatedRequest, res: Response) {
+  try {
+    const { getAdminWallets } = await import("./wallet.service.js");
+    return res.json({ success: true, data: await getAdminWallets() });
+  } catch (error) {
+    console.error("Admin wallet listing failed", error);
+    return res.status(500).json({ success: false, error: "INTERNAL_SERVER_ERROR" });
+  }
+}
