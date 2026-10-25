@@ -5,17 +5,19 @@ import LanguageSwitcher from "../components/LanguageSwitcher";
 import {
   getAdminAuditLogs,
   getAdminOverview,
+  getAdminWallets,
   getSystemSettings,
   saveSystemSetting,
   type AdminAuditLog,
   type AdminOverview,
+  type AdminWalletSummary,
   type SystemSettingRecord,
 } from "../services/api";
 
 type AdminDestination = "home" | "admin-manage";
 
 type Props = { onNavigate: (page: AdminDestination) => void };
-type Section = "overview" | "settings" | "audit";
+type Section = "overview" | "wallets" | "settings" | "audit";
 
 export default function AdminControlCenter({ onNavigate }: Props) {
   const { language } = useI18n();
@@ -23,6 +25,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [section, setSection] = useState<Section>("overview");
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [settings, setSettings] = useState<SystemSettingRecord[]>([]);
+  const [wallets, setWallets] = useState<AdminWalletSummary[]>([]);
   const [logs, setLogs] = useState<AdminAuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -37,6 +40,13 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     subtitle: fa ? "مدیریت مرکزی سایت، تنظیمات و رویدادهای مدیریتی" : "Central administration for site settings and operational activity",
     overview: fa ? "نمای کلی" : "Overview",
     settings: fa ? "تنظیمات سایت" : "Site settings",
+    wallets: fa ? "کیف پول کاربران" : "User wallets",
+    walletBalance: fa ? "موجودی آزمایشی" : "Simulated balance",
+    walletAvailable: fa ? "موجودی قابل برداشت" : "Available balance",
+    pendingDeposits: fa ? "واریزهای در انتظار" : "Pending deposits",
+    pendingWithdrawals: fa ? "برداشت‌های در انتظار" : "Pending withdrawals",
+    noWallets: fa ? "کاربری برای نمایش وجود ندارد." : "No users to display.",
+    walletNote: fa ? "این فهرست فقط دفترکل آزمایشی را نشان می‌دهد؛ پرداخت واقعی انجام نمی‌شود." : "This list shows simulated ledger balances only; no real payments are made.",
     audit: fa ? "گزارش فعالیت‌ها" : "Activity log",
     challenge: fa ? "مدیریت چالش‌ها" : "Challenge management",
     users: fa ? "کاربران" : "Users",
@@ -80,15 +90,17 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     setLoading(true);
     setError("");
     try {
-      const [stats, settingRows, auditRows] = await Promise.all([
+      const [stats, settingRows, auditRows, walletRows] = await Promise.all([
         getAdminOverview(),
         getSystemSettings(),
         getAdminAuditLogs(),
+        getAdminWallets(),
       ]);
       setOverview(stats);
       setSettings(settingRows);
       setHypotheticalPoolAmount(settingRows.find((setting) => setting.key === "hypothetical_prize_pool_per_round")?.value ?? "100");
       setLogs(auditRows);
+      setWallets(walletRows);
     } catch {
       setError(copy.refreshError);
     } finally {
@@ -188,7 +200,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
         </div>
 
         <nav className="admin-center__tabs" aria-label={copy.title}>
-          {(["overview", "settings", "audit"] as Section[]).map((item) => (
+          {(["overview", "wallets", "settings", "audit"] as Section[]).map((item) => (
             <button key={item} type="button" className={section === item ? "is-active" : ""} onClick={() => setSection(item)}>
               {copy[item]}
             </button>
@@ -230,6 +242,28 @@ export default function AdminControlCenter({ onNavigate }: Props) {
             </section>
             {overview?.generatedAt && <p className="admin-footnote">{fa ? "آخرین بروزرسانی: " : "Last refreshed: "}{new Date(overview.generatedAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</p>}
           </>
+        )}
+
+        {section === "wallets" && (
+          <section className="admin-panel">
+            <h2>{copy.wallets}</h2>
+            <p className="admin-footnote">{copy.walletNote}</p>
+            {wallets.length === 0 ? <p className="admin-empty">{copy.noWallets}</p> : (
+              <div className="admin-settings-list">
+                {wallets.map((wallet) => (
+                  <article className="admin-setting-row admin-wallet-row" key={wallet.userId}>
+                    <div>
+                      <strong>{wallet.username}</strong>
+                      <small>{wallet.email}</small>
+                      <code>{copy.walletBalance}: {Number(wallet.balance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</code>
+                      <code>{copy.walletAvailable}: {Number(wallet.availableBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</code>
+                      <small>{copy.pendingDeposits}: {wallet.pendingDepositRequests} · {copy.pendingWithdrawals}: {wallet.pendingWithdrawalRequests}</small>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
         )}
 
         {section === "settings" && (
