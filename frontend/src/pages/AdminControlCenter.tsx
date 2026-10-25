@@ -5,11 +5,13 @@ import {
   getAdminAuditLogs,
   getAdminOverview,
   getAdminWallets,
+  getAdminUsers,
   getSystemSettings,
   saveSystemSetting,
   type AdminAuditLog,
   type AdminOverview,
   type AdminWalletSummary,
+  type AdminUserSummary,
   type SystemSettingRecord,
 } from "../services/api";
 
@@ -18,6 +20,15 @@ type AdminDestination = "home" | "admin-manage";
 type Props = { onNavigate: (page: AdminDestination) => void };
 type Section = "overview" | "users" | "finance" | "prizes" | "ads" | "security" | "support" | "wallets" | "settings" | "audit";
 
+function formatDuration(milliseconds: number, fa: boolean): string {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const result = [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
+  return fa ? result.replace(/[0-9]/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"[Number(digit)]) : result;
+}
+
 export default function AdminControlCenter({ onNavigate }: Props) {
   const { language } = useI18n();
   const fa = language === "fa";
@@ -25,6 +36,8 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [settings, setSettings] = useState<SystemSettingRecord[]>([]);
   const [wallets, setWallets] = useState<AdminWalletSummary[]>([]);
+  const [users, setUsers] = useState<AdminUserSummary[]>([]);
+  const [userSearch, setUserSearch] = useState("");
   const [logs, setLogs] = useState<AdminAuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -54,6 +67,15 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     walletNote: fa ? "این فهرست فقط دفترکل آزمایشی را نشان می‌دهد؛ پرداخت واقعی انجام نمی‌شود." : "This list shows simulated ledger balances only; no real payments are made.",
     audit: fa ? "گزارش فعالیت‌ها" : "Activity log",
     users: fa ? "کاربران" : "Users",
+    userEmail: fa ? "ایمیل" : "Email",
+    userCreated: fa ? "تاریخ ساخت حساب" : "Account created",
+    userBalance: fa ? "موجودی کیف پول" : "Wallet balance",
+    userParticipation: fa ? "تعداد چالش‌های شرکت‌شده" : "Challenges joined",
+    userCompleted: fa ? "دورهای تکمیل‌شده" : "Rounds completed",
+    userBestTime: fa ? "بهترین زمان تکمیل دور" : "Best round completion time",
+    userSearchPlaceholder: fa ? "جست‌وجو با ایمیل یا نام کاربری…" : "Search by email or username…",
+    noMatchingUsers: fa ? "کاربری با این مشخصات پیدا نشد." : "No users match this search.",
+    notAvailable: fa ? "ثبت نشده" : "Not recorded",
     contests: fa ? "چالش‌های ثبت‌شده" : "Challenges",
     active: fa ? "چالش فعال" : "Active challenges",
     submissions: fa ? "پاسخ‌های ثبت‌شده" : "Answer submissions",
@@ -99,17 +121,19 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     setLoading(true);
     setError("");
     try {
-      const [stats, settingRows, auditRows, walletRows] = await Promise.all([
+      const [stats, settingRows, auditRows, walletRows, userRows] = await Promise.all([
         getAdminOverview(),
         getSystemSettings(),
         getAdminAuditLogs(),
         getAdminWallets(),
+        getAdminUsers(),
       ]);
       setOverview(stats);
       setSettings(settingRows);
       setHypotheticalPoolAmount(settingRows.find((setting) => setting.key === "hypothetical_prize_pool_per_round")?.value ?? "100");
       setLogs(auditRows);
       setWallets(walletRows);
+      setUsers(userRows);
     } catch {
       setError(copy.refreshError);
     } finally {
@@ -260,10 +284,34 @@ export default function AdminControlCenter({ onNavigate }: Props) {
           </>
         )}
 
-        {(["users", "finance", "prizes", "ads", "security", "support"] as Section[]).includes(section) && (
+        {section === "users" && (
+          <section className="admin-panel">
+            <h2>{copy.usersTab} ({users.length.toLocaleString(fa ? "fa-IR" : "en-US")})</h2>
+            <input className="admin-user-search" type="search" value={userSearch} onChange={(event) => setUserSearch(event.target.value)} placeholder={copy.userSearchPlaceholder} aria-label={copy.userSearchPlaceholder} />
+            {users.filter((user) => { const query = userSearch.trim().toLocaleLowerCase(); return !query || user.email.toLocaleLowerCase().includes(query) || user.username.toLocaleLowerCase().includes(query); }).length === 0 ? <p className="admin-empty">{copy.noMatchingUsers}</p> : (
+              <div className="admin-settings-list">
+                {users.filter((user) => { const query = userSearch.trim().toLocaleLowerCase(); return !query || user.email.toLocaleLowerCase().includes(query) || user.username.toLocaleLowerCase().includes(query); }).map((user) => (
+                  <article className="admin-setting-row admin-user-row" key={user.id}>
+                    <div className="admin-user-row__details">
+                      <strong>{user.username} <small>({user.role})</small></strong>
+                      <small>{copy.userEmail}: {user.email}</small>
+                      <small>{copy.userCreated}: {new Date(user.createdAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>
+                      <small>{copy.userBalance}: {Number(user.walletBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</small>
+                      <small>{copy.walletAvailable}: {Number(user.availableBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</small>
+                      <small>{copy.userParticipation}: {user.contestsParticipated.toLocaleString(fa ? "fa-IR" : "en-US")}</small>
+                      <small>{copy.userCompleted}: {user.completedContests.toLocaleString(fa ? "fa-IR" : "en-US")}</small>
+                      <small>{copy.userBestTime}: {user.bestCompletionTimeMs === null ? copy.notAvailable : formatDuration(user.bestCompletionTimeMs, fa)}</small>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {(["finance", "prizes", "ads", "security", "support"] as Section[]).includes(section) && (
           <section className="admin-panel">
             <h2>{({
-              users: copy.usersTab,
               finance: copy.finance,
               prizes: copy.prizes,
               ads: copy.ads,
@@ -272,7 +320,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
             } as Record<string, string>)[section]}</h2>
             <p>{copy.conceptTitle}</p>
             <p className="admin-footnote">{({
-              users: copy.usersBody,
               finance: copy.financeBody,
               prizes: copy.prizesBody,
               ads: copy.adsBody,
