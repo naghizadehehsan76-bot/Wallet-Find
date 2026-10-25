@@ -85,6 +85,7 @@ model User {
   advertiserContent   AdvertiserContent[]
   advertisementOrders AdvertisementOrder[]
   auditLogs           AuditLog[]
+  walletTransactions  WalletTransaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -436,4 +437,23 @@ model PrizeAward {
   @@unique([contestId, userId])
   @@index([contestId, rank])
   @@map("prize_awards")
+}
+
+model WalletTransaction {
+  id           String   @id @default(cuid())
+  userId       String
+  type         String
+  status       String   @default("COMPLETED")
+  amountMicro  BigInt
+  currency     String   @default("USDT")
+  note         String
+  referenceKey String?  @unique
+  contestId    String?
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([userId, status, type])
+  @@map("wallet_transactions")
 }
