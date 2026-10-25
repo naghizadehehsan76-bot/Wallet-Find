@@ -22,6 +22,9 @@ type Section = "overview" | "users" | "finance" | "prizes" | "ads" | "security" 
 
 const DEFAULT_EN_SOURCES = ["https://en.wikipedia.org/w/api.php", "https://www.gutenberg.org/cache/epub/11/pg11.txt", "https://www.gutenberg.org/cache/epub/1342/pg1342.txt", "https://www.gutenberg.org/cache/epub/84/pg84.txt", "https://www.gutenberg.org/cache/epub/1661/pg1661.txt", "https://en.wikipedia.org/wiki/Artificial_intelligence", "https://en.wikipedia.org/wiki/Paris", "https://en.wikipedia.org/wiki/Albert_Einstein", "https://en.wikipedia.org/wiki/History_of_science"];
 const DEFAULT_FA_SOURCES = ["https://fa.wikipedia.org/w/api.php", "https://fa.wikipedia.org/wiki/ایران", "https://fa.wikipedia.org/wiki/تهران", "https://fa.wikipedia.org/wiki/فردوسی", "https://fa.wikipedia.org/wiki/شاهنامه", "https://fa.wikipedia.org/wiki/هوش_مصنوعی"];
+function sourceHostname(value: string): string {
+  try { return new URL(value).hostname; } catch { return value; }
+}
 function parseSourceUrls(value: string | undefined, fallback: string[]): string[] {
   if (!value) return [...fallback];
   try {
@@ -387,7 +390,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                   <div className="admin-settings-list">
                     {sourceGroup.urls.map((url) => (
                       <article className="admin-setting-row" key={url}>
-                        <div><strong>{new URL(url).hostname}</strong><code>{url}</code></div>
+                        <div><strong>{sourceHostname(url)}</strong><code>{url}</code></div>
                         <button type="button" onClick={() => sourceGroup.setUrls((current) => current.filter((item) => item !== url))} disabled={saving}>{copy.removeSource}</button>
                       </article>
                     ))}
