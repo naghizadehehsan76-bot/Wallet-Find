@@ -1,6 +1,6 @@
 import prisma from "../../config/prisma.js";
 import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
-import { ensureScheduledMvpContest } from "./mvp-contest-seed.service.js";
+import { ensureMvpActiveContest, ensureScheduledMvpContest } from "./mvp-contest-seed.service.js";
 import { settlePrizePool } from "./prize-pool.service.js";
 
 /**
@@ -11,7 +11,7 @@ import { settlePrizePool } from "./prize-pool.service.js";
 export async function runContestScheduler(now = new Date()) {
   const scheduled = await prisma.contest.findMany({
     where: { status: "SCHEDULED" },
-    select: { id: true, startsAt: true, endsAt: true },
+    select: { id: true, language: true, startsAt: true, endsAt: true },
   });
 
   for (const contest of scheduled) {
@@ -32,6 +32,7 @@ export async function runContestScheduler(now = new Date()) {
     const anotherActive = await prisma.contest.findFirst({
       where: {
         status: "ACTIVE",
+        language: contest.language,
         id: { not: contest.id },
         OR: [{ endsAt: null }, { endsAt: { gt: now } }],
       },
@@ -97,11 +98,21 @@ export async function runContestScheduler(now = new Date()) {
     }
   }
 
-  const nextRound = await ensureScheduledMvpContest(now);
+  const nextRound = await ensureScheduledMvpContest(now, "en");
+  let persianActiveReady = false;
+  try {
+    await ensureMvpActiveContest("fa");
+    persianActiveReady = true;
+  } catch (error) {
+    console.warn("Persian active challenge could not be initialized; scheduler will retry.", error);
+  }
+  const nextPersianRound = await ensureScheduledMvpContest(now, "fa");
   return {
     scheduledChecked: scheduled.length,
     settlementsChecked: awaitingSettlement.length,
     nextRound,
+    nextPersianRound,
+    persianActiveReady,
     now: now.toISOString(),
   };
 }

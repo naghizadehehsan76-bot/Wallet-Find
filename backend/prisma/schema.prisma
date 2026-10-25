@@ -99,6 +99,7 @@ model Contest {
   title       String
   description String?
   status      ContestStatus @default(DRAFT)
+  language    String        @default("en")
 
   startsAt DateTime?
   endsAt   DateTime?
@@ -118,6 +119,7 @@ model Contest {
 
   @@index([status])
   @@index([startsAt])
+  @@index([language, status, startsAt])
   @@map("contests")
 }
 

@@ -122,10 +122,11 @@ export async function getActiveContestHandler(
     });
   }
 
+  const language = req.query.language === "fa" ? "fa" : "en";
   try {
     let contest;
     try {
-      contest = await getActiveContest();
+      contest = await getActiveContest(language);
     } catch (error) {
       if (!isError(error) || error.message !== "ACTIVE_CONTEST_NOT_FOUND") {
         throw error;
@@ -135,8 +136,8 @@ export async function getActiveContestHandler(
       // after a failed server-start seed or an empty initial database).
       // If generation fails, preserve a clear server error and log its cause.
       try {
-        await ensureMvpActiveContest();
-        contest = await getActiveContest();
+        await ensureMvpActiveContest(language);
+        contest = await getActiveContest(language);
       } catch (recoveryError) {
         console.error("No active contest found; automatic recovery failed.", recoveryError);
         return res.status(503).json({

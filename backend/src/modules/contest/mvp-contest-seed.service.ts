@@ -73,8 +73,8 @@ function shuffle<T>(items: readonly T[]): T[] {
   return result;
 }
 
-function getWordMatches(text: string): WordMatch[] {
-  return Array.from(text.matchAll(/\b[A-Za-z]{4,12}\b/g)).map((match) => ({
+function getWordMatches(text: string, language: "en" | "fa" = "en"): WordMatch[] {
+  return Array.from(text.matchAll(language === "fa" ? /[\u0621-\u063A\u0641-\u064A\u067E\u0686\u0698\u06A9\u06AF\u06BE\u06CC\u200C]{3,16}/g : /\b[A-Za-z]{4,12}\b/g)).map((match) => ({
     word: match[0].toLowerCase(),
     raw: match[0],
     index: match.index ?? 0,
@@ -90,16 +90,17 @@ function getOptions(corpusWords: readonly string[], answer: string): string[] {
   return shuffle([answer, ...shuffle(candidates).slice(0, 11)]);
 }
 
-async function fetchWikipediaDocuments(limit: number): Promise<SourceDocument[]> {
+async function fetchWikipediaDocuments(limit: number, language: "en" | "fa" = "en"): Promise<SourceDocument[]> {
   // Use at most two API requests (random titles + one batch extract). Never
   // fan out into individual article requests when Wikipedia rate-limits us.
-  const apiUrl = new URL("https://en.wikipedia.org/w/api.php");
+  const wikiDomain = language === "fa" ? "fa.wikipedia.org" : "en.wikipedia.org";
+  const apiUrl = new URL(`https://${wikiDomain}/w/api.php`);
   apiUrl.searchParams.set("action", "query");
   apiUrl.searchParams.set("format", "json");
   apiUrl.searchParams.set("list", "random");
   apiUrl.searchParams.set("rnnamespace", "0");
   apiUrl.searchParams.set("rnlimit", String(Math.min(limit, 12)));
-  const headers = { "User-Agent": "WalletFind/1.0 (English word-round generator)" };
+  const headers = { "User-Agent": `WalletFind/1.0 (${language === "fa" ? "Persian" : "English"} word-round generator)` };
 
   try {
     const randomResponse = await fetch(apiUrl, {
@@ -127,7 +128,7 @@ async function fetchWikipediaDocuments(limit: number): Promise<SourceDocument[]>
     )];
     if (titles.length === 0) return [];
 
-    const extractUrl = new URL("https://en.wikipedia.org/w/api.php");
+    const extractUrl = new URL(`https://${wikiDomain}/w/api.php`);
     extractUrl.searchParams.set("action", "query");
     extractUrl.searchParams.set("format", "json");
     extractUrl.searchParams.set("titles", titles.join("|"));
@@ -162,7 +163,7 @@ async function fetchWikipediaDocuments(limit: number): Promise<SourceDocument[]>
         return {
           title,
           url: page.fullurl
-            ?? "https://en.wikipedia.org/wiki/" + encodeURIComponent(title.replace(/ /g, "_")),
+            ?? `https://${wikiDomain}/wiki/` + encodeURIComponent(title.replace(/ /g, "_")),
           text: page.extract ?? "",
         };
       });
@@ -187,11 +188,12 @@ function buildRoundFromSource(
   source: SourceDocument,
   usedAnswers: ReadonlySet<string>,
   optionWords: readonly string[],
+  language: "en" | "fa" = "en",
 ): GeneratedRound | null {
   let analysis = sourceAnalysisCache.get(source);
   if (!analysis) {
     analysis = {
-      matches: getWordMatches(source.text),
+      matches: getWordMatches(source.text, language),
       normalizedSource: source.text.replace(/\s+/g, " ").trim().toLowerCase(),
     };
     sourceAnalysisCache.set(source, analysis);
@@ -205,8 +207,8 @@ function buildRoundFromSource(
   for (const index of candidateIndexes) {
     const match = matches[index];
     if (!match) continue;
-    if (COMMON_WORDS.has(match.word) || usedAnswers.has(match.word)) continue;
-    if (match.raw[0] !== match.raw[0]?.toLowerCase()) continue;
+    if ((language === "en" && COMMON_WORDS.has(match.word)) || usedAnswers.has(match.word)) continue;
+    if (language === "en" && match.raw[0] !== match.raw[0]?.toLowerCase()) continue;
 
     const options = getOptions(optionWords, match.word);
     if (options.length !== 12) continue;
@@ -239,7 +241,7 @@ function buildRoundFromSource(
     if (!anchor) continue;
 
     return {
-      content: "Find the English word immediately after the phrase shown in the hint.",
+      content: language === "fa" ? "واژهٔ فارسیِ بلافاصله پس از عبارت نمایش‌داده‌شده در سرنخ را پیدا کن." : "Find the English word immediately after the phrase shown in the hint.",
       correctAnswer: match.word,
       sourceUrl: source.url,
       hintAnchor: anchor,
@@ -293,75 +295,103 @@ async function fetchGutenbergDocument(book: {
   }
 }
 
+async function fetchConfiguredWebDocument(url: string): Promise<SourceDocument | null> {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") return null;
+    const response = await fetch(parsed, { headers: { "User-Agent": "WalletFind/1.0 (public webpage clue generator)" }, signal: AbortSignal.timeout(8_000) });
+    if (!response.ok) return null;
+    const contentType = response.headers.get("content-type") ?? "";
+    let text = await response.text();
+    if (contentType.includes("html") || /<html|<body|<p[ >]/i.test(text.slice(0, 2000))) {
+      text = text.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ")
+        .replace(/<[^>]+>/g, " ").replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&")
+        .replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'").replace(/\s+/g, " ");
+    }
+    return text.length >= 500 ? { title: parsed.hostname, url: parsed.toString(), text } : null;
+  } catch (error) {
+    console.warn("Configured clue source unavailable", { url, error: error instanceof Error ? error.message : String(error) });
+    return null;
+  }
+}
+
+async function getConfiguredSourceUrls(language: "en" | "fa"): Promise<string[]> {
+  const defaults = language === "fa" ? [
+    "https://fa.wikipedia.org/w/api.php",
+    "https://fa.wikipedia.org/wiki/ایران", "https://fa.wikipedia.org/wiki/تهران",
+    "https://fa.wikipedia.org/wiki/فردوسی", "https://fa.wikipedia.org/wiki/شاهنامه",
+    "https://fa.wikipedia.org/wiki/هوش_مصنوعی",
+  ] : [
+    "https://en.wikipedia.org/w/api.php", ...GUTENBERG_BOOKS.map((book) => book.textUrl),
+    "https://en.wikipedia.org/wiki/Artificial_intelligence", "https://en.wikipedia.org/wiki/Paris",
+    "https://en.wikipedia.org/wiki/Albert_Einstein", "https://en.wikipedia.org/wiki/History_of_science",
+  ];
+  const setting = await prisma.systemSetting.findUnique({ where: { key: `clue_sources_${language}` }, select: { value: true } });
+  if (!setting) return defaults;
+  try {
+    const parsed: unknown = JSON.parse(setting.value);
+    if (!Array.isArray(parsed)) return defaults;
+    return [...new Set(parsed.filter((url): url is string => typeof url === "string")
+      .map((url) => url.trim()).filter((url) => url.startsWith("https://") && url.length <= 500))];
+  } catch { return defaults; }
+}
+
 /**
  * Generate each round from live English-language source text.
  * Wikipedia provides current article text; Project Gutenberg supplies
  * public-domain book text from a second domain. Curated clues keep the MVP
  * playable if either external source is temporarily unavailable.
  */
-async function generateMvpRounds(): Promise<GeneratedRound[]> {
-  // Render logs showed persistent Wikipedia HTTP 429 rate limits. The former
-  // fallback could make dozens of requests during cold start, so Wikipedia is
-  // now optional and strictly limited; public-domain books remain the fallback.
-  const [wikipediaDocuments, gutenbergResults] = await Promise.all([
-    fetchWikipediaDocuments(12),
-    Promise.all(GUTENBERG_BOOKS.map((book) => fetchGutenbergDocument(book))),
-  ]);
+async function generateMvpRounds(language: "en" | "fa" = "en"): Promise<GeneratedRound[]> {
+  const configuredUrls = await getConfiguredSourceUrls(language);
+  const wikiUrl = `https://${language === "fa" ? "fa" : "en"}.wikipedia.org/w/api.php`;
+  const wikipediaDocuments = configuredUrls.includes(wikiUrl) ? await fetchWikipediaDocuments(12, language) : [];
+  const gutenbergResults = language === "en" ? await Promise.all(
+    GUTENBERG_BOOKS.filter((book) => configuredUrls.includes(book.textUrl)).map((book) => fetchGutenbergDocument(book)),
+  ) : [];
+  const knownUrls = new Set([wikiUrl, ...GUTENBERG_BOOKS.map((book) => book.textUrl)]);
+  const customDocuments = await Promise.all(configuredUrls.filter((url) => !knownUrls.has(url)).map(fetchConfiguredWebDocument));
   const sources = [
     ...gutenbergResults.filter((source): source is SourceDocument => source !== null),
     ...wikipediaDocuments,
+    ...customDocuments.filter((source): source is SourceDocument => source !== null),
   ];
   const rounds: GeneratedRound[] = [];
   const usedAnswers = new Set<string>();
   const optionCorpus = sources.map((source) => source.text).join("\n");
-  const optionWords = [...new Set(
-    getWordMatches(optionCorpus)
-      .map((match) => match.word)
-      .filter((word) => !COMMON_WORDS.has(word)),
-  )];
+  const optionWords = [...new Set(getWordMatches(optionCorpus, language)
+    .map((match) => match.word).filter((word) => language === "fa" || !COMMON_WORDS.has(word)))];
 
-  // Prefer a balanced mix: up to three clues per source before allowing any
-  // source to fill gaps. A bounded retry loop prevents startup from stalling.
   for (const source of shuffle(sources)) {
     let attempts = 0;
     let sourceRoundCount = 0;
     while (rounds.length < 12 && sourceRoundCount < 3 && attempts < 40) {
       attempts += 1;
-      const round = buildRoundFromSource(source, usedAnswers, optionWords);
+      const round = buildRoundFromSource(source, usedAnswers, optionWords, language);
       if (!round) continue;
-
       rounds.push(round);
       usedAnswers.add(round.correctAnswer);
       sourceRoundCount += 1;
     }
   }
-
-  // If a source produced fewer than three valid clues, use the remaining
-  // available texts to fill the contest, still requiring twelve unique answers.
   for (const source of shuffle(sources)) {
     let attempts = 0;
     while (rounds.length < 12 && attempts < 40) {
       attempts += 1;
-      const round = buildRoundFromSource(source, usedAnswers, optionWords);
+      const round = buildRoundFromSource(source, usedAnswers, optionWords, language);
       if (!round) continue;
-
       rounds.push(round);
       usedAnswers.add(round.correctAnswer);
     }
   }
-
   console.info("MVP clue generation summary", {
-    sourceCount: sources.length,
+    language, configuredSourceCount: configuredUrls.length, sourceCount: sources.length,
     wikipediaSourceCount: wikipediaDocuments.length,
-    gutenbergSourceCount: sources.length,
-    generatedRoundCount: rounds.length,
-    uniqueAnswerCount: usedAnswers.size,
+    gutenbergSourceCount: gutenbergResults.filter((source) => source !== null).length,
+    customSourceCount: customDocuments.filter((source) => source !== null).length,
+    generatedRoundCount: rounds.length, uniqueAnswerCount: usedAnswers.size,
   });
-
-  if (rounds.length < 12) {
-    throw new Error("MVP_ROUND_GENERATION_FAILED");
-  }
-
+  if (rounds.length < 12) throw new Error("MVP_ROUND_GENERATION_FAILED");
   return shuffle(rounds).slice(0, 12);
 }
 
@@ -370,9 +400,9 @@ async function generateMvpRounds(): Promise<GeneratedRound[]> {
  * Safe to call on every server start: a contest is reused only when all twelve
  * rounds have a source URL, a hint anchor, and twelve word choices.
  */
-async function ensureMvpActiveContestInternal() {
+async function ensureMvpActiveContestInternal(language: "en" | "fa" = "en") {
   const activeContests = await prisma.contest.findMany({
-    where: { status: "ACTIVE" },
+    where: { status: "ACTIVE", language },
     select: {
       id: true,
       startsAt: true,
@@ -420,7 +450,7 @@ async function ensureMvpActiveContestInternal() {
   // If there is no active round, create one for the current 15-minute window.
   // Generate and validate all rounds before changing the current contest.
   // If an external source fails, the existing contest remains active.
-  const clues = await generateMvpRounds();
+  const clues = await generateMvpRounds(language);
   // Restore the missing current round at the most recent fixed boundary.
   // A future scheduled round, if present, remains queued for the next boundary.
   const ROUND_INTERVAL_MS = 15 * 60_000;
@@ -430,8 +460,9 @@ async function ensureMvpActiveContestInternal() {
   const status = "ACTIVE";
   const contest = await prisma.contest.create({
     data: {
-      title: "مسابقه واژه‌یابی انگلیسی Wallet Find",
-      description: "۱۲ راند واژه‌یابی؛ راهنما را بخوان، لینک منبع را باز کن و کلمه را از میان ۱۲ گزینه انتخاب کن.",
+      title: language === "fa" ? "چالش واژه‌یابی فارسی Wallet Find" : "Wallet Find English Word Challenge",
+      description: language === "fa" ? "۱۲ سرنخ واژه‌یابی از منابع فارسی." : "12 word clues from English-language sources.",
+      language,
       status,
       startsAt,
       endsAt,
@@ -480,7 +511,7 @@ async function ensureMvpActiveContestInternal() {
     },
   });
 
-  console.log("Created playable English word-finding contest:", contest.id);
+  console.log(`Created playable ${language === "fa" ? "Persian" : "English"} word-finding contest:`, contest.id);
   return contest.id;
 }
 
@@ -488,15 +519,14 @@ async function ensureMvpActiveContestInternal() {
 // Share initialization between server startup and any early request that
 // arrives before the first round is ready. This prevents duplicate source
 // downloads and duplicate contest creation during cold start.
-let activeContestEnsurePromise: Promise<string> | null = null;
+const activeContestEnsurePromises = new Map<"en" | "fa", Promise<string>>();
 
-export function ensureMvpActiveContest(): Promise<string> {
-  if (!activeContestEnsurePromise) {
-    activeContestEnsurePromise = ensureMvpActiveContestInternal().finally(() => {
-      activeContestEnsurePromise = null;
-    });
-  }
-  return activeContestEnsurePromise;
+export function ensureMvpActiveContest(language: "en" | "fa" = "en"): Promise<string> {
+  const existing = activeContestEnsurePromises.get(language);
+  if (existing) return existing;
+  const pending = ensureMvpActiveContestInternal(language).finally(() => activeContestEnsurePromises.delete(language));
+  activeContestEnsurePromises.set(language, pending);
+  return pending;
 }
 
 
@@ -550,6 +580,7 @@ export async function startNextMvpContest(userId: string, completedContestId: st
     where: { id: completedContestId },
     select: {
       id: true,
+      language: true,
       startsAt: true,
       clues: {
         select: {
@@ -577,8 +608,9 @@ export async function startNextMvpContest(userId: string, completedContestId: st
   }
 
   const now = new Date();
+  const language = completedContest.language === "fa" ? "fa" : "en";
   const existingScheduled = await prisma.contest.findFirst({
-    where: { status: "SCHEDULED", startsAt: { gt: now } },
+    where: { status: "SCHEDULED", language, startsAt: { gt: now } },
     orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
     select: {
       id: true,
@@ -610,7 +642,7 @@ export async function startNextMvpContest(userId: string, completedContestId: st
   } as const;
 
   const existingActive = await prisma.contest.findMany({
-    where: { status: "ACTIVE" },
+    where: { status: "ACTIVE", language },
     select: activeSelect,
   });
 
@@ -625,17 +657,17 @@ export async function startNextMvpContest(userId: string, completedContestId: st
   // Generate and validate the complete next contest before retiring the old
   // one. If an external source is unavailable, the finished contest remains
   // available and the caller receives a clear error instead of a broken round.
-  const clues = await generateMvpRounds();
+  const clues = await generateMvpRounds(language);
 
   try {
     const nextContest = await prisma.$transaction(async (tx) => {
       const activeContests = await tx.contest.findMany({
-        where: { status: "ACTIVE" },
+        where: { status: "ACTIVE", language },
         select: activeSelect,
       });
 
       const scheduledCreatedByAnotherRequest = await tx.contest.findFirst({
-        where: { status: "SCHEDULED", startsAt: { gt: new Date() } },
+        where: { status: "SCHEDULED", language, startsAt: { gt: new Date() } },
         orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
         select: activeSelect,
       });
@@ -730,27 +762,27 @@ export async function startNextMvpContest(userId: string, completedContestId: st
 }
 
 
-let lastAutomaticRoundAttemptAt = 0;
+const lastAutomaticRoundAttemptAt = new Map<"en" | "fa", number>();
 const AUTOMATIC_ROUND_RETRY_DELAY_MS = 5 * 60_000;
 
 /**
  * Keep one future shared round queued even when nobody has completed the
  * current round yet. The generated round starts on a fixed 15-minute boundary.
  */
-export async function ensureScheduledMvpContest(now = new Date()) {
+export async function ensureScheduledMvpContest(now = new Date(), language: "en" | "fa" = "en") {
   const existingScheduled = await prisma.contest.findFirst({
-    where: { status: "SCHEDULED", startsAt: { gt: now } },
+    where: { status: "SCHEDULED", language, startsAt: { gt: now } },
     select: { id: true },
   });
   if (existingScheduled) return { scheduled: true, contestId: existingScheduled.id };
 
-  if (now.getTime() - lastAutomaticRoundAttemptAt < AUTOMATIC_ROUND_RETRY_DELAY_MS) {
+  if (now.getTime() - (lastAutomaticRoundAttemptAt.get(language) ?? 0) < AUTOMATIC_ROUND_RETRY_DELAY_MS) {
     return { scheduled: false, reason: "GENERATION_COOLDOWN" };
   }
-  lastAutomaticRoundAttemptAt = now.getTime();
+  lastAutomaticRoundAttemptAt.set(language, now.getTime());
 
   const previous = await prisma.contest.findFirst({
-    where: { status: { in: ["ACTIVE", "FINISHED"] }, startsAt: { not: null } },
+    where: { status: { in: ["ACTIVE", "FINISHED"] }, language, startsAt: { not: null } },
     orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }],
     select: { id: true, startsAt: true },
   });
@@ -759,7 +791,7 @@ export async function ensureScheduledMvpContest(now = new Date()) {
   // required a prior ACTIVE/FINISHED round, so a fresh/empty database could
   // never create its first contest and /contests/active returned 404 forever.
   try {
-    const clues = await generateMvpRounds();
+    const clues = await generateMvpRounds(language);
     const intervalMs = 15 * 60_000;
     const nextBoundary = Math.ceil(now.getTime() / intervalMs) * intervalMs;
     const previousBoundary = previous?.startsAt
@@ -770,15 +802,16 @@ export async function ensureScheduledMvpContest(now = new Date()) {
 
     const created = await prisma.$transaction(async (tx) => {
       const raceWinner = await tx.contest.findFirst({
-        where: { status: "SCHEDULED", startsAt: { gt: now } },
+        where: { status: "SCHEDULED", language, startsAt: { gt: now } },
         select: { id: true },
       });
       if (raceWinner) return raceWinner;
 
       const round = await tx.contest.create({
         data: {
-          title: "مسابقه واژه‌یابی انگلیسی Wallet Find",
-          description: "۱۲ راند واژه‌یابی؛ راهنما را بخوان و کلمه را از منبع پیدا کن.",
+          title: language === "fa" ? "چالش واژه‌یابی فارسی Wallet Find" : "Wallet Find English Word Challenge",
+          description: language === "fa" ? "۱۲ سرنخ واژه‌یابی از منابع فارسی." : "12 word clues from English-language sources.",
+          language,
           status: "SCHEDULED",
           startsAt,
           endsAt,

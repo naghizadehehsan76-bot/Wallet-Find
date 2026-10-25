@@ -110,29 +110,31 @@ export async function createClue(
   });
 }
 
-export async function getActiveContest() {
+export async function getActiveContest(language: "en" | "fa" = "en") {
   const now = new Date();
   const active = await prisma.contest.findFirst({
     where: {
       status: "ACTIVE",
+      language,
       AND: [
         { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
         { OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
       ],
     },
     orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }],
-    select: { id: true, title: true, description: true, status: true, startsAt: true, endsAt: true },
+    select: { id: true, title: true, description: true, status: true, language: true, startsAt: true, endsAt: true },
   });
   if (active) return active;
 
   const due = await prisma.contest.findFirst({
     where: {
       status: "SCHEDULED",
+      language,
       startsAt: { lte: now },
       OR: [{ endsAt: null }, { endsAt: { gt: now } }],
     },
     orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }],
-    select: { id: true, title: true, description: true, status: true, startsAt: true, endsAt: true },
+    select: { id: true, title: true, description: true, status: true, language: true, startsAt: true, endsAt: true },
   });
   if (due) {
     await prisma.contest.update({ where: { id: due.id }, data: { status: "ACTIVE" } });

@@ -26,6 +26,7 @@ export type ActiveContest = {
   title: string;
   description: string | null;
   status: string;
+  language?: string;
   startsAt: string | null;
   endsAt: string | null;
 };
@@ -163,7 +164,8 @@ export async function login(
 }
 
 export async function getActiveContest(): Promise<ActiveContest> {
-  return request<ActiveContest>("/contests/active", {}, true);
+  const language = localStorage.getItem("walletFindContestLanguage") === "fa" ? "fa" : "en";
+  return request<ActiveContest>(`/contests/active?language=${language}`, {}, true);
 }
 
 export async function startNextContest(
