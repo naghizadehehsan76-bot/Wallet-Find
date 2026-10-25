@@ -1810,3 +1810,22 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 .global-sidebar .sidebar-link__icon--leaderboard .sidebar-link__glyph {
   filter: brightness(0) saturate(100%) invert(72%) sepia(55%) saturate(1500%) hue-rotate(170deg) brightness(102%) contrast(104%);
 }
+
+
+/* Render the Challenge key as a true neon-blue vector instead of a platform-colored emoji. */
+.global-sidebar .sidebar-link__icon--challenge .sidebar-link__key-svg {
+  display: block;
+  width: 19px;
+  height: 19px;
+  color: #62caff;
+  stroke: currentColor;
+  filter: drop-shadow(0 0 4px rgba(0, 170, 255, .42));
+}
+.global-sidebar .sidebar-link:hover .sidebar-link__icon--challenge .sidebar-link__key-svg {
+  color: #75ffe9;
+  filter: drop-shadow(0 0 5px rgba(0, 224, 208, .52));
+}
+.global-sidebar .sidebar-link--active .sidebar-link__icon--challenge .sidebar-link__key-svg {
+  color: #031526;
+  filter: none;
+}
