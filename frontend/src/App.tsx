@@ -6,6 +6,7 @@ import LeaderboardPage from "./pages/LeaderboardPage";
 import ProfilePage from "./pages/ProfilePage";
 import AdminPage from "./pages/AdminPage";
 import AdminControlCenter from "./pages/AdminControlCenter";
+import AdminSetupPage from "./pages/AdminSetupPage";
 import { useI18n, type Language } from "./i18n";
 import SharedLanguageSwitcher from "./components/LanguageSwitcher";
 import { getActiveContest, getCurrentClue } from "./services/api";
@@ -26,7 +27,8 @@ type Page =
   | "terms"
   | "rules"
   | "admin"
-  | "admin-manage";
+  | "admin-manage"
+  | "admin-setup";
 
 const faStats = [
   { value: "۲٬۴۱۸", label: "شرکت‌کننده امشب" },
@@ -450,7 +452,11 @@ function App() {
   const savedRole = savedUser ? (JSON.parse(savedUser) as { role?: string }).role : undefined;
   const isAdmin = savedRole === "ADMIN";
 
-  const [page, setPage] = useState<Page>(() => localStorage.getItem("walletFindToken") ? "competition" : "home");
+  const [page, setPage] = useState<Page>(() => {
+    if (window.location.pathname === "/admin-setup") return "admin-setup";
+    if (window.location.pathname === "/admin") return "admin";
+    return localStorage.getItem("walletFindToken") ? "competition" : "home";
+  });
   const [authMode, setAuthMode] = useState<AuthMode>("login");
 
   function openAuth(mode: AuthMode) {
@@ -472,7 +478,9 @@ function App() {
   const isLoggedIn = Boolean(localStorage.getItem("walletFindToken"));
   let currentView: ReactNode;
 
-  if (page === "auth") {
+  if (page === "admin-setup") {
+    currentView = <AdminSetupPage />;
+  } else if (page === "auth") {
     currentView = <AuthPage initialMode={authMode} onAuthenticated={handleAuthenticated} onBack={() => setPage("home")} />;
   } else if (page === "admin" && isAdmin) {
     currentView = <AdminControlCenter onNavigate={setPage} />;
