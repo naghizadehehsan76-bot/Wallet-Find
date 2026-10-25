@@ -1663,3 +1663,12 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
     transform: translateY(-3cm);
   }
 }
+
+
+/* Raise the desktop hero headline and supporting copy by 3 cm. */
+@media (min-width: 900px) {
+  .home-page .home-concept-title,
+  .home-page .home-concept-tagline {
+    transform: translateY(-3cm);
+  }
+}
