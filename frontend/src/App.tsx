@@ -448,17 +448,39 @@ function App() {
 
   const [page, setPage] = useState<Page>(() => {
     const hasToken = Boolean(localStorage.getItem("walletFindToken"));
+    const validPages: Page[] = ["home", "auth", "competition", "key", "leaderboard", "profile", "wallet", "rewards", "help", "terms", "rules", "admin", "admin-manage"];
     if (window.location.pathname === "/admin-setup") {
       window.history.replaceState({}, "", initialIsAdmin && hasToken ? "/admin" : "/");
       if (initialIsAdmin && hasToken) return "admin";
     }
-    if (hasToken) return window.location.pathname === "/admin" ? "admin" : "competition";
-    // A browser with no saved session starts directly at registration.
+    // Keep the last in-app page across a browser refresh instead of always sending signed-in users to the challenge.
+    let savedPage: Page | null = null;
+    try {
+      const saved = sessionStorage.getItem("walletFindCurrentPage");
+      if (saved && validPages.includes(saved as Page)) savedPage = saved as Page;
+    } catch {
+      // If session storage is unavailable, fall back to the safe default below.
+    }
+    if (hasToken) {
+      if (window.location.pathname === "/admin") return "admin";
+      if (savedPage && (savedPage !== "admin" && savedPage !== "admin-manage" || initialIsAdmin)) return savedPage;
+      return "competition";
+    }
+    // Public pages remain open after refresh; protected pages still require authentication.
+    if (savedPage && ["home", "auth", "leaderboard", "rewards", "help", "terms", "rules"].includes(savedPage)) return savedPage;
     return "auth";
   });
   const [authMode, setAuthMode] = useState<AuthMode>(() =>
     localStorage.getItem("walletFindToken") ? "login" : "signup",
   );
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("walletFindCurrentPage", page);
+    } catch {
+      // Navigation still works if the browser blocks session storage.
+    }
+  }, [page]);
 
   useEffect(() => {
     document.documentElement.lang = language;
