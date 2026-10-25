@@ -295,6 +295,40 @@ async function fetchGutenbergDocument(book: {
   }
 }
 
+async function fetchConfiguredWebDocument(url: string): Promise<SourceDocument | null> {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") return null;
+    const response = await fetch(parsed, { headers: { "User-Agent": "WalletFind/1.0 (public webpage clue generator)" }, signal: AbortSignal.timeout(8_000) });
+    if (!response.ok) return null;
+    const contentType = response.headers.get("content-type") ?? "";
+    let text = await response.text();
+    if (contentType.includes("html") || /<html|<body|<p[ >]/i.test(text.slice(0, 2000))) {
+      text = text.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ")
+        .replace(/<[^>]+>/g, " ").replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&")
+        .replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'").replace(/\s+/g, " ");
+    }
+    return text.length >= 500 ? { title: parsed.hostname, url: parsed.toString(), text } : null;
+  } catch (error) {
+    console.warn("Configured clue source unavailable", { url, error: error instanceof Error ? error.message : String(error) });
+    return null;
+  }
+}
+
+async function getConfiguredSourceUrls(language: "en" | "fa"): Promise<string[]> {
+  const defaults = language === "fa" ? ["https://fa.wikipedia.org/w/api.php"] : [
+    "https://en.wikipedia.org/w/api.php", ...GUTENBERG_BOOKS.map((book) => book.textUrl),
+  ];
+  const setting = await prisma.systemSetting.findUnique({ where: { key: `clue_sources_${language}` }, select: { value: true } });
+  if (!setting) return defaults;
+  try {
+    const parsed: unknown = JSON.parse(setting.value);
+    if (!Array.isArray(parsed)) return defaults;
+    return [...new Set(parsed.filter((url): url is string => typeof url === "string")
+      .map((url) => url.trim()).filter((url) => url.startsWith("https://") && url.length <= 500))];
+  } catch { return defaults; }
+}
+
 /**
  * Generate each round from live English-language source text.
  * Wikipedia provides current article text; Project Gutenberg supplies
@@ -302,28 +336,25 @@ async function fetchGutenbergDocument(book: {
  * playable if either external source is temporarily unavailable.
  */
 async function generateMvpRounds(language: "en" | "fa" = "en"): Promise<GeneratedRound[]> {
-  // Render logs showed persistent Wikipedia HTTP 429 rate limits. The former
-  // fallback could make dozens of requests during cold start, so Wikipedia is
-  // now optional and strictly limited; public-domain books remain the fallback.
-  const [wikipediaDocuments, gutenbergResults] = await Promise.all([
-    fetchWikipediaDocuments(12, language),
-    Promise.all(GUTENBERG_BOOKS.map((book) => fetchGutenbergDocument(book))),
-  ]);
+  const configuredUrls = await getConfiguredSourceUrls(language);
+  const wikiUrl = `https://${language === "fa" ? "fa" : "en"}.wikipedia.org/w/api.php`;
+  const wikipediaDocuments = configuredUrls.includes(wikiUrl) ? await fetchWikipediaDocuments(12, language) : [];
+  const gutenbergResults = language === "en" ? await Promise.all(
+    GUTENBERG_BOOKS.filter((book) => configuredUrls.includes(book.textUrl)).map((book) => fetchGutenbergDocument(book)),
+  ) : [];
+  const knownUrls = new Set([wikiUrl, ...GUTENBERG_BOOKS.map((book) => book.textUrl)]);
+  const customDocuments = await Promise.all(configuredUrls.filter((url) => !knownUrls.has(url)).map(fetchConfiguredWebDocument));
   const sources = [
     ...gutenbergResults.filter((source): source is SourceDocument => source !== null),
     ...wikipediaDocuments,
+    ...customDocuments.filter((source): source is SourceDocument => source !== null),
   ];
   const rounds: GeneratedRound[] = [];
   const usedAnswers = new Set<string>();
   const optionCorpus = sources.map((source) => source.text).join("\n");
-  const optionWords = [...new Set(
-    getWordMatches(optionCorpus, language)
-      .map((match) => match.word)
-      .filter((word) => language === "fa" || !COMMON_WORDS.has(word)),
-  )];
+  const optionWords = [...new Set(getWordMatches(optionCorpus, language)
+    .map((match) => match.word).filter((word) => language === "fa" || !COMMON_WORDS.has(word)))];
 
-  // Prefer a balanced mix: up to three clues per source before allowing any
-  // source to fill gaps. A bounded retry loop prevents startup from stalling.
   for (const source of shuffle(sources)) {
     let attempts = 0;
     let sourceRoundCount = 0;
@@ -331,39 +362,29 @@ async function generateMvpRounds(language: "en" | "fa" = "en"): Promise<Generate
       attempts += 1;
       const round = buildRoundFromSource(source, usedAnswers, optionWords, language);
       if (!round) continue;
-
       rounds.push(round);
       usedAnswers.add(round.correctAnswer);
       sourceRoundCount += 1;
     }
   }
-
-  // If a source produced fewer than three valid clues, use the remaining
-  // available texts to fill the contest, still requiring twelve unique answers.
   for (const source of shuffle(sources)) {
     let attempts = 0;
     while (rounds.length < 12 && attempts < 40) {
       attempts += 1;
-      const round = buildRoundFromSource(source, usedAnswers, optionWords);
+      const round = buildRoundFromSource(source, usedAnswers, optionWords, language);
       if (!round) continue;
-
       rounds.push(round);
       usedAnswers.add(round.correctAnswer);
     }
   }
-
   console.info("MVP clue generation summary", {
-    sourceCount: sources.length,
+    language, configuredSourceCount: configuredUrls.length, sourceCount: sources.length,
     wikipediaSourceCount: wikipediaDocuments.length,
-    gutenbergSourceCount: sources.length,
-    generatedRoundCount: rounds.length,
-    uniqueAnswerCount: usedAnswers.size,
+    gutenbergSourceCount: gutenbergResults.filter((source) => source !== null).length,
+    customSourceCount: customDocuments.filter((source) => source !== null).length,
+    generatedRoundCount: rounds.length, uniqueAnswerCount: usedAnswers.size,
   });
-
-  if (rounds.length < 12) {
-    throw new Error("MVP_ROUND_GENERATION_FAILED");
-  }
-
+  if (rounds.length < 12) throw new Error("MVP_ROUND_GENERATION_FAILED");
   return shuffle(rounds).slice(0, 12);
 }
 
@@ -629,7 +650,7 @@ export async function startNextMvpContest(userId: string, completedContestId: st
   // Generate and validate the complete next contest before retiring the old
   // one. If an external source is unavailable, the finished contest remains
   // available and the caller receives a clear error instead of a broken round.
-  const clues = await generateMvpRounds();
+  const clues = await generateMvpRounds(language);
 
   try {
     const nextContest = await prisma.$transaction(async (tx) => {
@@ -734,7 +755,7 @@ export async function startNextMvpContest(userId: string, completedContestId: st
 }
 
 
-let lastAutomaticRoundAttemptAt = 0;
+const lastAutomaticRoundAttemptAt = new Map<"en" | "fa", number>();
 const AUTOMATIC_ROUND_RETRY_DELAY_MS = 5 * 60_000;
 
 /**
@@ -748,10 +769,10 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
   });
   if (existingScheduled) return { scheduled: true, contestId: existingScheduled.id };
 
-  if (now.getTime() - lastAutomaticRoundAttemptAt < AUTOMATIC_ROUND_RETRY_DELAY_MS) {
+  if (now.getTime() - (lastAutomaticRoundAttemptAt.get(language) ?? 0) < AUTOMATIC_ROUND_RETRY_DELAY_MS) {
     return { scheduled: false, reason: "GENERATION_COOLDOWN" };
   }
-  lastAutomaticRoundAttemptAt = now.getTime();
+  lastAutomaticRoundAttemptAt.set(language, now.getTime());
 
   const previous = await prisma.contest.findFirst({
     where: { status: { in: ["ACTIVE", "FINISHED"] }, language, startsAt: { not: null } },
@@ -774,7 +795,7 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
 
     const created = await prisma.$transaction(async (tx) => {
       const raceWinner = await tx.contest.findFirst({
-        where: { status: "SCHEDULED", startsAt: { gt: now } },
+        where: { status: "SCHEDULED", language, startsAt: { gt: now } },
         select: { id: true },
       });
       if (raceWinner) return raceWinner;
