@@ -27,6 +27,13 @@ type CompetitionPageProps = {
 function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const { language } = useI18n();
   const isPersian = language === "fa";
+  const [contestLanguage, setContestLanguage] = useState<"en" | "fa">(() => localStorage.getItem("walletFindContestLanguage") === "fa" ? "fa" : "en");
+  function chooseContestLanguage(nextLanguage: "en" | "fa") {
+    if (nextLanguage === contestLanguage) return;
+    localStorage.setItem("walletFindContestLanguage", nextLanguage);
+    setContestLanguage(nextLanguage);
+    window.location.reload();
+  }
 
   const [contestId, setContestId] = useState<string | null>(null);
   const [contestTitle, setContestTitle] = useState("");
@@ -486,6 +493,10 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
             <div className="date">
               {formattedDate ||
                 (isPersian ? "چالش فعال" : "Active challenge")}
+            </div>
+            <div className="contest-language-choice" role="group" aria-label={isPersian ? "زبان چالش" : "Challenge language"}>
+              <button type="button" aria-pressed={contestLanguage === "en"} className={contestLanguage === "en" ? "is-active" : ""} onClick={() => chooseContestLanguage("en")}>{isPersian ? "چالش انگلیسی" : "English challenge"}</button>
+              <button type="button" aria-pressed={contestLanguage === "fa"} className={contestLanguage === "fa" ? "is-active" : ""} onClick={() => chooseContestLanguage("fa")}>{isPersian ? "چالش فارسی" : "Persian challenge"}</button>
             </div>
           </div>
           <div className="clue-timer" role="timer" aria-live="off">
