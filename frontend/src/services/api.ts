@@ -440,11 +440,11 @@ export async function getWallet(): Promise<WalletResult> {
 }
 
 export async function requestWalletDeposit(amount: string): Promise<{ transaction: WalletTransaction; message: string }> {
-  return request("/wallet/deposit", { method: "POST", body: JSON.stringify({ amount }) }, true);
+  return request<{ transaction: WalletTransaction; message: string }>("/wallet/deposit", { method: "POST", body: JSON.stringify({ amount }) }, true);
 }
 
 export async function requestWalletWithdrawal(amount: string): Promise<{ transaction: WalletTransaction; message: string }> {
-  return request("/wallet/withdraw", { method: "POST", body: JSON.stringify({ amount }) }, true);
+  return request<{ transaction: WalletTransaction; message: string }>("/wallet/withdraw", { method: "POST", body: JSON.stringify({ amount }) }, true);
 }
 
 
