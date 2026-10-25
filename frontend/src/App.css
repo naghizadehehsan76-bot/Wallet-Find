@@ -2069,3 +2069,36 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   white-space: nowrap;
   text-align: start;
 }
+
+
+/* Drawer opens from the right in English (LTR) and from the left in Persian (RTL). */
+[dir="ltr"] .global-sidebar {
+  left: auto;
+  right: 0;
+  transform: translateX(105%);
+  border-inline: 0;
+  border-left: 1px solid rgba(66,232,212,.26);
+  box-shadow: -18px 0 55px rgba(0,0,0,.4);
+}
+[dir="rtl"] .global-sidebar {
+  left: 0;
+  right: auto;
+  transform: translateX(-105%);
+  border-inline: 0;
+  border-right: 1px solid rgba(66,232,212,.26);
+  box-shadow: 18px 0 55px rgba(0,0,0,.4);
+}
+[dir="ltr"] .global-sidebar-trigger {
+  left: auto;
+  right: 0;
+  border: 1px solid rgba(66,232,212,.38);
+  border-right: 0;
+  border-radius: 13px 0 0 13px;
+}
+[dir="rtl"] .global-sidebar-trigger {
+  left: 0;
+  right: auto;
+  border: 1px solid rgba(66,232,212,.38);
+  border-left: 0;
+  border-radius: 0 13px 13px 0;
+}
