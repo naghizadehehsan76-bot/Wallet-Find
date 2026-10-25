@@ -5,6 +5,7 @@ import KeyStagePage from "./pages/KeyStagePage";
 import LeaderboardPage from "./pages/LeaderboardPage";
 import ProfilePage from "./pages/ProfilePage";
 import AdminPage from "./pages/AdminPage";
+import AdminControlCenter from "./pages/AdminControlCenter";
 import { useI18n, type Language } from "./i18n";
 import SharedLanguageSwitcher from "./components/LanguageSwitcher";
 import { getActiveContest, getCurrentClue } from "./services/api";
@@ -24,7 +25,8 @@ type Page =
   | "help"
   | "terms"
   | "rules"
-  | "admin";
+  | "admin"
+  | "admin-manage";
 
 const faStats = [
   { value: "۲٬۴۱۸", label: "شرکت‌کننده امشب" },
@@ -368,6 +370,9 @@ function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }
     { page: "profile", icon: "◎", label: t.navigation.profile },
     { page: "help", icon: "?", label: t.sidebar.helpCenter },
     { page: "terms", icon: "≡", label: t.sidebar.termsOfUse },
+    ...(isLoggedIn && (JSON.parse(localStorage.getItem("walletFindUser") ?? "{}") as { role?: string }).role === "ADMIN"
+      ? [{ page: "admin" as Page, icon: "⚙", label: language === "fa" ? "پنل مدیریت" : "Admin panel" }]
+      : []),
   ];
 
   return (
