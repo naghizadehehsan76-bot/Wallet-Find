@@ -2102,3 +2102,11 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   border-left: 0;
   border-radius: 0 13px 13px 0;
 }
+
+/* Keep the open-state rule more specific than language-specific off-canvas positions. */
+[dir="ltr"] .global-sidebar.global-sidebar--open,
+[dir="rtl"] .global-sidebar.global-sidebar--open {
+  transform: translateX(0);
+  visibility: visible;
+  pointer-events: auto;
+}
