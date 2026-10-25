@@ -1902,3 +1902,28 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 .bottom-nav .nav-item:hover .nav-icon__profile-svg {
   filter: drop-shadow(0 0 4px rgba(0, 170, 255, .35));
 }
+
+
+/* Keep the language switcher visible inside the shared sidebar on desktop too. */
+.global-sidebar .sidebar-home-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 2px 2px;
+  padding: 12px;
+  border: 1px solid rgba(0, 170, 255, .22);
+  border-radius: 13px;
+  background: rgba(0, 25, 48, .72);
+}
+.global-sidebar .sidebar-home-tools .language-switcher {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 100%;
+}
+.global-sidebar .sidebar-home-tools .language-switcher button {
+  white-space: nowrap;
+}
