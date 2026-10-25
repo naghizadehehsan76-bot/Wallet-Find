@@ -49,3 +49,32 @@ export async function requestWalletWithdrawal(userId: string, rawAmount: unknown
     return { transaction: serializeTransaction(transaction), message: "WITHDRAWAL_REQUEST_CREATED" };
   });
 }
+
+
+export async function getAdminWallets() {
+  const users = await prisma.user.findMany({
+    select: {
+      id: true, username: true, email: true,
+      walletTransactions: { select: { type: true, status: true, amountMicro: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  return users.map((user) => {
+    let balance = 0n, pendingWithdrawals = 0n, pendingDeposits = 0;
+    for (const row of user.walletTransactions) {
+      const amount = BigInt(row.amountMicro);
+      if (row.status === "COMPLETED") {
+        if (row.type === "PRIZE_CREDIT" || row.type === "DEPOSIT") balance += amount;
+        if (row.type === "WITHDRAWAL") balance -= amount;
+      }
+      if (row.type === "WITHDRAWAL_REQUEST" && row.status === "PENDING") pendingWithdrawals += amount;
+      if (row.type === "DEPOSIT_REQUEST" && row.status === "PENDING") pendingDeposits++;
+    }
+    return {
+      userId: user.id, username: user.username, email: user.email,
+      balance: formatMicro(balance), availableBalance: formatMicro(balance - pendingWithdrawals),
+      pendingDepositRequests: pendingDeposits,
+      pendingWithdrawalRequests: user.walletTransactions.filter((row) => row.type === "WITHDRAWAL_REQUEST" && row.status === "PENDING").length,
+    };
+  });
+}
