@@ -2061,10 +2061,10 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 .info-panel p { white-space: pre-line; }
 
 
-/* Welcome heading: slightly larger, with natural right-to-left alignment for Persian. */
+/* Welcome heading: 20% larger, with natural right-to-left alignment for Persian. */
 .auth-page .auth-title {
   margin: 0 0 16px;
-  font-size: clamp(19px, 5vw, 23px);
+  font-size: clamp(22.8px, 6vw, 27.6px);
   line-height: 1.4;
   white-space: nowrap;
   text-align: start;
