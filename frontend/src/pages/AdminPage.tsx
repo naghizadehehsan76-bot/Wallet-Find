@@ -227,8 +227,8 @@ function AdminPage(_props: AdminPageProps) {
         <button
           className="brand brand--home"
           type="button"
-          aria-label={isPersian ? "بازگشت به خانه" : "Return home"}
-          onClick={() => _props.onNavigate("home")}
+          aria-label={isPersian ? "بازگشت به پنل مدیریت" : "Return to admin dashboard"}
+          onClick={() => _props.onNavigate("admin")}
         >
           <span className="brand-dot" />
           <span>Wallet Find {isPersian ? "مدیریت" : "Admin"}</span>
