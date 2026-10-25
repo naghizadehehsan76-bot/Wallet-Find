@@ -6,7 +6,6 @@ import LeaderboardPage from "./pages/LeaderboardPage";
 import ProfilePage from "./pages/ProfilePage";
 import AdminPage from "./pages/AdminPage";
 import AdminControlCenter from "./pages/AdminControlCenter";
-import AdminSetupPage from "./pages/AdminSetupPage";
 import WalletPage from "./pages/WalletPage";
 import { useI18n, type Language } from "./i18n";
 import SharedLanguageSwitcher from "./components/LanguageSwitcher";
@@ -28,8 +27,7 @@ type Page =
   | "terms"
   | "rules"
   | "admin"
-  | "admin-manage"
-  | "admin-setup";
+  | "admin-manage";
 
 const faStats = [
   { value: "۲٬۴۱۸", label: "شرکت‌کننده امشب" },
@@ -453,7 +451,13 @@ function App() {
   const isAdmin = savedRole === "ADMIN";
 
   const [page, setPage] = useState<Page>(() => {
-    if (window.location.pathname === "/admin-setup") return "admin-setup";
+    // Older sessions may still have /admin-setup in the address bar even
+    // though the administrator account has already been created.
+    if (window.location.pathname === "/admin-setup") {
+      window.history.replaceState({}, "", isAdmin ? "/admin" : "/");
+      if (isAdmin) return "admin";
+      return localStorage.getItem("walletFindToken") ? "competition" : "home";
+    }
     if (window.location.pathname === "/admin") return "admin";
     return localStorage.getItem("walletFindToken") ? "competition" : "home";
   });
@@ -478,9 +482,7 @@ function App() {
   const isLoggedIn = Boolean(localStorage.getItem("walletFindToken"));
   let currentView: ReactNode;
 
-  if (page === "admin-setup") {
-    currentView = <AdminSetupPage />;
-  } else if (page === "auth") {
+  if (page === "auth") {
     currentView = <AuthPage initialMode={authMode} onAuthenticated={handleAuthenticated} onBack={() => setPage("home")} />;
   } else if (page === "admin" && isAdmin) {
     currentView = <AdminControlCenter onNavigate={setPage} />;
