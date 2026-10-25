@@ -7,6 +7,7 @@ import ProfilePage from "./pages/ProfilePage";
 import AdminPage from "./pages/AdminPage";
 import AdminControlCenter from "./pages/AdminControlCenter";
 import AdminSetupPage from "./pages/AdminSetupPage";
+import WalletPage from "./pages/WalletPage";
 import { useI18n, type Language } from "./i18n";
 import SharedLanguageSwitcher from "./components/LanguageSwitcher";
 import { getActiveContest, getCurrentClue } from "./services/api";
@@ -499,10 +500,7 @@ function App() {
   } else if (page === "rules") {
     currentView = <ContestRulesPage onNavigate={setPage} />;
   } else if (page === "wallet") {
-    currentView = (
-      <div className="app-shell">
-        <header className="topbar"><button className="brand brand--home" type="button" aria-label={t.navigation.home} onClick={() => setPage("home")}><span className="brand-wallet">Wallet</span><span className="brand-find">Find</span></button></header><main className="page"><div className="section-title">{t.wallet.title}</div><div className="balance-card"><div className="balance-label">{t.wallet.displayBalance}</div><div className="balance-amount mono">{t.wallet.balance}</div><div className="balance-network">Polygon</div></div><div className="inline-feedback">{t.wallet.notice}</div></main><BottomNavShim activePage="wallet" onNavigate={setPage} /></div>
-    );
+    currentView = isLoggedIn ? <WalletPage onNavigate={setPage} /> : <AuthPage initialMode="login" onAuthenticated={handleAuthenticated} onBack={() => setPage("home")} />;
   } else {
     currentView = <HomePage onNavigate={setPage} onAuth={openAuth} language={language} isLoggedIn={isLoggedIn} />;
   }

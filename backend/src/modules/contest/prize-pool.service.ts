@@ -365,6 +365,18 @@ export async function settlePrizePool(contestId: string, actorUserId?: string) {
           referenceKey: `award:${contestId}:${person.userId}`,
         },
       });
+      await tx.walletTransaction.create({
+        data: {
+          userId: person.userId,
+          type: "PRIZE_CREDIT",
+          status: "COMPLETED",
+          amountMicro: payout.amount,
+          currency: "USDT",
+          note: `Simulated prize credit for round ${contestId}, rank ${person.rank}; no real assets transferred.`,
+          referenceKey: `prize-credit:${contestId}:${person.userId}`,
+          contestId,
+        },
+      });
     }
 
     const rollover = totalPool - distributed;
