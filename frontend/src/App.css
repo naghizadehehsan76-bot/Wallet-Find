@@ -2241,142 +2241,128 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
     filter: saturate(1.2) contrast(1.08) brightness(1.07);
   }
 }
-/* Interactive wallet-opening scene: crypto symbols rise into view and the magnifier scans them. */
-.home-page .home-illustration-frame {
-  overflow: visible;
+
+
+
+/* Animate the original artwork as layered source pixels: no replacement wallet or magnifying glass. */
+.home-page .home-art-stack {
+  --home-image-y: calc(-1cm - 2mm);
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  transform: translateY(var(--home-image-y)) rotateX(var(--home-tilt-x)) rotateY(var(--home-tilt-y)) scale(var(--home-image-scale, 1));
+  transform-origin: center center;
+  transform-style: preserve-3d;
+  transition: transform 320ms cubic-bezier(.2, .75, .25, 1);
 }
-.home-page .home-crypto-scene {
+.home-page .home-concept-vector {
   position: absolute;
   inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 420ms ease;
-}
-.home-page .home-crypto-wallet {
-  position: absolute;
-  width: clamp(150px, 30%, 300px);
-  left: 48%;
-  top: 48%;
-  transform: translate(-50%, -42%) scale(.86);
-  filter: drop-shadow(0 0 18px rgba(0, 208, 255, .24));
-  transition: transform 520ms cubic-bezier(.2,.8,.2,1);
-}
-.home-page .home-crypto-wallet__body {
   display: block;
   width: 100%;
+  max-width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  object-fit: contain;
+  margin: 0;
+  transform: none;
+}
+.home-page .home-wallet-cavity,
+.home-page .home-wallet-panel-layer,
+.home-page .home-magnifier-layer {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.home-page .home-wallet-cavity {
+  z-index: 2;
+  opacity: 0;
   overflow: visible;
+  transition: opacity 90ms linear;
 }
-.home-page .home-crypto-wallet__lid {
-  transform-origin: 50% 80%;
+.home-page .home-wallet-crypto-icons {
+  opacity: 0;
+  transform: translateY(14px);
   transform-box: fill-box;
-  transition: transform 520ms cubic-bezier(.2,.8,.2,1);
+  transform-origin: center;
+  transition: opacity 220ms ease 100ms, transform 420ms cubic-bezier(.2,.8,.2,1) 90ms;
 }
-.home-page .home-crypto-wallet__coins {
-  position: absolute;
-  inset: 6% 12% 25%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(3px, .7vw, 10px);
+.home-page .home-wallet-panel-layer {
+  z-index: 3;
   opacity: 0;
-  transform: translateY(24px) scale(.72);
-  transition: opacity 360ms ease 140ms, transform 520ms cubic-bezier(.2,.8,.2,1) 100ms;
+  transform-style: preserve-3d;
+  transition: opacity 90ms linear;
 }
-.home-page .home-coin {
-  display: grid;
-  place-items: center;
-  width: clamp(25px, 4.2vw, 43px);
-  height: clamp(25px, 4.2vw, 43px);
-  border-radius: 50%;
-  font: 900 clamp(14px, 2vw, 23px)/1 Arial, sans-serif;
-  box-shadow: 0 0 15px currentColor, inset 0 0 0 2px rgba(255,255,255,.22);
-  animation: home-coin-float 2.4s ease-in-out infinite;
+.home-page .home-wallet-panel-layer img,
+.home-page .home-magnifier-layer img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
 }
-.home-coin--btc { color: #FFB547; background: radial-gradient(circle at 30% 25%, #5B3914, #171522); }
-.home-coin--eth { color: #B8C7FF; background: radial-gradient(circle at 30% 25%, #344E9A, #121A3B); animation-delay: -.5s; }
-.home-coin--eth svg { width: 56%; height: 70%; }
-.home-coin--usdt { color: #66F5BD; background: radial-gradient(circle at 30% 25%, #126B55, #082D32); animation-delay: -1s; }
-.home-coin--xrp { color: #EAF8FF; background: radial-gradient(circle at 30% 25%, #405D76, #101E32); animation-delay: -1.5s; }
-.home-coin--xrp svg { width: 72%; height: 65%; }
-.home-page .home-crypto-magnifier {
-  position: absolute;
-  width: clamp(62px, 14%, 128px);
-  left: 64%;
-  top: 42%;
-  transform: translate(20%, 20%) rotate(-14deg);
-  filter: drop-shadow(0 0 12px rgba(63, 227, 255, .65));
-  transition: left 650ms cubic-bezier(.2,.8,.2,1), top 650ms cubic-bezier(.2,.8,.2,1), transform 650ms cubic-bezier(.2,.8,.2,1);
-  animation: home-magnifier-search 3s ease-in-out infinite;
+.home-page .home-wallet-panel-layer img {
+  transform-origin: 33% 50%;
+  transform-style: preserve-3d;
+  transition: transform 560ms cubic-bezier(.2,.8,.2,1);
 }
-.home-page .home-crypto-magnifier svg { display: block; width: 100%; height: auto; }
-.home-page .home-crypto-scanline {
-  position: absolute;
-  left: 24%;
-  right: 24%;
-  top: 51%;
-  height: 2px;
+.home-page .home-magnifier-layer {
+  z-index: 4;
   opacity: 0;
-  background: linear-gradient(90deg, transparent, #8CF8FF, #fff, #8CF8FF, transparent);
-  box-shadow: 0 0 16px #25DFFF;
-  transition: opacity 300ms ease;
+  transition: opacity 90ms linear;
 }
-.home-page .home-illustration-frame:hover .home-crypto-scene,
-.home-page .home-illustration-frame:focus-within .home-crypto-scene {
+.home-page .home-original-magnifier {
+  transform-origin: 59.5% 51.5%;
+}
+.home-page .home-illustration-frame:hover .home-art-stack,
+.home-page .home-illustration-frame:focus-within .home-art-stack {
+  --home-image-scale: 1.035;
+}
+.home-page .home-illustration-frame:hover .home-wallet-cavity,
+.home-page .home-illustration-frame:focus-within .home-wallet-cavity {
   opacity: 1;
 }
-.home-page .home-illustration-frame:hover .home-crypto-wallet,
-.home-page .home-illustration-frame:focus-within .home-crypto-wallet {
-  transform: translate(-50%, -48%) scale(1);
-}
-.home-page .home-illustration-frame:hover .home-crypto-wallet__lid,
-.home-page .home-illustration-frame:focus-within .home-crypto-wallet__lid {
-  transform: rotate(-23deg) translateY(-9px);
-}
-.home-page .home-illustration-frame:hover .home-crypto-wallet__coins,
-.home-page .home-illustration-frame:focus-within .home-crypto-wallet__coins {
+.home-page .home-illustration-frame:hover .home-wallet-panel-layer,
+.home-page .home-illustration-frame:focus-within .home-wallet-panel-layer,
+.home-page .home-illustration-frame:hover .home-magnifier-layer,
+.home-page .home-illustration-frame:focus-within .home-magnifier-layer {
   opacity: 1;
-  transform: translateY(-5px) scale(1);
 }
-.home-page .home-illustration-frame:hover .home-crypto-magnifier,
-.home-page .home-illustration-frame:focus-within .home-crypto-magnifier {
-  left: 43%;
-  top: 33%;
-  transform: translate(0, 0) rotate(16deg) scale(1.08);
+.home-page .home-illustration-frame:hover .home-wallet-crypto-icons,
+.home-page .home-illustration-frame:focus-within .home-wallet-crypto-icons {
+  opacity: 1;
+  transform: translateY(0);
 }
-.home-page .home-illustration-frame:hover .home-crypto-scanline {
-  opacity: .9;
-  animation: home-scan-sweep 1.8s ease-in-out infinite;
+.home-page .home-illustration-frame:hover .home-wallet-panel-layer img,
+.home-page .home-illustration-frame:focus-within .home-wallet-panel-layer img {
+  transform: perspective(1100px) rotateY(-34deg) translateX(-18px) rotateZ(-2deg);
 }
-@keyframes home-coin-float {
-  0%,100% { translate: 0 0; }
-  50% { translate: 0 -5px; }
+.home-page .home-illustration-frame:hover .home-original-magnifier,
+.home-page .home-illustration-frame:focus-within .home-original-magnifier {
+  animation: home-original-magnifier-scan 2.6s ease-in-out infinite;
 }
-@keyframes home-magnifier-search {
-  0%,100% { margin-top: 0; }
-  50% { margin-top: 5px; }
-}
-@keyframes home-scan-sweep {
-  0% { transform: translateY(-30px); }
-  50% { transform: translateY(25px); }
-  100% { transform: translateY(-30px); }
+@keyframes home-original-magnifier-scan {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  38% { transform: translate(-96px, -64px) rotate(-9deg); }
+  68% { transform: translate(-42px, -30px) rotate(8deg); }
 }
 @media (min-width: 900px) {
-  .home-page .home-crypto-wallet { left: 49%; top: 47%; }
-  .home-page .home-crypto-magnifier { left: 65%; top: 41%; }
+  .home-page .home-art-stack { --home-image-y: -3cm; }
 }
 @media (max-width: 899px) {
-  .home-page .home-crypto-wallet { left: 48%; top: 48%; width: 35%; }
-  .home-page .home-crypto-magnifier { left: 64%; top: 43%; width: 16%; }
+  .home-page .home-art-stack { --home-image-y: calc(-1cm - 2mm); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .home-page .home-concept-vector,
-  .home-page .home-illustration-frame::after,
-  .home-page .home-crypto-wallet__lid,
-  .home-page .home-crypto-wallet__coins,
-  .home-page .home-crypto-magnifier,
-  .home-page .home-crypto-scanline,
-  .home-page .home-coin {
+  .home-page .home-art-stack,
+  .home-page .home-wallet-cavity,
+  .home-page .home-wallet-panel-layer img,
+  .home-page .home-original-magnifier,
+  .home-page .home-wallet-crypto-icons {
     transition: none;
     animation: none;
   }
