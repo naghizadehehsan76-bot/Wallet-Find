@@ -113,15 +113,6 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
               </div>
             </div>
 
-            {profile.role === "ADMIN" && (
-              <button
-                className="cta-button cta-button--ghost"
-                type="button"
-                onClick={() => onNavigate("admin")}
-              >
-                {isPersian ? "پنل مدیریت چالش" : "Challenge Admin"}
-              </button>
-            )}
           </>
         ) : null}
 
