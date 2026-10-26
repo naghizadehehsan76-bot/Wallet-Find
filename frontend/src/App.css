@@ -2214,8 +2214,8 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 }
 
 
-/* Keep online and total-user figures side by side inside the same stats card. */
-.stat-card--users {
+/* Keep related live statistics side by side inside the same Home stat card. */
+.stat-card--paired {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: center;
@@ -2223,7 +2223,7 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   padding-inline: 10px;
 }
 
-.stat-card--users .stat-card__user-metric {
+.stat-card--paired .stat-card__user-metric {
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -2232,21 +2232,44 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   gap: 4px;
 }
 
-.stat-card--users .stat-card__user-metric + .stat-card__user-metric {
+.stat-card--paired .stat-card__user-metric + .stat-card__user-metric {
   border-inline-start: 1px solid var(--line);
   padding-inline-start: 8px;
 }
 
-.stat-card--users .stat-card__user-metric strong {
+.stat-card--paired .stat-card__user-metric strong {
   display: block;
   color: var(--brass-light);
   font-size: 16px;
   line-height: 1.4;
 }
 
-.stat-card--users .stat-card__user-metric span {
+.stat-card--paired .stat-card__user-metric span {
   color: var(--muted);
   font-size: 10px;
   line-height: 1.5;
+  text-align: center;
+}
+
+.stat-card--paired-prize {
+  row-gap: 6px;
+}
+
+.stat-card--paired-prize .stat-card__user-metric strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.stat-card--paired-prize .stat-card__user-metric span {
+  font-size: 9px;
+}
+
+.stat-card--paired .stat-card__note {
+  grid-column: 1 / -1;
+  padding-top: 5px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.4;
   text-align: center;
 }
