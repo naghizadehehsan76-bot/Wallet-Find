@@ -2430,7 +2430,7 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 }
 
 .rewards-explainer__section { display: block; }
-.rewards-explainer__section h2 { margin: 0 0 10px; color: var(--ink); font-size: 16px; line-height: 1.7; }
+.rewards-explainer__section h2 { margin: 0 0 10px; color: #ffffff; font-size: 16px; line-height: 1.7; }
 .rewards-explainer__section p { margin: 0; }
 .rewards-explainer__section ul { margin: 0; padding-inline-start: 22px; color: var(--paper); font-size: 13px; line-height: 2; }
 .rewards-explainer__section li + li { margin-top: 8px; }
