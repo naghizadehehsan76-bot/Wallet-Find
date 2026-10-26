@@ -87,10 +87,12 @@ model User {
   auditLogs           AuditLog[]
   walletTransactions  WalletTransaction[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  lastSeenAt DateTime?
 
   @@index([role])
+  @@index([lastSeenAt])
   @@map("users")
 }
 
