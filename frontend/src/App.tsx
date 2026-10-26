@@ -491,8 +491,7 @@ function App() {
     const token = localStorage.getItem("walletFindToken");
     if (!token) {
       localStorage.removeItem("walletFindUser");
-      setAuthStatus("unauthenticated");
-      setAuthMode("signup");
+      // Initial state already matches the no-token case; avoid redundant state updates here.
       return;
     }
 

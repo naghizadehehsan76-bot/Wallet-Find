@@ -124,28 +124,10 @@ export async function getActiveContestHandler(
 
   const language = req.query.language === "fa" ? "fa" : "en";
   try {
-    let contest;
-    try {
-      contest = await getActiveContest(language);
-    } catch (error) {
-      if (!isError(error) || error.message !== "ACTIVE_CONTEST_NOT_FOUND") {
-        throw error;
-      }
-
-      // Recover if the database has no active/upcoming round (for example,
-      // after a failed server-start seed or an empty initial database).
-      // If generation fails, preserve a clear server error and log its cause.
-      try {
-        await ensureMvpActiveContest(language);
-        contest = await getActiveContest(language);
-      } catch (recoveryError) {
-        console.error("No active contest found; automatic recovery failed.", recoveryError);
-        return res.status(503).json({
-          success: false,
-          error: "CONTEST_INITIALIZATION_FAILED",
-        });
-      }
-    }
+    // Validate the clue-generator version before serving an active round.
+    // This replaces old rounds whose source phrases cannot be found reliably.
+    await ensureMvpActiveContest(language);
+    const contest = await getActiveContest(language);
 
     return res.status(200).json({
       success: true,
@@ -154,8 +136,9 @@ export async function getActiveContestHandler(
   } catch (error) {
     if (
       isError(error) &&
-      error.message === "ACTIVE_CONTEST_NOT_FOUND"
+      (error.message === "ACTIVE_CONTEST_NOT_FOUND" || error.message === "MVP_ROUND_GENERATION_FAILED")
     ) {
+      console.error("No verified active contest could be prepared.", error);
       return res.status(503).json({
         success: false,
         error: "CONTEST_INITIALIZATION_FAILED",

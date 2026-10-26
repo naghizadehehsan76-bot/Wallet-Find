@@ -1,5 +1,14 @@
 import prisma from "../../config/prisma.js";
 import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
+import {
+  CLUE_GENERATOR_VERSION,
+  extractVisibleTextFromHtml,
+  findUniqueAnchorBeforeTarget,
+  generatedClueInstruction,
+  getSourceWordMatches,
+  normalizeSourceText,
+  type SourceWordMatch,
+} from "./clue-source-text.js";
 
 type SourceDocument = {
   title: string;
@@ -7,18 +16,24 @@ type SourceDocument = {
   text: string;
 };
 
+function pinWikipediaRevision(url: string, revisionId?: number): string {
+  if (!revisionId || !Number.isInteger(revisionId) || revisionId < 1) return url;
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname !== "fa.wikipedia.org" && parsed.hostname !== "en.wikipedia.org") return url;
+    parsed.searchParams.set("oldid", String(revisionId));
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
 type GeneratedRound = {
   content: string;
   correctAnswer: string;
   sourceUrl: string;
   hintAnchor: string;
   options: string[];
-};
-
-type WordMatch = {
-  word: string;
-  raw: string;
-  index: number;
 };
 
 const COMMON_WORDS = new Set([
@@ -73,14 +88,6 @@ function shuffle<T>(items: readonly T[]): T[] {
   return result;
 }
 
-function getWordMatches(text: string, language: "en" | "fa" = "en"): WordMatch[] {
-  return Array.from(text.matchAll(language === "fa" ? /[\u0621-\u063A\u0641-\u064A\u067E\u0686\u0698\u06A9\u06AF\u06BE\u06CC\u200C]{3,16}/g : /\b[A-Za-z]{4,12}\b/g)).map((match) => ({
-    word: match[0].toLowerCase(),
-    raw: match[0],
-    index: match.index ?? 0,
-  }));
-}
-
 function getOptions(corpusWords: readonly string[], answer: string): string[] {
   // The combined corpus is tokenized once per generation, not once per
   // candidate answer. This avoids repeatedly scanning several full books.
@@ -88,6 +95,28 @@ function getOptions(corpusWords: readonly string[], answer: string): string[] {
   if (candidates.length < 11) return [];
 
   return shuffle([answer, ...shuffle(candidates).slice(0, 11)]);
+}
+
+type StoredGeneratedClue = {
+  sequence: number;
+  content: string;
+  sourceUrl: string | null;
+  hintAnchor: string | null;
+  options: unknown;
+};
+
+function hasCurrentGeneratedClues(clues: readonly StoredGeneratedClue[]): boolean {
+  return (
+    hasCompleteClueSequence(clues.map((clue) => clue.sequence)) &&
+    clues.every((clue) =>
+      clue.content.startsWith(CLUE_GENERATOR_VERSION) &&
+      Boolean(clue.sourceUrl) &&
+      typeof clue.hintAnchor === "string" &&
+      clue.hintAnchor.trim().length >= 25 &&
+      Array.isArray(clue.options) &&
+      clue.options.length === 12
+    )
+  );
 }
 
 async function fetchWikipediaDocuments(limit: number, language: "en" | "fa" = "en"): Promise<SourceDocument[]> {
@@ -148,7 +177,7 @@ async function fetchWikipediaDocuments(limit: number, language: "en" | "fa" = "e
     }
 
     const data = await extractResponse.json() as {
-      query?: { pages?: Record<string, { title?: string; fullurl?: string; extract?: string }> };
+      query?: { pages?: Record<string, { title?: string; fullurl?: string; extract?: string; lastrevid?: number }> };
       error?: { code?: string; info?: string };
     };
     if (data.error) {
@@ -162,9 +191,11 @@ async function fetchWikipediaDocuments(limit: number, language: "en" | "fa" = "e
         const title = page.title ?? "Wikipedia article";
         return {
           title,
-          url: page.fullurl
-            ?? `https://${wikiDomain}/wiki/` + encodeURIComponent(title.replace(/ /g, "_")),
-          text: page.extract ?? "",
+          url: pinWikipediaRevision(
+            page.fullurl ?? `https://${wikiDomain}/wiki/` + encodeURIComponent(title.replace(/ /g, "_")),
+            page.lastrevid,
+          ),
+          text: normalizeSourceText(page.extract ?? ""),
         };
       });
   } catch (error) {
@@ -180,8 +211,8 @@ async function fetchWikipediaDocuments(limit: number, language: "en" | "fa" = "e
 // perform expensive synchronous work on the event loop while Render is checking
 // the /health endpoint during startup.
 const sourceAnalysisCache = new WeakMap<SourceDocument, {
-  matches: WordMatch[];
-  normalizedSource: string;
+  text: string;
+  matches: SourceWordMatch[];
 }>();
 
 function buildRoundFromSource(
@@ -192,13 +223,14 @@ function buildRoundFromSource(
 ): GeneratedRound | null {
   let analysis = sourceAnalysisCache.get(source);
   if (!analysis) {
+    const text = normalizeSourceText(source.text);
     analysis = {
-      matches: getWordMatches(source.text, language),
-      normalizedSource: source.text.replace(/\s+/g, " ").trim().toLowerCase(),
+      text,
+      matches: getSourceWordMatches(text, language),
     };
     sourceAnalysisCache.set(source, analysis);
   }
-  const { matches, normalizedSource } = analysis;
+  const { text, matches } = analysis;
   if (matches.length < 20) return null;
   const candidateIndexes = shuffle(
     matches.map((_, index) => index).filter((index) => index >= 5),
@@ -213,35 +245,12 @@ function buildRoundFromSource(
     const options = getOptions(optionWords, match.word);
     if (options.length !== 12) continue;
 
-    // Expand the exact phrase until it occurs only once in the source text.
-    let anchor = "";
-    for (let wordsBefore = 5; wordsBefore <= 10; wordsBefore += 1) {
-      const firstWord = matches[index - wordsBefore];
-      if (!firstWord) continue;
-
-      const rawAnchor = source.text.slice(firstWord.index, match.index);
-      if (/\n\s*\n/.test(rawAnchor) || /[.!?][)"'\]]*\s/.test(rawAnchor)) {
-        continue;
-      }
-
-      const candidateAnchor = rawAnchor.replace(/\s+/g, " ").trim();
-      if (!candidateAnchor || candidateAnchor.length < 25 || candidateAnchor.length > 160) continue;
-
-      const searchableAnchor = candidateAnchor.toLowerCase();
-      const firstOccurrence = normalizedSource.indexOf(searchableAnchor);
-      if (firstOccurrence < 0) continue;
-      if (normalizedSource.indexOf(searchableAnchor, firstOccurrence + 1) !== -1) {
-        continue;
-      }
-
-      anchor = candidateAnchor;
-      break;
-    }
-
+    // Choose a literal phrase from one visible paragraph and sentence only.
+    const anchor = findUniqueAnchorBeforeTarget(text, matches, index);
     if (!anchor) continue;
 
     return {
-      content: language === "fa" ? "واژهٔ فارسیِ بلافاصله پس از عبارت نمایش‌داده‌شده در سرنخ را پیدا کن." : "Find the English word immediately after the phrase shown in the hint.",
+      content: generatedClueInstruction(language),
       correctAnswer: match.word,
       sourceUrl: source.url,
       hintAnchor: anchor,
@@ -285,10 +294,71 @@ async function fetchGutenbergDocument(book: {
       return null;
     }
 
-    return { title: book.title, url: book.pageUrl, text };
+    return { title: book.title, url: book.pageUrl, text: normalizeSourceText(text) };
   } catch (error) {
     console.warn("Project Gutenberg source unavailable", {
       title: book.title,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
+async function fetchWikipediaArticleDocument(parsed: URL): Promise<SourceDocument | null> {
+  const titlePart = parsed.pathname.slice("/wiki/".length);
+  if (!titlePart) return null;
+
+  let title: string;
+  try {
+    title = decodeURIComponent(titlePart).replace(/_/g, " ").trim();
+  } catch {
+    return null;
+  }
+  if (!title) return null;
+
+  const apiUrl = new URL("/w/api.php", parsed.origin);
+  apiUrl.searchParams.set("action", "query");
+  apiUrl.searchParams.set("format", "json");
+  apiUrl.searchParams.set("prop", "extracts|info");
+  apiUrl.searchParams.set("inprop", "url");
+  apiUrl.searchParams.set("explaintext", "1");
+  apiUrl.searchParams.set("exsectionformat", "plain");
+  apiUrl.searchParams.set("redirects", "1");
+  apiUrl.searchParams.set("titles", title);
+
+  try {
+    const response = await fetch(apiUrl, {
+      headers: { "User-Agent": "WalletFind/1.0 (visible Wikipedia article clue generator)" },
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!response.ok) {
+      console.warn("Wikipedia article extract failed", { url: parsed.toString(), status: response.status });
+      return null;
+    }
+
+    const data = await response.json() as {
+      query?: { pages?: Record<string, { title?: string; fullurl?: string; extract?: string; missing?: string; lastrevid?: number }> };
+      error?: { code?: string; info?: string };
+    };
+    if (data.error) {
+      console.warn("Wikipedia article extract API error", { url: parsed.toString(), error: data.error });
+      return null;
+    }
+
+    const page = Object.values(data.query?.pages ?? {}).find((candidate) =>
+      !candidate.missing && typeof candidate.extract === "string",
+    );
+    const text = normalizeSourceText(page?.extract ?? "");
+    if (!page || text.length < 500) return null;
+
+    return {
+      title: page.title ?? title,
+      url: pinWikipediaRevision(page.fullurl ?? parsed.toString(), page.lastrevid),
+      text,
+    };
+  } catch (error) {
+    console.warn("Wikipedia article extract unavailable", {
+      url: parsed.toString(),
       error: error instanceof Error ? error.message : String(error),
     });
     return null;
@@ -299,18 +369,34 @@ async function fetchConfiguredWebDocument(url: string): Promise<SourceDocument |
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== "https:") return null;
-    const response = await fetch(parsed, { headers: { "User-Agent": "WalletFind/1.0 (public webpage clue generator)" }, signal: AbortSignal.timeout(8_000) });
-    if (!response.ok) return null;
-    const contentType = response.headers.get("content-type") ?? "";
-    let text = await response.text();
-    if (contentType.includes("html") || /<html|<body|<p[ >]/i.test(text.slice(0, 2000))) {
-      text = text.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ")
-        .replace(/<[^>]+>/g, " ").replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&")
-        .replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'").replace(/\s+/g, " ");
+
+    // Do not scrape Wikipedia's entire HTML page: navigation, hidden labels and
+    // markup boundaries can create phrases that are not searchable in the article.
+    if (
+      (parsed.hostname === "fa.wikipedia.org" || parsed.hostname === "en.wikipedia.org") &&
+      parsed.pathname.startsWith("/wiki/")
+    ) {
+      return await fetchWikipediaArticleDocument(parsed);
     }
+
+    const response = await fetch(parsed, {
+      headers: { "User-Agent": "WalletFind/1.0 (public webpage clue generator)" },
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!response.ok) return null;
+
+    const contentType = response.headers.get("content-type") ?? "";
+    const responseText = await response.text();
+    const text = contentType.includes("html") || /<html|<body|<p[ >]/i.test(responseText.slice(0, 2000))
+      ? extractVisibleTextFromHtml(responseText)
+      : normalizeSourceText(responseText);
+
     return text.length >= 500 ? { title: parsed.hostname, url: parsed.toString(), text } : null;
   } catch (error) {
-    console.warn("Configured clue source unavailable", { url, error: error instanceof Error ? error.message : String(error) });
+    console.warn("Configured clue source unavailable", {
+      url,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return null;
   }
 }
@@ -359,7 +445,7 @@ async function generateMvpRounds(language: "en" | "fa" = "en"): Promise<Generate
   const rounds: GeneratedRound[] = [];
   const usedAnswers = new Set<string>();
   const optionCorpus = sources.map((source) => source.text).join("\n");
-  const optionWords = [...new Set(getWordMatches(optionCorpus, language)
+  const optionWords = [...new Set(getSourceWordMatches(optionCorpus, language)
     .map((match) => match.word).filter((word) => language === "fa" || !COMMON_WORDS.has(word)))];
 
   for (const source of shuffle(sources)) {
@@ -410,6 +496,7 @@ async function ensureMvpActiveContestInternal(language: "en" | "fa" = "en") {
       clues: {
         select: {
           sequence: true,
+          content: true,
           sourceUrl: true,
           hintAnchor: true,
           options: true,
@@ -423,16 +510,8 @@ async function ensureMvpActiveContestInternal(language: "en" | "fa" = "en") {
   const isPlayable = (contest: {
     startsAt: Date | null;
     endsAt: Date | null;
-    clues: Array<{ sequence: number; sourceUrl: string | null; hintAnchor: string | null; options: unknown }>;
-  }) =>
-    hasCompleteClueSequence(contest.clues.map((clue) => clue.sequence)) &&
-    contest.clues.every((clue) =>
-      Boolean(clue.sourceUrl) &&
-      typeof clue.hintAnchor === "string" &&
-      clue.hintAnchor.trim().length >= 25 &&
-      Array.isArray(clue.options) &&
-      clue.options.length === 12
-    );
+    clues: StoredGeneratedClue[];
+  }) => hasCurrentGeneratedClues(contest.clues);
 
   // Always prefer the currently playable round over a future scheduled round.
   // Otherwise a late joiner can be sent to the next round and see every clue locked.
@@ -444,6 +523,30 @@ async function ensureMvpActiveContestInternal(language: "en" | "fa" = "en") {
   if (playableContest) {
     console.log("MVP contest ready:", playableContest.id);
     return playableContest.id;
+  }
+
+  // Activate a due scheduled round only if its hints use the verified format.
+  const dueScheduled = await prisma.contest.findFirst({
+    where: {
+      status: "SCHEDULED",
+      language,
+      startsAt: { lte: now },
+      OR: [{ endsAt: null }, { endsAt: { gt: now } }],
+    },
+    orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }],
+    select: {
+      id: true,
+      startsAt: true,
+      endsAt: true,
+      clues: { select: { sequence: true, content: true, sourceUrl: true, hintAnchor: true, options: true } },
+    },
+  });
+  if (dueScheduled) {
+    if (hasCurrentGeneratedClues(dueScheduled.clues)) {
+      await prisma.contest.update({ where: { id: dueScheduled.id }, data: { status: "ACTIVE" } });
+      return dueScheduled.id;
+    }
+    await prisma.contest.update({ where: { id: dueScheduled.id }, data: { status: "CANCELLED" } });
   }
 
   // Keep any future round queued, but do not return it as the current round.
@@ -488,7 +591,7 @@ async function ensureMvpActiveContestInternal(language: "en" | "fa" = "en") {
     .filter((activeContest) => {
       const effectiveEnd = activeContest.endsAt ??
         (activeContest.startsAt ? new Date(activeContest.startsAt.getTime() + CONTEST_DURATION_MS) : null);
-      return effectiveEnd !== null && effectiveEnd.getTime() <= Date.now();
+      return !isPlayable(activeContest) || (effectiveEnd !== null && effectiveEnd.getTime() <= Date.now());
     })
     .map((activeContest) => activeContest.id);
   if (previousActiveIds.length > 0) {
@@ -537,24 +640,12 @@ type ActiveContestForNext = {
   status: string;
   startsAt: Date | null;
   endsAt: Date | null;
-  clues: Array<{
-    sequence: number;
-    sourceUrl: string | null;
-    hintAnchor: string | null;
-    options: unknown;
-  }>;
+  clues: StoredGeneratedClue[];
 };
 
 function isPlayableActiveContest(contest: ActiveContestForNext, now: Date): boolean {
   return (
-    hasCompleteClueSequence(contest.clues.map((clue) => clue.sequence)) &&
-    contest.clues.every((clue) =>
-      Boolean(clue.sourceUrl) &&
-      typeof clue.hintAnchor === "string" &&
-      clue.hintAnchor.trim().length >= 25 &&
-      Array.isArray(clue.options) &&
-      clue.options.length === 12
-    ) &&
+    hasCurrentGeneratedClues(contest.clues) &&
     (!contest.startsAt || contest.startsAt <= now) &&
     (!contest.endsAt || contest.endsAt > now)
   );
@@ -619,10 +710,13 @@ export async function startNextMvpContest(userId: string, completedContestId: st
       status: true,
       startsAt: true,
       endsAt: true,
-      clues: { select: { sequence: true, sourceUrl: true, hintAnchor: true, options: true } },
+      clues: { select: { sequence: true, content: true, sourceUrl: true, hintAnchor: true, options: true } },
     },
   });
-  if (existingScheduled) return publicContest(existingScheduled);
+  if (existingScheduled) {
+    if (hasCurrentGeneratedClues(existingScheduled.clues)) return publicContest(existingScheduled);
+    await prisma.contest.update({ where: { id: existingScheduled.id }, data: { status: "CANCELLED" } });
+  }
 
   const activeSelect = {
     id: true,
@@ -634,6 +728,7 @@ export async function startNextMvpContest(userId: string, completedContestId: st
     clues: {
       select: {
         sequence: true,
+        content: true,
         sourceUrl: true,
         hintAnchor: true,
         options: true,
@@ -666,13 +761,23 @@ export async function startNextMvpContest(userId: string, completedContestId: st
         select: activeSelect,
       });
 
-      const scheduledCreatedByAnotherRequest = await tx.contest.findFirst({
+      const scheduledCandidates = await tx.contest.findMany({
         where: { status: "SCHEDULED", language, startsAt: { gt: new Date() } },
         orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
         select: activeSelect,
       });
+      const scheduledCreatedByAnotherRequest = scheduledCandidates.find((candidate) =>
+        hasCurrentGeneratedClues(candidate.clues)
+      );
       if (scheduledCreatedByAnotherRequest) {
         return publicContest(scheduledCreatedByAnotherRequest);
+      }
+      const staleScheduledIds = scheduledCandidates.map((candidate) => candidate.id);
+      if (staleScheduledIds.length > 0) {
+        await tx.contest.updateMany({
+          where: { id: { in: staleScheduledIds }, status: "SCHEDULED" },
+          data: { status: "CANCELLED" },
+        });
       }
 
       const contestCreatedByAnotherRequest = activeContests.find((contest) =>
@@ -770,10 +875,26 @@ const AUTOMATIC_ROUND_RETRY_DELAY_MS = 5 * 60_000;
  * current round yet. The generated round starts on a fixed 15-minute boundary.
  */
 export async function ensureScheduledMvpContest(now = new Date(), language: "en" | "fa" = "en") {
-  const existingScheduled = await prisma.contest.findFirst({
+  const scheduledCandidates = await prisma.contest.findMany({
     where: { status: "SCHEDULED", language, startsAt: { gt: now } },
-    select: { id: true },
+    orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      clues: { select: { sequence: true, content: true, sourceUrl: true, hintAnchor: true, options: true } },
+    },
   });
+  const existingScheduled = scheduledCandidates.find((candidate) =>
+    hasCurrentGeneratedClues(candidate.clues)
+  );
+  const staleScheduledIds = scheduledCandidates
+    .filter((candidate) => !hasCurrentGeneratedClues(candidate.clues))
+    .map((candidate) => candidate.id);
+  if (staleScheduledIds.length > 0) {
+    await prisma.contest.updateMany({
+      where: { id: { in: staleScheduledIds }, status: "SCHEDULED" },
+      data: { status: "CANCELLED" },
+    });
+  }
   if (existingScheduled) return { scheduled: true, contestId: existingScheduled.id };
 
   if (now.getTime() - (lastAutomaticRoundAttemptAt.get(language) ?? 0) < AUTOMATIC_ROUND_RETRY_DELAY_MS) {
