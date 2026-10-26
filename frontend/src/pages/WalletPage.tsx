@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import BottomNav from "../components/BottomNav";
 import { useI18n } from "../i18n";
 import { getWallet, requestWalletDeposit, requestWalletWithdrawal, type WalletResult } from "../services/api";
+import LoadingIndicator from "../components/LoadingIndicator";
 
 type Page = "home" | "auth" | "competition" | "key" | "leaderboard" | "profile" | "wallet";
 type Props = { onNavigate: (page: Page) => void };
@@ -71,7 +72,7 @@ export default function WalletPage({ onNavigate }: Props) {
     <header className="topbar"><button className="brand brand--home" type="button" aria-label={copy.nav} onClick={() => onNavigate("home")}><span className="brand-wallet">Wallet</span><span className="brand-find">Find</span></button></header>
     <main className="page">
       <div className="section-title">{copy.title}</div>
-      {!wallet && !error && <p>{copy.loading}</p>}
+      {!wallet && !error && <div className="inline-feedback"><LoadingIndicator label={copy.loading} /></div>}
       {wallet && <>
         <section className="balance-card wallet-balance-card">
           <div className="balance-label">{copy.balance}</div>
