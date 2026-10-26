@@ -14,6 +14,7 @@ import {
   type AdminUserSummary,
   type SystemSettingRecord,
 } from "../services/api";
+import LoadingIndicator from "../components/LoadingIndicator";
 
 type AdminDestination = "home" | "admin-manage";
 
@@ -318,7 +319,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
 
         {error && <div className="admin-message admin-message--error" role="alert">{error}</div>}
         {notice && <div className="admin-message" role="status">{notice}</div>}
-        {loading && !overview ? <div className="admin-empty">{copy.loading}</div> : null}
+        {loading && !overview ? <div className="admin-empty"><LoadingIndicator label={copy.loading} /></div> : null}
 
         {section === "overview" && (
           <>
