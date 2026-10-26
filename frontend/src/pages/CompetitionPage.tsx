@@ -10,6 +10,7 @@ import {
 } from "../services/api";
 import { useI18n } from "../i18n";
 import { localizeApiError, localizeContestTitle, localizeUiMessage } from "../i18n/localize";
+import LoadingIndicator from "../components/LoadingIndicator";
 
 type Page =
   | "home"
@@ -555,9 +556,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
         )}
 
         {loading ? (
-          <div className="inline-feedback">
-            {isPersian ? "در حال دریافت چالش..." : "Loading challenge..."}
-          </div>
+          <div className="inline-feedback"><LoadingIndicator label={isPersian ? "در حال دریافت چالش..." : "Loading challenge..."} /></div>
         ) : error && !currentClueId && !completed ? (
           <div className="inline-feedback">{localizeApiError(error, language)}</div>
         ) : (
@@ -604,7 +603,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                   disabled={startingNextContest}
                 >
                   {startingNextContest
-                    ? (isPersian ? "در حال آماده‌سازی..." : "Preparing...")
+                    ? <LoadingIndicator compact label={isPersian ? "در حال آماده‌سازی..." : "Preparing..."} />
                     : (isPersian ? "شروع چالش بعدی" : "Start Next Challenge")}
                 </button>
               </section>
@@ -699,7 +698,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                   disabled={!answer.trim() || submitting || completed || isClueLocked || (roundRemainingMs !== null && roundRemainingMs <= 0)}
                 >
                   {submitting
-                    ? (isPersian ? "در حال بررسی..." : "Checking...")
+                    ? <LoadingIndicator compact label={isPersian ? "در حال بررسی..." : "Checking..."} />
                     : isClueLocked
                       ? (isPersian ? "قفل پاسخ: " + Math.ceil(lockRemainingMs / 1000) + " ثانیه" : "Locked: " + Math.ceil(lockRemainingMs / 1000) + "s")
                       : (isPersian ? "بررسی کلمه‌ی واردشده" : "Check typed word")}
