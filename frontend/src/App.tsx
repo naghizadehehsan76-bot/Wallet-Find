@@ -260,7 +260,7 @@ function HomePage({
         <section className="home-showcase">
           <img className="home-concept-vector" src="/images/home-concept.svg" alt={isPersian ? "تصویر نئونی کیف پول و ذره‌بین" : "Neon wallet and magnifying glass illustration"} />
           <h1 className="home-concept-title" lang={isPersian ? "fa" : "en"} dir={isPersian ? "rtl" : "ltr"}>
-            {isPersian ? <>کیف پول رو پیدا کن، <span>کریپتو بگیر</span></> : <>Find the wallet, <span>get rewarded</span></>}
+            {isPersian ? <>کیف پول رو پیدا کن، <span>کریپتو بگیر</span></> : <>FIND THE WALLET, <span>GET CRYPTO</span></>}
           </h1>
           <p className="home-concept-tagline" lang={isPersian ? "fa" : "en"} dir={isPersian ? "rtl" : "ltr"}>
             {isPersian ? <>هر روز سرنخ‌های رسیدن به کیف پول رو بهت میدیم<br />هر چقدر سریعتر باشی درآمدت بیشتره.</> : <>We give you clues every day...<br />The faster you are, the more you earn.</>}
