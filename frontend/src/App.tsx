@@ -367,6 +367,30 @@ function InfoPage({
           <p>{content.detail}</p>
         </section>
         {kind === "rewards" && (
+          <div className="rewards-explainer">
+            <section className="info-panel rewards-explainer__section">
+              <h2>{t.infoPages.rewards.fundingTitle}</h2>
+              <p>{t.infoPages.rewards.fundingDetail}</p>
+            </section>
+            <section className="info-panel rewards-explainer__section">
+              <h2>{t.infoPages.rewards.distributionTitle}</h2>
+              <ul>
+                <li>{t.infoPages.rewards.distributionFirst}</li>
+                <li>{t.infoPages.rewards.distributionRemainder}</li>
+                <li>{t.infoPages.rewards.distributionTies}</li>
+              </ul>
+            </section>
+            <section className="info-panel rewards-explainer__section">
+              <h2>{t.infoPages.rewards.rolloverTitle}</h2>
+              <p>{t.infoPages.rewards.rolloverDetail}</p>
+            </section>
+            <section className="info-panel rewards-explainer__section">
+              <h2>{t.infoPages.rewards.statusTitle}</h2>
+              <p>{t.infoPages.rewards.statusDetail}</p>
+            </section>
+          </div>
+        )}
+        {kind === "rewards" && (
           <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>
             {t.navigation.competition}
           </button>
