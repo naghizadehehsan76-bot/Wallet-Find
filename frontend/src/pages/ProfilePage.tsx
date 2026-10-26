@@ -3,6 +3,7 @@ import BottomNav from "../components/BottomNav";
 import { getProfile, type ProfileResult } from "../services/api";
 import { useI18n } from "../i18n";
 import { localizeApiError } from "../i18n/localize";
+import LoadingIndicator from "../components/LoadingIndicator";
 
 type Page =
   | "home"
@@ -63,9 +64,7 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
 
       <main className="page profile-page">
         {loading ? (
-          <div className="inline-feedback">
-            {isPersian ? "در حال دریافت پروفایل..." : "Loading profile..."}
-          </div>
+          <div className="inline-feedback"><LoadingIndicator label={isPersian ? "در حال دریافت پروفایل..." : "Loading profile..."} /></div>
         ) : error ? (
           <div className="inline-feedback">{localizeApiError(error, language)}</div>
         ) : profile ? (
