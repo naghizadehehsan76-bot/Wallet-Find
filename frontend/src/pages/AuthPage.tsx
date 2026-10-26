@@ -170,7 +170,7 @@ function AuthPage({ onAuthenticated, onBack, onOpenTerms, initialMode = "login" 
 
           <button className="cta-button" type="submit" disabled={loading || (mode === "signup" && !acceptedTerms)}>
             {loading
-              ? t.auth.loading
+              ? <LoadingIndicator compact label={t.auth.loading} />
               : mode === "login"
                 ? t.auth.loginButton
                 : t.auth.signupButton}

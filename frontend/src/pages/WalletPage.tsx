@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import BottomNav from "../components/BottomNav";
 import { useI18n } from "../i18n";
 import { getWallet, requestWalletDeposit, requestWalletWithdrawal, type WalletResult } from "../services/api";
+import LoadingIndicator from "../components/LoadingIndicator";
 
 type Page = "home" | "auth" | "competition" | "key" | "leaderboard" | "profile" | "wallet";
 type Props = { onNavigate: (page: Page) => void };
@@ -71,7 +72,7 @@ export default function WalletPage({ onNavigate }: Props) {
     <header className="topbar"><button className="brand brand--home" type="button" aria-label={copy.nav} onClick={() => onNavigate("home")}><span className="brand-wallet">Wallet</span><span className="brand-find">Find</span></button></header>
     <main className="page">
       <div className="section-title">{copy.title}</div>
-      {!wallet && !error && <p>{copy.loading}</p>}
+      {!wallet && !error && <div className="inline-feedback"><LoadingIndicator label={copy.loading} /></div>}
       {wallet && <>
         <section className="balance-card wallet-balance-card">
           <div className="balance-label">{copy.balance}</div>
@@ -87,7 +88,7 @@ export default function WalletPage({ onNavigate }: Props) {
           <form className="wallet-action-form" onSubmit={submit}>
             <label>{copy.amount}<input type="number" inputMode="decimal" min="0.000001" step="0.000001" max="999999999999.999999" value={amount} onChange={e => setAmount(e.target.value)} required /></label>
             <p className="wallet-demo-note">{action === "deposit" ? copy.depositHelp : copy.withdrawHelp}</p>
-            <button className="cta-button" type="submit" disabled={busy}>{busy ? copy.busy : copy.send}</button>
+            <button className="cta-button" type="submit" disabled={busy}>{busy ? <LoadingIndicator compact label={copy.busy} /> : copy.send}</button>
           </form>
         </section>
         <section className="wallet-history">

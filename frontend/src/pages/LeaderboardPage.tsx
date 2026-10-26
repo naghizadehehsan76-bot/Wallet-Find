@@ -8,6 +8,7 @@ import {
 import { useI18n } from "../i18n";
 import "./LeaderboardPage.css";
 import { localizeApiError, localizeContestTitle } from "../i18n/localize";
+import LoadingIndicator from "../components/LoadingIndicator";
 
 type Page =
   | "home"
@@ -95,11 +96,7 @@ function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
         </section>
 
         {loading ? (
-          <div className="inline-feedback">
-            {isPersian
-              ? "در حال دریافت رتبه‌بندی..."
-              : "Loading leaderboard..."}
-          </div>
+          <div className="inline-feedback"><LoadingIndicator label={isPersian ? "در حال دریافت رتبه‌بندی..." : "Loading leaderboard..."} /></div>
         ) : error ? (
           <div className="inline-feedback">{localizeApiError(error, language)}</div>
         ) : entries.length === 0 ? (

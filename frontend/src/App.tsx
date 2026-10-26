@@ -9,6 +9,7 @@ import AdminControlCenter from "./pages/AdminControlCenter";
 import WalletPage from "./pages/WalletPage";
 import { useI18n, type Language } from "./i18n";
 import SharedLanguageSwitcher from "./components/LanguageSwitcher";
+import LoadingIndicator from "./components/LoadingIndicator";
 import { getActiveContest, getCurrentClue, getProfile, getPublicPrizePoolStats, getPublicSiteStats, sendOnlineHeartbeat, type PublicPrizePoolStats, type PublicSiteStats } from "./services/api";
 import "./App.css";
 
@@ -677,8 +678,8 @@ function App() {
   const isLoggedIn = authStatus === "authenticated";
   if (authStatus === "checking") {
     return (
-      <div className="app-shell session-checking" role="status" aria-live="polite">
-        {language === "fa" ? "در حال بررسی وضعیت ورود..." : "Checking your session..."}
+      <div className="app-shell session-checking">
+        <LoadingIndicator />
       </div>
     );
   }
