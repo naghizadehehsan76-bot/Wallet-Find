@@ -208,40 +208,61 @@ function HomePage({
               event.currentTarget.style.setProperty("--home-glow-y", "45%");
             }}
           >
-            <img className="home-concept-vector" src="/images/home-concept.svg" alt={isPersian ? "تصویر نئونی کیف پول و ذره‌بین" : "Neon wallet and magnifying glass illustration"} />
-            <div className="home-crypto-scene" aria-hidden="true">
-              <div className="home-crypto-wallet">
-                <svg className="home-crypto-wallet__body" viewBox="0 0 300 190" fill="none">
-                  <defs>
-                    <linearGradient id="walletFace" x1="40" y1="35" x2="255" y2="165" gradientUnits="userSpaceOnUse">
-                      <stop stopColor="#103B66"/><stop offset="1" stopColor="#07172F"/>
-                    </linearGradient>
-                    <linearGradient id="walletFlap" x1="60" y1="18" x2="240" y2="90" gradientUnits="userSpaceOnUse">
-                      <stop stopColor="#1C9FD0"/><stop offset="1" stopColor="#1253A0"/>
-                    </linearGradient>
-                  </defs>
-                  <path d="M42 63 Q42 43 63 43 H244 Q260 43 260 62 V151 Q260 169 242 169 H61 Q42 169 42 149 Z" fill="url(#walletFace)" stroke="#43DDF4" strokeWidth="4"/>
-                  <path className="home-crypto-wallet__lid" d="M47 65 L72 29 Q78 20 92 24 L240 52 Q253 55 255 67 L255 87 L48 87 Z" fill="url(#walletFlap)" stroke="#70F3FF" strokeWidth="4" strokeLinejoin="round"/>
-                  <path d="M42 89 H255" stroke="#57E9FF" strokeOpacity=".72" strokeWidth="3"/>
-                  <rect x="186" y="96" width="82" height="42" rx="12" fill="#0A2446" stroke="#53DDF5" strokeWidth="3"/>
-                  <circle cx="207" cy="117" r="6" fill="#75F5FF"/>
-                </svg>
-                <div className="home-crypto-wallet__coins">
-                  <span className="home-coin home-coin--btc" title="Bitcoin">₿</span>
-                  <span className="home-coin home-coin--eth" title="Ethereum"><svg viewBox="0 0 32 40"><path d="M16 1 2 21 16 28 30 21Z" fill="#B8C7FF"/><path d="M16 32 2 24 16 39 30 24Z" fill="#7C91E8"/></svg></span>
-                  <span className="home-coin home-coin--usdt" title="Tether">₮</span>
-                  <span className="home-coin home-coin--xrp" title="XRP"><svg viewBox="0 0 40 32"><path d="M4 4h5l7 7a6 6 0 0 0 8 0l7-7h5l-9 9a10 10 0 0 1-14 0Z M4 28h5l7-7a6 6 0 0 1 8 0l7 7h5l-9-9a10 10 0 0 0-14 0Z" fill="currentColor"/></svg></span>
-                </div>
+            <div className="home-art-stack">
+              <img className="home-concept-vector" src="/images/home-concept.svg" alt={isPersian ? "تصویر نئونی کیف پول و ذره‌بین" : "Neon wallet and magnifying glass illustration"} />
+              <svg className="home-wallet-cavity" viewBox="0 0 1536 864" aria-hidden="true">
+                <defs>
+                  <linearGradient id="homeWalletInterior" x1="520" y1="220" x2="900" y2="630" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#06254B" />
+                    <stop offset=".55" stopColor="#04162F" />
+                    <stop offset="1" stopColor="#020B1D" />
+                  </linearGradient>
+                  <linearGradient id="homeWalletInteriorEdge" x1="500" y1="270" x2="970" y2="520" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#2CD7FF" />
+                    <stop offset=".5" stopColor="#126FEA" />
+                    <stop offset="1" stopColor="#36F3C6" />
+                  </linearGradient>
+                  <radialGradient id="homeCoinGold">
+                    <stop stopColor="#5C421B" />
+                    <stop offset="1" stopColor="#171C32" />
+                  </radialGradient>
+                  <radialGradient id="homeCoinBlue">
+                    <stop stopColor="#344B94" />
+                    <stop offset="1" stopColor="#101B38" />
+                  </radialGradient>
+                  <radialGradient id="homeCoinGreen">
+                    <stop stopColor="#126C58" />
+                    <stop offset="1" stopColor="#08232C" />
+                  </radialGradient>
+                </defs>
+                <path d="M 492 269 C 492 240 516 217 550 205 L 870 171 C 904 167 934 186 950 213 L 972 246 L 983 371 C 984 426 962 489 939 530 L 600 624 C 570 632 540 613 522 586 L 495 315 Z" fill="url(#homeWalletInterior)" stroke="url(#homeWalletInteriorEdge)" strokeWidth="7" strokeLinejoin="round"/>
+                <path d="M 553 267 C 566 246 590 238 616 233 L 869 202 C 899 198 922 214 938 239 L 948 267 L 955 367 C 956 419 939 477 922 508 L 604 593 C 584 599 565 589 557 570 Z" fill="none" stroke="#43DDF4" strokeOpacity=".36" strokeWidth="4"/>
+                <path d="M 558 299 L 570 566 C 572 581 588 590 606 585 L 919 501" fill="none" stroke="#0F8CE8" strokeOpacity=".32" strokeWidth="3"/>
+                <g className="home-wallet-crypto-icons">
+                  <g transform="translate(682 365)">
+                    <circle r="27" fill="url(#homeCoinGold)" stroke="#FFB547" strokeWidth="3"/>
+                    <text x="0" y="9" fill="#FFC36B" fontSize="36" fontWeight="800" textAnchor="middle">₿</text>
+                  </g>
+                  <g transform="translate(752 365)">
+                    <circle r="27" fill="url(#homeCoinBlue)" stroke="#AABEFF" strokeWidth="3"/>
+                    <path d="M 0 -18 L -13 3 L 0 10 L 13 3 Z M 0 14 L -13 6 L 0 22 L 13 6 Z" fill="#C3D1FF"/>
+                  </g>
+                  <g transform="translate(822 365)">
+                    <circle r="27" fill="url(#homeCoinGreen)" stroke="#66F5BD" strokeWidth="3"/>
+                    <text x="0" y="9" fill="#83FFCE" fontSize="35" fontWeight="800" textAnchor="middle">₮</text>
+                  </g>
+                  <g transform="translate(890 387)">
+                    <circle r="27" fill="#10283D" stroke="#D9F6FF" strokeWidth="3"/>
+                    <path d="M -16 -9 H -10 L -3 -2 Q 0 1 3 -2 L 10 -9 H 16 L 5 2 Q 0 7 -5 2 Z M -16 9 H -10 L -3 2 Q 0 -1 3 2 L 10 9 H 16 L 5 -2 Q 0 -7 -5 -2 Z" fill="#EAF8FF"/>
+                  </g>
+                </g>
+              </svg>
+              <div className="home-wallet-panel-layer" aria-hidden="true">
+                <img src="/images/home-concept-wallet-panel.svg" alt="" draggable="false" />
               </div>
-              <div className="home-crypto-magnifier">
-                <svg viewBox="0 0 120 150" fill="none">
-                  <circle cx="48" cy="48" r="34" fill="#65F2FF" fillOpacity=".13" stroke="#8CF8FF" strokeWidth="7"/>
-                  <circle cx="48" cy="48" r="25" fill="#8DEFFF" fillOpacity=".08" stroke="#C5FBFF" strokeOpacity=".7" strokeWidth="2"/>
-                  <path d="M72 73 105 119 Q110 128 102 134 Q95 139 89 130 L59 83" fill="#168BD0" stroke="#71F3FF" strokeWidth="5" strokeLinejoin="round"/>
-                  <path d="M31 34 Q42 20 57 29" stroke="#FFF" strokeOpacity=".8" strokeWidth="4" strokeLinecap="round"/>
-                </svg>
+              <div className="home-magnifier-layer" aria-hidden="true">
+                <img className="home-original-magnifier" src="/images/home-concept-magnifier.svg" alt="" draggable="false" />
               </div>
-              <span className="home-crypto-scanline"></span>
             </div>
           </div>
           <h1 className="home-concept-title" lang={isPersian ? "fa" : "en"} dir={isPersian ? "rtl" : "ltr"}>
