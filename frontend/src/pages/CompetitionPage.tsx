@@ -636,7 +636,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                   {hintAnchor ? (
                     <p>
                       {isPersian
-                        ? "در صفحه‌ی منبع جمله‌ی زیر را دقیقاً پیدا کنید؛ کلمه‌ی فارسی بلافاصله پس از این جمله پاسخ خانه‌ای است که باز شده:"
+                        ? `در صفحه‌ی منبع جمله‌ی زیر را دقیقاً پیدا کنید؛ کلمه‌ی فارسی بلافاصله پس از این جمله پاسخ خانه‌ی ${formatNumber(displayedRound)} است:`
                         : `Find this exact phrase on the source page. The ${contestLanguage === "fa" ? "Persian" : "English"} word immediately after it is the answer:`}
                     </p>
                   ) : (
