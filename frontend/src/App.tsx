@@ -451,7 +451,7 @@ function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }
 
   const items: { page: Page; icon: string; label: string }[] = [
     { page: "home", icon: "⌂", label: t.navigation.home },
-    { page: "competition", icon: "🔑", label: t.navigation.competition },
+    { page: "competition", icon: "🔑", label: language === "en" ? "START CHALLENGE" : t.navigation.competition },
     { page: "rules", icon: "ⓘ", label: t.contestRules.title },
     { page: "leaderboard", icon: "🏆", label: t.sidebar.leaderboard },
     { page: "rewards", icon: "✦", label: t.sidebar.rewards },
