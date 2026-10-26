@@ -2275,9 +2275,11 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 }
 
 
-/* Keep the illustration's existing combined upward offset on mobile too. */
+/* Explicitly position the Home illustration 3 mm higher on mobile, independent of older transform rules. */
 @media (max-width: 899px) {
   .home-page .home-concept-vector {
-    transform: translateY(calc(-1cm - 2mm));
+    transform: none !important;
+    position: relative;
+    top: -3mm !important;
   }
 }
