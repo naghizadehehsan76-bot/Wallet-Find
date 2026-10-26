@@ -550,7 +550,6 @@ function App() {
       // If session storage is unavailable, fall back to the safe default below.
     }
     if (hasToken) {
-      if (window.location.pathname === "/admin") return "admin";
       if (savedPage && (savedPage !== "admin" && savedPage !== "admin-manage" || initialIsAdmin)) return savedPage;
       return "competition";
     }
