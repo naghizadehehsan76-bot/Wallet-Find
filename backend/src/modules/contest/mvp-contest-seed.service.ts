@@ -16,6 +16,18 @@ type SourceDocument = {
   text: string;
 };
 
+function pinWikipediaRevision(url: string, revisionId?: number): string {
+  if (!revisionId || !Number.isInteger(revisionId) || revisionId < 1) return url;
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname !== "fa.wikipedia.org" && parsed.hostname !== "en.wikipedia.org") return url;
+    parsed.searchParams.set("oldid", String(revisionId));
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
 type GeneratedRound = {
   content: string;
   correctAnswer: string;
@@ -165,7 +177,7 @@ async function fetchWikipediaDocuments(limit: number, language: "en" | "fa" = "e
     }
 
     const data = await extractResponse.json() as {
-      query?: { pages?: Record<string, { title?: string; fullurl?: string; extract?: string }> };
+      query?: { pages?: Record<string, { title?: string; fullurl?: string; extract?: string; lastrevid?: number }> };
       error?: { code?: string; info?: string };
     };
     if (data.error) {
@@ -179,8 +191,10 @@ async function fetchWikipediaDocuments(limit: number, language: "en" | "fa" = "e
         const title = page.title ?? "Wikipedia article";
         return {
           title,
-          url: page.fullurl
-            ?? `https://${wikiDomain}/wiki/` + encodeURIComponent(title.replace(/ /g, "_")),
+          url: pinWikipediaRevision(
+            page.fullurl ?? `https://${wikiDomain}/wiki/` + encodeURIComponent(title.replace(/ /g, "_")),
+            page.lastrevid,
+          ),
           text: normalizeSourceText(page.extract ?? ""),
         };
       });
@@ -323,7 +337,7 @@ async function fetchWikipediaArticleDocument(parsed: URL): Promise<SourceDocumen
     }
 
     const data = await response.json() as {
-      query?: { pages?: Record<string, { title?: string; fullurl?: string; extract?: string; missing?: string }> };
+      query?: { pages?: Record<string, { title?: string; fullurl?: string; extract?: string; missing?: string; lastrevid?: number }> };
       error?: { code?: string; info?: string };
     };
     if (data.error) {
@@ -339,7 +353,7 @@ async function fetchWikipediaArticleDocument(parsed: URL): Promise<SourceDocumen
 
     return {
       title: page.title ?? title,
-      url: page.fullurl ?? parsed.toString(),
+      url: pinWikipediaRevision(page.fullurl ?? parsed.toString(), page.lastrevid),
       text,
     };
   } catch (error) {
