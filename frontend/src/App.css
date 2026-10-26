@@ -1407,6 +1407,7 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   letter-spacing: 0;
 }
 .home-concept-title span {
+  white-space: nowrap;
   color: #00f0ce;
   background: linear-gradient(100deg, #00f0ce, #00baff);
   -webkit-background-clip: text;
