@@ -188,7 +188,28 @@ function HomePage({
 
         <main className="page home-page">
         <section className="home-showcase">
-          <img className="home-concept-vector" src="/images/home-concept.svg" alt={isPersian ? "تصویر نئونی کیف پول و ذره‌بین" : "Neon wallet and magnifying glass illustration"} />
+          <div
+            className="home-illustration-frame"
+            onPointerMove={(event) => {
+              if (event.pointerType === "touch") return;
+              const rect = event.currentTarget.getBoundingClientRect();
+              if (!rect.width || !rect.height) return;
+              const x = (event.clientX - rect.left) / rect.width;
+              const y = (event.clientY - rect.top) / rect.height;
+              event.currentTarget.style.setProperty("--home-tilt-x", `${(0.5 - y) * 6}deg`);
+              event.currentTarget.style.setProperty("--home-tilt-y", `${(x - 0.5) * 8}deg`);
+              event.currentTarget.style.setProperty("--home-glow-x", `${x * 100}%`);
+              event.currentTarget.style.setProperty("--home-glow-y", `${y * 100}%`);
+            }}
+            onPointerLeave={(event) => {
+              event.currentTarget.style.setProperty("--home-tilt-x", "0deg");
+              event.currentTarget.style.setProperty("--home-tilt-y", "0deg");
+              event.currentTarget.style.setProperty("--home-glow-x", "50%");
+              event.currentTarget.style.setProperty("--home-glow-y", "45%");
+            }}
+          >
+            <img className="home-concept-vector" src="/images/home-concept.svg" alt={isPersian ? "تصویر نئونی کیف پول و ذره‌بین" : "Neon wallet and magnifying glass illustration"} />
+          </div>
           <h1 className="home-concept-title" lang={isPersian ? "fa" : "en"} dir={isPersian ? "rtl" : "ltr"}>
             {isPersian ? <>کیف پول رو پیدا کن، <span>کریپتو بگیر</span></> : <>Find the wallet, <span>get rewarded</span></>}
           </h1>
