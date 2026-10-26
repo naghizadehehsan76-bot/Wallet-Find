@@ -9,7 +9,7 @@ import AdminControlCenter from "./pages/AdminControlCenter";
 import WalletPage from "./pages/WalletPage";
 import { useI18n, type Language } from "./i18n";
 import SharedLanguageSwitcher from "./components/LanguageSwitcher";
-import { getActiveContest, getCurrentClue, getProfile } from "./services/api";
+import { getActiveContest, getCurrentClue, getProfile, getPublicSiteStats, sendOnlineHeartbeat, type PublicSiteStats } from "./services/api";
 import "./App.css";
 
 type AuthMode = "login" | "signup";
@@ -30,13 +30,11 @@ type Page =
   | "admin-manage";
 
 const faStats = [
-  { value: "۲٬۴۱۸", label: "شرکت‌کننده امشب" },
   { value: "۵۰۰ ₮", label: "جایزه چالش" },
   { value: "۰۳:۵۹", label: "تا شروع بعدی" },
 ];
 
 const enStats = [
-  { value: "2,418", label: "Tonight's players" },
   { value: "500 ₮", label: "Challenge prize" },
   { value: "03:59", label: "Until next start" },
 ];
@@ -68,6 +66,7 @@ function HomePage({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [homeTimerNow, setHomeTimerNow] = useState(() => Date.now());
   const [homeSolvedCount, setHomeSolvedCount] = useState(0);
+  const [siteStats, setSiteStats] = useState<PublicSiteStats | null>(null);
   const isPersian = language === "fa";
   const homeProgressPercent = Math.min(100, (homeSolvedCount / 12) * 100);
   const formatHomeNumber = (value: number) => value.toLocaleString(isPersian ? "fa-IR" : "en-US");
@@ -75,6 +74,31 @@ function HomePage({
   useEffect(() => {
     const timerId = window.setInterval(() => setHomeTimerNow(Date.now()), 250);
     return () => window.clearInterval(timerId);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let refreshing = false;
+
+    async function refreshPublicSiteStats() {
+      if (refreshing) return;
+      refreshing = true;
+      try {
+        const latestStats = await getPublicSiteStats();
+        if (!cancelled) setSiteStats(latestStats);
+      } catch {
+        // Keep the most recent confirmed statistics while the API is unavailable.
+      } finally {
+        refreshing = false;
+      }
+    }
+
+    void refreshPublicSiteStats();
+    const intervalId = window.setInterval(() => void refreshPublicSiteStats(), 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
   }, []);
 
   useEffect(() => {
@@ -117,7 +141,15 @@ function HomePage({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [mobileMenuOpen]);
-  const stats = isPersian ? faStats : enStats;
+  const stats = [
+    {
+      value: siteStats ? formatHomeNumber(siteStats.onlineUsers) : "—",
+      label: isPersian ? "کاربران آنلاین" : "Online users",
+      secondaryValue: siteStats ? formatHomeNumber(siteStats.totalUsers) : "—",
+      secondaryLabel: isPersian ? "کل کاربران سایت" : "Total site users",
+    },
+    ...(isPersian ? faStats : enStats),
+  ];
   const steps = isPersian ? faSteps : enSteps;
   const homeRoundRemainingMs = 15 * 60_000 - (homeTimerNow % (15 * 60_000));
   const homeTimerSeconds = Math.ceil(homeRoundRemainingMs / 1000);
@@ -233,7 +265,18 @@ function HomePage({
         </section>
 
         <section className="stat-row">
-          {stats.map((stat) => <div className="stat-card" key={stat.label}><strong>{stat.value}</strong><span>{stat.label}</span></div>)}
+          {stats.map((stat) => (
+            <div className={"stat-card" + ("secondaryValue" in stat ? " stat-card--users" : "")} key={stat.label}>
+              <strong>{stat.value}</strong>
+              <span>{stat.label}</span>
+              {"secondaryValue" in stat && (
+                <div className="stat-card__secondary">
+                  <strong>{stat.secondaryValue}</strong>
+                  <span>{stat.secondaryLabel}</span>
+                </div>
+              )}
+            </div>
+          ))}
         </section>
 
         <section className="how-section">
@@ -532,6 +575,38 @@ function App() {
 
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (authStatus !== "authenticated") return;
+
+    let cancelled = false;
+    let inFlight = false;
+
+    async function recordOnlinePresence() {
+      if (cancelled || inFlight || !localStorage.getItem("walletFindToken")) return;
+      inFlight = true;
+      try {
+        await sendOnlineHeartbeat();
+      } catch {
+        // Presence is best-effort; temporary failures must not interrupt navigation.
+      } finally {
+        inFlight = false;
+      }
+    }
+
+    void recordOnlinePresence();
+    const intervalId = window.setInterval(() => void recordOnlinePresence(), 30000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") void recordOnlinePresence();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [authStatus]);
 
   const savedUser = safelyReadSavedUser();
   const isAdmin = authStatus === "authenticated" && savedUser?.role === "ADMIN";

@@ -21,6 +21,20 @@ export type AuthResult = {
   token: string;
 };
 
+export type PublicSiteStats = {
+  onlineUsers: number;
+  totalUsers: number;
+  updatedAt: string;
+};
+
+export async function getPublicSiteStats(): Promise<PublicSiteStats> {
+  return request<PublicSiteStats>("/stats/site");
+}
+
+export async function sendOnlineHeartbeat(): Promise<{ recorded: boolean }> {
+  return request<{ recorded: boolean }>("/stats/heartbeat", { method: "POST" }, true);
+}
+
 export type ActiveContest = {
   id: string;
   title: string;
