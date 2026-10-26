@@ -12,7 +12,7 @@ export async function getLeaderboardHistoryHandler(req: AuthenticatedRequest, re
     const contests = await prisma.contest.findMany({
       where: {
         startsAt: { not: null },
-        status: { in: ["ACTIVE", "FINISHED"] },
+        status: { in: ["SCHEDULED", "ACTIVE", "FINISHED", "CANCELLED"] },
       },
       orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
       select: { id: true, title: true, status: true, startsAt: true, endsAt: true },
