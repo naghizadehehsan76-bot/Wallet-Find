@@ -196,6 +196,25 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     applyCurrentClue(current);
   }
 
+  async function copyHintAnchor() {
+    try {
+      await navigator.clipboard.writeText(hintAnchor);
+      setFeedbackTone("success");
+      setFeedback(
+        isPersian
+          ? "عبارت دقیق سرنخ کپی شد؛ آن را در Find in page جای‌گذاری کن."
+          : "Exact hint phrase copied. Paste it into Find in page.",
+      );
+    } catch {
+      setFeedbackTone("info");
+      setFeedback(
+        isPersian
+          ? "کپی خودکار در این مرورگر فعال نیست؛ فقط متن داخل کادر سرنخ را انتخاب و کپی کن."
+          : "Automatic clipboard access is unavailable. Select and copy only the text inside the hint box.",
+      );
+    }
+  }
+
   useEffect(() => {
     if (!contestDate || completed) return;
 
@@ -617,16 +636,25 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                   {hintAnchor ? (
                     <p>
                       {isPersian
-                        ? "در صفحه‌ی منبع عبارت زیر را دقیقاً پیدا کن؛ کلمه‌ی انگلیسی بلافاصله پس از آن، پاسخ این راند است:"
-                        : "Find this exact phrase on the source page. The English word immediately after it is the answer:"}
+                        ? `در صفحه‌ی منبع عبارت زیر را دقیقاً پیدا کن؛ کلمه‌ی ${contestLanguage === "fa" ? "فارسی" : "انگلیسی"} بلافاصله پس از آن، پاسخ این راند است:`
+                        : `Find this exact phrase on the source page. The ${contestLanguage === "fa" ? "Persian" : "English"} word immediately after it is the answer:`}
                     </p>
                   ) : (
                     <p>{localizeUiMessage(clueContent, language)}</p>
                   )}
                   {hintAnchor && (
-                    <div className="round-hint-card__phrase" dir="ltr">
-                      “{hintAnchor}”
-                    </div>
+                    <>
+                      <div className="round-hint-card__phrase" dir={contestLanguage === "fa" ? "rtl" : "ltr"}>
+                        {hintAnchor}
+                      </div>
+                      <button
+                        type="button"
+                        className="round-hint-card__copy"
+                        onClick={() => void copyHintAnchor()}
+                      >
+                        {isPersian ? "کپی دقیق عبارت سرنخ" : "Copy exact hint phrase"}
+                      </button>
+                    </>
                   )}
                   <div className="round-hint-card__tip">
                     {isPersian
