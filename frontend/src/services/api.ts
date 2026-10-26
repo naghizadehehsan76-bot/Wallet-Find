@@ -106,6 +106,26 @@ export type LeaderboardResult = {
   entries: LeaderboardEntry[];
 };
 
+export type LeaderboardHistoryEntry = LeaderboardEntry & {
+  prizeEarned: string;
+  totalPrizeEarned: string;
+  prizeStatus: string | null;
+};
+
+export type LeaderboardRound = {
+  id: string;
+  number: number;
+  title: string;
+  status: string;
+  startsAt: string | null;
+  endsAt: string | null;
+  entries: LeaderboardHistoryEntry[];
+};
+
+export async function getLeaderboardHistory(): Promise<{ rounds: LeaderboardRound[] }> {
+  return request<{ rounds: LeaderboardRound[] }>("/contests/leaderboard-history", {}, true);
+}
+
 export type ProfileResult = {
   id: string;
   email: string;
