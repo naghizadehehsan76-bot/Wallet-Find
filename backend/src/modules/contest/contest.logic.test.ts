@@ -2,6 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  CLUE_GENERATOR_VERSION,
+  extractVisibleTextFromHtml,
+  findUniqueAnchorBeforeTarget,
+  generatedClueInstruction,
+  getSourceWordMatches,
+  normalizeSourceText,
+} from "./clue-source-text.js";
+
+import {
   calculateResponseTimeMs,
   getContestProgress,
   hasCompleteClueSequence,
@@ -83,4 +92,54 @@ test("response time never becomes negative", () => {
 
   assert.equal(calculateResponseTimeMs(now, [futureStart]), 0);
   assert.equal(calculateResponseTimeMs(now, []), 0);
+});
+
+
+test("HTML clue sources exclude site navigation and preserve paragraph boundaries", () => {
+  const visible = extractVisibleTextFromHtml(
+    '<html><body>' +
+    '<nav>بی‌ای‌اِی‌ام رباتیک نرم</nav>' +
+    '<main><p>رباتیک نرم برای ساخت سامانه‌های انعطاف‌پذیر به کار می‌رود.</p>' +
+    '<p>طبقه‌بندی‌ها در بخش دیگری از متن توضیح داده می‌شوند.</p></main>' +
+    '</body></html>',
+  );
+
+  assert.equal(visible.includes("بی‌ای‌اِی‌ام"), false);
+  assert.equal(visible.includes("رباتیک نرم طبقه‌بندی‌ها"), false);
+  assert.equal(visible.split("\n\n").length >= 2, true);
+});
+
+test("generated anchors are exact, unique, and immediately precede the answer", () => {
+  const text = normalizeSourceText(
+    "The short introduction gives some helpful background.\n\n" +
+    "The system can identify patterns in medical images and categorize unusual cases reliably. " +
+    "Researchers later reviewed the results carefully.",
+  );
+  const words = getSourceWordMatches(text, "en");
+  const targetIndex = words.findIndex((word) => word.word === "unusual");
+
+  assert.notEqual(targetIndex, -1);
+  const anchor = findUniqueAnchorBeforeTarget(text, words, targetIndex);
+  assert.ok(anchor);
+  assert.equal(text.split(anchor).length - 1, 1);
+  assert.equal(
+    text.slice(text.indexOf(anchor) + anchor.length).trimStart().startsWith("unusual"),
+    true,
+  );
+  assert.equal(/[\r\n]/.test(anchor), false);
+});
+
+test("ambiguous phrases repeated in a source are not accepted as clue anchors", () => {
+  const paragraph = "The system can identify patterns in medical images and categorize unusual cases reliably.";
+  const text = normalizeSourceText(paragraph + "\n\n" + paragraph);
+  const words = getSourceWordMatches(text, "en");
+  const firstTargetIndex = words.findIndex((word) => word.word === "unusual");
+
+  assert.notEqual(firstTargetIndex, -1);
+  assert.equal(findUniqueAnchorBeforeTarget(text, words, firstTargetIndex), null);
+});
+
+test("generated clues carry a version marker used to retire old unreliable rounds", () => {
+  assert.equal(generatedClueInstruction("fa").startsWith(CLUE_GENERATOR_VERSION), true);
+  assert.equal(generatedClueInstruction("en").startsWith(CLUE_GENERATOR_VERSION), true);
 });
