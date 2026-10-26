@@ -127,7 +127,6 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
 
         <div className="profile-actions">
           <button className="cta-button cta-button--logout" type="button" onClick={onLogout}>
-            <span aria-hidden="true">↪</span>
             {isPersian ? "خروج از حساب" : "Log out"}
           </button>
         </div>

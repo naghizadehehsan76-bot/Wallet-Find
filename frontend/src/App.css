@@ -2283,3 +2283,28 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
     top: -13mm !important;
   }
 }
+
+
+/* Keep every logout action consistent with the site's red danger-action styling. */
+.cta-button--logout {
+  border: 1px solid rgba(255, 76, 88, .48);
+  color: #ff6873;
+  background: rgba(255, 55, 72, .09);
+  box-shadow: 0 5px 16px rgba(255, 55, 72, .08);
+}
+.cta-button--logout:hover {
+  border-color: #ff4c58;
+  color: #fff0f1;
+  background: rgba(255, 55, 72, .18);
+  box-shadow: 0 7px 20px rgba(255, 55, 72, .14);
+}
+.global-sidebar .sidebar-logout {
+  border-color: rgba(255, 76, 88, .48);
+  color: #ff6873;
+  background: rgba(255, 55, 72, .09);
+}
+.global-sidebar .sidebar-logout:hover {
+  border-color: #ff4c58;
+  color: #fff0f1;
+  background: rgba(255, 55, 72, .18);
+}
