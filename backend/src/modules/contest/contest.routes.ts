@@ -14,6 +14,7 @@ import {
   submitAnswerHandler,
 } from "./contest.controller.js";
 import { getLeaderboardHandler } from "./leaderboard.controller.js";
+import { getLeaderboardHistoryHandler } from "./leaderboard-history.controller.js";
 import { getPublicPrizePoolHandler } from "./prize-pool.controller.js";
 
 const router = Router();
@@ -23,6 +24,12 @@ router.post(
   requireAuth,
   requireAdmin,
   createContestHandler,
+);
+
+router.get(
+  "/leaderboard-history",
+  requireAuth,
+  getLeaderboardHistoryHandler,
 );
 
 router.get(
