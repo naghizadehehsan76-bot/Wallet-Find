@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { login, register } from "../services/api";
 import { useI18n } from "../i18n";
 import { localizeApiError } from "../i18n/localize";
+import LoadingIndicator from "../components/LoadingIndicator";
 
 type AuthMode = "login" | "signup";
 
