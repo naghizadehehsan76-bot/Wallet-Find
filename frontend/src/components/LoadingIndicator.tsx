@@ -1,5 +1,3 @@
-import type { CSSProperties } from "react";
-
 type LoadingIndicatorProps = {
   label?: string;
   compact?: boolean;
