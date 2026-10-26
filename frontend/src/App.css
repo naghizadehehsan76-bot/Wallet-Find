@@ -2275,9 +2275,9 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 }
 
 
-/* On mobile only, raise the Home page SVG illustration by 3 mm total. */
+/* Keep the illustration's existing combined upward offset on mobile too. */
 @media (max-width: 899px) {
   .home-page .home-concept-vector {
-    transform: translateY(-3mm);
+    transform: translateY(calc(-1cm - 2mm));
   }
 }
