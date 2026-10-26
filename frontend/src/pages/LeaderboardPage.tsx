@@ -48,9 +48,13 @@ function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
     getLeaderboardHistory()
       .then((result) => {
         if (cancelled) return;
-        const newestFirst = [...result.rounds].sort((a, b) => (b.startsAt ?? "").localeCompare(a.startsAt ?? ""));
+        const newestFirst = [...result.rounds]
+          .filter((round) => round.entries.length > 0)
+          .sort((a, b) => (b.startsAt ?? "").localeCompare(a.startsAt ?? ""));
         setRounds(newestFirst);
-        setSelectedRoundId((current) => current || newestFirst[0]?.id || "");
+        setSelectedRoundId((current) =>
+          newestFirst.some((round) => round.id === current) ? current : newestFirst[0]?.id || "",
+        );
       })
       .catch((err: unknown) => {
         if (cancelled) return;
