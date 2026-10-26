@@ -2170,3 +2170,35 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   mask-image: radial-gradient(ellipse 68% 70% at 50% 47%, #000 43%, rgba(0, 0, 0, 0.96) 54%, rgba(0, 0, 0, 0.68) 68%, rgba(0, 0, 0, 0.24) 82%, transparent 100%);
   filter: saturate(1.04);
 }
+
+
+/* Copy button returns only the literal source phrase, without decorative quotation marks. */
+.round-hint-card__copy {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(66, 232, 212, .24);
+  border-radius: 9px;
+  background: rgba(66, 232, 212, .055);
+  color: var(--verdigris);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+.round-hint-card__copy:hover {
+  border-color: rgba(66, 232, 212, .55);
+  background: rgba(66, 232, 212, .1);
+}
+.round-hint-card__copy:active {
+  transform: translateY(1px);
+}
+.round-hint-card__copy:focus-visible {
+  outline: 2px solid var(--verdigris);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .round-hint-card__copy { transition: none; }
+}
