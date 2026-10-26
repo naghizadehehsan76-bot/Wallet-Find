@@ -18,9 +18,7 @@ export async function getPublicSiteStatsHandler(
           lastSeenAt: { gte: onlineSince },
         },
       }),
-      prisma.user.count({
-        where: { role: "USER" },
-      }),
+      prisma.user.count(),
     ]);
 
     return res.status(200).json({
