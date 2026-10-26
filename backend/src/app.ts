@@ -11,6 +11,7 @@ import adminRoutes from "./modules/admin/admin.routes.js";
 import adminBootstrapRoutes from "./modules/admin/admin-bootstrap.routes.js";
 import profileRoutes from "./modules/profile/profile.routes.js";
 import walletRoutes from "./modules/wallet/wallet.routes.js";
+import statsRoutes from "./modules/stats/stats.routes.js";
 
 const app = express();
 const corsOrigin = process.env.CORS_ORIGIN?.trim();
@@ -69,6 +70,7 @@ app.use("/api/admin-bootstrap", authLimiter, adminBootstrapRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/wallet", walletRoutes);
+app.use("/api/stats", statsRoutes);
 
 const frontendDist = path.resolve(process.cwd(), "../frontend/dist");
 if (existsSync(frontendDist)) {
