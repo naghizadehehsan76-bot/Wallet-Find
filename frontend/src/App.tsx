@@ -187,8 +187,7 @@ function HomePage({
         </aside>
 
         <main className="page home-page">
-        <div className="home-overview">
-          <section className="home-showcase">
+        <section className="home-showcase">
           <img className="home-concept-vector" src="/images/home-concept.svg" alt={isPersian ? "تصویر نئونی کیف پول و ذره‌بین" : "Neon wallet and magnifying glass illustration"} />
           <h1 className="home-concept-title" lang={isPersian ? "fa" : "en"} dir={isPersian ? "rtl" : "ltr"}>
             {isPersian ? <>کیف پول رو پیدا کن، <span>کریپتو بگیر</span></> : <>Find the wallet, <span>get rewarded</span></>}
@@ -196,9 +195,8 @@ function HomePage({
           <p className="home-concept-tagline" lang={isPersian ? "fa" : "en"} dir={isPersian ? "rtl" : "ltr"}>
             {isPersian ? <>هر روز سرنخ‌ها رو بهت میدیم ...<br />هر چقدر سریعتر باشی درآمدت بیشتره.</> : <>We give you clues every day...<br />The faster you are, the more you earn.</>}
           </p>
-          </section>
+        </section>
 
-          <div className="home-game-panel">
         <section className="home-challenge-card" aria-label={isPersian ? "چالش امروز" : "Today's challenge"}>
           <div className="home-challenge-card__top">
             <div className="home-challenge-card__bolt" aria-hidden="true"><svg className="home-challenge-card__magnifier" viewBox="0 0 24 24" fill="none"><circle cx="10.5" cy="10.5" r="6.4" stroke="currentColor" strokeWidth="2.1"/><path d="m15.2 15.2 5 5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/><path d="M10.5 6.8v7.4M6.8 10.5h7.4" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity=".4"/></svg></div>
@@ -228,8 +226,6 @@ function HomePage({
             </button>
           ))}
         </section>
-          </div>
-        </div>
 
         <section className="cta-group">
           <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>{isPersian ? "ورود به چالش امشب" : "Enter Tonight's Challenge"}</button>
