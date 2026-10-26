@@ -209,6 +209,40 @@ function HomePage({
             }}
           >
             <img className="home-concept-vector" src="/images/home-concept.svg" alt={isPersian ? "تصویر نئونی کیف پول و ذره‌بین" : "Neon wallet and magnifying glass illustration"} />
+            <div className="home-crypto-scene" aria-hidden="true">
+              <div className="home-crypto-wallet">
+                <svg className="home-crypto-wallet__body" viewBox="0 0 300 190" fill="none">
+                  <defs>
+                    <linearGradient id="walletFace" x1="40" y1="35" x2="255" y2="165" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#103B66"/><stop offset="1" stopColor="#07172F"/>
+                    </linearGradient>
+                    <linearGradient id="walletFlap" x1="60" y1="18" x2="240" y2="90" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#1C9FD0"/><stop offset="1" stopColor="#1253A0"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M42 63 Q42 43 63 43 H244 Q260 43 260 62 V151 Q260 169 242 169 H61 Q42 169 42 149 Z" fill="url(#walletFace)" stroke="#43DDF4" strokeWidth="4"/>
+                  <path className="home-crypto-wallet__lid" d="M47 65 L72 29 Q78 20 92 24 L240 52 Q253 55 255 67 L255 87 L48 87 Z" fill="url(#walletFlap)" stroke="#70F3FF" strokeWidth="4" strokeLinejoin="round"/>
+                  <path d="M42 89 H255" stroke="#57E9FF" strokeOpacity=".72" strokeWidth="3"/>
+                  <rect x="186" y="96" width="82" height="42" rx="12" fill="#0A2446" stroke="#53DDF5" strokeWidth="3"/>
+                  <circle cx="207" cy="117" r="6" fill="#75F5FF"/>
+                </svg>
+                <div className="home-crypto-wallet__coins">
+                  <span className="home-coin home-coin--btc" title="Bitcoin">₿</span>
+                  <span className="home-coin home-coin--eth" title="Ethereum"><svg viewBox="0 0 32 40"><path d="M16 1 2 21 16 28 30 21Z" fill="#B8C7FF"/><path d="M16 32 2 24 16 39 30 24Z" fill="#7C91E8"/></svg></span>
+                  <span className="home-coin home-coin--usdt" title="Tether">₮</span>
+                  <span className="home-coin home-coin--xrp" title="XRP"><svg viewBox="0 0 40 32"><path d="M4 4h5l7 7a6 6 0 0 0 8 0l7-7h5l-9 9a10 10 0 0 1-14 0Z M4 28h5l7-7a6 6 0 0 1 8 0l7 7h5l-9-9a10 10 0 0 0-14 0Z" fill="currentColor"/></svg></span>
+                </div>
+              </div>
+              <div className="home-crypto-magnifier">
+                <svg viewBox="0 0 120 150" fill="none">
+                  <circle cx="48" cy="48" r="34" fill="#65F2FF" fillOpacity=".13" stroke="#8CF8FF" strokeWidth="7"/>
+                  <circle cx="48" cy="48" r="25" fill="#8DEFFF" fillOpacity=".08" stroke="#C5FBFF" strokeOpacity=".7" strokeWidth="2"/>
+                  <path d="M72 73 105 119 Q110 128 102 134 Q95 139 89 130 L59 83" fill="#168BD0" stroke="#71F3FF" strokeWidth="5" strokeLinejoin="round"/>
+                  <path d="M31 34 Q42 20 57 29" stroke="#FFF" strokeOpacity=".8" strokeWidth="4" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <span className="home-crypto-scanline"></span>
+            </div>
           </div>
           <h1 className="home-concept-title" lang={isPersian ? "fa" : "en"} dir={isPersian ? "rtl" : "ltr"}>
             {isPersian ? <>کیف پول رو پیدا کن، <span>کریپتو بگیر</span></> : <>Find the wallet, <span>get rewarded</span></>}
