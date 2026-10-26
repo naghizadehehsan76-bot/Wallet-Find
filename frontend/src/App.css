@@ -2170,3 +2170,239 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   mask-image: radial-gradient(ellipse 68% 70% at 50% 47%, #000 43%, rgba(0, 0, 0, 0.96) 54%, rgba(0, 0, 0, 0.68) 68%, rgba(0, 0, 0, 0.24) 82%, transparent 100%);
   filter: saturate(1.04);
 }
+
+
+/* Desktop Home: align the hero, challenge status and key grid as one coherent composition. */
+.home-page .home-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+.home-page .home-game-panel {
+  display: contents;
+}
+@media (min-width: 900px) {
+  .home-shell {
+    max-width: 1240px;
+    background:
+      radial-gradient(ellipse at 25% 16%, rgba(0, 128, 220, .15), transparent 42%),
+      radial-gradient(ellipse at 82% 42%, rgba(0, 240, 208, .055), transparent 44%),
+      linear-gradient(180deg, #020e1d 0%, #031523 52%, #020c19 100%);
+  }
+  .home-topbar {
+    padding: 24px 42px 8px;
+  }
+  .home-topbar__brand {
+    width: 100%;
+    max-width: 1156px;
+    margin-inline: auto;
+    justify-content: flex-start;
+  }
+  .home-page {
+    display: block;
+    width: 100%;
+    max-width: 1240px;
+    padding: 22px 42px 58px;
+  }
+  .home-page .home-overview {
+    display: grid;
+    grid-template-columns: minmax(0, 1.03fr) minmax(360px, .97fr);
+    align-items: center;
+    gap: clamp(24px, 3.1vw, 42px);
+  }
+  .home-page .home-showcase {
+    min-width: 0;
+    padding: 12px 0 18px;
+    text-align: center;
+    background:
+      radial-gradient(ellipse at 50% 42%, rgba(0, 190, 220, .17) 0%, rgba(0, 105, 160, .07) 48%, transparent 78%);
+  }
+  .home-page .home-concept-vector {
+    display: block;
+    width: 100%;
+    max-width: 620px;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    object-fit: contain;
+    margin: 0 auto 12px;
+    transform: none;
+    -webkit-mask-image: none;
+    mask-image: none;
+    mix-blend-mode: screen;
+    filter: saturate(1.08) contrast(1.04) brightness(1.025);
+  }
+  .home-page .home-concept-title,
+  .home-page .home-concept-tagline {
+    width: 100%;
+    max-width: 590px;
+    margin-inline: auto;
+    transform: none;
+    text-align: center;
+    overflow-wrap: normal;
+  }
+  .home-page .home-concept-title {
+    margin-top: 2px;
+    margin-bottom: 8px;
+    font-size: clamp(27px, 2.35vw, 35px);
+    line-height: 1.45;
+  }
+  .home-page .home-concept-tagline {
+    margin-top: 0;
+    margin-bottom: 0;
+    font-size: clamp(14px, 1.18vw, 16px);
+    line-height: 1.85;
+  }
+  .home-page .home-game-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+    width: 100%;
+  }
+  .home-page .home-challenge-card {
+    min-width: 0;
+    margin: 0;
+    padding: 18px 18px 16px;
+    border-radius: 20px;
+  }
+  .home-page .home-challenge-card__top {
+    gap: 11px;
+  }
+  .home-page .home-challenge-card__bolt {
+    flex-basis: 54px;
+    height: 54px;
+    border-radius: 15px;
+    font-size: 42px;
+  }
+  .home-page .home-challenge-card__top > strong {
+    font-size: clamp(16px, 1.45vw, 19px);
+    line-height: 1.35;
+  }
+  .home-page .home-challenge-card__timer {
+    min-width: 108px;
+    padding: 9px 8px;
+  }
+  .home-page .home-challenge-card__progress {
+    margin-top: 16px;
+    gap: 12px;
+  }
+  .home-page .home-key-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 11px;
+    margin: 0;
+  }
+  .home-page .home-key-tile {
+    min-width: 0;
+    aspect-ratio: 1 / 1;
+    border-radius: 16px;
+    gap: 4px;
+  }
+  .home-page .home-key-tile__number {
+    font-size: clamp(21px, 2vw, 27px);
+  }
+  .home-page .home-key-tile__lock {
+    transform: scale(.92);
+  }
+  .home-page .cta-group {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    width: min(100%, 760px);
+    max-width: none;
+    margin: 30px auto 28px;
+  }
+  .home-page .cta-group .cta-button {
+    min-height: 54px;
+    flex: initial;
+    line-height: 1.5;
+  }
+  .home-page .stat-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    width: 100%;
+    margin: 0 0 40px;
+  }
+  .home-page .stat-card {
+    min-width: 0;
+    padding: 20px 16px;
+    border-color: rgba(66, 232, 212, .16);
+    border-radius: 16px;
+    background: linear-gradient(145deg, rgba(13, 25, 36, .86), rgba(5, 14, 25, .92));
+  }
+  .home-page .stat-card strong {
+    font-size: 23px;
+  }
+  .home-page .stat-card span {
+    display: block;
+    margin-top: 5px;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .home-page .how-section {
+    margin-top: 0;
+    padding-top: 28px;
+    border-top: 1px solid rgba(66, 232, 212, .14);
+  }
+  .home-page .section-heading {
+    margin-bottom: 18px;
+    text-align: center;
+    color: #c0d2dc;
+    font-size: 15px;
+    letter-spacing: 0;
+  }
+  .home-page .steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    border-top: 0;
+  }
+  .home-page .step {
+    min-width: 0;
+    padding: 18px 16px;
+    border: 1px solid rgba(66, 232, 212, .14);
+    border-radius: 16px;
+    background: linear-gradient(150deg, rgba(11, 24, 34, .78), rgba(4, 13, 23, .88));
+  }
+  .home-page .step-content p {
+    font-size: 13px;
+    line-height: 1.8;
+  }
+  .home-page .step-content small {
+    display: block;
+    margin-top: 5px;
+    font-size: 11px;
+    line-height: 1.8;
+  }
+}
+@media (min-width: 900px) and (max-width: 1080px) {
+  .home-page {
+    padding-inline: 28px;
+  }
+  .home-page .home-overview {
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 1fr);
+    gap: 22px;
+  }
+  .home-page .home-challenge-card {
+    padding: 15px 13px 13px;
+  }
+  .home-page .home-challenge-card__bolt {
+    flex-basis: 46px;
+    height: 46px;
+    font-size: 36px;
+  }
+  .home-page .home-challenge-card__timer {
+    min-width: 98px;
+    padding-inline: 5px;
+  }
+  .home-page .home-key-grid {
+    gap: 8px;
+  }
+  .home-page .home-key-tile {
+    border-radius: 13px;
+  }
+  .home-page .home-key-tile__lock {
+    transform: scale(.8);
+  }
+}
