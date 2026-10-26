@@ -266,16 +266,23 @@ function HomePage({
 
         <section className="stat-row">
           {stats.map((stat) => (
-            <div className={"stat-card" + ("secondaryValue" in stat ? " stat-card--users" : "")} key={stat.label}>
-              <strong>{stat.value}</strong>
-              <span>{stat.label}</span>
-              {"secondaryValue" in stat && (
-                <div className="stat-card__secondary">
+            "secondaryValue" in stat ? (
+              <div className="stat-card stat-card--users" key={stat.label}>
+                <div className="stat-card__user-metric">
+                  <strong>{stat.value}</strong>
+                  <span>{stat.label}</span>
+                </div>
+                <div className="stat-card__user-metric">
                   <strong>{stat.secondaryValue}</strong>
                   <span>{stat.secondaryLabel}</span>
                 </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="stat-card" key={stat.label}>
+                <strong>{stat.value}</strong>
+                <span>{stat.label}</span>
+              </div>
+            )
           ))}
         </section>
 
