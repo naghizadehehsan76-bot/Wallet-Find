@@ -2275,11 +2275,11 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 }
 
 
-/* Explicitly position the Home illustration 3 mm higher on mobile, independent of older transform rules. */
+/* Move the Home illustration 1 cm farther upward on mobile (13 mm total). */
 @media (max-width: 899px) {
   .home-page .home-concept-vector {
     transform: none !important;
     position: relative;
-    top: -3mm !important;
+    top: -13mm !important;
   }
 }
