@@ -3,7 +3,7 @@ import BottomNav from "../components/BottomNav";
 import { getLeaderboardHistory, type LeaderboardRound } from "../services/api";
 import { useI18n } from "../i18n";
 import "./LeaderboardPage.css";
-import { localizeApiError, localizeContestTitle } from "../i18n/localize";
+import { localizeApiError } from "../i18n/localize";
 import LoadingIndicator from "../components/LoadingIndicator";
 
 type Page = "home" | "auth" | "competition" | "key" | "leaderboard" | "profile" | "wallet";
