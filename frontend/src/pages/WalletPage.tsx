@@ -88,7 +88,7 @@ export default function WalletPage({ onNavigate }: Props) {
           <form className="wallet-action-form" onSubmit={submit}>
             <label>{copy.amount}<input type="number" inputMode="decimal" min="0.000001" step="0.000001" max="999999999999.999999" value={amount} onChange={e => setAmount(e.target.value)} required /></label>
             <p className="wallet-demo-note">{action === "deposit" ? copy.depositHelp : copy.withdrawHelp}</p>
-            <button className="cta-button" type="submit" disabled={busy}>{busy ? copy.busy : copy.send}</button>
+            <button className="cta-button" type="submit" disabled={busy}>{busy ? <LoadingIndicator compact label={copy.busy} /> : copy.send}</button>
           </form>
         </section>
         <section className="wallet-history">
