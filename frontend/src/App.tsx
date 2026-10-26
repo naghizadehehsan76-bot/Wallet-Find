@@ -416,7 +416,7 @@ function ContestRulesPage({ onNavigate }: { onNavigate: (page: Page) => void }) 
         </section>
         <p className="challenge-rules-notice" role="note">{rules.previewNotice}</p>
         <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>
-          {t.navigation.competition}
+          START CHALLENGE
         </button>
       </main>
     </div>
