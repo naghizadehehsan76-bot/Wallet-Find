@@ -4,6 +4,87 @@ import type { AuthenticatedRequest } from "../../middleware/auth.middleware.js";
 
 const ONLINE_WINDOW_MS = 2 * 60 * 1000;
 
+const MICRO_USDT = 1_000_000n;
+
+function formatMicroUsdt(value: bigint): string {
+  const safeValue = value > 0n ? value : 0n;
+  const whole = safeValue / MICRO_USDT;
+  const fraction = (safeValue % MICRO_USDT).toString().padStart(6, "0");
+  return `${whole}.${fraction}`;
+}
+
+export async function getPublicPrizePoolStatsHandler(
+  req: Request,
+  res: Response,
+) {
+  const language = req.query.language === "fa" ? "fa" : "en";
+  const now = new Date();
+
+  try {
+    const [seededTotal, awardedTotal, currentContest] = await Promise.all([
+      prisma.prizePool.aggregate({
+        where: { currency: "USDT" },
+        _sum: { seededMicro: true },
+      }),
+      prisma.prizePool.aggregate({
+        where: { currency: "USDT" },
+        _sum: { awardedMicro: true },
+      }),
+      prisma.contest.findFirst({
+        where: {
+          language,
+          status: { in: ["ACTIVE", "SCHEDULED"] },
+          startsAt: { lte: now },
+          endsAt: { gt: now },
+        },
+        orderBy: { startsAt: "desc" },
+        select: { id: true },
+      }),
+    ]);
+
+    const totalFunded = BigInt(seededTotal._sum.seededMicro ?? 0n);
+    const totalAwarded = BigInt(awardedTotal._sum.awardedMicro ?? 0n);
+    // Count only outside funding minus payouts. Rollover entries move the
+    // same funds between rounds and must not be counted as new money.
+    const totalPool = totalFunded > totalAwarded ? totalFunded - totalAwarded : 0n;
+
+    const currentPool = currentContest
+      ? await prisma.prizePool.findUnique({
+          where: { contestId: currentContest.id },
+          select: {
+            currency: true,
+            seededMicro: true,
+            rolloverInMicro: true,
+            awardedMicro: true,
+            rolloverOutMicro: true,
+          },
+        })
+      : null;
+
+    const currentTotal = currentPool
+      ? BigInt(currentPool.seededMicro) + BigInt(currentPool.rolloverInMicro)
+        - BigInt(currentPool.awardedMicro) - BigInt(currentPool.rolloverOutMicro)
+      : 0n;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        totalPool: formatMicroUsdt(totalPool),
+        currentRoundPool: formatMicroUsdt(currentTotal),
+        currency: "USDT",
+        simulatedOnly: true,
+        updatedAt: now.toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("Failed to load public prize pool statistics", error);
+    return res.status(503).json({
+      success: false,
+      error: "PRIZE_POOL_STATS_UNAVAILABLE",
+    });
+  }
+}
+
 export async function getPublicSiteStatsHandler(
   _req: Request,
   res: Response,

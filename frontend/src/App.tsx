@@ -9,7 +9,7 @@ import AdminControlCenter from "./pages/AdminControlCenter";
 import WalletPage from "./pages/WalletPage";
 import { useI18n, type Language } from "./i18n";
 import SharedLanguageSwitcher from "./components/LanguageSwitcher";
-import { getActiveContest, getCurrentClue, getProfile, getPublicSiteStats, sendOnlineHeartbeat, type PublicSiteStats } from "./services/api";
+import { getActiveContest, getCurrentClue, getProfile, getPublicPrizePoolStats, getPublicSiteStats, sendOnlineHeartbeat, type PublicPrizePoolStats, type PublicSiteStats } from "./services/api";
 import "./App.css";
 
 type AuthMode = "login" | "signup";
@@ -30,12 +30,10 @@ type Page =
   | "admin-manage";
 
 const faStats = [
-  { value: "۵۰۰ ₮", label: "جایزه چالش" },
   { value: "۰۳:۵۹", label: "تا شروع بعدی" },
 ];
 
 const enStats = [
-  { value: "500 ₮", label: "Challenge prize" },
   { value: "03:59", label: "Until next start" },
 ];
 
@@ -67,9 +65,16 @@ function HomePage({
   const [homeTimerNow, setHomeTimerNow] = useState(() => Date.now());
   const [homeSolvedCount, setHomeSolvedCount] = useState(0);
   const [siteStats, setSiteStats] = useState<PublicSiteStats | null>(null);
+  const [prizePoolStats, setPrizePoolStats] = useState<PublicPrizePoolStats | null>(null);
   const isPersian = language === "fa";
   const homeProgressPercent = Math.min(100, (homeSolvedCount / 12) * 100);
   const formatHomeNumber = (value: number) => value.toLocaleString(isPersian ? "fa-IR" : "en-US");
+  const formatPrizeAmount = (value: string) => {
+    const amount = Number(value);
+    return Number.isFinite(amount)
+      ? amount.toLocaleString(isPersian ? "fa-IR" : "en-US", { maximumFractionDigits: 2 })
+      : "—";
+  };
 
   useEffect(() => {
     const timerId = window.setInterval(() => setHomeTimerNow(Date.now()), 250);
@@ -100,6 +105,31 @@ function HomePage({
       window.clearInterval(intervalId);
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let refreshing = false;
+
+    async function refreshPrizePoolStats() {
+      if (refreshing) return;
+      refreshing = true;
+      try {
+        const latestStats = await getPublicPrizePoolStats(isPersian ? "fa" : "en");
+        if (!cancelled) setPrizePoolStats(latestStats);
+      } catch {
+        // Keep the last confirmed pool values if the API is briefly unavailable.
+      } finally {
+        refreshing = false;
+      }
+    }
+
+    void refreshPrizePoolStats();
+    const intervalId = window.setInterval(() => void refreshPrizePoolStats(), 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [isPersian]);
 
   useEffect(() => {
     let cancelled = false;
@@ -147,6 +177,13 @@ function HomePage({
       label: isPersian ? "کاربران آنلاین" : "Online users",
       secondaryValue: siteStats ? formatHomeNumber(siteStats.totalUsers) : "—",
       secondaryLabel: isPersian ? "کل کاربران سایت" : "Total site users",
+    },
+    {
+      value: prizePoolStats ? formatPrizeAmount(prizePoolStats.totalPool) : "—",
+      label: isPersian ? "صندوق جایزه کل" : "Total prize pool",
+      secondaryValue: prizePoolStats ? formatPrizeAmount(prizePoolStats.currentRoundPool) : "—",
+      secondaryLabel: isPersian ? "صندوق جایزه دور جاری" : "Current round pool",
+      note: isPersian ? "USDT آزمایشی؛ وجه واقعی نگهداری نمی‌شود" : "Test USDT accounting only; no real funds held",
     },
     ...(isPersian ? faStats : enStats),
   ];
@@ -267,7 +304,7 @@ function HomePage({
         <section className="stat-row">
           {stats.map((stat) => (
             "secondaryValue" in stat ? (
-              <div className="stat-card stat-card--users" key={stat.label}>
+              <div className={"stat-card stat-card--paired" + ("note" in stat ? " stat-card--paired-prize" : "")} key={stat.label}>
                 <div className="stat-card__user-metric">
                   <strong>{stat.value}</strong>
                   <span>{stat.label}</span>
@@ -276,6 +313,7 @@ function HomePage({
                   <strong>{stat.secondaryValue}</strong>
                   <span>{stat.secondaryLabel}</span>
                 </div>
+                {"note" in stat && <small className="stat-card__note">{stat.note}</small>}
               </div>
             ) : (
               <div className="stat-card" key={stat.label}>

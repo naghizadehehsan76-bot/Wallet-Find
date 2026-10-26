@@ -31,6 +31,18 @@ export async function getPublicSiteStats(): Promise<PublicSiteStats> {
   return request<PublicSiteStats>("/stats/site");
 }
 
+export type PublicPrizePoolStats = {
+  totalPool: string;
+  currentRoundPool: string;
+  currency: "USDT";
+  simulatedOnly: true;
+  updatedAt: string;
+};
+
+export async function getPublicPrizePoolStats(language: "fa" | "en"): Promise<PublicPrizePoolStats> {
+  return request<PublicPrizePoolStats>(`/stats/prize-pools?language=${language}`);
+}
+
 export async function sendOnlineHeartbeat(): Promise<{ recorded: boolean }> {
   return request<{ recorded: boolean }>("/stats/heartbeat", { method: "POST" }, true);
 }
