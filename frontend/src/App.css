@@ -2202,3 +2202,13 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 @media (prefers-reduced-motion: reduce) {
   .round-hint-card__copy { transition: none; }
 }
+
+
+/* Desktop Home: lower the statistics and the How it works section together. */
+@media (min-width: 900px) {
+  .home-page .stat-row,
+  .home-page .how-section {
+    position: relative;
+    top: 2cm;
+  }
+}
