@@ -218,8 +218,18 @@ export const en = {
   infoPages: {
     rewards: {
       title: "Rewards",
-      description: "Reward details and how to receive them will be shown here.",
-      detail: "In the current version, the balance is display-only and real deposits or withdrawals are not enabled. The final prize amount and conditions will be announced before public launch.",
+      description: "Learn how the prize pool is funded and how rewards are distributed after each round.",
+      detail: "Transparency matters: in the current preview, USDT amounts are simulated in an internal ledger only. No real funds are held or paid out, and real crypto transfers are not enabled.",
+      fundingTitle: "Where does the prize pool come from?",
+      fundingDetail: "Under the planned Wallet Find model, a portion of eligible platform revenue and fees is allocated to the prize pool. The pool therefore depends on platform activity and the announced allocation settings; it is not a fixed or guaranteed return. Unused amounts from previous rounds may also roll into later rounds.",
+      distributionTitle: "How are prizes distributed?",
+      distributionFirst: "50% of the round's pool is allocated to first place, 20% to second place, and 10% to third place.",
+      distributionRemainder: "The remaining 20% is shared among participants ranked fourth or lower who complete all 12 keys, weighted by completion speed.",
+      distributionTies: "If multiple participants finish at exactly the same time and share a rank, the prize for that rank is split equally among them.",
+      rolloverTitle: "What happens to unclaimed prize shares?",
+      rolloverDetail: "If no eligible finisher qualifies for a prize share, that amount rolls over to the next round's pool. Participants who do not complete all 12 keys before the round deadline do not receive a prize.",
+      statusTitle: "Payment status",
+      statusDetail: "Until real payouts are enabled, all displayed balances and prizes are simulated and do not represent real funds or an available withdrawal.",
     },
     help: {
       title: "Help Center",
