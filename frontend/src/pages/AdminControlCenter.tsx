@@ -121,6 +121,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     poolTitle: fa ? "صندوق جایزهٔ ثابت آزمایشی هر دور" : "Fixed simulated prize pool per round",
     poolHelp: fa ? "مبلغ هر دور در مرحلهٔ آزمایشی دقیقاً ۱۰۰ USDT فرضی است. مبلغ استفاده‌نشده به دور بعد منتقل نمی‌شود و سهم ۵٪ پروژه جداگانه ثبت می‌شود." : "Each experimental round is fixed at 100 simulated USDT. Unused balances never roll over, and the 5% project share is tracked separately.",
     poolFixed: fa ? "مبلغ ثابت آزمایشی: ۱۰۰٫۰۰۰۰۰۰ USDT" : "Fixed test amount: 100.000000 USDT",
+    poolFixedError: fa ? "این مبلغ در مرحلهٔ آزمایشی ثابت است و قابل تغییر نیست." : "This amount is fixed at 100 simulated USDT per round during testing.",
     conceptTitle: fa ? "بخش در حال طراحی" : "Module concept",
     conceptBody: fa ? "این بخش فعلاً فقط به‌عنوان جایگاه در پنل مدیریت اضافه شده است. قابلیت‌ها و عملیات آن در مراحل بعدی، جداگانه طراحی و پیاده‌سازی می‌شوند." : "This section is currently a placeholder in the admin panel. Its tools and workflows will be designed and implemented separately in later phases.",
     usersBody: fa ? "جست‌وجو و مشاهدهٔ کاربران، نقش‌ها، وضعیت حساب، تأیید ایمیل و محدودیت‌های دسترسی." : "Search users, review roles and account status, email verification, and access restrictions.",
@@ -178,7 +179,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       return;
     }
     if (normalizedKey === "hypothetical_prize_pool_per_round") {
-      setError(copy.poolHelp);
+      setError(copy.poolFixedError);
       return;
     }
     setSaving(true);
