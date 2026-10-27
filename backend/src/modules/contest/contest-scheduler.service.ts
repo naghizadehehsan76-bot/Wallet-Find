@@ -1,7 +1,11 @@
 import prisma from "../../config/prisma.js";
 import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
 import { ensureMvpActiveContest, ensureScheduledMvpContest } from "./mvp-contest-seed.service.js";
-import { settlePrizePool } from "./prize-pool.service.js";
+import {
+  ensureDailyGlobalPrizeFunding,
+  initializePrizePoolForRound,
+  settlePrizePool,
+} from "./prize-pool.service.js";
 
 /**
  * The scheduler manages round activation/expiry only. Clues are no longer
@@ -9,6 +13,10 @@ import { settlePrizePool } from "./prize-pool.service.js";
  * as their previous answer is accepted as correct.
  */
 export async function runContestScheduler(now = new Date()) {
+  // Daily simulated sponsor/investor funding is idempotent and catches up
+  // any UTC days missed while the service was unavailable.
+  await ensureDailyGlobalPrizeFunding(now);
+
   const scheduled = await prisma.contest.findMany({
     where: { status: "SCHEDULED" },
     select: { id: true, language: true, startsAt: true, endsAt: true },
@@ -62,6 +70,11 @@ export async function runContestScheduler(now = new Date()) {
     if (now < endsAt) {
       if (!contest.endsAt) {
         await prisma.contest.update({ where: { id: contest.id }, data: { endsAt } });
+      }
+      try {
+        await initializePrizePoolForRound(contest.id, now);
+      } catch (error) {
+        console.error("Active round's global prize allocation failed; scheduler will retry.", contest.id, error);
       }
       continue;
     }
