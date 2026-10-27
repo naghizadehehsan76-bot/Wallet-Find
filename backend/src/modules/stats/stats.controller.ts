@@ -49,7 +49,6 @@ export async function getPublicPrizePoolStatsHandler(
         dailyContribution: globalSnapshot.dailyContribution,
         totalDailyFunding: globalSnapshot.totalDailyFunding,
         totalRoundAllocations: globalSnapshot.totalRoundAllocations,
-        projectProfitPool: globalSnapshot.projectProfitPool,
         currency: "USDT",
         simulatedOnly: true,
         updatedAt: now.toISOString(),
