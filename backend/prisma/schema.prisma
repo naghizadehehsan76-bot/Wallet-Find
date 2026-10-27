@@ -397,6 +397,7 @@ enum PrizeLedgerType {
   ROLLOVER_OUT
   AWARD
   PROJECT_PROFIT
+  GLOBAL_ALLOCATION
 }
 
 model PrizePool {
@@ -462,4 +463,37 @@ model WalletTransaction {
   @@index([userId, createdAt])
   @@index([userId, status, type])
   @@map("wallet_transactions")
+}
+
+
+enum GlobalPrizeLedgerType {
+  DAILY_FUNDING
+  ROUND_ALLOCATION
+}
+
+model GlobalPrizeFund {
+  id String @id @default("global")
+  balanceMicro BigInt @default(0)
+  totalFundedMicro BigInt @default(0)
+  totalAllocatedMicro BigInt @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("global_prize_funds")
+}
+
+model GlobalPrizeLedger {
+  id String @id @default(cuid())
+  type GlobalPrizeLedgerType
+  amountMicro BigInt
+  dayKey String? @unique
+  contestId String?
+  effectiveAt DateTime
+  referenceKey String @unique
+  note String
+  createdAt DateTime @default(now())
+
+  @@index([type, effectiveAt])
+  @@index([contestId])
+  @@map("global_prize_ledger")
 }
