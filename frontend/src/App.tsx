@@ -245,14 +245,16 @@ function HomePage({
             </button>
           </nav>
           <div className="sidebar-divider" />
-          <div className="sidebar-auth">
-            <button type="button" className="sidebar-login" onClick={() => { onAuth("login"); setMobileMenuOpen(false); }}>
-              {t.sidebar.login}
-            </button>
-            <button type="button" className="sidebar-signup" onClick={() => { onAuth("signup"); setMobileMenuOpen(false); }}>
-              {t.sidebar.signup}
-            </button>
-          </div>
+          {!isLoggedIn && (
+            <div className="sidebar-auth">
+              <button type="button" className="sidebar-login" onClick={() => { onAuth("login"); setMobileMenuOpen(false); }}>
+                {t.sidebar.login}
+              </button>
+              <button type="button" className="sidebar-signup" onClick={() => { onAuth("signup"); setMobileMenuOpen(false); }}>
+                {t.sidebar.signup}
+              </button>
+            </div>
+          )}
           <p className="sidebar-footer">{t.sidebar.footer}</p>
         </aside>
 
@@ -393,11 +395,6 @@ function InfoPage({
         {kind === "rewards" && (
           <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>
             {t.navigation.competition}
-          </button>
-        )}
-        {kind === "help" && (
-          <button className="cta-button" type="button" onClick={() => onNavigate("auth")}>
-            {t.auth.login} / {t.auth.signup}
           </button>
         )}
       </main>
