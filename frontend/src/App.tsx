@@ -180,17 +180,17 @@ function HomePage({
       secondaryLabel: isPersian ? "کل کاربران سایت" : "Total site users",
     },
     {
-      value: prizePoolStats ? formatPrizeAmount(prizePoolStats.totalPool) : "—",
+      value: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.totalPool)} USDT` : "—",
       label: isPersian ? "موجودی صندوق کلی جایزه" : "Available global prize fund",
-      secondaryValue: prizePoolStats ? formatPrizeAmount(prizePoolStats.currentRoundPool) : "—",
+      secondaryValue: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.currentRoundPool)} USDT` : "—",
       secondaryLabel: isPersian ? "۱٪ صندوق کلی برای دور جاری" : "1% global pool allocated to this round",
     },
     {
-      value: prizePoolStats ? formatPrizeAmount(prizePoolStats.dailyContribution) : "—",
+      value: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.dailyContribution)} USDT` : "—",
       label: isPersian ? "شارژ فرضی امروز صندوق" : "Today's simulated funding",
     },
     {
-      value: prizePoolStats ? formatPrizeAmount(prizePoolStats.projectProfitPool) : "—",
+      value: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.projectProfitPool)} USDT` : "—",
       label: isPersian ? "صندوق سود سهام پروژه" : "Project dividend pool",
     },
     ...(isPersian ? faStats : enStats),
