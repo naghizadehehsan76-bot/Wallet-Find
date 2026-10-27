@@ -132,7 +132,7 @@ Existing routes should be evolved rather than duplicated where possible.
 ## 11. Prize pool implementation and test mode
 
 - Prize accounting is persisted in `PrizePool`, `PrizeLedger`, and `PrizeAward`; all amounts use integer micro-USDT units (six decimal places).
-- The initial test pool is seeded with a fictional 100.000000 USDT entry. Subsequent rounds receive prior rollover or explicit simulated funding; no blockchain transfer is performed.
+- Each round receives a simulated base prize pool using the configured per-round amount (100.000000 USDT by default). Eligible rollover from previous rounds is added on top; funding is recorded once per round and no blockchain transfer is performed.
 - Admin endpoints expose pool summary, test funding, and idempotent settlement. The participant page displays the simulated pool and rollover-in amount.
 - The scheduler retries settlement for finished rounds whose pool is not settled. No completed participants means the full pool rolls over. Fewer than three finishers leave unfilled top-three allocations in rollover. Exact-time ties share their rank-slot prize amounts equally.
 - Test-only records must never be interpreted as real wallet balances, withdrawable funds, or proof of an on-chain transfer.
