@@ -16,15 +16,6 @@ function formatMicro(value: bigint) {
   return `${negative ? "-" : ""}${whole}.${fraction}`;
 }
 
-function parseUsdt(value: unknown): bigint {
-  if (typeof value !== "string" || !/^\d{1,12}(\.\d{1,6})?$/.test(value)) {
-    throw new Error("INVALID_TEST_FUNDING_AMOUNT");
-  }
-  const whole = value.split(".")[0] ?? "0";
-  const fraction = value.split(".")[1] ?? "";
-  return BigInt(whole) * MICRO + BigInt(fraction.padEnd(6, "0") || "0");
-}
-
 async function ensurePool(tx: any, contestId: string) {
   const contest = await tx.contest.findUnique({
     where: { id: contestId },
@@ -87,6 +78,9 @@ async function ensurePool(tx: any, contestId: string) {
 function responsePool(pool: any) {
   const total = BigInt(pool.seededMicro) + BigInt(pool.rolloverInMicro);
   const spent = BigInt(pool.awardedMicro) + BigInt(pool.rolloverOutMicro) + BigInt(pool.projectProfitMicro ?? 0n);
+  const remaining = total > spent ? total - spent : 0n;
+  const available = pool.status === "SETTLED" ? 0n : remaining;
+  const unused = pool.status === "SETTLED" ? remaining : 0n;
   return {
     contestId: pool.contestId,
     currency: pool.currency,
@@ -98,7 +92,8 @@ function responsePool(pool: any) {
     awarded: formatMicro(BigInt(pool.awardedMicro)),
     projectProfit: formatMicro(BigInt(pool.projectProfitMicro ?? 0n)),
     rolloverOut: formatMicro(BigInt(pool.rolloverOutMicro)),
-    available: formatMicro(total - spent),
+    available: formatMicro(available),
+    unused: formatMicro(unused),
     settledAt: pool.settledAt,
   };
 }
@@ -143,38 +138,13 @@ export async function getPublicPrizePool(contestId: string) {
   };
 }
 
-export async function testFundPrizePool(contestId: string, rawAmount: unknown, actorUserId?: string) {
-  const amount = parseUsdt(rawAmount);
-  if (amount <= 0n) throw new Error("INVALID_TEST_FUNDING_AMOUNT");
-
-  return prisma.$transaction(async (tx) => {
-    const pool = await ensurePool(tx, contestId);
-    if (pool.status === "SETTLED") throw new Error("PRIZE_POOL_ALREADY_SETTLED");
-    const ledgerId = `test-funding:${contestId}:${Date.now()}:${actorUserId ?? "admin"}`;
-    const updated = await tx.prizePool.update({
-      where: { contestId },
-      data: { seededMicro: { increment: amount }, testOnly: true },
-    });
-    await tx.prizeLedger.create({
-      data: {
-        contestId,
-        type: "TEST_FUNDING",
-        amountMicro: amount,
-        note: `SIMULATED TEST FUNDING ${formatMicro(amount)} USDT; no real assets transferred`,
-        referenceKey: ledgerId,
-      },
-    });
-    await tx.auditLog.create({
-      data: {
-        ...(actorUserId ? { userId: actorUserId } : {}),
-        action: "PRIZE_POOL_TEST_FUNDED",
-        entity: "PrizePool",
-        entityId: pool.id,
-        metadata: { amountMicro: amount.toString(), testOnly: true },
-      },
-    });
-    return responsePool(updated);
-  });
+export async function testFundPrizePool(
+  _contestId: string,
+  _rawAmount: unknown,
+  _actorUserId?: string,
+): Promise<any> {
+  // The experimental round pool is intentionally fixed at 100 simulated USDT.
+  throw new Error("FIXED_TEST_POOL_AMOUNT");
 }
 
 type Finisher = {
