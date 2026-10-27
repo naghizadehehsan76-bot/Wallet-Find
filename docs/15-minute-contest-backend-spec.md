@@ -52,62 +52,51 @@ For each authenticated submission:
 ## 5. Ranking
 
 - Only participants with all 12 clues solved before `endsAt` are prize-eligible.
-- Completed participants rank before incomplete participants in any progress view.
-- Prize ranking is determined by ascending `completedAt - startsAt` (equivalent to ascending `completedAt` within one round).
-- Failed attempts do not add an independent ranking penalty; their 60-second lock already costs real contest time.
-- Incomplete participants are not included in prize calculations and receive zero.
-- Exact completion-time ties share the same rank. Pool the fixed prizes for all occupied rank slots among tied participants and divide that pooled amount equally. Example: two participants tied for ranks 1 and 2 split the combined 70% equally. The next distinct completion time receives rank 3.
-- If fewer than three participants complete the round, only the fixed shares for the ranks actually awarded are paid. Unfilled podium shares and an unallocated fourth-and-lower share remain unused in that settled round; nothing is transferred to a later round.
+- Completed participants rank by ascending `completedAt - startsAt`; incomplete participants receive no prize.
+- Failed attempts do not add a separate ranking penalty; the one-minute wrong-answer lock already consumes round time.
+- Exact completion-time ties share a rank. For tied podium ranks, combine the fixed allocations of the occupied top-three slots and split that amount equally among everyone tied in that group.
+- Unfilled allocations, including the unallocated 10% lower-rank pool, stay unused within that settled round. They never increase a subsequent round's fixed 100 USDT pool.
 
 ## 6. Prize calculation and experimental accounting
 
-Let `pool` be the round's total prize pool.
+Every round has a fixed simulated pool of exactly 100.000000 USDT.
 
-- Nominal rank allocations are `pool * 0.50`, `pool * 0.225`, and `pool * 0.125` for ranks 1, 2, and 3. For a tie spanning rank slots, sum those occupied slots' allocations and divide equally among all tied participants.
-- The fourth-and-lower completion pool is `pool * 0.10`. Eligible finisher `i` receives weight `w_i = 900 seconds - elapsed completion time`; calculate with integer milliseconds and allocate `share_i = lowerPool * w_i / sum(weights)`.
-- The project dividend pool receives `pool * 0.05` at every round settlement. This contribution is saved in the round's ledger and aggregated separately from participant awards.
-- If a round has no submissions, the 5% project contribution is still recorded and the remaining 95% stays unused in that settled round. No unawarded balance, including any unfilled podium share or unused lower-rank share, rolls over into another round.
-- Store participant awards and the project-dividend contribution durably. Finalization must be idempotent so a retry cannot duplicate either one.
-- Define the pool's currency/token unit and rounding/leftover-dust policy in payout implementation; do not use floating-point arithmetic for token amounts.
+- First place: 50% (50 USDT); second place: 22.5% (22.5 USDT); third place: 12.5% (12.5 USDT).
+- Ranks four and lower share 10% (10 USDT) proportionally by speed score: `score = 900 seconds - elapsed completion time`. Use integer milliseconds for calculations.
+- The project dividend pool receives 5% (5 USDT) at every settlement. Store this allocation in `PrizeLedger` as `PROJECT_PROFIT` and in the round's `projectProfitMicro` total.
+- A round without participants still allocates 5 USDT to the project dividend pool; its remaining 95 USDT stays unused in that round. No unused amount is carried forward.
+- If fewer than three eligible participants finish, only podium shares that can be awarded are paid. Unfilled podium shares and any unallocated lower-rank share remain unused and are not added to another round.
+- Exact ties are calculated with integer micro-USDT amounts. Any division remainder stays unused; no floating-point arithmetic is used.
+- Store participant awards, project-dividend contributions, and settlement state durably. Finalization must be idempotent so a retry cannot duplicate awards or project contributions.
 
 ## 7. Round lifecycle and scheduling
 
 Recommended lifecycle: `SCHEDULED -> ACTIVE -> FINISHED`, with the next round already scheduled to begin at the same boundary the prior round ends.
 
-- Scheduler creates/prepares the next round ahead of time with 12 complete, ordered clues and a fixed start/end.
-- At `startsAt`, it becomes playable.
-- At `endsAt`, submission APIs reject new attempts based on timestamps immediately, regardless of scheduler lag. A background scheduler then marks the round finished, snapshots ranking, computes awards, and records the project contribution. Unused balances are not carried forward.
-- There is no pause between rounds. The next round starts at the exact end boundary of the previous round; the scheduler should prepare it in advance.
-- Use database constraints/transactions to prevent overlapping active rounds and duplicate round creation for the same scheduled boundary.
-- If the application restarts or the scheduler is late, it must reconcile all due round transitions in chronological order. Do not reopen a round that has ended.
+- The scheduler prepares the next round ahead of time with 12 complete, ordered clues and a fixed start/end.
+- At `startsAt`, the round becomes playable.
+- At `endsAt`, submissions are rejected immediately. A background scheduler then marks the round finished, snapshots ranking, computes awards, records the 5% project contribution, and marks settlement complete.
+- Every round receives its own fixed 100 USDT simulated pool. There is no rollover or accumulation of unused balances between rounds.
+- Use database constraints/transactions to prevent overlapping rounds and duplicate round creation for one scheduled boundary.
+- If the application restarts or the scheduler is late, reconcile due round transitions in chronological order. Do not reopen a round that has ended.
 
-## 8. Data model changes to evaluate
+## 8. Data model
 
-Existing schema already includes `Contest` with `startsAt`, `endsAt`, `status`; `ContestClue` with sequence and answer; `Submission` with answer, correctness, and server submission timestamp; and `ContestSetting` with clue count and prize percentages.
-
-Current schema/service gaps against these rules:
-
-- `ContestSetting.publishIntervalMinutes` and globally scheduled `publishedAt` currently support timed clue releases. This conflicts with immediate next-clue access and a 15-minute total round. Remove timed release from gameplay logic (or leave the field unused for compatibility) and gate clues only by sequential successful solves.
-- Persist per-participant/per-clue lock state (`lockedUntil`) rather than relying on browser state.
-- Persist an unambiguous participant completion timestamp and/or derive it safely from the first accepted correct submission for clue 12.
-- Persist the fixed prize-pool amount/currency for each round, participant award records, and project-dividend ledger entries.
-- Persist a final leaderboard/settlement marker or use a transactional settlement record so finalization and project-dividend allocation are idempotent.
-- Add uniqueness/concurrency safeguards for one successful solve per user, round, and clue. Failed attempts may remain multiple rows.
-- Consider a participant-round record to represent users who joined but have not submitted yet; the existing `Submission`-only leaderboard cannot list participants with zero attempts.
-- Add indexes for scheduled start/end and settlement status as appropriate.
-
-Schema changes should be made through a new Prisma migration, not by editing the production database manually.
+- `PrizePool` stores each round's fixed pool, participant awards, project contribution, and settlement status. The legacy rollover fields remain for compatibility but the test settlement sets rollover to zero.
+- `PrizeLedger` stores the once-per-round simulated 100 USDT funding record, individual participant awards, and the 5 USDT project contribution as separate durable entries.
+- The project dividend pool is the sum of settled `projectProfitMicro` contributions; no participant wallet balance or real asset is used for this total.
+- Keep final ranking/settlement idempotent. A repeated request must return the existing awards and must not add another 100 USDT or a second project contribution.
+- Schema changes must be applied through Prisma migrations, not by editing the production database manually.
 
 ## 9. API behavior (contract-level)
 
-Existing routes should be evolved rather than duplicated where possible.
-
-- Get active/current round: return round ID, status, server time, `startsAt`, `endsAt`, remaining seconds, solved answers, current clue, lock state, and next-round start time when the next round is scheduled.
-- Submit answer: validate authentication, active window, clue order, and lock on the server; return whether correct, next clue/progress, `lockedUntil` on wrong answer, and completion time on clue 12.
-- Get leaderboard: while active, return provisional completion rankings and progress; after finish, return the frozen final ranking and awards.
-- Get round results: return final rank, completion status, elapsed time, participant prize amount, project contribution, and unused balance where appropriate.
-- Never return `correctAnswer` to the client before it is solved.
+- Get the active/current round: return the round ID, status, server time, `startsAt`, `endsAt`, remaining time, solved answers, current clue, lock state, and next-round start when scheduled.
+- Submit answer: validate authentication, the active time window, clue order, and lock server-side; return correctness, next clue/progress, lock expiry on wrong answer, and completion time for clue 12.
+- Get leaderboard: return provisional rankings during a round and frozen final rankings and awards after settlement.
+- Get round results: return final rank, completion status, elapsed time, participant award, 5% project contribution, and unused balance.
+- Never send `correctAnswer` to the client before it is solved.
 - API error states should distinguish `CONTEST_NOT_STARTED`, `CONTEST_FINISHED`, `CLUE_LOCKED`, `ANSWER_INCORRECT`, `CLUE_OUT_OF_ORDER`, and `NO_ACTIVE_CONTEST`.
+
 
 ## 10. Required tests before deployment
 
