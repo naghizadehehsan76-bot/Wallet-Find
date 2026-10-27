@@ -37,6 +37,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   }
 
   const [contestId, setContestId] = useState<string | null>(null);
+  const [challengeNumber, setChallengeNumber] = useState<number | null>(null);
   const [contestTitle, setContestTitle] = useState("");
   const [contestDate, setContestDate] = useState<string | null>(null);
   const [prizePool, setPrizePool] = useState<PrizePoolView | null>(null);
@@ -104,6 +105,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
         if (cancelled) return;
 
         setContestId(contest.id);
+        setChallengeNumber(contest.challengeNumber ?? null);
         setContestTitle(contest.title);
         setContestDate(contest.startsAt);
         void getContestPrizePool(contest.id).then((result) => setPrizePool(result.pool)).catch(() => undefined);
@@ -564,9 +566,13 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
             <section className="round-progress">
               <div className="round-progress__labels">
                 <strong>
-                  {isPersian
-                    ? "راند " + formatNumber(displayedRound) + " از ۱۲"
-                    : "Round " + formatNumber(displayedRound) + " of 12"}
+                  {challengeNumber !== null
+                    ? (isPersian
+                        ? "چالش شمارهٔ " + formatNumber(challengeNumber)
+                        : "Challenge #" + formatNumber(challengeNumber))
+                    : (isPersian
+                        ? "چالش در حال برگزاری"
+                        : "Current challenge")}
                 </strong>
                 <span>
                   {isPersian
