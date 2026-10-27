@@ -22,7 +22,24 @@ export async function getPublicPrizePoolStatsHandler(
   const now = new Date();
 
   try {
-    const [seededTotal, awardedTotal, currentContest] = await Promise.all([
+    const currentContest = await prisma.contest.findFirst({
+      where: {
+        language,
+        status: { in: ["ACTIVE", "SCHEDULED"] },
+        startsAt: { lte: now },
+        endsAt: { gt: now },
+      },
+      orderBy: { startsAt: "desc" },
+      select: { id: true },
+    });
+
+    // Initialize the current round before calculating the site-wide total so
+    // the first response includes the newly allocated base pool as well.
+    const currentPool = currentContest
+      ? await getPublicPrizePool(currentContest.id)
+      : null;
+
+    const [seededTotal, awardedTotal] = await Promise.all([
       prisma.prizePool.aggregate({
         where: { currency: "USDT" },
         _sum: { seededMicro: true },
@@ -31,16 +48,6 @@ export async function getPublicPrizePoolStatsHandler(
         where: { currency: "USDT" },
         _sum: { awardedMicro: true },
       }),
-      prisma.contest.findFirst({
-        where: {
-          language,
-          status: { in: ["ACTIVE", "SCHEDULED"] },
-          startsAt: { lte: now },
-          endsAt: { gt: now },
-        },
-        orderBy: { startsAt: "desc" },
-        select: { id: true },
-      }),
     ]);
 
     const totalFunded = BigInt(seededTotal._sum.seededMicro ?? 0n);
@@ -48,13 +55,6 @@ export async function getPublicPrizePoolStatsHandler(
     // Count only outside funding minus payouts. Rollover entries move the
     // same funds between rounds and must not be counted as new money.
     const totalPool = totalFunded > totalAwarded ? totalFunded - totalAwarded : 0n;
-
-    // Creating/initializing the current round's pool is idempotent. This
-    // ensures its configured base amount and any eligible rollover are shown
-    // even before a participant or admin page has accessed the pool.
-    const currentPool = currentContest
-      ? await getPublicPrizePool(currentContest.id)
-      : null;
 
     return res.status(200).json({
       success: true,
