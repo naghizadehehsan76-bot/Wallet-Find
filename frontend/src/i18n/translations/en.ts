@@ -212,7 +212,7 @@ export const en = {
       },
     ],
     rewardsTitle: "How are rewards determined?",
-    rewardsDetail: "During testing, each round has exactly 100 simulated USDT: 50% for first place, 22.5% for second, 12.5% for third, 10% shared by finishers ranked fourth or lower according to completion speed, and 5% for the project dividend pool. No unused balance rolls over.",
+    rewardsDetail: "During testing, 50 simulated USDT is added to the global fund each UTC day. At the start of a round, 1% of the then-available global balance is allocated to that round: 50% for first place, 22.5% for second, 12.5% for third, 10% shared among finishers ranked fourth or lower by completion speed, and 5% for the project dividend pool. Unused balances do not roll over.",
     previewNotice: "Note: This is still a preview release. Real payments and reward transfers are not currently enabled. This page describes the planned challenge and does not mean payouts are active.",
   },
   infoPages: {
