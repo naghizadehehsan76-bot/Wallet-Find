@@ -59,7 +59,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [notice, setNotice] = useState("");
   const [key, setKey] = useState("");
   const [value, setValue] = useState("");
-  const [hypotheticalPoolAmount, setHypotheticalPoolAmount] = useState("100");
   const [sourceUrlsEn, setSourceUrlsEn] = useState<string[]>(DEFAULT_EN_SOURCES);
   const [sourceUrlsFa, setSourceUrlsFa] = useState<string[]>(DEFAULT_FA_SOURCES);
   const [sourceDraftEn, setSourceDraftEn] = useState("");
@@ -119,17 +118,14 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     loading: fa ? "در حال دریافت اطلاعات…" : "Loading dashboard…",
     refreshError: fa ? "دریافت اطلاعات ناموفق بود. دسترسی مدیر و اتصال سرور را بررسی کن." : "Could not load dashboard data. Check admin access and server connectivity.",
     keyError: fa ? "کلید باید با حرف انگلیسی شروع شود و فقط شامل حروف، عدد، نقطه، خط تیره یا زیرخط باشد." : "Key must start with a letter and contain only letters, numbers, dots, dashes or underscores.",
-    poolTitle: fa ? "استخر جایزهٔ فرضی هر دور" : "Hypothetical prize pool per round",
-    poolAmount: fa ? "مقدار پایه برای هر دور (USDT فرضی)" : "Base amount per round (simulated USDT)",
-    poolHelp: fa ? "این مبلغ فقط در دفترکل آزمایشی ثبت می‌شود و هیچ انتقال واقعی رمزارز انجام نمی‌دهد. مبالغ انتقالی از دورهای قبل جداگانه به آن اضافه می‌شوند." : "This amount is recorded only in the simulated ledger; no real crypto is transferred. Rollover from previous rounds is added separately.",
-    savePool: fa ? "ذخیرهٔ استخر جایزه" : "Save prize pool amount",
-    invalidPool: fa ? "مبلغ باید عددی مثبت با حداکثر ۶ رقم اعشار باشد." : "Enter a positive amount with up to 6 decimal places.",
-    poolSaved: fa ? "مبلغ پایهٔ استخر جایزه برای دورهای جدید ذخیره شد." : "Base prize pool amount saved for new rounds.",
+    poolTitle: fa ? "صندوق جایزهٔ ثابت آزمایشی هر دور" : "Fixed simulated prize pool per round",
+    poolHelp: fa ? "مبلغ هر دور در مرحلهٔ آزمایشی دقیقاً ۱۰۰ USDT فرضی است. مبلغ استفاده‌نشده به دور بعد منتقل نمی‌شود و سهم ۵٪ پروژه جداگانه ثبت می‌شود." : "Each experimental round is fixed at 100 simulated USDT. Unused balances never roll over, and the 5% project share is tracked separately.",
+    poolFixed: fa ? "مبلغ ثابت آزمایشی: ۱۰۰٫۰۰۰۰۰۰ USDT" : "Fixed test amount: 100.000000 USDT",
     conceptTitle: fa ? "بخش در حال طراحی" : "Module concept",
     conceptBody: fa ? "این بخش فعلاً فقط به‌عنوان جایگاه در پنل مدیریت اضافه شده است. قابلیت‌ها و عملیات آن در مراحل بعدی، جداگانه طراحی و پیاده‌سازی می‌شوند." : "This section is currently a placeholder in the admin panel. Its tools and workflows will be designed and implemented separately in later phases.",
     usersBody: fa ? "جست‌وجو و مشاهدهٔ کاربران، نقش‌ها، وضعیت حساب، تأیید ایمیل و محدودیت‌های دسترسی." : "Search users, review roles and account status, email verification, and access restrictions.",
     financeBody: fa ? "بررسی تراکنش‌ها، درخواست‌های واریز و برداشت، دفترکل و مغایرت‌های مالی." : "Review transactions, deposit and withdrawal requests, the ledger, and financial discrepancies.",
-    prizesBody: fa ? "مشاهدهٔ صندوق هر دور، انتقال مانده، جوایز ثبت‌شده، تسویه‌ها و گزارش حسابداری آزمایشی یا واقعی." : "Inspect each round's prize pool, rollover, awards, settlements, and simulated or real accounting.",
+    prizesBody: fa ? "مشاهدهٔ صندوق ثابت هر دور، جوایز ثبت‌شده، سهم صندوق سود سهام پروژه و گزارش تسویهٔ آزمایشی." : "Inspect each round's fixed pool, participant awards, project-dividend contribution, and simulated settlement.",
     adsBody: fa ? "منابع فعال ساخت سرنخ برای هر زبان را ببین، آدرس منابع جدید اضافه کن یا منابع را حذف کن. منابع سفارشی باید صفحهٔ HTTPS عمومی و دارای متن قابل خواندن باشند." : "Review enabled clue sources for each language, add source URLs, or remove sources. Custom sources must be public HTTPS pages with readable text.",
     sourceEn: fa ? "منابع چالش انگلیسی" : "English challenge sources",
     sourceFa: fa ? "منابع چالش فارسی" : "Persian challenge sources",
@@ -159,7 +155,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       setSettings(settingRows);
       setSourceUrlsEn(parseSourceUrls(settingRows.find((setting) => setting.key === "clue_sources_en")?.value, DEFAULT_EN_SOURCES));
       setSourceUrlsFa(parseSourceUrls(settingRows.find((setting) => setting.key === "clue_sources_fa")?.value, DEFAULT_FA_SOURCES));
-      setHypotheticalPoolAmount(settingRows.find((setting) => setting.key === "hypothetical_prize_pool_per_round")?.value ?? "100");
       setLogs(auditRows);
       setWallets(walletRows);
       setUsers(userRows);
@@ -182,6 +177,10 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       setError(copy.keyError);
       return;
     }
+    if (normalizedKey === "hypothetical_prize_pool_per_round") {
+      setError(copy.poolHelp);
+      return;
+    }
     setSaving(true);
     setError("");
     setNotice("");
@@ -190,27 +189,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       setNotice(copy.saved);
       setKey("");
       setValue("");
-      await load();
-    } catch {
-      setError(copy.refreshError);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleSaveHypotheticalPool(event: FormEvent) {
-    event.preventDefault();
-    const amount = hypotheticalPoolAmount.trim();
-    if (!/^\d{1,12}(\.\d{1,6})?$/.test(amount) || Number(amount) <= 0) {
-      setError(copy.invalidPool);
-      return;
-    }
-    setSaving(true);
-    setError("");
-    setNotice("");
-    try {
-      await saveSystemSetting("hypothetical_prize_pool_per_round", amount);
-      setNotice(copy.poolSaved);
       await load();
     } catch {
       setError(copy.refreshError);
@@ -270,6 +248,8 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       setSaving(false);
     }
   }
+
+  const visibleSettings = settings.filter((setting) => setting.key !== "hypothetical_prize_pool_per_round");
 
   const metricCards = overview ? [
     { label: copy.users, value: overview.users, icon: "◎" },
@@ -452,20 +432,19 @@ export default function AdminControlCenter({ onNavigate }: Props) {
         {section === "settings" && (
           <section className="admin-panel">
             <h2>{copy.settings}</h2>
-            <form className="admin-setting-form" onSubmit={handleSaveHypotheticalPool}>
+            <section className="admin-setting-form">
               <h3>{copy.poolTitle}</h3>
-              <label>{copy.poolAmount}<input type="number" inputMode="decimal" min="0.000001" max="999999999999.999999" step="0.000001" value={hypotheticalPoolAmount} onChange={(event) => setHypotheticalPoolAmount(event.target.value)} required /></label>
+              <p><strong>{copy.poolFixed}</strong></p>
               <p className="admin-footnote">{copy.poolHelp}</p>
-              <button className="cta-button" type="submit" disabled={saving}>{saving ? copy.saving : copy.savePool}</button>
-            </form>
+            </section>
             <form className="admin-setting-form" onSubmit={handleSave}>
               <label>{copy.keyLabel}<input value={key} onChange={(event) => setKey(event.target.value)} required maxLength={80} autoComplete="off" /></label>
               <label>{copy.valueLabel}<textarea value={value} onChange={(event) => setValue(event.target.value)} required maxLength={4000} rows={3} /></label>
               <button className="cta-button" type="submit" disabled={saving}>{saving ? copy.saving : copy.save}</button>
             </form>
             <div className="admin-settings-list">
-              {settings.length === 0 && <p className="admin-empty">{copy.empty}</p>}
-              {settings.map((setting) => (
+              {visibleSettings.length === 0 && <p className="admin-empty">{copy.empty}</p>}
+              {visibleSettings.map((setting) => (
                 <article className="admin-setting-row" key={setting.key}>
                   <div><strong>{setting.key}</strong><code>{setting.value}</code><small>{new Date(setting.updatedAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small></div>
                   <button type="button" onClick={() => void handleEdit(setting)} disabled={saving}>{fa ? "ویرایش" : "Edit"}</button>
