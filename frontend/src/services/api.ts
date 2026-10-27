@@ -44,7 +44,6 @@ export type PublicPrizePoolStats = {
   dailyContribution: string;
   totalDailyFunding: string;
   totalRoundAllocations: string;
-  projectProfitPool: string;
   currency: "USDT";
   simulatedOnly: true;
   updatedAt: string;
@@ -470,6 +469,26 @@ export async function bootstrapAdmin(input: {
 
 export async function getAdminOverview(): Promise<AdminOverview> {
   return request<AdminOverview>("/admin/overview", {}, true);
+}
+
+export type AdminProjectProfitPool = {
+  balance: string;
+  totalContributed: string;
+  currency: "USDT";
+  simulatedOnly: true;
+  updatedAt: string;
+  ledger: Array<{
+    id: string;
+    type: string;
+    amount: string;
+    effectiveAt: string;
+    note: string;
+    createdAt: string;
+  }>;
+};
+
+export async function getAdminProjectProfitPool(): Promise<AdminProjectProfitPool> {
+  return request<AdminProjectProfitPool>("/admin/project-profit-pool", {}, true);
 }
 
 export async function getSystemSettings(): Promise<SystemSettingRecord[]> {
