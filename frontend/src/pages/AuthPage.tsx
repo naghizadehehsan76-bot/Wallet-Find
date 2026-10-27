@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { login, register } from "../services/api";
 import { useI18n } from "../i18n";
@@ -12,17 +12,22 @@ type AuthPageProps = {
   onBack: () => void;
   onOpenTerms: () => void;
   initialMode?: AuthMode;
+  initialNotice?: string;
 };
 
-function AuthPage({ onAuthenticated, onBack, onOpenTerms, initialMode = "login" }: AuthPageProps) {
+function AuthPage({ onAuthenticated, onBack, onOpenTerms, initialMode = "login", initialNotice = "" }: AuthPageProps) {
   const { language, translation: t } = useI18n();
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(initialNotice);
   const [loading, setLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  useEffect(() => {
+    if (initialNotice) setError(initialNotice);
+  }, [initialNotice]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
