@@ -33,14 +33,12 @@ async function ensurePool(tx: any, contestId: string) {
     create: { contestId, testOnly: true, currency: "USDT" },
   });
 
-  // Initialize each round's hypothetical base pool from the admin setting.
-  // This is simulated ledger accounting only; no real crypto is transferred.
-  // The fictional 100 USDT starting pool is seeded once for the entire
-  // challenge system, not once per 15-minute round. Later rounds may only
-  // receive carry-over from prior rounds or explicit admin test funding.
-  const initialFundingKey = "test-funding-initial:global";
-  const initialFunding = await tx.prizeLedger.findFirst({
-    where: { referenceKey: { startsWith: "test-funding-initial:" } },
+  // Allocate the configured simulated base prize pool to each round exactly
+  // once. Rollover from earlier rounds is added on top of this base amount.
+  // This is bookkeeping only; no real crypto is transferred.
+  const initialFundingKey = `test-funding-initial:${contestId}`;
+  const initialFunding = await tx.prizeLedger.findUnique({
+    where: { referenceKey: initialFundingKey },
     select: { id: true },
   });
   if (!initialFunding && BigInt(pool.seededMicro) === 0n && pool.status === "OPEN") {
@@ -67,7 +65,7 @@ async function ensurePool(tx: any, contestId: string) {
         contestId,
         type: "TEST_FUNDING",
         amountMicro: demoAmount,
-        note: `SIMULATED ONE-TIME STARTING PRIZE POOL ${formatMicro(demoAmount)} USDT; first initialized round ${contestId}; no real assets transferred`,
+        note: `SIMULATED BASE PRIZE POOL ${formatMicro(demoAmount)} USDT for round ${contestId}; no real assets transferred`,
         referenceKey: initialFundingKey,
       },
     });
