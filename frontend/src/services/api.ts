@@ -49,6 +49,7 @@ export async function sendOnlineHeartbeat(): Promise<{ recorded: boolean }> {
 
 export type ActiveContest = {
   id: string;
+  challengeNumber?: number;
   title: string;
   description: string | null;
   status: string;
