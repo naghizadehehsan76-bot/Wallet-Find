@@ -19,9 +19,10 @@ Define the backend behavior for a shared, server-timed, 12-answer contest round.
 - Participants may join while the round is active, but no answer is accepted at or after `endsAt`.
 - A participant who does not solve all 12 clues by the deadline receives no prize. Correct answers already submitted remain saved and are returned when they revisit the round.
 - At the deadline, the server finalizes the round, calculates and stores the final ranking and awards, and exposes the final results.
-- Prize pool split: rank 1 = 50%, rank 2 = 20%, rank 3 = 10%, and the remaining 20% is distributed only among completed participants ranked fourth or lower.
-- If there are no completed participants ranked fourth or lower, that 20% rolls over into the next round's prize pool.
-- The fourth-and-lower pool is proportional to time score: `score = 900 seconds - elapsed completion time in seconds`. A faster completion earns a larger share. The top three's percentages remain fixed.
+- Experimental prize pool: every round receives a fixed simulated 100.000000 USDT base pool.
+- Prize split: rank 1 = 50%, rank 2 = 22.5%, rank 3 = 12.5%, and 10% is distributed among completed participants ranked fourth or lower in proportion to their speed score. A further 5% is recorded in the project dividend pool.
+- The fourth-and-lower pool is proportional to time score: `score = 900 seconds - elapsed completion time in seconds`. A faster completion earns a larger share. The top-three percentages remain fixed.
+- No unawarded amount is rolled into a later round. A round with no submissions contributes neither rollover nor a project-dividend allocation.
 - Round schedule: each contest lasts 15 minutes, and a new round starts every 15 minutes on fixed server-aligned boundaries with no pause. Example: 20:00–20:15, then 20:15–20:30, then 20:30–20:45.
 - The visible countdown is derived from server time and `endsAt`, and reaches zero at the official deadline.
 
@@ -56,19 +57,17 @@ For each authenticated submission:
 - Failed attempts do not add an independent ranking penalty; their 60-second lock already costs real contest time.
 - Incomplete participants are not included in prize calculations and receive zero.
 - Exact completion-time ties share the same rank. Pool the fixed prizes for all occupied rank slots among tied participants and divide that pooled amount equally. Example: two participants tied for ranks 1 and 2 split the combined 70% equally. The next distinct completion time receives rank 3.
-- If fewer than three participants complete the round, any unawarded rank-1, rank-2, or rank-3 allocation rolls over to the next round's prize pool. The existing fourth-and-lower 20% allocation also rolls over if there are no eligible fourth-and-lower finishers.
+- If fewer than three participants complete the round, only the fixed shares for the ranks actually awarded are paid. Unfilled podium shares and an unallocated fourth-and-lower share remain unused in that settled round; nothing is transferred to a later round.
 
 ## 6. Prize calculation and rollover
 
 Let `pool` be the round's total prize pool.
 
-- Nominal rank allocations are `pool * 0.50`, `pool * 0.20`, and `pool * 0.10` for ranks 1, 2, and 3. For a tie spanning rank slots, sum those occupied slots' allocations and divide equally among all tied participants.
-- If a rank slot from 1 through 3 is unfilled because too few participants completed, roll its allocation forward to the next round.
-- The remaining pool is `pool * 0.20`.
-- Eligible fourth-and-lower completed participant `i` receives weight `w_i = 900 - elapsedSeconds_i`. Use integer milliseconds for the elapsed value in production to avoid rounding errors.
-- If eligible weights exist, allocate the remaining 20% proportionally: `share_i = remainingPool * w_i / sum(weights)`.
-- If no eligible fourth-and-lower completed participants exist, carry the entire remaining 20% into the next round's pool.
-- Store calculated awards and the rollover amount in durable database records. Finalization must not pay or add rollover twice on retry.
+- Nominal rank allocations are `pool * 0.50`, `pool * 0.225`, and `pool * 0.125` for ranks 1, 2, and 3. For a tie spanning rank slots, sum those occupied slots' allocations and divide equally among all tied participants.
+- The fourth-and-lower completion pool is `pool * 0.10`. Eligible finisher `i` receives weight `w_i = 900 seconds - elapsed completion time`; calculate with integer milliseconds and allocate `share_i = lowerPool * w_i / sum(weights)`.
+- The project dividend pool receives `pool * 0.05` when the round has participation. This contribution is saved in the round's ledger and aggregated separately from participant awards.
+- A round with no submissions creates no project-dividend contribution. No unawarded balance, including any unfilled podium share or unused lower-rank share, rolls over into another round.
+- Store participant awards and the project-dividend contribution durably. Finalization must be idempotent so a retry cannot duplicate either one.
 - Define the pool's currency/token unit and rounding/leftover-dust policy in payout implementation; do not use floating-point arithmetic for token amounts.
 
 ## 7. Round lifecycle and scheduling
@@ -122,17 +121,22 @@ Existing routes should be evolved rather than duplicated where possible.
 8. Duplicate/concurrent submissions cannot bypass sequence, lock, or completion rules.
 9. Correct answers persist for an incomplete participant; incomplete participants receive no award.
 10. Top-three percentages and fourth-and-lower proportional shares total no more than the round pool, subject to explicit rounding rules.
-11. With no eligible fourth-and-lower completers, 20% rolls over exactly once.
-12. Finalization is safe to retry and safe after server restart.
+11. A fixed 100 USDT simulated pool is initialized once for every round; repeated reads do not add another 100.
+12. A round with no submissions adds no project-dividend contribution and no balance rolls over to the next round.
+13. With fourth-and-lower finishers, exactly the 10% allocation is divided by completion-speed weights.
+14. Settlement records 5% in the project dividend pool, except when the round has no submissions.
+15. Finalization is safe to retry and safe after server restart.
 13. Consecutive rounds start every 15 minutes with no pause; the next round begins exactly when the prior round ends.
-14. A round with fewer than three completers rolls every unfilled top-three allocation forward exactly once.
-15. Equal completion timestamps share the same rank and split the sum of occupied rank-slot allocations equally.
+16. Unused podium or lower-rank shares remain in the settled round and never increase the next round's fixed pool.
+17. Equal completion timestamps share the same rank and split the sum of occupied rank-slot allocations equally.
 
 
 ## 11. Prize pool implementation and test mode
 
 - Prize accounting is persisted in `PrizePool`, `PrizeLedger`, and `PrizeAward`; all amounts use integer micro-USDT units (six decimal places).
-- Each round receives a simulated base prize pool using the configured per-round amount (100.000000 USDT by default). Eligible rollover from previous rounds is added on top; funding is recorded once per round and no blockchain transfer is performed.
-- Admin endpoints expose pool summary, test funding, and idempotent settlement. The participant page displays the simulated pool and rollover-in amount.
-- The scheduler retries settlement for finished rounds whose pool is not settled. No completed participants means the full pool rolls over. Fewer than three finishers leave unfilled top-three allocations in rollover. Exact-time ties share their rank-slot prize amounts equally.
+- Each round receives exactly 100.000000 simulated USDT, initialized once per round. This fixed test amount does not use the real-money 1% global-pool rule.
+- The test distribution is 50% / 22.5% / 12.5% for the top three, 10% proportionally among ranks four and lower, and 5% recorded in a project-dividend pool when at least one submission exists.
+- Nothing rolls over from a settled round. A round with no submissions leaves the following round's pool unchanged and generates no project-dividend contribution.
+- Admin endpoints expose pool summary and idempotent settlement. The panel shows participant awards, project-dividend allocation, and the simulated ledger.
+- Future real-money model (not active): the global pool may be funded by the owner's initial crypto contribution, sponsors, and investors under separately agreed terms. Each round would be assigned 1% of the global pool's balance, then split using the same 50% / 22.5% / 12.5% / 10% / 5% allocation. Real custody, sponsor invoicing, investor profit-share terms, risk controls, and on-chain settlement need separate implementation and review.
 - Test-only records must never be interpreted as real wallet balances, withdrawable funds, or proof of an on-chain transfer.
