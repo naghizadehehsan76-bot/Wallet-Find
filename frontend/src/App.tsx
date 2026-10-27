@@ -553,6 +553,7 @@ function App() {
   const [authStatus, setAuthStatus] = useState<"checking" | "authenticated" | "unauthenticated">(
     () => localStorage.getItem("walletFindToken") ? "checking" : "unauthenticated",
   );
+  const [authNotice, setAuthNotice] = useState("");
   const initialSavedUser = safelyReadSavedUser();
   const initialIsAdmin = initialSavedUser?.role === "ADMIN";
 
@@ -597,6 +598,12 @@ function App() {
   }, [language, isRTL]);
 
   useEffect(() => {
+    const handleSessionExpiredEvent = () => handleSessionExpired();
+    window.addEventListener("wallet-find:session-expired", handleSessionExpiredEvent);
+    return () => window.removeEventListener("wallet-find:session-expired", handleSessionExpiredEvent);
+  }, []);
+
+  useEffect(() => {
     const token = localStorage.getItem("walletFindToken");
     if (!token) {
       localStorage.removeItem("walletFindUser");
@@ -620,11 +627,21 @@ function App() {
       .catch((error: unknown) => {
         if (cancelled) return;
         const message = error instanceof Error ? error.message : "";
-        if (message === "AUTHENTICATION_REQUIRED" || message === "USER_NOT_FOUND") {
+        if (
+          message === "TOKEN_EXPIRED" ||
+          message === "INVALID_TOKEN" ||
+          message === "INVALID_AUTHORIZATION_HEADER" ||
+          message === "AUTHENTICATION_REQUIRED"
+        ) {
+          handleSessionExpired();
+          return;
+        }
+        if (message === "USER_NOT_FOUND") {
           localStorage.removeItem("walletFindToken");
           localStorage.removeItem("walletFindUser");
           setAuthStatus("unauthenticated");
           setAuthMode("signup");
+          setAuthNotice("");
           setPage("auth");
           return;
         }
@@ -684,13 +701,24 @@ function App() {
 
   function handleAuthenticated(token: string) {
     localStorage.setItem("walletFindToken", token);
+    setAuthNotice("");
     setAuthStatus("authenticated");
     setPage("competition");
+  }
+
+  function handleSessionExpired() {
+    localStorage.removeItem("walletFindToken");
+    localStorage.removeItem("walletFindUser");
+    setAuthStatus("unauthenticated");
+    setAuthMode("login");
+    setAuthNotice("TOKEN_EXPIRED");
+    setPage("auth");
   }
 
   function handleLogout() {
     localStorage.removeItem("walletFindToken");
     localStorage.removeItem("walletFindUser");
+    setAuthNotice("");
     setAuthStatus("unauthenticated");
     setAuthMode("signup");
     setPage("auth");
@@ -708,7 +736,7 @@ function App() {
   let currentView: ReactNode;
 
   if (page === "auth") {
-    currentView = <AuthPage initialMode={authMode} onAuthenticated={handleAuthenticated} onOpenTerms={() => setPage("terms")} onBack={() => {
+    currentView = <AuthPage initialMode={authMode} initialNotice={authNotice} onAuthenticated={handleAuthenticated} onOpenTerms={() => setPage("terms")} onBack={() => {
       if (!isLoggedIn) {
         setAuthMode("signup");
         setPage("auth");
