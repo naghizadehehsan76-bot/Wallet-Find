@@ -396,6 +396,7 @@ enum PrizeLedgerType {
   ROLLOVER_IN
   ROLLOVER_OUT
   AWARD
+  PROJECT_PROFIT
 }
 
 model PrizePool {
@@ -406,6 +407,7 @@ model PrizePool {
   rolloverInMicro BigInt @default(0)
   rolloverOutMicro BigInt @default(0)
   awardedMicro BigInt @default(0)
+  projectProfitMicro BigInt @default(0)
   testOnly Boolean @default(true)
   status String @default("OPEN")
   settledAt DateTime?
