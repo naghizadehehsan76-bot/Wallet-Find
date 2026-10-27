@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { getPrizePool, settlePrizePool, testFundPrizePool, type PrizePoolResult } from "../services/api";
+import { getPrizePool, settlePrizePool, type PrizePoolResult } from "../services/api";
 
 type Props = { contestId: string; contestStatus: string };
 
 export default function PrizePoolPanel({ contestId, contestStatus }: Props) {
   const [data, setData] = useState<PrizePoolResult | null>(null);
-  const [amount, setAmount] = useState("100.000000");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -31,17 +30,6 @@ export default function PrizePoolPanel({ contestId, contestStatus }: Props) {
       });
     return () => { cancelled = true; };
   }, [contestId]);
-
-  async function fund() {
-    setLoading(true); setMessage(""); setError("");
-    try {
-      await testFundPrizePool(contestId, amount);
-      setMessage(isFa ? "صندوق آزمایشی شارژ شد؛ هیچ توکن واقعی منتقل نشده است." : "Test pool funded; no real tokens were transferred.");
-      await refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "REQUEST_FAILED");
-    } finally { setLoading(false); }
-  }
 
   async function settle() {
     if (!window.confirm(isFa ? "تسویهٔ آزمایشی ثبت شود؟ هیچ پرداخت واقعی انجام نمی‌شود." : "Run simulated settlement? No real payment will be made.")) return;
@@ -71,21 +59,20 @@ export default function PrizePoolPanel({ contestId, contestStatus }: Props) {
           {[
             [isFa ? "موجودی کل" : "Total pool", data.pool.total],
             [isFa ? "قابل تخصیص" : "Available", data.pool.available],
-            [isFa ? "جایزه‌های ثبت‌شده" : "Awards recorded", data.pool.awarded],
-            [isFa ? "انتقال به دور بعد" : "Rollover out", data.pool.rolloverOut],
+            [isFa ? "جوایز ثبت‌شده" : "Participant awards", data.pool.awarded],
+            [isFa ? "سهم صندوق سود سهام پروژه" : "Project dividend contribution", data.pool.projectProfit],
+            [isFa ? "انتقال به دور بعد" : "Rollover to next round", data.pool.rolloverOut],
           ].map(([label, value]) => (
             <div key={label} className="stat-card"><strong>{value} USDT</strong><span>{label}</span></div>
           ))}
         </div>
       )}
-      <label className="field" style={{ display: "block", marginBottom: 10 }}>
-        <span>{isFa ? "مبلغ شارژ فرضی (USDT)" : "Simulated funding amount (USDT)"}</span>
-        <input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" disabled={loading || data?.pool.status === "SETTLED"} />
-      </label>
+      <p className="admin-footnote" style={{ marginBottom: 12 }}>
+        {isFa
+          ? "مبلغ پایهٔ هر دور دقیقاً ۱۰۰ USDT فرضی است. ماندهٔ استفاده‌نشده به دور بعد منتقل نمی‌شود."
+          : "Each round has a fixed 100 USDT simulated base pool. Unused balances do not roll over."}
+      </p>
       <div className="cta-group">
-        <button className="cta-button cta-button--ghost" type="button" onClick={() => void fund()} disabled={loading || data?.pool.status === "SETTLED"}>
-          {loading ? (isFa ? "در حال انجام..." : "Working...") : (isFa ? "شارژ آزمایشی صندوق" : "Fund test pool")}
-        </button>
         <button className="cta-button" type="button" onClick={() => void settle()} disabled={loading || data?.pool.status === "SETTLED" || (contestStatus !== "finished" && data?.pool.status !== "SETTLED")}>
           {isFa ? "محاسبه و ثبت جوایز آزمایشی" : "Calculate & record test awards"}
         </button>
