@@ -184,7 +184,6 @@ function HomePage({
       label: isPersian ? "موجودی صندوق کلی جایزه" : "Available global prize fund",
       secondaryValue: prizePoolStats ? formatPrizeAmount(prizePoolStats.currentRoundPool) : "—",
       secondaryLabel: isPersian ? "۱٪ صندوق کلی برای دور جاری" : "1% global pool allocated to this round",
-      note: isPersian ? "روزانه ۵۰ تتر فرضی به صندوق کلی افزوده می‌شود" : "50 simulated USDT is added to the global fund daily",
     },
     {
       value: prizePoolStats ? formatPrizeAmount(prizePoolStats.dailyContribution) : "—",
