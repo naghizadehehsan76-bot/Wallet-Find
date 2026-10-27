@@ -547,7 +547,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           <section className="stat-row" aria-label={isPersian ? "صندوق جایزه چالش" : "Challenge prize pool"}>
             <div className="stat-card">
               <strong>{prizePool.total} USDT</strong>
-              <span>{isPersian ? "مجموع صندوق فرضی" : "Total simulated pool"}</span>
+              <span>{isPersian ? "تخصیص ۱٪ صندوق کلی به این دور" : "1% global fund allocated to this round"}</span>
             </div>
             <div className="stat-card">
               <strong>{prizePool.projectProfit} USDT</strong>
