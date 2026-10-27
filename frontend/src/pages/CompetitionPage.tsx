@@ -550,8 +550,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
               <span>{isPersian ? "مجموع صندوق فرضی" : "Total simulated pool"}</span>
             </div>
             <div className="stat-card">
-              <strong>{prizePool.rolloverIn} USDT</strong>
-              <span>{isPersian ? "انتقال از دور قبل" : "Rollover from prior round"}</span>
+              <strong>{prizePool.projectProfit} USDT</strong>
+              <span>{isPersian ? "سهم ثبت‌شدهٔ صندوق سود سهام پروژه" : "Project dividend contribution recorded"}</span>
             </div>
           </section>
         )}
