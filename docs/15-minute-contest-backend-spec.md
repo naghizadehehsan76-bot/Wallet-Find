@@ -10,21 +10,17 @@ Define the backend behavior for a shared, server-timed, 12-answer contest round.
 
 ## 2. Approved rules
 
-- A round lasts exactly 15 minutes (900 seconds).
-- A round's official `startsAt` is shared by every participant. A late entrant's clock still starts at the round's `startsAt`, not their join time.
-- The server's persisted timestamps are authoritative; client clocks are display-only.
-- A participant must solve the 12 clues in sequence.
-- On a correct answer, the server accepts it immediately and unlocks the next clue immediately. There is no lock after a correct answer.
-- On a wrong answer, only that participant's current clue is locked for 60 seconds. The round clock continues to run. The server rejects further attempts for that clue until `lockedUntil`.
-- Participants may join while the round is active, but no answer is accepted at or after `endsAt`.
-- A participant who does not solve all 12 clues by the deadline receives no prize. Correct answers already submitted remain saved and are returned when they revisit the round.
-- At the deadline, the server finalizes the round, calculates and stores the final ranking and awards, and exposes the final results.
-- Experimental prize pool: every round receives a fixed simulated 100.000000 USDT base pool.
-- Prize split: rank 1 = 50%, rank 2 = 22.5%, rank 3 = 12.5%, and 10% is distributed among completed participants ranked fourth or lower in proportion to their speed score. A further 5% is recorded in the project dividend pool.
-- The fourth-and-lower pool is proportional to time score: `score = 900 seconds - elapsed completion time in seconds`. A faster completion earns a larger share. The top-three percentages remain fixed.
-- No unawarded amount is rolled into a later round. Every settled round allocates 5% to the project dividend pool; if there are no submissions, the other 95% remains unused in that round.
-- Round schedule: each contest lasts 15 minutes, and a new round starts every 15 minutes on fixed server-aligned boundaries with no pause. Example: 20:00–20:15, then 20:15–20:30, then 20:30–20:45.
-- The visible countdown is derived from server time and `endsAt`, and reaches zero at the official deadline.
+- A round lasts exactly 15 minutes (900 seconds), using the same server-defined `startsAt` and `endsAt` for all participants.
+- Late entrants use the official round start time, not their join time. Client clocks are display-only.
+- Participants solve 12 clues in order. A correct answer immediately unlocks the next clue. A wrong answer locks only that clue for 60 seconds.
+- No answer is accepted at or after `endsAt`. Incomplete participants receive no prize; previously accepted correct answers remain saved.
+- At the deadline, the server finalizes ranking and prizes. Exact-time ties share the relevant top-three rank-slot allocations equally.
+- **Experimental funding model:** the global prize fund receives 50.000000 simulated USDT once per UTC day. Missing days are recorded when the scheduler resumes after an outage.
+- **Per-round allocation:** at round start, 1% of the then-available global fund balance is allocated to that round once and deducted from the global fund. The allocated amount varies with the global balance.
+- Round prize split: rank 1 = 50%, rank 2 = 22.5%, rank 3 = 12.5%, ranks four and lower share 10% by completion speed, and 5% is recorded in the project dividend pool.
+- No unused amount is carried into a later round. If a round has no participants, 5% of its allocation still goes to the project dividend pool and the remaining 95% stays unused in that settled round.
+- All funding, allocations, participant awards, and project contributions are simulated bookkeeping only; no real USDT is held or transferred.
+- Every round lasts 15 minutes and consecutive rounds start on fixed server-aligned boundaries without a gap.
 
 ## 3. Authoritative time and boundary conditions
 
@@ -51,75 +47,83 @@ For each authenticated submission:
 
 ## 5. Ranking
 
-- Only participants with all 12 clues solved before `endsAt` are prize-eligible.
-- Completed participants rank by ascending `completedAt - startsAt`; incomplete participants receive no prize.
-- Failed attempts do not add a separate ranking penalty; the one-minute wrong-answer lock already consumes round time.
-- Exact completion-time ties share a rank. For tied podium ranks, combine the fixed allocations of the occupied top-three slots and split that amount equally among everyone tied in that group.
-- Unfilled allocations, including the unallocated 10% lower-rank pool, stay unused within that settled round. They never increase a subsequent round's fixed 100 USDT pool.
+- Only participants who solve all 12 clues before `endsAt` qualify for participant prizes. Incomplete participants receive zero.
+- Rank completed participants by ascending `completedAt - startsAt`.
+- Exact completion-time ties share a rank. For a tie spanning top-three slots, combine the percentages of the slots occupied and split their combined amount equally among those tied.
+- Unfilled allocations remain unused in that round and never increase a later round's allocation.
 
 ## 6. Prize calculation and experimental accounting
 
-Every round has a fixed simulated pool of exactly 100.000000 USDT.
+The global pool receives 50.000000 simulated USDT each UTC day. When a round starts, 1% of the currently available global balance is taken from that fund and recorded as the round's pool.
 
-- First place: 50% (50 USDT); second place: 22.5% (22.5 USDT); third place: 12.5% (12.5 USDT).
-- Ranks four and lower share 10% (10 USDT) proportionally by speed score: `score = 900 seconds - elapsed completion time`. Use integer milliseconds for calculations.
-- The project dividend pool receives 5% (5 USDT) at every settlement. Store this allocation in `PrizeLedger` as `PROJECT_PROFIT` and in the round's `projectProfitMicro` total.
-- A round without participants still allocates 5 USDT to the project dividend pool; its remaining 95 USDT stays unused in that round. No unused amount is carried forward.
-- If fewer than three eligible participants finish, only podium shares that can be awarded are paid. Unfilled podium shares and any unallocated lower-rank share remain unused and are not added to another round.
-- Exact ties are calculated with integer micro-USDT amounts. Any division remainder stays unused; no floating-point arithmetic is used.
-- Store participant awards, project-dividend contributions, and settlement state durably. Finalization must be idempotent so a retry cannot duplicate awards or project contributions.
+- First place receives 50% of the round allocation, second 22.5%, and third 12.5%.
+- Ranks four and lower share 10% proportionally by speed score: `score = 900 seconds - elapsed completion time`. Use integer milliseconds and micro-USDT amounts, never floating-point arithmetic.
+- At settlement, 5% of the round allocation is recorded in the project dividend pool. These contributions are aggregated in `projectProfitMicro` and `GlobalPrizeFund` is not reduced by them a second time because the full 1% round allocation was already deducted at round start.
+- A round without participants still allocates 5% of its round pool to the project dividend pool; the remaining 95% stays unused. No amount from an unused round balance is carried forward.
+- When fewer than three finishers are eligible, only the available podium shares are paid. Unfilled podium shares and an unallocated lower-rank share remain unused.
+- Any rounding remainder remains unused in the round. Settlement must be idempotent.
 
 ## 7. Round lifecycle and scheduling
 
-Recommended lifecycle: `SCHEDULED -> ACTIVE -> FINISHED`, with the next round already scheduled to begin at the same boundary the prior round ends.
+Recommended lifecycle: `SCHEDULED -> ACTIVE -> FINISHED`.
 
-- The scheduler prepares the next round ahead of time with 12 complete, ordered clues and a fixed start/end.
-- At `startsAt`, the round becomes playable.
-- At `endsAt`, submissions are rejected immediately. A background scheduler then marks the round finished, snapshots ranking, computes awards, records the 5% project contribution, and marks settlement complete.
-- Every round receives its own fixed 100 USDT simulated pool. There is no rollover or accumulation of unused balances between rounds.
-- Use database constraints/transactions to prevent overlapping rounds and duplicate round creation for one scheduled boundary.
-- If the application restarts or the scheduler is late, reconcile due round transitions in chronological order. Do not reopen a round that has ended.
+- Prepare the next round before its start boundary with 12 complete, ordered clues.
+- At `startsAt`, initialize that round's 1% allocation from the global fund exactly once.
+- At `endsAt`, submissions are rejected immediately. The scheduler marks the round finished, snapshots ranking, computes awards, records the project contribution, and marks settlement complete.
+- The scheduler records 50 USDT of simulated daily funding once per UTC date and backfills missed dates after a restart. Unique ledger keys prevent duplicate daily funding.
+- No unused round balance is rolled into a later round.
+- Use database constraints and transactions to prevent duplicate round allocations or duplicate round creation. Reconcile transitions chronologically if the application restarts.
 
 ## 8. Data model
 
-- `PrizePool` stores each round's fixed pool, participant awards, project contribution, and settlement status. The legacy rollover fields remain for compatibility but the test settlement sets rollover to zero.
-- `PrizeLedger` stores the once-per-round simulated 100 USDT funding record, individual participant awards, and the 5 USDT project contribution as separate durable entries.
-- The project dividend pool is the sum of settled `projectProfitMicro` contributions; no participant wallet balance or real asset is used for this total.
-- Keep final ranking/settlement idempotent. A repeated request must return the existing awards and must not add another 100 USDT or a second project contribution.
-- Schema changes must be applied through Prisma migrations, not by editing the production database manually.
+- `GlobalPrizeFund` stores the currently available global balance and cumulative daily funding and round allocations.
+- `GlobalPrizeLedger` records one 50 USDT daily contribution per UTC date and each round's 1% allocation with unique reference keys.
+- `PrizePool` stores the amount allocated to each round, awards, project contribution, and settlement status. Legacy rollover fields remain for compatibility but the new test settlement sets rollover to zero.
+- `PrizeLedger` records the round's global allocation, participant awards, and project contribution.
+- The global project dividend total is calculated from settled `projectProfitMicro` values. It is not a participant wallet balance or a real asset.
+- Repeated requests must not add duplicate daily funding, duplicate round allocations, or duplicate awards.
 
 ## 9. API behavior (contract-level)
 
-- Get the active/current round: return the round ID, status, server time, `startsAt`, `endsAt`, remaining time, solved answers, current clue, lock state, and next-round start when scheduled.
-- Submit answer: validate authentication, the active time window, clue order, and lock server-side; return correctness, next clue/progress, lock expiry on wrong answer, and completion time for clue 12.
-- Get leaderboard: return provisional rankings during a round and frozen final rankings and awards after settlement.
-- Get round results: return final rank, completion status, elapsed time, participant award, 5% project contribution, and unused balance.
-- Never send `correctAnswer` to the client before it is solved.
-- API error states should distinguish `CONTEST_NOT_STARTED`, `CONTEST_FINISHED`, `CLUE_LOCKED`, `ANSWER_INCORRECT`, `CLUE_OUT_OF_ORDER`, and `NO_ACTIVE_CONTEST`.
+- Get the current round: return round ID, status, server time, `startsAt`, `endsAt`, remaining time, solved answers, current clue, and lock state.
+- Submit answer: enforce authentication, active-window, clue-order, and lock rules server-side. Return correctness, progress, lock expiry on wrong answer, and completion time for clue 12.
+- Get leaderboard: return provisional progress during the round and frozen ranking and awards after settlement.
+- Get round results: return final rank, completion status, elapsed time, participant award, project contribution, and unused amount.
+- Never return `correctAnswer` before it is solved.
+- Distinguish API errors such as `CONTEST_NOT_STARTED`, `CONTEST_FINISHED`, `CLUE_LOCKED`, `ANSWER_INCORRECT`, `CLUE_OUT_OF_ORDER`, and `NO_ACTIVE_CONTEST`.
 
 
 ## 10. Required tests before deployment
 
-1. A round starts at its exact scheduled boundary and ends exactly 900 seconds later.
+1. A round starts at its scheduled boundary and ends exactly 900 seconds later.
 2. A late entrant's elapsed time is measured from the official start.
-3. A correct answer immediately exposes the next clue without a time gate.
-4. A wrong answer locks only that participant and clue for 60 seconds; the round timer continues.
+3. A correct answer immediately exposes the next clue.
+4. A wrong answer locks only that participant and clue for 60 seconds.
 5. Attempts are rejected during the lock and accepted after it expires.
-6. A request at/after `endsAt` is rejected even if the scheduler has not yet marked the round finished.
-7. All 12 correct answers before the deadline produce one immutable completion timestamp.
-8. Duplicate/concurrent submissions cannot bypass sequence, lock, or completion rules.
-9. Correct answers persist for an incomplete participant; incomplete participants receive no award.
-10. The 50% / 22.5% / 12.5% podium shares, speed-weighted 10%, and 5% project contribution account for the 100 USDT pool, subject to explicit rounding rules.
-11. A fixed 100 USDT simulated pool is initialized exactly once for every round; repeated reads do not add another 100.
-12. A round with no submissions still records the 5% project contribution, leaves the other 95% unused, and transfers nothing to the next round.
-13. With fourth-and-lower finishers, the 10% allocation is divided by completion-speed weights.
-14. Unused podium or lower-rank shares remain in the settled round and never increase the next round's fixed pool.
-15. Finalization is safe to retry and safe after server restart.
-16. Consecutive rounds start every 15 minutes on fixed server-aligned boundaries with no pause.
-17. Equal completion timestamps share the same rank and split the relevant fixed top-three rank-slot allocations equally.
+6. A request at/after `endsAt` is rejected even if the scheduler has not marked the round finished.
+7. Completion time for clue 12 is immutable and measured from `startsAt`.
+8. Duplicate/concurrent submissions cannot bypass sequence, locks, or completion state.
+9. Incomplete participants receive no award.
+10. The 50% / 22.5% / 12.5% podium shares, speed-weighted 10%, and 5% project contribution account for the round allocation.
+11. A 50 USDT contribution is recorded exactly once per UTC date; repeated scheduler/API calls do not duplicate it.
+12. Missed UTC days are backfilled after a scheduler outage.
+13. Each round receives exactly 1% of the then-available global balance only once.
+14. A round with no participants still records the 5% project contribution; the other 95% remains unused and nothing rolls over.
+15. Ranks four and lower divide the 10% allocation by completion-speed weights.
+16. Unused shares do not increase the next round's allocation.
+17. Finalization is safe to retry, and consecutive rounds start every 15 minutes without a gap.
 
 
 ## 11. Prize pool implementation and test mode
+
+- All amounts use integer micro-USDT units (six decimal places).
+- Daily global funding is fixed at 50.000000 simulated USDT per UTC day; the current available global balance is reduced by a one-time 1% allocation when each round starts.
+- The 50% / 22.5% / 12.5% / 10% / 5% distribution applies to that per-round allocation, not to the entire global fund.
+- No unused amount from a settled round is returned to the global fund or transferred to a future round.
+- The project dividend pool is the sum of the 5% simulated contributions recorded at each round settlement.
+- The admin panel and home statistics show the global balance, today's simulated funding, current round allocation, and accumulated project dividend pool.
+- All entries remain virtual test accounting. Real custody, owner deposits, sponsor contributions, investor profit-share terms, withdrawals, risk controls, and on-chain settlement need separate implementation and review.
+
 
 - Prize accounting is persisted in `PrizePool`, `PrizeLedger`, and `PrizeAward`; all amounts use integer micro-USDT units (six decimal places).
 - Each round receives exactly 100.000000 simulated USDT, initialized once per round. This fixed test amount does not use the real-money 1% global-pool rule.
