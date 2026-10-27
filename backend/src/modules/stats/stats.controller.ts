@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import prisma from "../../config/prisma.js";
 import type { AuthenticatedRequest } from "../../middleware/auth.middleware.js";
+import { getPublicPrizePool } from "../contest/prize-pool.service.js";
 
 const ONLINE_WINDOW_MS = 2 * 60 * 1000;
 
@@ -48,29 +49,18 @@ export async function getPublicPrizePoolStatsHandler(
     // same funds between rounds and must not be counted as new money.
     const totalPool = totalFunded > totalAwarded ? totalFunded - totalAwarded : 0n;
 
+    // Creating/initializing the current round's pool is idempotent. This
+    // ensures its configured base amount and any eligible rollover are shown
+    // even before a participant or admin page has accessed the pool.
     const currentPool = currentContest
-      ? await prisma.prizePool.findUnique({
-          where: { contestId: currentContest.id },
-          select: {
-            currency: true,
-            seededMicro: true,
-            rolloverInMicro: true,
-            awardedMicro: true,
-            rolloverOutMicro: true,
-          },
-        })
+      ? await getPublicPrizePool(currentContest.id)
       : null;
-
-    const currentTotal = currentPool
-      ? BigInt(currentPool.seededMicro) + BigInt(currentPool.rolloverInMicro)
-        - BigInt(currentPool.awardedMicro) - BigInt(currentPool.rolloverOutMicro)
-      : 0n;
 
     return res.status(200).json({
       success: true,
       data: {
         totalPool: formatMicroUsdt(totalPool),
-        currentRoundPool: formatMicroUsdt(currentTotal),
+        currentRoundPool: currentPool?.pool.available ?? formatMicroUsdt(0n),
         currency: "USDT",
         simulatedOnly: true,
         updatedAt: now.toISOString(),
