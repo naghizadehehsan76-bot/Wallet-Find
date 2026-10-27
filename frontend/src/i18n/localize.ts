@@ -22,6 +22,7 @@ const apiErrors: Record<string, { fa: string; en: string }> = {
   INVALID_TOKEN: { fa: "نشست ورود معتبر نیست؛ دوباره وارد حساب شو.", en: "Your session is invalid. Please sign in again." },
   INVALID_AUTHORIZATION_HEADER: { fa: "اطلاعات ورود معتبر نیست؛ دوباره وارد حساب شو.", en: "Your sign-in credentials are invalid. Please sign in again." },
   ADMIN_ACCESS_REQUIRED: { fa: "این بخش فقط برای مدیر سایت در دسترس است.", en: "This section is available to site administrators only." },
+  FIXED_TEST_POOL_AMOUNT: { fa: "مبلغ صندوق هر دور در مرحلهٔ آزمایشی ثابت و برابر با ۱۰۰ USDT فرضی است.", en: "The simulated prize pool is fixed at 100 USDT per round during testing." },
   INVALID_INPUT: { fa: "اطلاعات واردشده معتبر نیست. موارد را بررسی کن.", en: "Some of the entered information is invalid. Please check it." },
   INVALID_START_TIME: { fa: "زمان شروع معتبر نیست.", en: "The start time is invalid." },
   INVALID_END_TIME: { fa: "زمان پایان معتبر نیست.", en: "The end time is invalid." },
