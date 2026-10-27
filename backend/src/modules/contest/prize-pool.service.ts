@@ -36,6 +36,11 @@ async function ensureDailyGlobalFunding(tx: any, now: Date) {
     update: { updatedAt: now },
     create: { id: "global", updatedAt: now },
   });
+  await tx.projectProfitFund.upsert({
+    where: { id: "project" },
+    update: { updatedAt: now },
+    create: { id: "project", updatedAt: now },
+  });
 
   const todayStart = utcDayStart(now);
   const latestFunding = await tx.globalPrizeLedger.findFirst({
@@ -49,51 +54,57 @@ async function ensureDailyGlobalFunding(tx: any, now: Date) {
     : new Date(todayStart);
   if (latestFunding) cursor.setUTCDate(cursor.getUTCDate() + 1);
 
-  const entries: Array<{
-    id: string;
-    type: "DAILY_FUNDING";
-    amountMicro: bigint;
-    dayKey: string;
-    effectiveAt: Date;
-    referenceKey: string;
-    note: string;
-  }> = [];
-
   while (cursor.getTime() <= todayStart.getTime()) {
     const dayKey = utcDayKey(cursor);
-    entries.push({
-      id: "daily-funding-" + dayKey,
-      type: "DAILY_FUNDING",
-      amountMicro: DAILY_GLOBAL_FUNDING,
-      dayKey,
-      effectiveAt: new Date(cursor),
-      referenceKey: "daily-funding:" + dayKey,
-      note: "SIMULATED DAILY SPONSOR / INVESTOR CONTRIBUTION 50.000000 USDT; no real assets transferred",
-    });
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-
-  if (entries.length) {
-    const inserted = await tx.globalPrizeLedger.createMany({
-      data: entries,
-      skipDuplicates: true,
-    });
-    if (inserted.count > 0) {
-      const amountAdded = DAILY_GLOBAL_FUNDING * BigInt(inserted.count);
+    const referenceKey = "daily-funding:" + dayKey;
+    const existing = await tx.globalPrizeLedger.findUnique({ where: { referenceKey } });
+    if (!existing) {
+      const globalShare = DAILY_GLOBAL_FUNDING * (BASIS_POINTS - PROJECT_PROFIT_BASIS_POINTS) / BASIS_POINTS;
+      const projectShare = DAILY_GLOBAL_FUNDING * PROJECT_PROFIT_BASIS_POINTS / BASIS_POINTS;
+      await tx.globalPrizeLedger.create({
+        data: {
+          id: "daily-funding-" + dayKey,
+          type: "DAILY_FUNDING",
+          amountMicro: DAILY_GLOBAL_FUNDING,
+          dayKey,
+          effectiveAt: new Date(cursor),
+          referenceKey,
+          note: "SIMULATED SPONSOR / INVESTOR CONTRIBUTION 50.000000 USDT; 95% to global prize fund and 5% to project dividend fund; no real assets transferred",
+        },
+      });
       await tx.globalPrizeFund.update({
         where: { id: "global" },
         data: {
-          balanceMicro: { increment: amountAdded },
-          totalFundedMicro: { increment: amountAdded },
+          balanceMicro: { increment: globalShare },
+          totalFundedMicro: { increment: DAILY_GLOBAL_FUNDING },
           updatedAt: now,
         },
       });
+      if (projectShare > 0n) {
+        await tx.projectProfitLedger.create({
+          data: {
+            type: "CONTRIBUTION_SHARE",
+            amountMicro: projectShare,
+            effectiveAt: new Date(cursor),
+            referenceKey: "project-contribution-share:" + dayKey,
+            note: "SIMULATED immediate 5% share of sponsor/investor contribution for " + dayKey + "; no real assets transferred",
+          },
+        });
+        await tx.projectProfitFund.update({
+          where: { id: "project" },
+          data: {
+            balanceMicro: { increment: projectShare },
+            totalContributedMicro: { increment: projectShare },
+            updatedAt: now,
+          },
+        });
+      }
     }
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
 
   return tx.globalPrizeFund.findUnique({ where: { id: "global" } });
 }
-
 export async function ensureDailyGlobalPrizeFunding(now = new Date()): Promise<void> {
   await prisma.$transaction((tx) => ensureDailyGlobalFunding(tx, now));
 }
@@ -204,22 +215,15 @@ export async function initializePrizePoolForRound(contestId: string, now = new D
 export async function getGlobalPrizePoolSnapshot(now = new Date()) {
   return prisma.$transaction(async (tx) => {
     const fund = await ensureDailyGlobalFunding(tx, now);
-    const [dailyEntry, projectProfit] = await Promise.all([
-      tx.globalPrizeLedger.findUnique({
-        where: { dayKey: utcDayKey(now) },
-        select: { amountMicro: true },
-      }),
-      tx.prizePool.aggregate({
-        where: { currency: "USDT" },
-        _sum: { projectProfitMicro: true },
-      }),
-    ]);
+    const dailyEntry = await tx.globalPrizeLedger.findUnique({
+      where: { dayKey: utcDayKey(now) },
+      select: { amountMicro: true },
+    });
     return {
       totalPool: formatMicro(BigInt(fund?.balanceMicro ?? 0n)),
       dailyContribution: formatMicro(BigInt(dailyEntry?.amountMicro ?? 0n)),
       totalDailyFunding: formatMicro(BigInt(fund?.totalFundedMicro ?? 0n)),
       totalRoundAllocations: formatMicro(BigInt(fund?.totalAllocatedMicro ?? 0n)),
-      projectProfitPool: formatMicro(BigInt(projectProfit._sum.projectProfitMicro ?? 0n)),
       currency: "USDT" as const,
       simulatedOnly: true as const,
       updatedAt: now.toISOString(),
@@ -229,7 +233,8 @@ export async function getGlobalPrizePoolSnapshot(now = new Date()) {
 
 function responsePool(pool: any) {
   const total = BigInt(pool.seededMicro) + BigInt(pool.rolloverInMicro);
-  const spent = BigInt(pool.awardedMicro) + BigInt(pool.rolloverOutMicro) + BigInt(pool.projectProfitMicro ?? 0n);
+  const returnedToGlobal = BigInt(pool.returnedToGlobalMicro ?? 0n);
+  const spent = BigInt(pool.awardedMicro) + BigInt(pool.rolloverOutMicro) + BigInt(pool.projectProfitMicro ?? 0n) + returnedToGlobal;
   const remaining = total > spent ? total - spent : 0n;
   const available = pool.status === "SETTLED" ? 0n : remaining;
   const unused = pool.status === "SETTLED" ? remaining : 0n;
@@ -244,6 +249,7 @@ function responsePool(pool: any) {
     awarded: formatMicro(BigInt(pool.awardedMicro)),
     projectProfit: formatMicro(BigInt(pool.projectProfitMicro ?? 0n)),
     rolloverOut: formatMicro(BigInt(pool.rolloverOutMicro)),
+    returnedToGlobal: formatMicro(returnedToGlobal),
     available: formatMicro(available),
     unused: formatMicro(unused),
     settledAt: pool.settledAt,
@@ -437,10 +443,35 @@ export async function settlePrizePool(contestId: string, actorUserId?: string) {
       }
     }
 
-    // Every round allocates 5% to the simulated project dividend pool under
-    // the specified split. If nobody participates, the remaining 95% stays
-    // unused in this settled round and is never rolled into the next round.
-    const projectProfit = totalPool * PROJECT_PROFIT_BASIS_POINTS / BASIS_POINTS;
+    // The project dividend share is deducted immediately from sponsor/investor
+    // contributions, never from a round's allocation. If there are no submissions
+    // in this round, return the full unused allocation to the global fund.
+    const projectProfit = 0n;
+    const returnedToGlobal = participantAttempts === 0 ? totalPool : 0n;
+    if (returnedToGlobal > 0n) {
+      const returnKey = "round-unused-return:" + contestId;
+      const existingReturn = await tx.globalPrizeLedger.findUnique({ where: { referenceKey: returnKey } });
+      if (!existingReturn) {
+        await tx.globalPrizeLedger.create({
+          data: {
+            id: "round-unused-return-" + contestId,
+            type: "ROUND_UNUSED_RETURN",
+            amountMicro: returnedToGlobal,
+            contestId,
+            effectiveAt: new Date(),
+            referenceKey: returnKey,
+            note: "SIMULATED unused round allocation returned to global prize fund because no participant submitted an answer; no real assets transferred",
+          },
+        });
+        await tx.globalPrizeFund.update({
+          where: { id: "global" },
+          data: {
+            balanceMicro: { increment: returnedToGlobal },
+            updatedAt: new Date(),
+          },
+        });
+      }
+    }
 
     for (const person of finishers) {
       const payout = payouts.get(person.userId);
@@ -478,23 +509,12 @@ export async function settlePrizePool(contestId: string, actorUserId?: string) {
       });
     }
 
-    if (projectProfit > 0n) {
-      await tx.prizeLedger.create({
-        data: {
-          contestId,
-          type: "PROJECT_PROFIT",
-          amountMicro: projectProfit,
-          note: `SIMULATED 5% project dividend pool contribution for round ${contestId}; no real assets transferred`,
-          referenceKey: `project-profit:${contestId}`,
-        },
-      });
-    }
-
     const updated = await tx.prizePool.update({
       where: { contestId },
       data: {
         awardedMicro: distributed,
-        projectProfitMicro: projectProfit,
+        projectProfitMicro: 0n,
+        returnedToGlobalMicro: returnedToGlobal,
         rolloverOutMicro: 0n,
         status: "SETTLED",
         settledAt: new Date(),
@@ -509,7 +529,8 @@ export async function settlePrizePool(contestId: string, actorUserId?: string) {
         entityId: pool.id,
         metadata: {
           awardedMicro: distributed.toString(),
-          projectProfitMicro: projectProfit.toString(),
+          projectProfitMicro: "0",
+          returnedToGlobalMicro: returnedToGlobal.toString(),
           completedParticipants: finishers.length,
           participantAttempts,
           rolloverMicro: "0",
