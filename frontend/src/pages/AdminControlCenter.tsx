@@ -429,7 +429,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
           </section>
         )}
 
-        {(["finance", "prizes", "security", "support"] as Section[]).includes(section) && (
+        {(["finance", "security", "support"] as Section[]).includes(section) && (
           <section className="admin-panel">
             <h2>{({
               finance: copy.finance,
