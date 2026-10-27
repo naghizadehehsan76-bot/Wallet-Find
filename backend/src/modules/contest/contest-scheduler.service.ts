@@ -21,7 +21,7 @@ export async function runContestScheduler(now = new Date()) {
   // Process in start-time order so later rounds don't consume the global pool first.
   const roundsAwaitingAllocation = await prisma.contest.findMany({
     where: {
-      status: { in: ["SCHEDULED", "ACTIVE"] },
+      status: "ACTIVE",
       startsAt: { lte: now },
     },
     select: { id: true, startsAt: true },
