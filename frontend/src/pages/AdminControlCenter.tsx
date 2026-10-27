@@ -4,12 +4,14 @@ import { useI18n } from "../i18n";
 import {
   getAdminAuditLogs,
   getAdminOverview,
+  getAdminProjectProfitPool,
   getAdminWallets,
   getAdminUsers,
   getSystemSettings,
   saveSystemSetting,
   type AdminAuditLog,
   type AdminOverview,
+  type AdminProjectProfitPool,
   type AdminWalletSummary,
   type AdminUserSummary,
   type SystemSettingRecord,
@@ -48,6 +50,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const fa = language === "fa";
   const [section, setSection] = useState<Section>("overview");
   const [overview, setOverview] = useState<AdminOverview | null>(null);
+  const [projectProfitPool, setProjectProfitPool] = useState<AdminProjectProfitPool | null>(null);
   const [settings, setSettings] = useState<SystemSettingRecord[]>([]);
   const [wallets, setWallets] = useState<AdminWalletSummary[]>([]);
   const [users, setUsers] = useState<AdminUserSummary[]>([]);
@@ -126,7 +129,13 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     conceptBody: fa ? "این بخش فعلاً فقط به‌عنوان جایگاه در پنل مدیریت اضافه شده است. قابلیت‌ها و عملیات آن در مراحل بعدی، جداگانه طراحی و پیاده‌سازی می‌شوند." : "This section is currently a placeholder in the admin panel. Its tools and workflows will be designed and implemented separately in later phases.",
     usersBody: fa ? "جست‌وجو و مشاهدهٔ کاربران، نقش‌ها، وضعیت حساب، تأیید ایمیل و محدودیت‌های دسترسی." : "Search users, review roles and account status, email verification, and access restrictions.",
     financeBody: fa ? "بررسی تراکنش‌ها، درخواست‌های واریز و برداشت، دفترکل و مغایرت‌های مالی." : "Review transactions, deposit and withdrawal requests, the ledger, and financial discrepancies.",
-    prizesBody: fa ? "مشاهدهٔ صندوق کلی، تخصیص ۱٪ به هر دور، جوایز ثبت‌شده و سهم صندوق سود سهام پروژه." : "Inspect the global fund, 1% per-round allocations, participant awards, and project-dividend contributions.",
+    prizesBody: fa ? "مشاهدهٔ صندوق کلی، تخصیص ۱٪ به هر دور، جوایز ثبت‌شده و کنترل مدیریتی صندوق سود سهام پروژه." : "Inspect the global fund, 1% per-round allocations, participant awards, and admin-only project dividend fund.",
+    projectProfitTitle: fa ? "صندوق سود سهام پروژه (فقط مدیر)" : "Project dividend fund (admin only)",
+    projectProfitBalance: fa ? "موجودی فعلی صندوق" : "Current fund balance",
+    projectProfitTotal: fa ? "مجموع سهم‌های واریزشده" : "Total contribution shares",
+    projectProfitLedger: fa ? "آخرین ثبت‌های صندوق" : "Recent fund ledger entries",
+    projectProfitEmpty: fa ? "هنوز ثبت مالی برای این صندوق وجود ندارد." : "No ledger entries for this fund yet.",
+    simulatedFundsNote: fa ? "این مبالغ آزمایشی‌اند؛ انتقال واقعی USDT انجام نمی‌شود." : "These are simulated amounts; no real USDT is transferred.",
     adsBody: fa ? "منابع فعال ساخت سرنخ برای هر زبان را ببین، آدرس منابع جدید اضافه کن یا منابع را حذف کن. منابع سفارشی باید صفحهٔ HTTPS عمومی و دارای متن قابل خواندن باشند." : "Review enabled clue sources for each language, add source URLs, or remove sources. Custom sources must be public HTTPS pages with readable text.",
     sourceEn: fa ? "منابع چالش انگلیسی" : "English challenge sources",
     sourceFa: fa ? "منابع چالش فارسی" : "Persian challenge sources",
@@ -145,12 +154,13 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     setLoading(true);
     setError("");
     try {
-      const [stats, settingRows, auditRows, walletRows, userRows] = await Promise.all([
+      const [stats, settingRows, auditRows, walletRows, userRows, profitPool] = await Promise.all([
         getAdminOverview(),
         getSystemSettings(),
         getAdminAuditLogs(),
         getAdminWallets(),
         getAdminUsers(),
+        getAdminProjectProfitPool(),
       ]);
       setOverview(stats);
       setSettings(settingRows);
@@ -159,6 +169,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       setLogs(auditRows);
       setWallets(walletRows);
       setUsers(userRows);
+      setProjectProfitPool(profitPool);
     } catch {
       setError(copy.refreshError);
     } finally {
@@ -384,6 +395,37 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                 <button className="cta-button" type="button" onClick={() => void saveSources(sourceGroup.language)} disabled={saving}>{saving ? copy.saving : copy.saveSources}</button>
               </div>
             ))}
+          </section>
+        )}
+
+        {section === "prizes" && (
+          <section className="admin-panel">
+            <h2>{copy.projectProfitTitle}</h2>
+            <p className="admin-footnote">{copy.simulatedFundsNote}</p>
+            <div className="admin-metrics-grid">
+              <article className="admin-metric-card">
+                <span className="admin-metric-card__label">{copy.projectProfitBalance}</span>
+                <strong>{projectProfitPool ? Number(projectProfitPool.balance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) + " USDT" : "—"}</strong>
+              </article>
+              <article className="admin-metric-card">
+                <span className="admin-metric-card__label">{copy.projectProfitTotal}</span>
+                <strong>{projectProfitPool ? Number(projectProfitPool.totalContributed).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) + " USDT" : "—"}</strong>
+              </article>
+            </div>
+            <h3>{copy.projectProfitLedger}</h3>
+            {!projectProfitPool || projectProfitPool.ledger.length === 0 ? <p className="admin-empty">{copy.projectProfitEmpty}</p> : (
+              <div className="admin-settings-list">
+                {projectProfitPool.ledger.map((entry) => (
+                  <article className="admin-setting-row" key={entry.id}>
+                    <div>
+                      <strong>{Number(entry.amount).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</strong>
+                      <small>{entry.type} · {new Date(entry.effectiveAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>
+                      <small>{entry.note}</small>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
           </section>
         )}
 
