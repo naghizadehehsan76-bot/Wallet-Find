@@ -568,11 +568,11 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                 <strong>
                   {challengeNumber !== null
                     ? (isPersian
-                        ? "چالش شمارهٔ " + formatNumber(challengeNumber)
-                        : "Challenge #" + formatNumber(challengeNumber))
+                        ? "چالش شمارهٔ " + formatNumber(challengeNumber) + " · راند " + formatNumber(displayedRound) + " از ۱۲"
+                        : "Challenge #" + formatNumber(challengeNumber) + " · Round " + formatNumber(displayedRound) + " of 12")
                     : (isPersian
-                        ? "چالش در حال برگزاری"
-                        : "Current challenge")}
+                        ? "چالش در حال برگزاری · راند " + formatNumber(displayedRound) + " از ۱۲"
+                        : "Current challenge · Round " + formatNumber(displayedRound) + " of 12")}
                 </strong>
                 <span>
                   {isPersian
