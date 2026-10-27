@@ -61,7 +61,7 @@ export default function PrizePoolPanel({ contestId, contestStatus }: Props) {
             [isFa ? "قابل تخصیص" : "Available", data.pool.available],
             [isFa ? "جوایز ثبت‌شده" : "Participant awards", data.pool.awarded],
             [isFa ? "سهم صندوق سود سهام پروژه" : "Project dividend contribution", data.pool.projectProfit],
-            [isFa ? "انتقال به دور بعد" : "Rollover to next round", data.pool.rolloverOut],
+            [isFa ? "ماندهٔ استفاده‌نشده (بدون انتقال)" : "Unused balance (not rolled over)", data.pool.unused],
           ].map(([label, value]) => (
             <div key={label} className="stat-card"><strong>{value} USDT</strong><span>{label}</span></div>
           ))}
