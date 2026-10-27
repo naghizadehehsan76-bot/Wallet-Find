@@ -344,6 +344,7 @@ export type PrizePoolView = {
   projectProfit: string;
   rolloverOut: string;
   available: string;
+  unused: string;
   settledAt: string | null;
 };
 
