@@ -419,8 +419,8 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                   <article className="admin-setting-row" key={entry.id}>
                     <div>
                       <strong>{Number(entry.amount).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</strong>
-                      <small>{entry.type} · {new Date(entry.effectiveAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>
-                      <small>{entry.note}</small>
+                      <small>{fa ? "سهم ۵٪ از واریزی اسپانسر/سرمایه‌گذار" : entry.type} · {new Date(entry.effectiveAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>
+                      <small>{fa ? "انتقال خودکار سهم صندوق سود سهام؛ این مبلغ آزمایشی است و انتقال واقعی انجام نشده." : entry.note}</small>
                     </div>
                   </article>
                 ))}
