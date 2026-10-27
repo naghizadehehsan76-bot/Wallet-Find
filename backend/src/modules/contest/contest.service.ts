@@ -124,7 +124,18 @@ export async function getActiveContest(language: "en" | "fa" = "en") {
     orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }],
     select: { id: true, title: true, description: true, status: true, language: true, startsAt: true, endsAt: true },
   });
-  if (active) return active;
+  if (active) {
+    const challengeNumber = active.startsAt
+      ? await prisma.contest.count({
+          where: {
+            language,
+            status: { not: "CANCELLED" },
+            startsAt: { lte: active.startsAt },
+          },
+        })
+      : 1;
+    return { ...active, challengeNumber: Math.max(1, challengeNumber) };
+  }
 
   const due = await prisma.contest.findFirst({
     where: {
@@ -138,7 +149,16 @@ export async function getActiveContest(language: "en" | "fa" = "en") {
   });
   if (due) {
     await prisma.contest.update({ where: { id: due.id }, data: { status: "ACTIVE" } });
-    return { ...due, status: "ACTIVE" as const };
+    const challengeNumber = due.startsAt
+      ? await prisma.contest.count({
+          where: {
+            language,
+            status: { not: "CANCELLED" },
+            startsAt: { lte: due.startsAt },
+          },
+        })
+      : 1;
+    return { ...due, status: "ACTIVE" as const, challengeNumber: Math.max(1, challengeNumber) };
   }
 
   // Do not return the next future round as if it were the current one.
