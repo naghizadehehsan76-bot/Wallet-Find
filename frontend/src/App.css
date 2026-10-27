@@ -1146,7 +1146,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   animation: word-entry-lock-pulse 1.4s ease-in-out infinite;
 }
 .word-entry__lock-time {
-  color: var(--brass-light);
+  color: #ffffff;
   font-size: 10px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
