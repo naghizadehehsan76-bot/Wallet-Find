@@ -184,7 +184,11 @@ function HomePage({
       label: isPersian ? "صندوق جایزه کل" : "Total prize pool",
       secondaryValue: prizePoolStats ? formatPrizeAmount(prizePoolStats.currentRoundPool) : "—",
       secondaryLabel: isPersian ? "صندوق جایزه دور جاری" : "Current round pool",
-      note: isPersian ? "USDT آزمایشی؛ وجه واقعی نگهداری نمی‌شود" : "Test USDT accounting only; no real funds held",
+      note: isPersian ? "هر دور ۱۰۰ تتر فرضی؛ بدون انتقال مانده" : "100 simulated USDT per round; no rollover",
+    },
+    {
+      value: prizePoolStats ? formatPrizeAmount(prizePoolStats.projectProfitPool) : "—",
+      label: isPersian ? "صندوق سود سهام پروژه" : "Project dividend pool",
     },
     ...(isPersian ? faStats : enStats),
   ];
