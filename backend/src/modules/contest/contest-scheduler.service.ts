@@ -17,6 +17,24 @@ export async function runContestScheduler(now = new Date()) {
   // any UTC days missed while the service was unavailable.
   await ensureDailyGlobalPrizeFunding(now);
 
+  // Backfill any started rounds whose allocation was missed during a restart.
+  // Process in start-time order so later rounds don't consume the global pool first.
+  const roundsAwaitingAllocation = await prisma.contest.findMany({
+    where: {
+      status: { in: ["SCHEDULED", "ACTIVE"] },
+      startsAt: { lte: now },
+    },
+    select: { id: true, startsAt: true },
+    orderBy: [{ startsAt: "asc" }, { id: "asc" }],
+  });
+  for (const round of roundsAwaitingAllocation) {
+    try {
+      await initializePrizePoolForRound(round.id, now);
+    } catch (error) {
+      console.error("Round's global prize allocation failed; scheduler will retry.", round.id, error);
+    }
+  }
+
   const scheduled = await prisma.contest.findMany({
     where: { status: "SCHEDULED" },
     select: { id: true, language: true, startsAt: true, endsAt: true },
