@@ -3,7 +3,7 @@ ALTER TYPE "PrizeLedgerType" ADD VALUE 'GLOBAL_ALLOCATION';
 CREATE TYPE "GlobalPrizeLedgerType" AS ENUM ('DAILY_FUNDING', 'ROUND_ALLOCATION');
 
 CREATE TABLE "global_prize_funds" (
-  "id" TEXT NOT NULL,
+  "id" TEXT NOT NULL DEFAULT 'global',
   "balanceMicro" BIGINT NOT NULL DEFAULT 0,
   "totalFundedMicro" BIGINT NOT NULL DEFAULT 0,
   "totalAllocatedMicro" BIGINT NOT NULL DEFAULT 0,
