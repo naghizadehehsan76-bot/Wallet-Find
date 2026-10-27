@@ -434,7 +434,6 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           >
             <span className="word-option__index mono">
               {(index + 1).toLocaleString(numberLocale, {
-                minimumIntegerDigits: 2,
                 useGrouping: false,
               })}
             </span>
