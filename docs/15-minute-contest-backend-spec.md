@@ -1,8 +1,8 @@
 # Wallet-Find: 15-Minute Contest Backend Specification
 
-Status: approved rules implemented on a separate branch; latest backend tests/build and frontend build/lint pass. Not merged or deployed.
+Status: prize allocation rules updated on main; build/test and deployment still require verification.
 Target repository: Wallet-Find
-Branch: spec/15-minute-contest-rules
+Branch: main
 
 ## 1. Purpose
 
@@ -22,7 +22,7 @@ Define the backend behavior for a shared, server-timed, 12-answer contest round.
 - Experimental prize pool: every round receives a fixed simulated 100.000000 USDT base pool.
 - Prize split: rank 1 = 50%, rank 2 = 22.5%, rank 3 = 12.5%, and 10% is distributed among completed participants ranked fourth or lower in proportion to their speed score. A further 5% is recorded in the project dividend pool.
 - The fourth-and-lower pool is proportional to time score: `score = 900 seconds - elapsed completion time in seconds`. A faster completion earns a larger share. The top-three percentages remain fixed.
-- No unawarded amount is rolled into a later round. A round with no submissions contributes neither rollover nor a project-dividend allocation.
+- No unawarded amount is rolled into a later round. Every settled round allocates 5% to the project dividend pool; if there are no submissions, the other 95% remains unused in that round.
 - Round schedule: each contest lasts 15 minutes, and a new round starts every 15 minutes on fixed server-aligned boundaries with no pause. Example: 20:00–20:15, then 20:15–20:30, then 20:30–20:45.
 - The visible countdown is derived from server time and `endsAt`, and reaches zero at the official deadline.
 
@@ -59,14 +59,14 @@ For each authenticated submission:
 - Exact completion-time ties share the same rank. Pool the fixed prizes for all occupied rank slots among tied participants and divide that pooled amount equally. Example: two participants tied for ranks 1 and 2 split the combined 70% equally. The next distinct completion time receives rank 3.
 - If fewer than three participants complete the round, only the fixed shares for the ranks actually awarded are paid. Unfilled podium shares and an unallocated fourth-and-lower share remain unused in that settled round; nothing is transferred to a later round.
 
-## 6. Prize calculation and rollover
+## 6. Prize calculation and experimental accounting
 
 Let `pool` be the round's total prize pool.
 
 - Nominal rank allocations are `pool * 0.50`, `pool * 0.225`, and `pool * 0.125` for ranks 1, 2, and 3. For a tie spanning rank slots, sum those occupied slots' allocations and divide equally among all tied participants.
 - The fourth-and-lower completion pool is `pool * 0.10`. Eligible finisher `i` receives weight `w_i = 900 seconds - elapsed completion time`; calculate with integer milliseconds and allocate `share_i = lowerPool * w_i / sum(weights)`.
-- The project dividend pool receives `pool * 0.05` when the round has participation. This contribution is saved in the round's ledger and aggregated separately from participant awards.
-- A round with no submissions creates no project-dividend contribution. No unawarded balance, including any unfilled podium share or unused lower-rank share, rolls over into another round.
+- The project dividend pool receives `pool * 0.05` at every round settlement. This contribution is saved in the round's ledger and aggregated separately from participant awards.
+- If a round has no submissions, the 5% project contribution is still recorded and the remaining 95% stays unused in that settled round. No unawarded balance, including any unfilled podium share or unused lower-rank share, rolls over into another round.
 - Store participant awards and the project-dividend contribution durably. Finalization must be idempotent so a retry cannot duplicate either one.
 - Define the pool's currency/token unit and rounding/leftover-dust policy in payout implementation; do not use floating-point arithmetic for token amounts.
 
@@ -76,7 +76,7 @@ Recommended lifecycle: `SCHEDULED -> ACTIVE -> FINISHED`, with the next round al
 
 - Scheduler creates/prepares the next round ahead of time with 12 complete, ordered clues and a fixed start/end.
 - At `startsAt`, it becomes playable.
-- At `endsAt`, submission APIs reject new attempts based on timestamps immediately, regardless of scheduler lag. A background scheduler then marks the round finished, snapshots ranking, computes awards, and carries rollover.
+- At `endsAt`, submission APIs reject new attempts based on timestamps immediately, regardless of scheduler lag. A background scheduler then marks the round finished, snapshots ranking, computes awards, and records the project contribution. Unused balances are not carried forward.
 - There is no pause between rounds. The next round starts at the exact end boundary of the previous round; the scheduler should prepare it in advance.
 - Use database constraints/transactions to prevent overlapping active rounds and duplicate round creation for the same scheduled boundary.
 - If the application restarts or the scheduler is late, it must reconcile all due round transitions in chronological order. Do not reopen a round that has ended.
@@ -90,8 +90,8 @@ Current schema/service gaps against these rules:
 - `ContestSetting.publishIntervalMinutes` and globally scheduled `publishedAt` currently support timed clue releases. This conflicts with immediate next-clue access and a 15-minute total round. Remove timed release from gameplay logic (or leave the field unused for compatibility) and gate clues only by sequential successful solves.
 - Persist per-participant/per-clue lock state (`lockedUntil`) rather than relying on browser state.
 - Persist an unambiguous participant completion timestamp and/or derive it safely from the first accepted correct submission for clue 12.
-- Persist the prize pool amount/currency for each round, award records, and rollover records/balance.
-- Persist a final leaderboard/settlement marker or use a transactional settlement record so finalization and rollover are idempotent.
+- Persist the fixed prize-pool amount/currency for each round, participant award records, and project-dividend ledger entries.
+- Persist a final leaderboard/settlement marker or use a transactional settlement record so finalization and project-dividend allocation are idempotent.
 - Add uniqueness/concurrency safeguards for one successful solve per user, round, and clue. Failed attempts may remain multiple rows.
 - Consider a participant-round record to represent users who joined but have not submitted yet; the existing `Submission`-only leaderboard cannot list participants with zero attempts.
 - Add indexes for scheduled start/end and settlement status as appropriate.
@@ -105,7 +105,7 @@ Existing routes should be evolved rather than duplicated where possible.
 - Get active/current round: return round ID, status, server time, `startsAt`, `endsAt`, remaining seconds, solved answers, current clue, lock state, and next-round start time when the next round is scheduled.
 - Submit answer: validate authentication, active window, clue order, and lock on the server; return whether correct, next clue/progress, `lockedUntil` on wrong answer, and completion time on clue 12.
 - Get leaderboard: while active, return provisional completion rankings and progress; after finish, return the frozen final ranking and awards.
-- Get round results: return final rank, completion status, elapsed time, prize amount, and rollover summary where appropriate.
+- Get round results: return final rank, completion status, elapsed time, participant prize amount, project contribution, and unused balance where appropriate.
 - Never return `correctAnswer` to the client before it is solved.
 - API error states should distinguish `CONTEST_NOT_STARTED`, `CONTEST_FINISHED`, `CLUE_LOCKED`, `ANSWER_INCORRECT`, `CLUE_OUT_OF_ORDER`, and `NO_ACTIVE_CONTEST`.
 
@@ -120,23 +120,22 @@ Existing routes should be evolved rather than duplicated where possible.
 7. All 12 correct answers before the deadline produce one immutable completion timestamp.
 8. Duplicate/concurrent submissions cannot bypass sequence, lock, or completion rules.
 9. Correct answers persist for an incomplete participant; incomplete participants receive no award.
-10. Top-three percentages and fourth-and-lower proportional shares total no more than the round pool, subject to explicit rounding rules.
-11. A fixed 100 USDT simulated pool is initialized once for every round; repeated reads do not add another 100.
-12. A round with no submissions adds no project-dividend contribution and no balance rolls over to the next round.
-13. With fourth-and-lower finishers, exactly the 10% allocation is divided by completion-speed weights.
-14. Settlement records 5% in the project dividend pool, except when the round has no submissions.
+10. The 50% / 22.5% / 12.5% podium shares, speed-weighted 10%, and 5% project contribution account for the 100 USDT pool, subject to explicit rounding rules.
+11. A fixed 100 USDT simulated pool is initialized exactly once for every round; repeated reads do not add another 100.
+12. A round with no submissions still records the 5% project contribution, leaves the other 95% unused, and transfers nothing to the next round.
+13. With fourth-and-lower finishers, the 10% allocation is divided by completion-speed weights.
+14. Unused podium or lower-rank shares remain in the settled round and never increase the next round's fixed pool.
 15. Finalization is safe to retry and safe after server restart.
-13. Consecutive rounds start every 15 minutes with no pause; the next round begins exactly when the prior round ends.
-16. Unused podium or lower-rank shares remain in the settled round and never increase the next round's fixed pool.
-17. Equal completion timestamps share the same rank and split the sum of occupied rank-slot allocations equally.
+16. Consecutive rounds start every 15 minutes on fixed server-aligned boundaries with no pause.
+17. Equal completion timestamps share the same rank and split the relevant fixed top-three rank-slot allocations equally.
 
 
 ## 11. Prize pool implementation and test mode
 
 - Prize accounting is persisted in `PrizePool`, `PrizeLedger`, and `PrizeAward`; all amounts use integer micro-USDT units (six decimal places).
 - Each round receives exactly 100.000000 simulated USDT, initialized once per round. This fixed test amount does not use the real-money 1% global-pool rule.
-- The test distribution is 50% / 22.5% / 12.5% for the top three, 10% proportionally among ranks four and lower, and 5% recorded in a project-dividend pool when at least one submission exists.
-- Nothing rolls over from a settled round. A round with no submissions leaves the following round's pool unchanged and generates no project-dividend contribution.
+- The test distribution is 50% / 22.5% / 12.5% for the top three, 10% proportionally among ranks four and lower, and 5% recorded in the project-dividend pool at every settlement.
+- Nothing rolls over from a settled round. If a round has no submissions, 5% still goes to the project-dividend pool and the other 95% remains unused.
 - Admin endpoints expose pool summary and idempotent settlement. The panel shows participant awards, project-dividend allocation, and the simulated ledger.
 - Future real-money model (not active): the global pool may be funded by the owner's initial crypto contribution, sponsors, and investors under separately agreed terms. Each round would be assigned 1% of the global pool's balance, then split using the same 50% / 22.5% / 12.5% / 10% / 5% allocation. Real custody, sponsor invoicing, investor profit-share terms, risk controls, and on-chain settlement need separate implementation and review.
 - Test-only records must never be interpreted as real wallet balances, withdrawable funds, or proof of an on-chain transfer.
