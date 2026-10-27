@@ -231,6 +231,34 @@ export async function getGlobalPrizePoolSnapshot(now = new Date()) {
   });
 }
 
+
+export async function getProjectProfitPoolAdminSnapshot(now = new Date()) {
+  return prisma.$transaction(async (tx) => {
+    await ensureDailyGlobalFunding(tx, now);
+    const fund = await tx.projectProfitFund.findUnique({ where: { id: "project" } });
+    const ledger = await tx.projectProfitLedger.findMany({
+      orderBy: [{ effectiveAt: "desc" }, { createdAt: "desc" }],
+      take: 50,
+      select: { id: true, type: true, amountMicro: true, effectiveAt: true, note: true, createdAt: true },
+    });
+    return {
+      balance: formatMicro(BigInt(fund?.balanceMicro ?? 0n)),
+      totalContributed: formatMicro(BigInt(fund?.totalContributedMicro ?? 0n)),
+      currency: "USDT" as const,
+      simulatedOnly: true as const,
+      ledger: ledger.map((row) => ({
+        id: row.id,
+        type: row.type,
+        amount: formatMicro(BigInt(row.amountMicro)),
+        effectiveAt: row.effectiveAt,
+        note: row.note,
+        createdAt: row.createdAt,
+      })),
+      updatedAt: now.toISOString(),
+    };
+  });
+}
+
 function responsePool(pool: any) {
   const total = BigInt(pool.seededMicro) + BigInt(pool.rolloverInMicro);
   const returnedToGlobal = BigInt(pool.returnedToGlobalMicro ?? 0n);
