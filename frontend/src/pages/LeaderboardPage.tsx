@@ -117,29 +117,29 @@ function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
                 <div className="leaderboard-history-heading">
                   <span>{isPersian ? "رتبه" : "Rank"}</span>
                   <span>{isPersian ? "شرکت‌کننده" : "Participant"}</span>
-                  <span>{isPersian ? "زمان کل" : "Elapsed time"}</span>
+                  <span>{isPersian ? "زمان تکمیل" : "Completion time"}</span>
                   <span>{isPersian ? "جایزه این دور" : "Round prize"}</span>
                   <span>{isPersian ? "مجموع جوایز" : "Total prizes"}</span>
                 </div>
                 {selectedRound.entries.map((entry) => (
                   <article className={`leaderboard-row ${entry.completed ? "leaderboard-row--completed" : ""} ${entry.rank === 1 && entry.completed ? "leaderboard-row--top" : ""}`} key={entry.userId}>
-                    <div className="leaderboard-rank mono">{entry.rank.toLocaleString(isPersian ? "fa-IR" : "en-US")}</div>
-                    <div className="leaderboard-player-cell">
+                    <div className="leaderboard-rank mono" data-label={isPersian ? "رتبه" : "Rank"}>{entry.rank.toLocaleString(isPersian ? "fa-IR" : "en-US")}</div>
+                    <div className="leaderboard-player-cell" data-label={isPersian ? "شرکت‌کننده" : "Participant"}>
                       <div className="leaderboard-avatar">{entry.username.slice(0, 1).toUpperCase()}</div>
                       <div className="leaderboard-player">
                         <strong>{entry.username}</strong>
                         <span>{isPersian ? `${entry.solvedCount.toLocaleString("fa-IR")} از ۱۲ کلید` : `${entry.solvedCount} of 12 keys`}{entry.completed ? (isPersian ? " · تکمیل‌شده" : " · Completed") : ""}</span>
                       </div>
                     </div>
-                    <div className="leaderboard-time mono">{formatTime(entry.totalResponseTimeMs, isPersian)}</div>
-                    <div className="leaderboard-prize">{formatAmount(entry.prizeEarned, isPersian)} <small>USDT</small></div>
-                    <div className="leaderboard-prize leaderboard-prize--total">{formatAmount(entry.totalPrizeEarned, isPersian)} <small>USDT</small></div>
+                    <div className="leaderboard-time mono" data-label={isPersian ? "زمان تکمیل" : "Completion time"}>{entry.completed ? formatTime(entry.totalResponseTimeMs, isPersian) : "—"}</div>
+                    <div className="leaderboard-prize" data-label={isPersian ? "جایزه این دور" : "Round prize"}>{formatAmount(entry.prizeEarned, isPersian)} <small>USDT</small></div>
+                    <div className="leaderboard-prize leaderboard-prize--total" data-label={isPersian ? "مجموع جوایز" : "Total prizes"}>{formatAmount(entry.totalPrizeEarned, isPersian)} <small>USDT</small></div>
                   </article>
                 ))}
                 <p className="leaderboard-footnote">
                   {isPersian
-                    ? "زمان از شروع رسمی همان دور تا ثبت پاسخ کلید دوازدهم محاسبه می‌شود. مبالغ جایزه بر اساس جوایز ثبت‌شده در سیستم هستند و تا زمان فعال‌سازی پرداخت واقعی، آزمایشی محسوب می‌شوند."
-                    : "Elapsed time is measured from the official round start to the 12th correct answer. Prize amounts reflect recorded awards and remain simulated until real payouts are enabled."}
+                    ? "زمان تکمیل فقط برای کسانی نمایش داده می‌شود که هر ۱۲ کلید را در مهلت رسمی حل کرده‌اند؛ رتبهٔ سایر شرکت‌کنندگان بر اساس تعداد کلیدهای حل‌شده و سپس زمان ثبت فعالیت محاسبه می‌شود. مبالغ، جوایز ثبت‌شدهٔ آزمایشی هستند و به معنی پرداخت واقعی نیستند."
+                    : "Completion time is shown only for participants who solved all 12 keys within the official round. Other participants are ranked by solved keys, then recorded activity time. Prize amounts are recorded simulated awards, not real payouts."}
                 </p>
               </section>
             )}
