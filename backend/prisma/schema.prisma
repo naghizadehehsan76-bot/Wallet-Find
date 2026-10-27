@@ -409,6 +409,7 @@ model PrizePool {
   rolloverOutMicro BigInt @default(0)
   awardedMicro BigInt @default(0)
   projectProfitMicro BigInt @default(0)
+  returnedToGlobalMicro BigInt @default(0)
   testOnly Boolean @default(true)
   status String @default("OPEN")
   settledAt DateTime?
@@ -469,6 +470,11 @@ model WalletTransaction {
 enum GlobalPrizeLedgerType {
   DAILY_FUNDING
   ROUND_ALLOCATION
+  ROUND_UNUSED_RETURN
+}
+
+enum ProjectProfitLedgerType {
+  CONTRIBUTION_SHARE
 }
 
 model GlobalPrizeFund {
@@ -496,4 +502,28 @@ model GlobalPrizeLedger {
   @@index([type, effectiveAt])
   @@index([contestId])
   @@map("global_prize_ledger")
+}
+
+
+model ProjectProfitFund {
+  id String @id @default("project")
+  balanceMicro BigInt @default(0)
+  totalContributedMicro BigInt @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("project_profit_funds")
+}
+
+model ProjectProfitLedger {
+  id String @id @default(cuid())
+  type ProjectProfitLedgerType
+  amountMicro BigInt
+  effectiveAt DateTime
+  referenceKey String @unique
+  note String
+  createdAt DateTime @default(now())
+
+  @@index([type, effectiveAt])
+  @@map("project_profit_ledger")
 }
