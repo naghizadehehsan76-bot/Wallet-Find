@@ -13,6 +13,7 @@ import {
   updateContestSettingsHandler,
   getAuditLogsHandler,
   getAdminUsersHandler,
+  getProjectProfitPoolAdminHandler,
 } from "./admin.controller.js";
 import {
   activateContestHandler,
@@ -42,6 +43,7 @@ router.post("/contests/:contestId/finish", finishContestHandler);
 
 router.get("/audit-logs", getAuditLogsHandler);
 router.get("/wallets", getAdminWalletsHandler);
+router.get("/project-profit-pool", getProjectProfitPoolAdminHandler);
 router.get("/prize-pool/:contestId", getPrizePoolHandler);
 router.post("/prize-pool/:contestId/test-fund", testFundPrizePoolHandler);
 router.post("/prize-pool/:contestId/settle", settlePrizePoolHandler);
