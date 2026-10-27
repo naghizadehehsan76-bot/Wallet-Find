@@ -33,7 +33,7 @@ async function ensurePool(tx: any, contestId: string) {
   const initialFundingKey = `test-funding-initial:${contestId}`;
   const initialFunding = await tx.prizeLedger.findUnique({
     where: { referenceKey: initialFundingKey },
-    select: { id: true },
+    select: { id: true, amountMicro: true, note: true },
   });
 
   if (pool.status === "OPEN") {
@@ -58,15 +58,24 @@ async function ensurePool(tx: any, contestId: string) {
       });
     }
 
+    const fixedFundingNote = `SIMULATED FIXED ROUND PRIZE POOL 100.000000 USDT for round ${contestId}; no real assets transferred`;
     if (!initialFunding) {
       await tx.prizeLedger.create({
         data: {
           contestId,
           type: "TEST_FUNDING",
           amountMicro: FIXED_TEST_POOL,
-          note: `SIMULATED FIXED ROUND PRIZE POOL 100.000000 USDT for round ${contestId}; no real assets transferred`,
+          note: fixedFundingNote,
           referenceKey: initialFundingKey,
         },
+      });
+    } else if (
+      BigInt(initialFunding.amountMicro) !== FIXED_TEST_POOL ||
+      initialFunding.note !== fixedFundingNote
+    ) {
+      await tx.prizeLedger.update({
+        where: { referenceKey: initialFundingKey },
+        data: { amountMicro: FIXED_TEST_POOL, note: fixedFundingNote },
       });
     }
   }
@@ -285,11 +294,10 @@ export async function settlePrizePool(contestId: string, actorUserId?: string) {
       }
     }
 
-    // A truly empty round is not treated as project revenue. Once anyone has
-    // submitted in a round, the 5% share is recorded in the project dividend pool.
-    const projectProfit = participantAttempts > 0
-      ? totalPool * PROJECT_PROFIT_BASIS_POINTS / BASIS_POINTS
-      : 0n;
+    // Every round allocates 5% to the simulated project dividend pool under
+    // the specified split. If nobody participates, the remaining 95% stays
+    // unused in this settled round and is never rolled into the next round.
+    const projectProfit = totalPool * PROJECT_PROFIT_BASIS_POINTS / BASIS_POINTS;
 
     for (const person of finishers) {
       const payout = payouts.get(person.userId);
