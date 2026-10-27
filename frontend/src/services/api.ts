@@ -41,6 +41,9 @@ export async function getPublicSiteStats(): Promise<PublicSiteStats> {
 export type PublicPrizePoolStats = {
   totalPool: string;
   currentRoundPool: string;
+  dailyContribution: string;
+  totalDailyFunding: string;
+  totalRoundAllocations: string;
   projectProfitPool: string;
   currency: "USDT";
   simulatedOnly: true;
