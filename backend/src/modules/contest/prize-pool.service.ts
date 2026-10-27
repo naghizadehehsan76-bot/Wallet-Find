@@ -2,7 +2,11 @@ import prisma from "../../config/prisma.js";
 import { CONTEST_DURATION_MS } from "./contest.logic.js";
 
 const MICRO = 1_000_000n;
-const POOL_PERCENTAGES = [50n, 20n, 10n] as const;
+const BASIS_POINTS = 10_000n;
+const PODIUM_BASIS_POINTS = [5_000n, 2_250n, 1_250n] as const;
+const LOWER_RANK_BASIS_POINTS = 1_000n;
+const PROJECT_PROFIT_BASIS_POINTS = 500n;
+const FIXED_TEST_POOL = 100n * MICRO;
 
 function formatMicro(value: bigint) {
   const negative = value < 0n;
@@ -33,93 +37,56 @@ async function ensurePool(tx: any, contestId: string) {
     create: { contestId, testOnly: true, currency: "USDT" },
   });
 
-  // Allocate the configured simulated base prize pool to each round exactly
-  // once. Rollover from earlier rounds is added on top of this base amount.
-  // This is bookkeeping only; no real crypto is transferred.
+  // Every experimental round has a fixed simulated pool of exactly 100 USDT.
+  // No setting, unused share, or prior-round balance can increase a later round.
   const initialFundingKey = `test-funding-initial:${contestId}`;
   const initialFunding = await tx.prizeLedger.findUnique({
     where: { referenceKey: initialFundingKey },
     select: { id: true },
   });
-  if (!initialFunding && BigInt(pool.seededMicro) === 0n && pool.status === "OPEN") {
-    const configuredSetting = await tx.systemSetting.findUnique({
-      where: { key: "hypothetical_prize_pool_per_round" },
-      select: { value: true },
-    });
-    let demoAmount = 100n * MICRO;
-    if (configuredSetting) {
-      try {
-        demoAmount = parseUsdt(configuredSetting.value);
-        if (demoAmount <= 0n) demoAmount = 100n * MICRO;
-      } catch {
-        // Keep the safe default if a value was entered through the generic settings editor.
-        demoAmount = 100n * MICRO;
-      }
-    }
-    pool = await tx.prizePool.update({
-      where: { contestId },
-      data: { seededMicro: { increment: demoAmount }, testOnly: true },
-    });
-    await tx.prizeLedger.create({
-      data: {
-        contestId,
-        type: "TEST_FUNDING",
-        amountMicro: demoAmount,
-        note: `SIMULATED BASE PRIZE POOL ${formatMicro(demoAmount)} USDT for round ${contestId}; no real assets transferred`,
-        referenceKey: initialFundingKey,
-      },
-    });
-  }
 
-  // Carry every not-yet-claimed rollover forward exactly once, when a later
-  // round's pool is first accessed. Ledger reference keys make retries safe.
-  const currentContest = await tx.contest.findUnique({
-    where: { id: contestId },
-    select: { startsAt: true, language: true },
-  });
-  if (currentContest?.startsAt && pool.status === "OPEN") {
-    const previousPools = await tx.prizePool.findMany({
-      where: {
-        contestId: { not: contestId },
-        status: "SETTLED",
-        rolloverOutMicro: { gt: 0n },
-        contest: { is: { startsAt: { lt: currentContest.startsAt }, language: currentContest.language } },
-      },
-      select: { contestId: true, rolloverOutMicro: true },
-      orderBy: { contest: { startsAt: "asc" } },
-    });
-    for (const previous of previousPools) {
-      // A globally unique source key prevents the same rollover from being
-      // credited to two different future rounds, even under concurrent requests.
-      const referenceKey = `rollover-source:${previous.contestId}`;
-      const alreadyTransferred = await tx.prizeLedger.findUnique({
-        where: { referenceKey },
-        select: { id: true },
+  if (pool.status === "OPEN") {
+    // Normalize still-open legacy test records to the fixed experimental rule.
+    if (
+      BigInt(pool.seededMicro) !== FIXED_TEST_POOL ||
+      BigInt(pool.rolloverInMicro) !== 0n ||
+      BigInt(pool.rolloverOutMicro) !== 0n ||
+      BigInt(pool.awardedMicro) !== 0n ||
+      BigInt(pool.projectProfitMicro ?? 0n) !== 0n
+    ) {
+      pool = await tx.prizePool.update({
+        where: { contestId },
+        data: {
+          seededMicro: FIXED_TEST_POOL,
+          rolloverInMicro: 0n,
+          rolloverOutMicro: 0n,
+          awardedMicro: 0n,
+          projectProfitMicro: 0n,
+          testOnly: true,
+        },
       });
-      if (alreadyTransferred) continue;
-      const amount = BigInt(previous.rolloverOutMicro);
-      if (amount <= 0n) continue;
+    }
+
+    if (!initialFunding) {
       await tx.prizeLedger.create({
         data: {
           contestId,
-          type: "ROLLOVER_IN",
-          amountMicro: amount,
-          note: `Rollover transferred from previous round ${previous.contestId} into round ${contestId}; simulated ledger only`,
-          referenceKey,
+          type: "TEST_FUNDING",
+          amountMicro: FIXED_TEST_POOL,
+          note: `SIMULATED FIXED ROUND PRIZE POOL 100.000000 USDT for round ${contestId}; no real assets transferred`,
+          referenceKey: initialFundingKey,
         },
-      });
-      pool = await tx.prizePool.update({
-        where: { contestId },
-        data: { rolloverInMicro: { increment: amount } },
       });
     }
   }
+
+  // Experimental prize balances are isolated per round; no rollover is applied.
   return pool;
 }
 
 function responsePool(pool: any) {
   const total = BigInt(pool.seededMicro) + BigInt(pool.rolloverInMicro);
-  const spent = BigInt(pool.awardedMicro) + BigInt(pool.rolloverOutMicro);
+  const spent = BigInt(pool.awardedMicro) + BigInt(pool.rolloverOutMicro) + BigInt(pool.projectProfitMicro ?? 0n);
   return {
     contestId: pool.contestId,
     currency: pool.currency,
@@ -129,6 +96,7 @@ function responsePool(pool: any) {
     rolloverIn: formatMicro(BigInt(pool.rolloverInMicro)),
     total: formatMicro(total),
     awarded: formatMicro(BigInt(pool.awardedMicro)),
+    projectProfit: formatMicro(BigInt(pool.projectProfitMicro ?? 0n)),
     rolloverOut: formatMicro(BigInt(pool.rolloverOutMicro)),
     available: formatMicro(total - spent),
     settledAt: pool.settledAt,
@@ -245,16 +213,19 @@ export async function settlePrizePool(contestId: string, actorUserId?: string) {
       };
     }
 
-    const correct = await tx.submission.findMany({
-      where: { contestId, isCorrect: true },
-      orderBy: [{ submittedAt: "asc" }, { id: "asc" }],
-      select: {
-        userId: true,
-        submittedAt: true,
-        clue: { select: { sequence: true } },
-        user: { select: { username: true } },
-      },
-    });
+    const [correct, participantAttempts] = await Promise.all([
+      tx.submission.findMany({
+        where: { contestId, isCorrect: true },
+        orderBy: [{ submittedAt: "asc" }, { id: "asc" }],
+        select: {
+          userId: true,
+          submittedAt: true,
+          clue: { select: { sequence: true } },
+          user: { select: { username: true } },
+        },
+      }),
+      tx.submission.count({ where: { contestId } }),
+    ]);
     const byUser = new Map<string, { username: string; solved: Set<number>; completedAt: Date | null }>();
     for (const submission of correct) {
       let row = byUser.get(submission.userId);
@@ -296,7 +267,7 @@ export async function settlePrizePool(contestId: string, actorUserId?: string) {
       index = end;
     }
 
-    const totalPool = BigInt(pool.seededMicro) + BigInt(pool.rolloverInMicro);
+    const totalPool = BigInt(pool.seededMicro);
     const payouts = new Map<string, { rank: number; amount: bigint }>();
     let distributed = 0n;
 
@@ -310,9 +281,9 @@ export async function settlePrizePool(contestId: string, actorUserId?: string) {
         if (!candidate || candidate.elapsedMs !== first.elapsedMs) break;
         end++;
       }
-      let slotPercent = 0n;
-      for (let slot = index; slot < Math.min(end, 3); slot++) slotPercent += POOL_PERCENTAGES[slot] ?? 0n;
-      const groupAmount = totalPool * slotPercent / 100n;
+      let slotBasisPoints = 0n;
+      for (let slot = index; slot < Math.min(end, 3); slot++) slotBasisPoints += PODIUM_BASIS_POINTS[slot] ?? 0n;
+      const groupAmount = totalPool * slotBasisPoints / BASIS_POINTS;
       const groupSize = BigInt(end - index);
       const perPerson = groupAmount / groupSize;
       for (let cursor = index; cursor < end; cursor++) {
@@ -323,8 +294,8 @@ export async function settlePrizePool(contestId: string, actorUserId?: string) {
       index = end;
     }
 
-    // The final 20% is only available to finishers whose competition rank is 4+.
-    const lowerPool = totalPool * 20n / 100n;
+    // 10% is reserved for rank 4+ finishers and weighted by completion speed.
+    const lowerPool = totalPool * LOWER_RANK_BASIS_POINTS / BASIS_POINTS;
     const lower = contest.startsAt
       ? finishers.filter((person) => person.rank >= 4 && person.elapsedMs < CONTEST_DURATION_MS)
       : [];
@@ -343,6 +314,12 @@ export async function settlePrizePool(contestId: string, actorUserId?: string) {
         }
       }
     }
+
+    // A truly empty round is not treated as project revenue. Once anyone has
+    // submitted in a round, the 5% share is recorded in the project dividend pool.
+    const projectProfit = participantAttempts > 0
+      ? totalPool * PROJECT_PROFIT_BASIS_POINTS / BASIS_POINTS
+      : 0n;
 
     for (const person of finishers) {
       const payout = payouts.get(person.userId);
@@ -380,23 +357,24 @@ export async function settlePrizePool(contestId: string, actorUserId?: string) {
       });
     }
 
-    const rollover = totalPool - distributed;
-    if (rollover > 0n) {
+    if (projectProfit > 0n) {
       await tx.prizeLedger.create({
         data: {
           contestId,
-          type: "ROLLOVER_OUT",
-          amountMicro: rollover,
-          note: "Unawarded pool balance carried forward to a future round; simulated accounting only",
-          referenceKey: `rollover-out:${contestId}`,
+          type: "PROJECT_PROFIT",
+          amountMicro: projectProfit,
+          note: `SIMULATED 5% project dividend pool contribution for round ${contestId}; no real assets transferred`,
+          referenceKey: `project-profit:${contestId}`,
         },
       });
     }
+
     const updated = await tx.prizePool.update({
       where: { contestId },
       data: {
         awardedMicro: distributed,
-        rolloverOutMicro: rollover,
+        projectProfitMicro: projectProfit,
+        rolloverOutMicro: 0n,
         status: "SETTLED",
         settledAt: new Date(),
         testOnly: true,
@@ -408,7 +386,13 @@ export async function settlePrizePool(contestId: string, actorUserId?: string) {
         action: "PRIZE_POOL_SIMULATED_SETTLEMENT",
         entity: "PrizePool",
         entityId: pool.id,
-        metadata: { awardedMicro: distributed.toString(), rolloverMicro: rollover.toString(), completedParticipants: finishers.length },
+        metadata: {
+          awardedMicro: distributed.toString(),
+          projectProfitMicro: projectProfit.toString(),
+          completedParticipants: finishers.length,
+          participantAttempts,
+          rolloverMicro: "0",
+        },
       },
     });
     return {
