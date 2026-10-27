@@ -69,8 +69,8 @@ export default function PrizePoolPanel({ contestId, contestStatus }: Props) {
       )}
       <p className="admin-footnote" style={{ marginBottom: 12 }}>
         {isFa
-          ? "مبلغ پایهٔ هر دور دقیقاً ۱۰۰ USDT فرضی است. ماندهٔ استفاده‌نشده به دور بعد منتقل نمی‌شود."
-          : "Each round has a fixed 100 USDT simulated base pool. Unused balances do not roll over."}
+          ? "هر روز UTC، مبلغ ۵۰ USDT فرضی به صندوق کلی افزوده می‌شود. با شروع هر دور، ۱٪ موجودی قابل‌استفادهٔ صندوق کلی به این دور اختصاص می‌یابد؛ ماندهٔ این دور به دور بعد منتقل نمی‌شود."
+          : "Each UTC day, 50 simulated USDT is added to the global fund. When a round starts, 1% of the available global balance is allocated to that round; unused round balances do not roll over."}
       </p>
       <div className="cta-group">
         <button className="cta-button" type="button" onClick={() => void settle()} disabled={loading || data?.pool.status === "SETTLED" || (contestStatus !== "finished" && data?.pool.status !== "SETTLED")}>
