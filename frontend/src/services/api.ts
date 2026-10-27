@@ -8,6 +8,13 @@ type ApiResponse<T> = {
   details?: unknown;
 };
 
+const SESSION_INVALIDATION_ERRORS = new Set([
+  "TOKEN_EXPIRED",
+  "INVALID_TOKEN",
+  "INVALID_AUTHORIZATION_HEADER",
+  "AUTHENTICATION_REQUIRED",
+]);
+
 export type AuthUser = {
   id: string;
   email: string;
@@ -179,7 +186,21 @@ async function request<T>(
   }
 
   if (!response.ok || !result.success) {
-    throw new Error(result.error ?? "REQUEST_FAILED");
+    const errorCode = result.error ?? "REQUEST_FAILED";
+    const isCurrentSessionFailure =
+      authenticated &&
+      Boolean(token) &&
+      localStorage.getItem("walletFindToken") === token &&
+      response.status === 401 &&
+      SESSION_INVALIDATION_ERRORS.has(errorCode);
+
+    if (isCurrentSessionFailure) {
+      localStorage.removeItem("walletFindToken");
+      localStorage.removeItem("walletFindUser");
+      window.dispatchEvent(new Event("wallet-find:session-expired"));
+    }
+
+    throw new Error(errorCode);
   }
 
   if (result.data === undefined) {
