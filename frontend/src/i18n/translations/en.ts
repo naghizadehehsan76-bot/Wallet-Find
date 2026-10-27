@@ -227,7 +227,7 @@ export const en = {
       distributionRemainder: "10% is shared by finishers ranked fourth or lower, weighted by completion speed. Another 5% is recorded in the project dividend pool.",
       distributionTies: "If multiple participants finish at exactly the same time and share a rank, the prize shares for the rank slots they occupy are combined and split equally among them.",
       rolloverTitle: "Do unused prize shares roll over?",
-      rolloverDetail: "No. Each experimental round has an independent 100 USDT simulated pool, and no unused balance is added to the next round. If a round has no participation, it contributes nothing to the project dividend pool. Participants who do not complete all 12 keys before the deadline receive no prize.",
+      rolloverDetail: "No. Each experimental round has an independent 100 USDT simulated pool, and no unused balance is added to the next round. The 5% project dividend allocation is recorded when each round settles; if nobody participates, the remaining 95% stays unused and is not transferred. Participants who do not complete all 12 keys before the deadline receive no prize.",
       statusTitle: "Payment status",
       statusDetail: "Until real payouts are enabled, all displayed balances and prizes are simulated and do not represent real funds or an available withdrawal.",
     },
