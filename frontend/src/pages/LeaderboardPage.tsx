@@ -13,7 +13,7 @@ function formatTime(milliseconds: number, isPersian: boolean) {
   const safe = Math.max(0, milliseconds);
   const totalSeconds = Math.floor(safe / 1000);
   const value = `${String(Math.floor(totalSeconds / 60)).padStart(2, "0")}:${String(totalSeconds % 60).padStart(2, "0")}.${String(safe % 1000).padStart(3, "0")}`;
-  return isPersian ? value.replace(/\\d/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"[Number(digit)]) : value;
+  return isPersian ? value.replace(/[0-9]/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"[Number(digit)]) : value;
 }
 
 function formatDate(value: string | null, isPersian: boolean) {
