@@ -183,8 +183,12 @@ function HomePage({
       value: prizePoolStats ? formatPrizeAmount(prizePoolStats.totalPool) : "—",
       label: isPersian ? "صندوق جایزه کل" : "Total prize pool",
       secondaryValue: prizePoolStats ? formatPrizeAmount(prizePoolStats.currentRoundPool) : "—",
-      secondaryLabel: isPersian ? "صندوق جایزه دور جاری" : "Current round pool",
-      note: isPersian ? "هر دور ۱۰۰ تتر فرضی؛ بدون انتقال مانده" : "100 simulated USDT per round; no rollover",
+      secondaryLabel: isPersian ? "۱٪ صندوق کلی برای دور جاری" : "1% global pool allocated to this round",
+      note: isPersian ? "روزانه ۵۰ تتر فرضی به صندوق کلی افزوده می‌شود" : "50 simulated USDT is added to the global fund daily",
+    },
+    {
+      value: prizePoolStats ? formatPrizeAmount(prizePoolStats.dailyContribution) : "—",
+      label: isPersian ? "شارژ فرضی امروز صندوق" : "Today's simulated funding",
     },
     {
       value: prizePoolStats ? formatPrizeAmount(prizePoolStats.projectProfitPool) : "—",
