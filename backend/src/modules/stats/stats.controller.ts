@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import prisma from "../../config/prisma.js";
 import type { AuthenticatedRequest } from "../../middleware/auth.middleware.js";
-import { getPublicPrizePool } from "../contest/prize-pool.service.js";
+import { getGlobalPrizePoolSnapshot, getPublicPrizePool } from "../contest/prize-pool.service.js";
 
 const ONLINE_WINDOW_MS = 2 * 60 * 1000;
 
@@ -39,47 +39,17 @@ export async function getPublicPrizePoolStatsHandler(
       ? await getPublicPrizePool(currentContest.id)
       : null;
 
-    const [openPools, projectProfitTotal] = await Promise.all([
-      prisma.prizePool.aggregate({
-        where: {
-          currency: "USDT",
-          status: "OPEN",
-          contest: {
-            is: {
-              status: { in: ["ACTIVE", "SCHEDULED"] },
-              startsAt: { lte: now },
-              endsAt: { gt: now },
-            },
-          },
-        },
-        _sum: {
-          seededMicro: true,
-          rolloverInMicro: true,
-          awardedMicro: true,
-          rolloverOutMicro: true,
-          projectProfitMicro: true,
-        },
-      }),
-      prisma.prizePool.aggregate({
-        where: { currency: "USDT" },
-        _sum: { projectProfitMicro: true },
-      }),
-    ]);
-
-    const openFunded = BigInt(openPools._sum.seededMicro ?? 0n)
-      + BigInt(openPools._sum.rolloverInMicro ?? 0n);
-    const openSpent = BigInt(openPools._sum.awardedMicro ?? 0n)
-      + BigInt(openPools._sum.rolloverOutMicro ?? 0n)
-      + BigInt(openPools._sum.projectProfitMicro ?? 0n);
-    const totalPool = openFunded > openSpent ? openFunded - openSpent : 0n;
-    const projectProfitPool = BigInt(projectProfitTotal._sum.projectProfitMicro ?? 0n);
+    const globalSnapshot = await getGlobalPrizePoolSnapshot(now);
 
     return res.status(200).json({
       success: true,
       data: {
-        totalPool: formatMicroUsdt(totalPool),
+        totalPool: globalSnapshot.totalPool,
         currentRoundPool: currentPool?.pool.available ?? formatMicroUsdt(0n),
-        projectProfitPool: formatMicroUsdt(projectProfitPool),
+        dailyContribution: globalSnapshot.dailyContribution,
+        totalDailyFunding: globalSnapshot.totalDailyFunding,
+        totalRoundAllocations: globalSnapshot.totalRoundAllocations,
+        projectProfitPool: globalSnapshot.projectProfitPool,
         currency: "USDT",
         simulatedOnly: true,
         updatedAt: now.toISOString(),
