@@ -314,7 +314,7 @@ function HomePage({
         <section className="stat-row">
           {stats.map((stat) => (
             "secondaryValue" in stat ? (
-              <div className={"stat-card stat-card--paired" + ("note" in stat ? " stat-card--paired-prize" : "")} key={stat.label}>
+              <div className="stat-card stat-card--paired" key={stat.label}>
                 <div className="stat-card__user-metric">
                   <strong>{stat.value}</strong>
                   <span>{stat.label}</span>
@@ -323,7 +323,6 @@ function HomePage({
                   <strong>{stat.secondaryValue}</strong>
                   <span>{stat.secondaryLabel}</span>
                 </div>
-                {"note" in stat && <small className="stat-card__note">{stat.note}</small>}
               </div>
             ) : (
               <div className="stat-card" key={stat.label}>
