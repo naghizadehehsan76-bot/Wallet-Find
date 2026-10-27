@@ -18,7 +18,7 @@ function sendError(res: Response, error: unknown) {
     "INVALID_TEST_FUNDING_AMOUNT",
     "PRIZE_POOL_ALREADY_SETTLED",
     "CONTEST_NOT_FINISHED",
-    "FIXED_TEST_POOL_AMOUNT",
+    "MANUAL_GLOBAL_POOL_FUNDING_DISABLED",
   ]);
   const status = message === "CONTEST_NOT_FOUND" ? 404 : clientErrors.has(message) ? 409 : 500;
   if (status === 500) console.error("Prize pool operation failed", error);
