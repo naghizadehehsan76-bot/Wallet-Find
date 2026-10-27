@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import prisma from "../../config/prisma.js";
+import { getProjectProfitPoolAdminSnapshot } from "../contest/prize-pool.service.js";
 
 import type { AuthenticatedRequest } from "../../middleware/auth.middleware.js";
 
@@ -158,5 +159,18 @@ export async function getAdminUsersHandler(
   } catch (error) {
     console.error("Admin user listing failed", error);
     return res.status(500).json({ success: false, error: "INTERNAL_SERVER_ERROR" });
+  }
+}
+
+export async function getProjectProfitPoolAdminHandler(
+  _req: AuthenticatedRequest,
+  res: Response
+) {
+  try {
+    const snapshot = await getProjectProfitPoolAdminSnapshot();
+    return res.json({ success: true, data: snapshot });
+  } catch (error) {
+    console.error("Failed to load project dividend fund", error);
+    return res.status(503).json({ success: false, error: "PROJECT_PROFIT_POOL_UNAVAILABLE" });
   }
 }
