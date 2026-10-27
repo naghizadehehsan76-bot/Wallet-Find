@@ -189,10 +189,6 @@ function HomePage({
       value: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.dailyContribution)} USDT` : "—",
       label: isPersian ? "شارژ فرضی امروز صندوق" : "Today's simulated funding",
     },
-    {
-      value: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.projectProfitPool)} USDT` : "—",
-      label: isPersian ? "صندوق سود سهام پروژه" : "Project dividend pool",
-    },
     ...(isPersian ? faStats : enStats),
   ];
   const steps = isPersian ? faSteps : enSteps;
