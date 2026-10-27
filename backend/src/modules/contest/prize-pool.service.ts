@@ -6,7 +6,8 @@ const BASIS_POINTS = 10_000n;
 const PODIUM_BASIS_POINTS = [5_000n, 2_250n, 1_250n] as const;
 const LOWER_RANK_BASIS_POINTS = 1_000n;
 const PROJECT_PROFIT_BASIS_POINTS = 500n;
-const FIXED_TEST_POOL = 100n * MICRO;
+const ROUND_ALLOCATION_BASIS_POINTS = 100n;
+const DAILY_GLOBAL_FUNDING = 50n * MICRO;
 
 function formatMicro(value: bigint) {
   const negative = value < 0n;
@@ -16,72 +17,214 @@ function formatMicro(value: bigint) {
   return `${negative ? "-" : ""}${whole}.${fraction}`;
 }
 
-async function ensurePool(tx: any, contestId: string) {
+function utcDayStart(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function utcDayKey(date: Date): string {
+  return utcDayStart(date).toISOString().slice(0, 10);
+}
+
+/**
+ * Record the simulated 50 USDT daily sponsor/investor contribution exactly
+ * once per UTC day. Missed days are backfilled after a scheduler interruption.
+ * The singleton row serializes concurrent calls before reading/inserting ledger rows.
+ */
+async function ensureDailyGlobalFunding(tx: any, now: Date) {
+  await tx.globalPrizeFund.upsert({
+    where: { id: "global" },
+    update: { updatedAt: now },
+    create: { id: "global", updatedAt: now },
+  });
+
+  const todayStart = utcDayStart(now);
+  const latestFunding = await tx.globalPrizeLedger.findFirst({
+    where: { type: "DAILY_FUNDING" },
+    orderBy: { effectiveAt: "desc" },
+    select: { effectiveAt: true },
+  });
+
+  const cursor = latestFunding
+    ? utcDayStart(latestFunding.effectiveAt)
+    : new Date(todayStart);
+  if (latestFunding) cursor.setUTCDate(cursor.getUTCDate() + 1);
+
+  const entries: Array<{
+    id: string;
+    type: "DAILY_FUNDING";
+    amountMicro: bigint;
+    dayKey: string;
+    effectiveAt: Date;
+    referenceKey: string;
+    note: string;
+  }> = [];
+
+  while (cursor.getTime() <= todayStart.getTime()) {
+    const dayKey = utcDayKey(cursor);
+    entries.push({
+      id: "daily-funding-" + dayKey,
+      type: "DAILY_FUNDING",
+      amountMicro: DAILY_GLOBAL_FUNDING,
+      dayKey,
+      effectiveAt: new Date(cursor),
+      referenceKey: "daily-funding:" + dayKey,
+      note: "SIMULATED DAILY SPONSOR / INVESTOR CONTRIBUTION 50.000000 USDT; no real assets transferred",
+    });
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  if (entries.length) {
+    const inserted = await tx.globalPrizeLedger.createMany({
+      data: entries,
+      skipDuplicates: true,
+    });
+    if (inserted.count > 0) {
+      const amountAdded = DAILY_GLOBAL_FUNDING * BigInt(inserted.count);
+      await tx.globalPrizeFund.update({
+        where: { id: "global" },
+        data: {
+          balanceMicro: { increment: amountAdded },
+          totalFundedMicro: { increment: amountAdded },
+          updatedAt: now,
+        },
+      });
+    }
+  }
+
+  return tx.globalPrizeFund.findUnique({ where: { id: "global" } });
+}
+
+export async function ensureDailyGlobalPrizeFunding(now = new Date()): Promise<void> {
+  await prisma.$transaction((tx) => ensureDailyGlobalFunding(tx, now));
+}
+
+async function ensurePool(tx: any, contestId: string, now = new Date()) {
   const contest = await tx.contest.findUnique({
     where: { id: contestId },
-    select: { id: true },
+    select: { id: true, startsAt: true },
   });
   if (!contest) throw new Error("CONTEST_NOT_FOUND");
+
   let pool = await tx.prizePool.upsert({
     where: { contestId },
     update: {},
     create: { contestId, testOnly: true, currency: "USDT" },
   });
 
-  // Every experimental round has a fixed simulated pool of exactly 100 USDT.
-  // No setting, unused share, or prior-round balance can increase a later round.
-  const initialFundingKey = `test-funding-initial:${contestId}`;
-  const initialFunding = await tx.prizeLedger.findUnique({
-    where: { referenceKey: initialFundingKey },
-    select: { id: true, amountMicro: true, note: true },
-  });
-
-  if (pool.status === "OPEN") {
-    // Normalize still-open legacy test records to the fixed experimental rule.
-    if (
-      BigInt(pool.seededMicro) !== FIXED_TEST_POOL ||
-      BigInt(pool.rolloverInMicro) !== 0n ||
-      BigInt(pool.rolloverOutMicro) !== 0n ||
-      BigInt(pool.awardedMicro) !== 0n ||
-      BigInt(pool.projectProfitMicro ?? 0n) !== 0n
-    ) {
-      pool = await tx.prizePool.update({
-        where: { contestId },
-        data: {
-          seededMicro: FIXED_TEST_POOL,
-          rolloverInMicro: 0n,
-          rolloverOutMicro: 0n,
-          awardedMicro: 0n,
-          projectProfitMicro: 0n,
-          testOnly: true,
-        },
-      });
-    }
-
-    const fixedFundingNote = `SIMULATED FIXED ROUND PRIZE POOL 100.000000 USDT for round ${contestId}; no real assets transferred`;
-    if (!initialFunding) {
-      await tx.prizeLedger.create({
-        data: {
-          contestId,
-          type: "TEST_FUNDING",
-          amountMicro: FIXED_TEST_POOL,
-          note: fixedFundingNote,
-          referenceKey: initialFundingKey,
-        },
-      });
-    } else if (
-      BigInt(initialFunding.amountMicro) !== FIXED_TEST_POOL ||
-      initialFunding.note !== fixedFundingNote
-    ) {
-      await tx.prizeLedger.update({
-        where: { referenceKey: initialFundingKey },
-        data: { amountMicro: FIXED_TEST_POOL, note: fixedFundingNote },
-      });
-    }
+  const globalFund = await ensureDailyGlobalFunding(tx, now);
+  if (pool.status !== "OPEN" || !contest.startsAt || contest.startsAt > now) {
+    return pool;
   }
 
-  // Experimental prize balances are isolated per round; no rollover is applied.
+  // Take exactly 1% of the global fund's currently available balance once
+  // per round. The unique ledger key and singleton row lock make retries safe.
+  const allocationKey = "round-allocation:" + contestId;
+  let allocation = await tx.globalPrizeLedger.findUnique({
+    where: { referenceKey: allocationKey },
+  });
+
+  if (!allocation) {
+    const available = BigInt(globalFund?.balanceMicro ?? 0n);
+    const amount = available * ROUND_ALLOCATION_BASIS_POINTS / BASIS_POINTS;
+    const note = "SIMULATED ROUND ALLOCATION 1% of global prize fund for round " + contestId + "; no real assets transferred";
+    allocation = await tx.globalPrizeLedger.create({
+      data: {
+        id: "round-allocation-" + contestId,
+        type: "ROUND_ALLOCATION",
+        amountMicro: amount,
+        contestId,
+        effectiveAt: contest.startsAt,
+        referenceKey: allocationKey,
+        note,
+      },
+    });
+    await tx.globalPrizeFund.update({
+      where: { id: "global" },
+      data: {
+        balanceMicro: { decrement: amount },
+        totalAllocatedMicro: { increment: amount },
+        updatedAt: now,
+      },
+    });
+  }
+
+  const allocatedAmount = BigInt(allocation.amountMicro);
+  pool = await tx.prizePool.update({
+    where: { contestId },
+    data: {
+      seededMicro: allocatedAmount,
+      rolloverInMicro: 0n,
+      rolloverOutMicro: 0n,
+      awardedMicro: 0n,
+      projectProfitMicro: 0n,
+      testOnly: true,
+    },
+  });
+
+  // Keep the per-round ledger aligned with the 1% allocation, including legacy
+  // open pools that were previously seeded with a fixed 100 USDT.
+  const roundLedgerKey = "test-funding-initial:" + contestId;
+  const roundLedger = await tx.prizeLedger.findUnique({
+    where: { referenceKey: roundLedgerKey },
+    select: { id: true, amountMicro: true, type: true, note: true },
+  });
+  const roundLedgerNote = "SIMULATED 1% GLOBAL PRIZE FUND ALLOCATION " + formatMicro(allocatedAmount) + " USDT for round " + contestId + "; no real assets transferred";
+  if (!roundLedger) {
+    await tx.prizeLedger.create({
+      data: {
+        contestId,
+        type: "GLOBAL_ALLOCATION",
+        amountMicro: allocatedAmount,
+        note: roundLedgerNote,
+        referenceKey: roundLedgerKey,
+      },
+    });
+  } else if (
+    BigInt(roundLedger.amountMicro) !== allocatedAmount ||
+    roundLedger.type !== "GLOBAL_ALLOCATION" ||
+    roundLedger.note !== roundLedgerNote
+  ) {
+    await tx.prizeLedger.update({
+      where: { referenceKey: roundLedgerKey },
+      data: {
+        type: "GLOBAL_ALLOCATION",
+        amountMicro: allocatedAmount,
+        note: roundLedgerNote,
+      },
+    });
+  }
+
   return pool;
+}
+
+export async function initializePrizePoolForRound(contestId: string, now = new Date()) {
+  return prisma.$transaction((tx) => ensurePool(tx, contestId, now));
+}
+
+export async function getGlobalPrizePoolSnapshot(now = new Date()) {
+  return prisma.$transaction(async (tx) => {
+    const fund = await ensureDailyGlobalFunding(tx, now);
+    const [dailyEntry, projectProfit] = await Promise.all([
+      tx.globalPrizeLedger.findUnique({
+        where: { dayKey: utcDayKey(now) },
+        select: { amountMicro: true },
+      }),
+      tx.prizePool.aggregate({
+        where: { currency: "USDT" },
+        _sum: { projectProfitMicro: true },
+      }),
+    ]);
+    return {
+      totalPool: formatMicro(BigInt(fund?.balanceMicro ?? 0n)),
+      dailyContribution: formatMicro(BigInt(dailyEntry?.amountMicro ?? 0n)),
+      totalDailyFunding: formatMicro(BigInt(fund?.totalFundedMicro ?? 0n)),
+      totalRoundAllocations: formatMicro(BigInt(fund?.totalAllocatedMicro ?? 0n)),
+      projectProfitPool: formatMicro(BigInt(projectProfit._sum.projectProfitMicro ?? 0n)),
+      currency: "USDT" as const,
+      simulatedOnly: true as const,
+      updatedAt: now.toISOString(),
+    };
+  });
 }
 
 function responsePool(pool: any) {
@@ -152,8 +295,8 @@ export async function testFundPrizePool(
   _rawAmount: unknown,
   _actorUserId?: string,
 ): Promise<any> {
-  // The experimental round pool is intentionally fixed at 100 simulated USDT.
-  throw new Error("FIXED_TEST_POOL_AMOUNT");
+  // Funding is simulated automatically at 50 USDT per UTC day.
+  throw new Error("MANUAL_GLOBAL_POOL_FUNDING_DISABLED");
 }
 
 type Finisher = {
