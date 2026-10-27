@@ -1,0 +1,4 @@
+ALTER TYPE "PrizeLedgerType" ADD VALUE 'PROJECT_PROFIT';
+
+ALTER TABLE "prize_pools"
+  ADD COLUMN "projectProfitMicro" BIGINT NOT NULL DEFAULT 0;
