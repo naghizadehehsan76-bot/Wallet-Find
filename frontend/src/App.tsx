@@ -187,7 +187,7 @@ function HomePage({
     },
     {
       value: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.dailyContribution)} USDT` : "—",
-      label: isPersian ? "شارژ فرضی امروز صندوق" : "Today's simulated funding",
+      label: isPersian ? "واریزی فرضی امروز اسپانسرها" : "Today's simulated sponsor funding",
     },
     ...(isPersian ? faStats : enStats),
   ];
