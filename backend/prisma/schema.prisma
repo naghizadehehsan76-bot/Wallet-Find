@@ -430,6 +430,7 @@ model ContestSourceVisit {
   @@index([userId, createdAt])
   @@index([sourceHostname, createdAt])
   @@index([advertisementOrderId, createdAt])
+  @@unique([userId, clueId])
   @@map("contest_source_visits")
 }
 
