@@ -39,15 +39,15 @@ const enStats = [
 ];
 
 const faSteps = [
-  { number: "۰۱", title: "هر شب ساعت ۲۱:۰۰ گاوصندوق باز می‌شود و کلید اول در دسترس قرار می‌گیرد.", description: "هر کلید یک سرنخ متنی یا تصویری دارد." },
-  { number: "۰۲", title: "با حل هر سرنخ، کلید بعدی باز می‌شود؛ ترتیب حل کلیدها مهم است.", description: "پاسخ اشتباه زمان تو را از دست نمی‌دهد ولی ثبت می‌شود." },
-  { number: "۰۳", title: "اولین نفری که هر ۱۲ کلید را باز کند، جایزه USDT را روی پالیگان دریافت می‌کند.", description: "پرداخت خودکار و شفاف است." },
+  { number: "۰۱", title: "عبارت دقیق راهنما را در صفحهٔ منبع پیدا کن.", description: "پاسخ، نخستین واژهٔ متناسب با زبان چالش است که بلافاصله بعد از عبارت می‌آید." },
+  { number: "۰۲", title: "خود واژه را کامل وارد کن؛ نه عبارت راهنما را.", description: "پاسخ الزاماً بین دو فاصله نیست؛ بخش‌های چسبیدهٔ واژه را نگه دار و نشانه‌گذاری را وارد نکن." },
+  { number: "۰۳", title: "۱۲ واژه را به‌ترتیب حل کن.", description: "پاسخ درست خانهٔ بعدی را باز می‌کند؛ پاسخ اشتباه این کار را نمی‌کند." },
 ];
 
 const enSteps = [
-  { number: "01", title: "Every night at 21:00, the vault opens and the first key becomes available.", description: "Each key contains a text or visual clue." },
-  { number: "02", title: "Solve each clue to unlock the next key. The order matters.", description: "Wrong answers are recorded but do not reduce your solving time." },
-  { number: "03", title: "The first player to unlock all 12 keys wins the USDT prize on Polygon.", description: "Automatic and transparent payout." },
+  { number: "01", title: "Find the exact hint phrase on the source page.", description: "The answer is the first matching word in the challenge language immediately after the phrase." },
+  { number: "02", title: "Enter the complete word, not the hint phrase.", description: "The answer is not defined by spaces alone. Keep attached prefixes/suffixes and omit punctuation." },
+  { number: "03", title: "Solve all 12 words in order.", description: "A correct answer unlocks the next box; a wrong answer does not." },
 ];
 
 function HomePage({
