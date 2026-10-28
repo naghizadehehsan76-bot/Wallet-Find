@@ -9,6 +9,7 @@ import {
   getLeaderboard,
   getProfile,
   type LeaderboardEntry,
+  type LanguageParticipationBlock,
   type PrizePoolView,
 } from "../services/api";
 import { useI18n } from "../i18n";
@@ -135,6 +136,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [completionSummary, setCompletionSummary] = useState<CompletionSummary | null>(null);
   const [completionSummaryLoading, setCompletionSummaryLoading] = useState(false);
   const [completionSummaryError, setCompletionSummaryError] = useState(false);
+  const [languageBlock, setLanguageBlock] = useState<LanguageParticipationBlock | null>(null);
   const [currentClueId, setCurrentClueId] = useState<string | null>(null);
   const [currentSequence, setCurrentSequence] = useState<number | null>(null);
   const [solvedCount, setSolvedCount] = useState(0);
@@ -160,6 +162,25 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [serverTimeOffset, setServerTimeOffset] = useState(0);
 
   function applyCurrentClue(current: Awaited<ReturnType<typeof getCurrentClue>>) {
+    if (current.status === "LANGUAGE_BLOCKED" && current.participationBlock) {
+      setLanguageBlock(current.participationBlock);
+      setCurrentSequence(null);
+      setCurrentClueId(null);
+      setSolvedCount(0);
+      setClueContent("");
+      setHintAnchor("");
+      setSourceUrl("");
+      setCompleted(false);
+      setCompletedAt(null);
+      setLockedUntil(null);
+      setWaitingForClue(false);
+      setAnswerSlots(Array(12).fill(""));
+      setSolvedSlots(Array(12).fill(false));
+      setIncorrectSlots(Array(12).fill(false));
+      setFeedback("");
+      return;
+    }
+    setLanguageBlock(null);
     if (current.serverTime) {
       const serverTimestamp = Date.parse(current.serverTime);
       if (Number.isFinite(serverTimestamp)) {
@@ -202,6 +223,15 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
         setChallengeNumber(contest.challengeNumber ?? null);
         setContestTitle(contest.title);
         setContestDate(contest.startsAt);
+        if (contest.serverTime) {
+          const serverTimestamp = Date.parse(contest.serverTime);
+          if (Number.isFinite(serverTimestamp)) setServerTimeOffset(serverTimestamp - Date.now());
+        }
+        if (contest.participationBlock) {
+          setLanguageBlock(contest.participationBlock);
+          return;
+        }
+        setLanguageBlock(null);
         void getContestPrizePool(contest.id).then((result) => setPrizePool(result.pool)).catch(() => undefined);
 
         const current = await getCurrentClue(contest.id);
@@ -242,7 +272,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     // first current-clue request races round activation or returns no clue.
     // Retry while waiting for the next round OR while no usable clue has been
     // received. Once a clue arrives, the effect cleans up its polling timer.
-    if (!contestId || completed || (!waitingForClue && currentClueId)) return;
+    if (!contestId || completed || languageBlock || (!waitingForClue && currentClueId)) return;
 
     let cancelled = false;
     const pollForClue = () => {
@@ -283,7 +313,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [contestId, waitingForClue, currentClueId, completed, isPersian]);
+  }, [contestId, waitingForClue, currentClueId, completed, languageBlock, isPersian]);
 
   async function refreshCurrentClue() {
     if (!contestId) return;
@@ -553,6 +583,10 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       ? contestStartTimestamp - authoritativeNow
       : Math.max(0, contestStartTimestamp + 15 * 60_000 - authoritativeNow)
     : null;
+  const languageBlockRemainingMs = languageBlock
+    ? Math.max(0, Date.parse(languageBlock.retryAt) - authoritativeNow)
+    : 0;
+  const languageBlockWaitMinutes = Math.ceil(languageBlockRemainingMs / 60_000);
   const formatCountdown = (milliseconds: number) => {
     const totalSeconds = Math.ceil(milliseconds / 1_000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -730,6 +764,37 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
 
         {loading ? (
           <div className="inline-feedback"><LoadingIndicator label={isPersian ? "در حال دریافت چالش..." : "Loading challenge..."} /></div>
+        ) : languageBlock ? (
+          <section className="language-participation-block" role="status" aria-live="polite">
+            <div className="language-participation-block__icon" aria-hidden="true">⌛</div>
+            <div className="language-participation-block__eyebrow">
+              {isPersian ? "محدودیت شرکت در چالش" : "CHALLENGE PARTICIPATION LIMIT"}
+            </div>
+            <h3>{isPersian ? "این دور را قبلاً در زبان دیگری تکمیل کرده‌ای" : "You already completed this round in the other language"}</h3>
+            <p>
+              {isPersian
+                ? "شما قبلاً چالش شمارهٔ " + formatNumber(languageBlock.challengeNumber) + " را در چالش " + (languageBlock.completedLanguage === "en" ? "انگلیسی" : "فارسی") + " تکمیل کرده‌اید. در هر دور فقط امکان تکمیل یکی از دو زبان وجود دارد."
+                : "You have already completed challenge #" + formatNumber(languageBlock.challengeNumber) + " in the " + (languageBlock.completedLanguage === "en" ? "English" : "Persian") + " challenge. You may complete only one language per round."}
+            </p>
+            <div className="language-participation-block__countdown">
+              <span>{isPersian ? "زمان باقی‌مانده تا دور بعد" : "Time until the next round"}</span>
+              <strong className="mono">{formatCountdown(languageBlockRemainingMs)}</strong>
+            </div>
+            <p className="language-participation-block__instruction">
+              {languageBlockRemainingMs > 0
+                ? (isPersian
+                    ? "حدود " + formatNumber(languageBlockWaitMinutes) + " دقیقهٔ دیگر دوباره این صفحه را تازه‌سازی کنید."
+                    : "Refresh this page again in about " + formatNumber(languageBlockWaitMinutes) + " minute(s).")
+                : (isPersian
+                    ? "زمان این دور تمام شده است؛ اکنون صفحه را تازه‌سازی کنید تا چالش بعدی باز شود."
+                    : "This round has ended. Refresh the page now to load the next challenge.")}
+            </p>
+            {languageBlockRemainingMs <= 0 && (
+              <button type="button" className="cta-button language-participation-block__refresh" onClick={() => window.location.reload()}>
+                {isPersian ? "تازه‌سازی صفحه" : "Refresh page"}
+              </button>
+            )}
+          </section>
         ) : error && !currentClueId && !completed ? (
           <div className="inline-feedback">{localizeApiError(error, language)}</div>
         ) : (
