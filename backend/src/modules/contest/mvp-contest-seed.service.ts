@@ -36,6 +36,20 @@ type GeneratedRound = {
   options: string[];
 };
 
+type ScheduledSourceAssignment = {
+  id: string;
+  language: "en" | "fa";
+  url: string;
+  challengeNumber: number;
+  startsAt: string;
+  sequence: number;
+};
+
+type RoundGenerationContext = {
+  challengeNumber: number;
+  startsAt: Date;
+};
+
 const COMMON_WORDS = new Set([
   "about", "above", "after", "again", "against", "almost", "along", "already",
   "also", "although", "always", "among", "another", "around", "because",
@@ -401,6 +415,50 @@ async function fetchConfiguredWebDocument(url: string): Promise<SourceDocument |
   }
 }
 
+async function getScheduledSourceAssignments(
+  language: "en" | "fa",
+  context: RoundGenerationContext,
+): Promise<ScheduledSourceAssignment[]> {
+  const setting = await prisma.systemSetting.findUnique({
+    where: { key: "scheduled_clue_sources" },
+    select: { value: true },
+  });
+  if (!setting) return [];
+  try {
+    const parsed: unknown = JSON.parse(setting.value);
+    if (!Array.isArray(parsed)) return [];
+    const expectedStart = context.startsAt.getTime();
+    return parsed.filter((item): item is ScheduledSourceAssignment => {
+      if (!item || typeof item !== "object") return false;
+      const row = item as Partial<ScheduledSourceAssignment>;
+      const assignedStart = typeof row.startsAt === "string" ? Date.parse(row.startsAt) : Number.NaN;
+      return row.language === language &&
+        row.challengeNumber === context.challengeNumber &&
+        Number.isFinite(assignedStart) &&
+        assignedStart === expectedStart &&
+        typeof row.url === "string" && row.url.startsWith("https://") && row.url.length <= 500 &&
+        Number.isInteger(row.sequence) && Number(row.sequence) >= 1 && Number(row.sequence) <= 12;
+    }).sort((a, b) => a.sequence - b.sequence);
+  } catch {
+    return [];
+  }
+}
+
+async function getChallengeNumberForStart(
+  language: "en" | "fa",
+  startsAt: Date,
+  existingRound = false,
+): Promise<number> {
+  const count = await prisma.contest.count({
+    where: {
+      language,
+      status: { not: "CANCELLED" },
+      startsAt: existingRound ? { lte: startsAt } : { lt: startsAt },
+    },
+  });
+  return existingRound ? Math.max(1, count) : Math.max(1, count + 1);
+}
+
 async function getConfiguredSourceUrls(language: "en" | "fa"): Promise<string[]> {
   const defaults = language === "fa" ? [
     "https://fa.wikipedia.org/w/api.php",
@@ -428,30 +486,65 @@ async function getConfiguredSourceUrls(language: "en" | "fa"): Promise<string[]>
  * public-domain book text from a second domain. Curated clues keep the MVP
  * playable if either external source is temporarily unavailable.
  */
-async function generateMvpRounds(language: "en" | "fa" = "en"): Promise<GeneratedRound[]> {
+async function generateMvpRounds(
+  language: "en" | "fa" = "en",
+  context?: RoundGenerationContext,
+): Promise<GeneratedRound[]> {
   const configuredUrls = await getConfiguredSourceUrls(language);
+  const scheduledAssignments = context ? await getScheduledSourceAssignments(language, context) : [];
+  const assignedUrls = [...new Set(scheduledAssignments.map((assignment) => assignment.url))];
   const wikiUrl = `https://${language === "fa" ? "fa" : "en"}.wikipedia.org/w/api.php`;
   const wikipediaDocuments = configuredUrls.includes(wikiUrl) ? await fetchWikipediaDocuments(12, language) : [];
   const gutenbergResults = language === "en" ? await Promise.all(
     GUTENBERG_BOOKS.filter((book) => configuredUrls.includes(book.textUrl)).map((book) => fetchGutenbergDocument(book)),
   ) : [];
   const knownUrls = new Set([wikiUrl, ...GUTENBERG_BOOKS.map((book) => book.textUrl)]);
-  const customDocuments = await Promise.all(configuredUrls.filter((url) => !knownUrls.has(url)).map(fetchConfiguredWebDocument));
+  const plannedDocuments = await Promise.all(scheduledAssignments.map(async (assignment) => ({
+    assignment,
+    source: await fetchConfiguredWebDocument(assignment.url),
+  })));
+  const plannedSourceUrls = new Set(assignedUrls);
+  const customDocuments = await Promise.all(
+    configuredUrls.filter((url) => !knownUrls.has(url) && !plannedSourceUrls.has(url)).map(fetchConfiguredWebDocument),
+  );
   const sources = [
     ...gutenbergResults.filter((source): source is SourceDocument => source !== null),
     ...wikipediaDocuments,
     ...customDocuments.filter((source): source is SourceDocument => source !== null),
+    ...plannedDocuments.flatMap(({ source }) => source ? [source] : []),
   ];
-  const rounds: GeneratedRound[] = [];
   const usedAnswers = new Set<string>();
   const optionCorpus = sources.map((source) => source.text).join("\n");
   const optionWords = [...new Set(getSourceWordMatches(optionCorpus, language)
     .map((match) => match.word).filter((word) => language === "fa" || !COMMON_WORDS.has(word)))];
 
+  // A scheduled source is pinned to its chosen cell. Fail the generation rather
+  // than silently publishing a challenge that ignores an admin's assignment.
+  const pinnedRounds = new Map<number, GeneratedRound>();
+  for (const { assignment, source } of plannedDocuments) {
+    if (!source) {
+      throw new Error("MVP_SCHEDULED_SOURCE_UNAVAILABLE");
+    }
+    if (pinnedRounds.has(assignment.sequence)) {
+      throw new Error("MVP_DUPLICATE_SCHEDULED_SOURCE_CELL");
+    }
+    let pinnedRound: GeneratedRound | null = null;
+    for (let attempt = 0; attempt < 60 && !pinnedRound; attempt += 1) {
+      pinnedRound = buildRoundFromSource(source, usedAnswers, optionWords, language);
+    }
+    if (!pinnedRound) {
+      throw new Error("MVP_SCHEDULED_SOURCE_CANNOT_GENERATE_CLUE");
+    }
+    pinnedRounds.set(assignment.sequence, pinnedRound);
+    usedAnswers.add(pinnedRound.correctAnswer);
+  }
+
+  const remainingCount = 12 - pinnedRounds.size;
+  const rounds: GeneratedRound[] = [];
   for (const source of shuffle(sources)) {
     let attempts = 0;
     let sourceRoundCount = 0;
-    while (rounds.length < 12 && sourceRoundCount < 3 && attempts < 40) {
+    while (rounds.length < remainingCount && sourceRoundCount < 3 && attempts < 40) {
       attempts += 1;
       const round = buildRoundFromSource(source, usedAnswers, optionWords, language);
       if (!round) continue;
@@ -462,7 +555,7 @@ async function generateMvpRounds(language: "en" | "fa" = "en"): Promise<Generate
   }
   for (const source of shuffle(sources)) {
     let attempts = 0;
-    while (rounds.length < 12 && attempts < 40) {
+    while (rounds.length < remainingCount && attempts < 40) {
       attempts += 1;
       const round = buildRoundFromSource(source, usedAnswers, optionWords, language);
       if (!round) continue;
@@ -475,10 +568,23 @@ async function generateMvpRounds(language: "en" | "fa" = "en"): Promise<Generate
     wikipediaSourceCount: wikipediaDocuments.length,
     gutenbergSourceCount: gutenbergResults.filter((source) => source !== null).length,
     customSourceCount: customDocuments.filter((source) => source !== null).length,
-    generatedRoundCount: rounds.length, uniqueAnswerCount: usedAnswers.size,
+    scheduledAssignments: scheduledAssignments.map(({ sequence, url }) => ({ sequence, hostname: new URL(url).hostname })),
+    generatedRoundCount: rounds.length + pinnedRounds.size,
+    uniqueAnswerCount: usedAnswers.size,
   });
-  if (rounds.length < 12) throw new Error("MVP_ROUND_GENERATION_FAILED");
-  return shuffle(rounds).slice(0, 12);
+  if (rounds.length < remainingCount) throw new Error("MVP_ROUND_GENERATION_FAILED");
+
+  const result: Array<GeneratedRound | null> = Array.from({ length: 12 }, () => null);
+  for (const [sequence, clue] of pinnedRounds) result[sequence - 1] = clue;
+  const remainingRounds = shuffle(rounds);
+  let nextRoundIndex = 0;
+  for (let index = 0; index < result.length; index += 1) {
+    if (result[index] !== null) continue;
+    result[index] = remainingRounds[nextRoundIndex++] ?? null;
+  }
+  const completeResult = result.filter((clue): clue is GeneratedRound => clue !== null);
+  if (completeResult.length !== 12) throw new Error("MVP_ROUND_GENERATION_FAILED");
+  return completeResult;
 }
 
 /**
