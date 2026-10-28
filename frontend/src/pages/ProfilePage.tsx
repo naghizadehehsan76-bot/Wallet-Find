@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import BottomNav from "../components/BottomNav";
-import { getProfile, type ProfileResult } from "../services/api";
+import { getProfile, uploadProfileAvatar, type ProfileResult } from "../services/api";
 import { useI18n } from "../i18n";
 import { localizeApiError } from "../i18n/localize";
 import LoadingIndicator from "../components/LoadingIndicator";
@@ -26,6 +26,8 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
   const [profile, setProfile] = useState<ProfileResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [avatarError, setAvatarError] = useState("");
+  const [avatarSaving, setAvatarSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,9 +72,19 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
         ) : profile ? (
           <>
             <section className="profile-head">
-              <div className="avatar-lg">
-                {profile.username.slice(0, 2).toUpperCase()}
+              <div className="avatar-lg" style={{ overflow: "hidden", padding: 0 }}>
+                {profile.avatarDataUrl ? (
+                  <img src={profile.avatarDataUrl} alt={isPersian ? "عکس پروفایل" : "Profile photo"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : profile.username.slice(0, 2).toUpperCase()}
               </div>
+              <label className="cta-button" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: avatarSaving ? "wait" : "pointer", marginTop: 12, opacity: avatarSaving ? 0.7 : 1 }}>
+                {avatarSaving
+                  ? (isPersian ? "در حال ذخیرهٔ عکس..." : "Saving photo...")
+                  : (isPersian ? (profile.avatarDataUrl ? "تغییر عکس پروفایل" : "آپلود عکس پروفایل") : (profile.avatarDataUrl ? "Change profile photo" : "Upload profile photo"))}
+                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void handleAvatarChange(event)} disabled={avatarSaving} style={{ display: "none" }} />
+              </label>
+              <small>{isPersian ? "JPG، PNG یا WebP؛ حداکثر ۵ مگابایت" : "JPG, PNG, or WebP; max 5 MB"}</small>
+              {avatarError && <p className="inline-feedback round-error" role="alert">{avatarError}</p>}
               <h2>{profile.username}</h2>
               <span>
                 {isPersian
