@@ -32,13 +32,13 @@ type Page =
 
 const faSteps = [
   { number: "۰۱", title: "عبارت دقیق راهنما را در صفحهٔ منبع پیدا کن.", description: "پاسخ، نخستین واژه ای است که پس از عبارت راهنما می آید" },
-  { number: "۰۲", title: "خود واژه را کامل وارد کن؛ نه عبارت راهنما را.", description: "پاسخ الزاماً بین دو فاصله نیست؛ بخش‌های چسبیدهٔ واژه را نگه دار و نشانه‌گذاری را وارد نکن." },
+  { number: "۰۲", title: "خود واژه را کامل وارد کن؛ نه عبارت راهنما را.", description: "هنگام وارد کردن پاسخ، لازم نیست علائم نگارشی مثل نقطه (.)، ویرگول (،)، دونقطه (:) یا علامت سؤال (؟) را بنویسی؛ فقط خود کلمه را وارد می‌کنی." },
   { number: "۰۳", title: "۱۲ واژه را به‌ترتیب حل کن.", description: "پاسخ درست خانهٔ بعدی را باز می‌کند؛ پاسخ اشتباه این کار را نمی‌کند." },
 ];
 
 const enSteps = [
   { number: "01", title: "Find the exact hint phrase on the source page.", description: "The answer is the first matching word in the challenge language immediately after the phrase." },
-  { number: "02", title: "Enter the complete word, not the hint phrase.", description: "The answer is not defined by spaces alone. Keep attached prefixes/suffixes and omit punctuation." },
+  { number: "02", title: "Enter the complete word, not the hint phrase.", description: "When entering your answer, you do not need to type punctuation such as a period (.), comma (,), colon (:), or question mark (?); enter only the word itself." },
   { number: "03", title: "Solve all 12 words in order.", description: "A correct answer unlocks the next box; a wrong answer does not." },
 ];
 
