@@ -129,6 +129,21 @@ export function getSourceWordMatches(
   });
 }
 
+/**
+ * Return true only for a literal phrase that can safely be searched on the
+ * rendered source page. A clue containing template syntax or maintenance
+ * metadata is rejected rather than shown to participants.
+ */
+export function isSearchableClueAnchor(anchor: string): boolean {
+  const trimmed = anchor.trim();
+  return (
+    trimmed.length >= 25 &&
+    trimmed.length <= 160 &&
+    !/[\\r\\n]/.test(trimmed) &&
+    !/\\{\\{|\\}\\}|<[^>]*>|نگهداری\\s+یادکرد|(?:cite\\s+web|یادکرد\\s+وب)\\s*:/iu.test(trimmed)
+  );
+}
+
 function countNormalizedOccurrences(source: string, phrase: string): number {
   if (!phrase) return 0;
   let count = 0;
@@ -166,10 +181,7 @@ export function findUniqueAnchorBeforeTarget(
     if (/[.!?؟؛۔][)\]"'»’”\]]*(?:\s|[{<]|$)/u.test(rawAnchor)) continue;
 
     const anchor = rawAnchor.replace(/\s+/g, " ").trim();
-    if (anchor.length < 25 || anchor.length > 160) continue;
-    // Do not publish literal template markup or citation-maintenance categories:
-    // they can exist in an API extract but are not reliably searchable on-page.
-    if (/\{\{|\}\}|<[^>]*>|نگهداری\s+یادکرد|(?:cite\s+web|یادکرد\s+وب)\s*:/iu.test(anchor)) continue;
+    if (!isSearchableClueAnchor(anchor)) continue;
 
     const comparisonAnchor = normalizeForHintComparison(anchor);
     if (countNormalizedOccurrences(comparisonSource, comparisonAnchor) !== 1) continue;
