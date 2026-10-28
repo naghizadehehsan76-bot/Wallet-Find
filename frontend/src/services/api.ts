@@ -267,6 +267,25 @@ export async function getCurrentClue(
   );
 }
 
+export type ContestSourceVisitResult = {
+  visitId: string;
+  sourceUrl: string;
+  recordedAt: string;
+  advertiserAttributed: boolean;
+  alreadyRecorded: boolean;
+};
+
+export async function recordContestSourceVisit(
+  contestId: string,
+  clueId: string,
+): Promise<ContestSourceVisitResult> {
+  return request<ContestSourceVisitResult>(
+    `/contests/${encodeURIComponent(contestId)}/clues/${encodeURIComponent(clueId)}/source-visit`,
+    { method: "POST", body: JSON.stringify({}) },
+    true,
+  );
+}
+
 export async function submitAnswer(
   contestId: string,
   clueId: string,
@@ -433,6 +452,53 @@ export async function getContestPrizePool(contestId: string): Promise<{
   );
 }
 
+
+export type AdminSourceVisit = {
+  id: string;
+  userId: string | null;
+  username: string;
+  contestId: string | null;
+  contestTitle: string;
+  contestLanguage: string;
+  contestStartsAt: string | null;
+  clueId: string | null;
+  clueSequence: number;
+  sourceUrl: string;
+  sourceHostname: string;
+  advertiserContentId: string | null;
+  advertiserContentTitle: string | null;
+  advertiserName: string | null;
+  advertisementOrderId: string | null;
+  createdAt: string;
+};
+
+export type AdminAdvertiserPerformance = {
+  advertisementOrderId: string;
+  advertiserName: string;
+  contentTitle: string | null;
+  destinationUrl: string | null;
+  clickCount: number;
+  uniqueVisitors: number;
+  orderStatus: string;
+};
+
+export type AdminSourceVisitReport = {
+  summary: {
+    totalClicks: number;
+    uniqueVisitors: number;
+    advertiserAttributedClicks: number;
+    advertiserUniqueVisitors: number;
+  };
+  advertiserPerformance: AdminAdvertiserPerformance[];
+  recentVisits: AdminSourceVisit[];
+  recentVisitsLimit: number;
+  generatedAt: string;
+  proofNote: string;
+};
+
+export async function getAdminSourceVisitReport(): Promise<AdminSourceVisitReport> {
+  return request<AdminSourceVisitReport>("/admin/source-visit-report", {}, true);
+}
 
 export type AdminAuditLog = {
   id: string;
