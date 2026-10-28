@@ -35,10 +35,10 @@ function parseAnchor(value: string | undefined): ChallengeScheduleAnchor | null 
 /**
  * Get a persisted time-based numbering anchor for one language.
  *
- * On the first run after this change, retain the old count-based number for
- * the latest known round, then use elapsed 15-minute slots for all future and
- * historical round numbers. If the database has no started rounds yet, slot
- * the current server time down to its fixed 15-minute boundary and use #1.
+ * On the first run, use the earliest known started round as challenge #1.
+ * From that fixed date, every 15-minute time slot has a stable number, even if
+ * a server outage means no database row was created for some slots. If there
+ * are no started rounds yet, use the current fixed 15-minute boundary as #1.
  * The saved anchor survives restarts and Render sleeping.
  */
 export async function getChallengeScheduleAnchor(
@@ -53,30 +53,21 @@ export async function getChallengeScheduleAnchor(
   if (savedAnchor) return savedAnchor;
 
   const now = new Date();
-  const latestStarted = await prisma.contest.findFirst({
+  const earliestStarted = await prisma.contest.findFirst({
     where: {
       language,
       status: { not: "CANCELLED" },
       startsAt: { lte: now },
     },
-    orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }],
+    orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
     select: { startsAt: true },
   });
 
   let anchor: ChallengeScheduleAnchor;
-  if (latestStarted?.startsAt) {
-    // Preserve the number users currently see before switching the future
-    // schedule to a durable clock-based sequence.
-    const existingNumber = await prisma.contest.count({
-      where: {
-        language,
-        status: { not: "CANCELLED" },
-        startsAt: { lte: latestStarted.startsAt },
-      },
-    });
+  if (earliestStarted?.startsAt) {
     anchor = {
-      challengeNumber: Math.max(1, existingNumber),
-      startsAt: latestStarted.startsAt.toISOString(),
+      challengeNumber: 1,
+      startsAt: earliestStarted.startsAt.toISOString(),
     };
   } else {
     const currentBoundary = Math.floor(now.getTime() / CHALLENGE_INTERVAL_MS) * CHALLENGE_INTERVAL_MS;
