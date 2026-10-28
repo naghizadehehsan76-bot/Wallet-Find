@@ -52,6 +52,7 @@ textarea { font: inherit; resize: vertical; }
 .stat-card { flex:1; padding:14px; border:1px solid var(--line); border-radius:var(--radius); background:var(--ink-2); text-align:center; }
 .stat-card strong { display:block; color:var(--brass-light); font-size:18px; }
 .stat-card span { color:var(--muted); font-size:11px; }
+.stat-card .stat-card__currency { display:block; margin-top:2px; color:var(--verdigris); font-size:16px; font-weight:800; line-height:1.25; }
 .how-section { margin-top:8px; }
 .section-heading { margin:0 0 14px; color:var(--muted); font-size:13px; font-weight:700; letter-spacing:1px; }
 .steps { border-top:1px solid var(--line); }
