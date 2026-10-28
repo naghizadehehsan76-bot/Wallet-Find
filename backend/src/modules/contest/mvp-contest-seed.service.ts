@@ -597,7 +597,7 @@ async function generateMvpRounds(
 async function ensureMvpActiveContestInternal(language: "en" | "fa" = "en") {
   // Persist the numbering anchor before recovery creates a replacement round;
   // otherwise an outage could make the recovered round reset the schedule.
-  await getChallengeScheduleAnchor(language);
+  await getChallengeScheduleAnchor();
   const activeContests = await prisma.contest.findMany({
     where: { status: "ACTIVE", language },
     select: {
@@ -873,7 +873,7 @@ export async function startNextMvpContest(userId: string, completedContestId: st
     ? completedContest.startsAt.getTime() + intervalMs
     : 0;
   const startsAt = new Date(Math.max(nextFixedBoundary, previousRoundBoundary));
-  const challengeNumber = await getChallengeNumberAt(language, startsAt);
+  const challengeNumber = await getChallengeNumberAt(startsAt);
   const plannedAssignments = await getScheduledSourceAssignments(language, { challengeNumber, startsAt });
   if (plannedAssignments.length > 0) {
     clues = await generateMvpRounds(language, { challengeNumber, startsAt });
@@ -1024,7 +1024,7 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
     const scheduledRound = existingScheduled;
     const scheduledStartAt = scheduledRound.startsAt;
     if (!scheduledStartAt) return { scheduled: true, contestId: scheduledRound.id };
-    const actualChallengeNumber = await getChallengeNumberAt(language, scheduledStartAt);
+    const actualChallengeNumber = await getChallengeNumberAt(scheduledStartAt);
     const generationContext = {
       challengeNumber: actualChallengeNumber,
       startsAt: scheduledStartAt,
@@ -1122,7 +1122,7 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
       ? previous.startsAt.getTime() + intervalMs
       : nextBoundary;
     const startsAt = new Date(Math.max(nextBoundary, previousBoundary));
-    const challengeNumber = await getChallengeNumberAt(language, startsAt);
+    const challengeNumber = await getChallengeNumberAt(startsAt);
     const clues = await generateMvpRounds(language, { challengeNumber, startsAt });
     const endsAt = new Date(startsAt.getTime() + CONTEST_DURATION_MS);
 
