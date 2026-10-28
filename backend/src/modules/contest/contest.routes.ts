@@ -63,6 +63,12 @@ router.get(
   getLeaderboardHandler,
 );
 
+router.get(
+  "/:contestId/prize-pool",
+  requireAuth,
+  getPublicPrizePoolHandler,
+);
+
 router.post(
   "/:contestId/submit",
   requireAuth,
