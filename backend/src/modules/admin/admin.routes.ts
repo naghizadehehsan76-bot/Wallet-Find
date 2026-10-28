@@ -14,6 +14,7 @@ import {
   getAuditLogsHandler,
   getAdminUsersHandler,
   getProjectProfitPoolAdminHandler,
+  getContestSourceVisitReportHandler,
 } from "./admin.controller.js";
 import {
   activateContestHandler,
@@ -42,6 +43,7 @@ router.post("/contests/:contestId/activate", activateContestHandler);
 router.post("/contests/:contestId/finish", finishContestHandler);
 
 router.get("/audit-logs", getAuditLogsHandler);
+router.get("/source-visit-report", getContestSourceVisitReportHandler);
 router.get("/wallets", getAdminWalletsHandler);
 router.get("/project-profit-pool", getProjectProfitPoolAdminHandler);
 router.get("/prize-pool/:contestId", getPrizePoolHandler);
