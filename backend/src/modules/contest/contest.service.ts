@@ -126,7 +126,7 @@ export async function getActiveContest(language: "en" | "fa" = "en") {
     select: { id: true, title: true, description: true, status: true, language: true, startsAt: true, endsAt: true },
   });
   if (active) {
-    const challengeNumber = await getChallengeNumberAt(language, active.startsAt);
+    const challengeNumber = await getChallengeNumberAt(active.startsAt);
     return { ...active, challengeNumber };
   }
 
@@ -142,7 +142,7 @@ export async function getActiveContest(language: "en" | "fa" = "en") {
   });
   if (due) {
     await prisma.contest.update({ where: { id: due.id }, data: { status: "ACTIVE" } });
-    const challengeNumber = await getChallengeNumberAt(language, due.startsAt);
+    const challengeNumber = await getChallengeNumberAt(due.startsAt);
     return { ...due, status: "ACTIVE" as const, challengeNumber };
   }
 
