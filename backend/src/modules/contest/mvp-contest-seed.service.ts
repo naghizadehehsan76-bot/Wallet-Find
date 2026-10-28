@@ -1032,10 +1032,12 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
   // scheduled time and avoids creating a gap between rounds.
   if (existingScheduled?.startsAt) {
     const scheduledRound = existingScheduled;
-    const actualChallengeNumber = await getChallengeNumberForStart(language, scheduledRound.startsAt, true);
+    const scheduledStartAt = scheduledRound.startsAt;
+    if (!scheduledStartAt) return { scheduled: true, contestId: scheduledRound.id };
+    const actualChallengeNumber = await getChallengeNumberForStart(language, scheduledStartAt, true);
     const generationContext = {
       challengeNumber: actualChallengeNumber,
-      startsAt: scheduledRound.startsAt,
+      startsAt: scheduledStartAt,
     };
     const plannedAssignments = await getScheduledSourceAssignments(language, generationContext);
     const assignmentMismatch = plannedAssignments.some((assignment) => {
@@ -1046,7 +1048,7 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
       const assignmentSignature = JSON.stringify({
         contestId: scheduledRound.id,
         challengeNumber: actualChallengeNumber,
-        startsAt: scheduledRound.startsAt.toISOString(),
+        startsAt: scheduledStartAt.toISOString(),
         assignments: plannedAssignments.map(({ sequence, url }) => ({ sequence, url })),
       });
       const lastAttempt = lastScheduledSourceAssignmentAttemptAt.get(language);
@@ -1079,7 +1081,7 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
                 sourceUrl: clue.sourceUrl,
                 hintAnchor: clue.hintAnchor,
                 options: clue.options,
-                publishedAt: scheduledRound.startsAt,
+                publishedAt: scheduledStartAt,
               },
             });
           }
@@ -1090,7 +1092,7 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
               entityId: scheduledRound.id,
               metadata: {
                 challengeNumber: actualChallengeNumber,
-                startsAt: scheduledRound.startsAt?.toISOString(),
+                startsAt: scheduledStartAt?.toISOString(),
                 assignments: plannedAssignments.map(({ sequence, url }) => ({
                   sequence,
                   hostname: new URL(url).hostname,
