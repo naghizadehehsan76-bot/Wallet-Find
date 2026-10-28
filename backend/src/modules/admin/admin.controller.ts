@@ -174,3 +174,133 @@ export async function getProjectProfitPoolAdminHandler(
     return res.status(503).json({ success: false, error: "PROJECT_PROFIT_POOL_UNAVAILABLE" });
   }
 }
+
+export async function getContestSourceVisitReportHandler(
+  _req: AuthenticatedRequest,
+  res: Response,
+) {
+  try {
+    const [
+      totalClicks,
+      advertiserAttributedClicks,
+      uniqueVisitorRows,
+      advertiserUniqueVisitorRows,
+      recentVisits,
+      advertiserGroups,
+    ] = await Promise.all([
+      prisma.contestSourceVisit.count(),
+      prisma.contestSourceVisit.count({ where: { advertisementOrderId: { not: null } } }),
+      prisma.contestSourceVisit.findMany({
+        where: { userId: { not: null } },
+        distinct: ["userId"],
+        select: { userId: true },
+      }),
+      prisma.contestSourceVisit.findMany({
+        where: { userId: { not: null }, advertisementOrderId: { not: null } },
+        distinct: ["userId"],
+        select: { userId: true },
+      }),
+      prisma.contestSourceVisit.findMany({
+        take: 500,
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          userId: true,
+          username: true,
+          contestId: true,
+          contestTitle: true,
+          contestLanguage: true,
+          contestStartsAt: true,
+          clueId: true,
+          clueSequence: true,
+          sourceUrl: true,
+          sourceHostname: true,
+          advertiserContentId: true,
+          advertiserContentTitle: true,
+          advertiserName: true,
+          advertisementOrderId: true,
+          createdAt: true,
+        },
+      }),
+      prisma.contestSourceVisit.groupBy({
+        by: ["advertisementOrderId"],
+        where: { advertisementOrderId: { not: null } },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const advertiserOrderIds = advertiserGroups
+      .map((group) => group.advertisementOrderId)
+      .filter((id): id is string => Boolean(id));
+
+    const [advertiserOrders, advertiserUniquePairs] = await Promise.all([
+      advertiserOrderIds.length
+        ? prisma.advertisementOrder.findMany({
+            where: { id: { in: advertiserOrderIds } },
+            select: {
+              id: true,
+              status: true,
+              advertiser: { select: { username: true } },
+              content: { select: { title: true, url: true } },
+            },
+          })
+        : Promise.resolve([]),
+      prisma.contestSourceVisit.findMany({
+        where: { userId: { not: null }, advertisementOrderId: { not: null } },
+        distinct: ["advertisementOrderId", "userId"],
+        select: { advertisementOrderId: true, userId: true },
+      }),
+    ]);
+
+    const orderById = new Map(advertiserOrders.map((order) => [order.id, order]));
+    const visitorsByOrder = new Map<string, number>();
+    for (const row of advertiserUniquePairs) {
+      if (!row.advertisementOrderId) continue;
+      visitorsByOrder.set(
+        row.advertisementOrderId,
+        (visitorsByOrder.get(row.advertisementOrderId) ?? 0) + 1,
+      );
+    }
+
+    const advertiserPerformance = advertiserGroups
+      .filter((group) => Boolean(group.advertisementOrderId))
+      .map((group) => {
+        const orderId = group.advertisementOrderId as string;
+        const order = orderById.get(orderId);
+        const lastVisit = recentVisits.find((visit) => visit.advertisementOrderId === orderId);
+        return {
+          advertisementOrderId: orderId,
+          advertiserName: order?.advertiser.username ?? lastVisit?.advertiserName ?? "—",
+          contentTitle: order?.content.title ?? lastVisit?.advertiserContentTitle ?? null,
+          destinationUrl: order?.content.url ?? lastVisit?.sourceUrl ?? null,
+          clickCount: group._count._all,
+          uniqueVisitors: visitorsByOrder.get(orderId) ?? 0,
+          orderStatus: order?.status ?? "DELETED",
+        };
+      })
+      .sort((a, b) => b.clickCount - a.clickCount);
+
+    return res.json({
+      success: true,
+      data: {
+        summary: {
+          totalClicks,
+          uniqueVisitors: uniqueVisitorRows.length,
+          advertiserAttributedClicks,
+          advertiserUniqueVisitors: advertiserUniqueVisitorRows.length,
+        },
+        advertiserPerformance,
+        recentVisits,
+        recentVisitsLimit: 500,
+        generatedAt: new Date().toISOString(),
+        proofNote: "Records prove a logged, authenticated click on a challenge source link. They do not independently prove that the external destination finished loading or that the user viewed it.",
+      },
+    });
+  } catch (error) {
+    console.error("Failed to load source visit report", error);
+    return res.status(503).json({
+      success: false,
+      error: "SOURCE_VISIT_REPORT_UNAVAILABLE",
+    });
+  }
+}
