@@ -145,6 +145,7 @@ test("citation templates and maintenance labels cannot leak into a clue anchor",
     "اطلاعات اصلی در ۲۱ آبان ۱۳۹۲.{{cite web}}: نگهداری یادکرد:تاریخ",
     "این یک عبارت قابل جستجو با {{cite web}} درون متن است",
     "عبارت طولانی و دارای نگهداری یادکرد:تاریخ برای بررسی",
+    "این عبارت از میانهٔ یادکرد:تاریخ شروع شده و نباید سرنخ شود",
   ];
   for (const anchor of invalidAnchors) {
     assert.equal(isSearchableClueAnchor(anchor), false);
