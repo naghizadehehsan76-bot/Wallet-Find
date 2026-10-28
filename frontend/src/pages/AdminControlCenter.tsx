@@ -261,6 +261,19 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     uniqueSourceVisitors: fa ? "کاربران یکتای کلیک‌کننده" : "Unique users clicking",
     advertiserSourceClicks: fa ? "کلیک‌های منتسب به سفارش تبلیغاتی" : "Advertiser-attributed clicks",
     advertiserSourceVisitors: fa ? "کاربران یکتای لینک تبلیغ‌دهنده" : "Unique visitors to advertiser links",
+    partnerConfirmedVisits: fa ? "بازدید تأییدشده توسط تبلیغ‌دهنده" : "Advertiser-confirmed landings",
+    pendingExternalVisits: fa ? "در انتظار تأیید API تبلیغ‌دهنده" : "Awaiting advertiser API confirmation",
+    notConfiguredExternalVisits: fa ? "بدون اتصال API تبلیغ‌دهنده" : "Not yet connected to advertiser API",
+    rejectedExternalVisits: fa ? "بازدید تأییدنشده/ردشده" : "Rejected external confirmations",
+    verificationStatus: fa ? "وضعیت تأیید مقصد" : "External verification status",
+    verificationConfirmed: fa ? "تأییدشده توسط تبلیغ‌دهنده" : "Confirmed by advertiser",
+    verificationPending: fa ? "در انتظار تأیید" : "Pending confirmation",
+    verificationNotConfigured: fa ? "API هنوز متصل نشده" : "API not configured yet",
+    verificationRejected: fa ? "ردشده" : "Rejected",
+    verificationTime: fa ? "زمان تأیید مقصد" : "External confirmation time",
+    verificationProvider: fa ? "روش/سرویس تأیید" : "Verification provider/method",
+    verificationReference: fa ? "شناسه مرجع تبلیغ‌دهنده" : "Advertiser reference ID",
+    verificationHelp: fa ? "فقط رکوردهایی که پس از اتصال امن API تبلیغ‌دهنده وضعیت «تأییدشده» بگیرند، بازدید خارجی تأییدشده محسوب می‌شوند. تا قبل از دریافت مستندات و دسترسی API، این شمارنده‌ها جایگزین آمار کلیک نیستند." : "Only records marked confirmed after a secure advertiser API integration count as verified external landings. Until the API specification and access are supplied, these counters are not a substitute for click totals.",
     destinationPerformanceTitle: fa ? "آمار به تفکیک لینک مقصد" : "Performance by destination link",
     noDestinationPerformance: fa ? "هنوز کلیکی ثبت نشده است." : "No destination clicks have been recorded yet.",
     destinationRowsLimit: fa ? "۱۰۰ مقصد با بیشترین کلیک نمایش داده می‌شود." : "Showing the 100 destinations with the most clicks.",
@@ -562,6 +575,10 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       "destination_host",
       "advertiser",
       "advertisement_order_id",
+      "external_verification_status",
+      "external_confirmed_at",
+      "external_verification_provider",
+      "external_reference_id",
     ];
     const rows = sourceVisitReport.recentVisits.map((visit) => [
       visit.createdAt,
@@ -575,6 +592,10 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       visit.sourceHostname,
       visit.advertiserName,
       visit.advertisementOrderId,
+      visit.externalVerificationStatus,
+      visit.externalConfirmedAt,
+      visit.externalVerificationProvider,
+      visit.externalReferenceId,
     ]);
     const csv = "\uFEFF" + [headers, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\r\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -861,6 +882,10 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                     { label: copy.uniqueSourceVisitors, value: sourceVisitReport.summary.uniqueVisitors },
                     { label: copy.advertiserSourceClicks, value: sourceVisitReport.summary.advertiserAttributedClicks },
                     { label: copy.advertiserSourceVisitors, value: sourceVisitReport.summary.advertiserUniqueVisitors },
+                    { label: copy.partnerConfirmedVisits, value: sourceVisitReport.summary.partnerConfirmedVisits },
+                    { label: copy.pendingExternalVisits, value: sourceVisitReport.summary.pendingExternalVerificationVisits },
+                    { label: copy.notConfiguredExternalVisits, value: sourceVisitReport.summary.notConfiguredExternalVerificationVisits },
+                    { label: copy.rejectedExternalVisits, value: sourceVisitReport.summary.rejectedExternalVerificationVisits },
                   ].map((metric) => (
                     <article className="admin-metric-card" key={metric.label}>
                       <span className="admin-metric-card__label">{metric.label}</span>
@@ -869,6 +894,8 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                   ))}
                 </section>
                 <p className="admin-footnote">{copy.reportProofNote}</p>
+                <p className="admin-footnote">{sourceVisitReport.verificationNote}</p>
+                <p className="admin-footnote">{copy.verificationHelp}</p>
                 <p className="admin-footnote">{copy.reportLimitNotice}</p>
 
                 <h3>{copy.destinationPerformanceTitle}</h3>
@@ -924,6 +951,10 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                           {visit.contestStartsAt && <small>{fa ? "شروع چالش" : "Challenge start"}: {new Date(visit.contestStartsAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>}
                           <small>{copy.reportAdvertiser}: {visit.advertiserName ?? copy.reportNoAdvertiser}</small>
                           <small>{copy.reportClickTime}: {new Date(visit.createdAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>
+                          <small>{copy.verificationStatus}: {visit.externalVerificationStatus === "CONFIRMED" ? copy.verificationConfirmed : visit.externalVerificationStatus === "PENDING" ? copy.verificationPending : visit.externalVerificationStatus === "REJECTED" ? copy.verificationRejected : copy.verificationNotConfigured}</small>
+                          {visit.externalConfirmedAt && <small>{copy.verificationTime}: {new Date(visit.externalConfirmedAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>}
+                          {visit.externalVerificationProvider && <small>{copy.verificationProvider}: {visit.externalVerificationProvider}</small>}
+                          {visit.externalReferenceId && <small>{copy.verificationReference}: {visit.externalReferenceId}</small>}
                           <small>{copy.reportDestination}: {visit.sourceHostname}</small>
                           <code>{visit.sourceUrl}</code>
                         </div>
