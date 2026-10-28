@@ -2707,3 +2707,14 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   .admin-source-report__actions .admin-refresh,
   .admin-source-report__actions .cta-button { flex:1 1 auto; }
 }
+
+
+/* Keep Challenge and Leaderboard icons visibly illuminated in the selected bottom-nav state. */
+.bottom-nav .nav-item--active .nav-icon--challenge .nav-icon__key-svg {
+  color: #061923;
+  filter: drop-shadow(0 0 3px rgba(0, 240, 208, .32));
+}
+.bottom-nav .nav-item--active .nav-icon--leaderboard .nav-icon__trophy {
+  filter: brightness(0) saturate(100%) invert(7%) sepia(35%) saturate(1250%) hue-rotate(165deg) brightness(94%) contrast(102%);
+  text-shadow: none;
+}
