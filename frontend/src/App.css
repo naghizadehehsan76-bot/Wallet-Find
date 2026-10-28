@@ -2718,3 +2718,10 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   filter: none;
   text-shadow: 0 0 8px rgba(255, 205, 65, .65);
 }
+
+/* Keep the answer field free of the global turquoise focus rectangle; the active cell already indicates focus. */
+.word-entry input:focus,
+.word-entry input:focus-visible {
+  outline: none !important;
+  outline-offset: 0;
+}
