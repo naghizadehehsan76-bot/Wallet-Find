@@ -9,6 +9,7 @@ export async function getProfile(userId: string) {
       username: true,
       role: true,
       createdAt: true,
+      avatarDataUrl: true,
       submissions: {
         select: {
           contestId: true,
@@ -40,6 +41,7 @@ export async function getProfile(userId: string) {
     username: user.username,
     role: user.role,
     createdAt: user.createdAt,
+    avatarDataUrl: user.avatarDataUrl,
     contestsParticipated: contestIds.size,
     completedContests: completedContestIds.size,
     solvedKeys: solvedClues.size,
