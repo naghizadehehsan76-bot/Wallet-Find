@@ -1,5 +1,6 @@
 import prisma from "../../config/prisma.js";
 import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "../contest/contest.logic.js";
+import { CHALLENGE_INTERVAL_MS } from "../contest/challenge-schedule.js";
 
 export async function activateContest(
   contestId: string,
@@ -48,7 +49,7 @@ export async function activateContest(
   }
 
   const clueCount = clues.length;
-  const ROUND_INTERVAL_MS = 15 * 60_000;
+  const ROUND_INTERVAL_MS = CHALLENGE_INTERVAL_MS;
   const requestedStart = contest.startsAt && contest.startsAt > now ? contest.startsAt : now;
   const startsAt = new Date(Math.ceil(requestedStart.getTime() / ROUND_INTERVAL_MS) * ROUND_INTERVAL_MS);
   const endsAt = new Date(startsAt.getTime() + CONTEST_DURATION_MS);
