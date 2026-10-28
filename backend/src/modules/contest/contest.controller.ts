@@ -15,6 +15,7 @@ import {
   submitAnswer,
 } from "./contest.service.js";
 import { ensureMvpActiveContest, startNextMvpContest } from "./mvp-contest-seed.service.js";
+import { getLanguageParticipationBlock } from "./language-participation.js";
 
 function isError(error: unknown): error is Error {
   return error instanceof Error;
@@ -128,10 +129,11 @@ export async function getActiveContestHandler(
     // This replaces old rounds whose source phrases cannot be found reliably.
     await ensureMvpActiveContest(language);
     const contest = await getActiveContest(language);
+    const participationBlock = await getLanguageParticipationBlock(req.user.userId, contest);
 
     return res.status(200).json({
       success: true,
-      data: contest,
+      data: { ...contest, participationBlock },
     });
   } catch (error) {
     if (
@@ -364,6 +366,7 @@ export async function submitAnswerHandler(
       "CLUE_NOT_PUBLISHED",
       "CLUE_ALREADY_SOLVED",
       "CLUE_LOCKED",
+      "LANGUAGE_CHALLENGE_ALREADY_COMPLETED",
     ]);
 
     if (clientErrors.has(error.message)) {
