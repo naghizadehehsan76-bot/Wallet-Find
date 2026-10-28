@@ -281,6 +281,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   }, [load]);
 
   useEffect(() => {
+    if (section !== "ads") return;
     let cancelled = false;
     setChallengeScheduleAnchor(null);
     setChallengeScheduleUnavailable(false);
@@ -309,7 +310,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       });
 
     return () => { cancelled = true; };
-  }, [scheduledSourceLanguage]);
+  }, [scheduledSourceLanguage, section]);
 
   function handleScheduledChallengeStartChange(value: string) {
     setScheduledChallengeStart(value);
