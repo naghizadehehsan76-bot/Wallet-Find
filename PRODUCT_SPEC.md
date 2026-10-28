@@ -114,6 +114,14 @@ Wrong answer:
 
 The frontend must never determine whether an answer is correct.
 
+### Answer-token identification
+
+- The player finds the exact hint phrase on the source page. The answer is the first matching token immediately after that phrase, not the hint phrase itself.
+- The answer is not defined simply as all text between two spaces. Whitespace and punctuation delimit tokens; punctuation is never entered as part of the answer.
+- Persian challenges accept a contiguous Persian-script token of 3–24 characters. A zero-width non-joiner inside a word remains part of that token. Prefixes or suffixes attached to the token remain included.
+- English challenges accept a contiguous sequence of 4–12 English letters (A–Z). Alphabetic prefixes or suffixes joined directly are part of the same sequence. Hyphens and apostrophes separate letter sequences and are not part of the answer.
+- The player enters the complete matching token in the active numbered box, without adjacent words or punctuation.
+
 ## 7. Timing
 
 Response timing is part of contest ranking.
