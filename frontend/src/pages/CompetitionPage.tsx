@@ -1165,7 +1165,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
               <div className="step-content">
                 <p>
                   {isPersian
-                    ? "راندها به ترتیب باز می‌شوند؛ پاسخ اشتباه راند بعدی را باز نمی‌کند."
+                    ? "خانه‌ها به ترتیب باز می‌شوند؛ پاسخ اشتباه خانهٔ بعدی را باز نمی‌کند."
                     : "Rounds unlock in order. An incorrect answer will not unlock the next round."}
                 </p>
               </div>
