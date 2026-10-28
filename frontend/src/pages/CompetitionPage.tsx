@@ -6,6 +6,9 @@ import {
   startNextContest,
   submitAnswer,
   getContestPrizePool,
+  getLeaderboard,
+  getProfile,
+  type LeaderboardEntry,
   type PrizePoolView,
 } from "../services/api";
 import { useI18n } from "../i18n";
@@ -25,6 +28,93 @@ type CompetitionPageProps = {
   onNavigate: (page: Page) => void;
 };
 
+type CompletionSummary = {
+  rank: number;
+  elapsedMs: number;
+  prizeAmount: string;
+  prizeFinalized: boolean;
+};
+
+const PRIZE_BASIS_POINTS = [5_000n, 2_250n, 1_250n] as const;
+const PRIZE_BASIS_POINT_DENOMINATOR = 10_000n;
+const LOWER_PRIZE_BASIS_POINTS = 1_000n;
+const OFFICIAL_CHALLENGE_DURATION_MS = 15 * 60_000;
+
+function parseUsdtMicro(value: string): bigint {
+  const [wholePart = "0", fractionPart = ""] = value.trim().split(".");
+  const whole = /^\d+$/.test(wholePart) ? BigInt(wholePart) : 0n;
+  const fractionDigits = fractionPart.replace(/\D/g, "").slice(0, 6).padEnd(6, "0");
+  return whole * 1_000_000n + BigInt(fractionDigits || "0");
+}
+
+function formatUsdtMicro(value: bigint): string {
+  const safeValue = value < 0n ? 0n : value;
+  const whole = safeValue / 1_000_000n;
+  const fraction = (safeValue % 1_000_000n).toString().padStart(6, "0");
+  return `${whole}.${fraction}`;
+}
+
+// Mirrors the server's current simulated prize distribution for a live estimate.
+// The scheduler's settled ledger remains the authoritative final amount.
+function estimateCurrentPrize(
+  entries: LeaderboardEntry[],
+  userId: string,
+  totalPool: string,
+): string {
+  const finishers = entries
+    .filter((entry) => entry.completed)
+    .sort((a, b) => a.totalResponseTimeMs - b.totalResponseTimeMs);
+  const totalMicro = parseUsdtMicro(totalPool);
+  const payouts = new Map<string, bigint>();
+
+  for (let index = 0; index < Math.min(3, finishers.length);) {
+    const first = finishers[index];
+    if (!first) break;
+    let end = index + 1;
+    while (
+      end < finishers.length &&
+      finishers[end]?.totalResponseTimeMs === first.totalResponseTimeMs
+    ) {
+      end++;
+    }
+
+    let groupBasisPoints = 0n;
+    for (let slot = index; slot < Math.min(end, 3); slot++) {
+      groupBasisPoints += PRIZE_BASIS_POINTS[slot] ?? 0n;
+    }
+    const groupAmount = (totalMicro * groupBasisPoints) / PRIZE_BASIS_POINT_DENOMINATOR;
+    const perPerson = groupAmount / BigInt(end - index);
+    for (let cursor = index; cursor < end; cursor++) {
+      const person = finishers[cursor];
+      if (person && index < 3) payouts.set(person.userId, perPerson);
+    }
+    index = end;
+  }
+
+  const lowerPool = (totalMicro * LOWER_PRIZE_BASIS_POINTS) / PRIZE_BASIS_POINT_DENOMINATOR;
+  const lower = finishers.filter(
+    (entry) =>
+      entry.rank >= 4 &&
+      entry.totalResponseTimeMs < OFFICIAL_CHALLENGE_DURATION_MS,
+  );
+  const scores = lower.map((entry) =>
+    BigInt(Math.max(0, OFFICIAL_CHALLENGE_DURATION_MS - entry.totalResponseTimeMs)),
+  );
+  const scoreTotal = scores.reduce((sum, score) => sum + score, 0n);
+
+  if (scoreTotal > 0n) {
+    for (let index = 0; index < lower.length; index++) {
+      const person = lower[index];
+      const score = scores[index];
+      if (!person || score === undefined) continue;
+      const share = (lowerPool * score) / scoreTotal;
+      payouts.set(person.userId, (payouts.get(person.userId) ?? 0n) + share);
+    }
+  }
+
+  return formatUsdtMicro(payouts.get(userId) ?? 0n);
+}
+
 function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const { language } = useI18n();
   const isPersian = language === "fa";
@@ -41,6 +131,9 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [contestTitle, setContestTitle] = useState("");
   const [contestDate, setContestDate] = useState<string | null>(null);
   const [prizePool, setPrizePool] = useState<PrizePoolView | null>(null);
+  const [completionSummary, setCompletionSummary] = useState<CompletionSummary | null>(null);
+  const [completionSummaryLoading, setCompletionSummaryLoading] = useState(false);
+  const [completionSummaryError, setCompletionSummaryError] = useState(false);
   const [currentClueId, setCurrentClueId] = useState<string | null>(null);
   const [currentSequence, setCurrentSequence] = useState<number | null>(null);
   const [solvedCount, setSolvedCount] = useState(0);
@@ -227,6 +320,69 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
 
     return () => window.clearInterval(timerId);
   }, [contestDate, completed]);
+
+  useEffect(() => {
+    if (!completed || !contestId) {
+      setCompletionSummary(null);
+      setCompletionSummaryError(false);
+      setCompletionSummaryLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    let refreshTimer: number | null = null;
+    let profile: Awaited<ReturnType<typeof getProfile>> | null = null;
+
+    const loadCompletionSummary = async (initial = false) => {
+      if (initial) setCompletionSummaryLoading(true);
+      try {
+        if (!profile) profile = await getProfile();
+        const [leaderboard, prizeResult] = await Promise.all([
+          getLeaderboard(contestId),
+          getContestPrizePool(contestId),
+        ]);
+        if (cancelled || !profile) return;
+
+        const entry = leaderboard.entries.find((candidate) => candidate.userId === profile?.id);
+        if (!entry) {
+          setCompletionSummaryError(true);
+          return;
+        }
+
+        const finalized = prizeResult.pool.status === "SETTLED";
+        const recordedAward = prizeResult.awards.find(
+          (award) => award.username === profile?.username,
+        );
+        const prizeAmount = finalized
+          ? (recordedAward?.amount ?? "0.000000")
+          : estimateCurrentPrize(leaderboard.entries, profile.id, prizeResult.pool.total);
+
+        setCompletionSummary({
+          rank: entry.rank,
+          elapsedMs: entry.totalResponseTimeMs,
+          prizeAmount,
+          prizeFinalized: finalized,
+        });
+        setCompletionSummaryError(false);
+      } catch {
+        if (!cancelled) setCompletionSummaryError(true);
+      } finally {
+        if (!cancelled && initial) setCompletionSummaryLoading(false);
+      }
+    };
+
+    void loadCompletionSummary(true);
+    // Re-check at a low frequency so the live estimate switches to the recorded
+    // award after the round closes and the scheduler settles its prize pool.
+    refreshTimer = window.setInterval(() => {
+      void loadCompletionSummary(false);
+    }, 15_000);
+
+    return () => {
+      cancelled = true;
+      if (refreshTimer !== null) window.clearInterval(refreshTimer);
+    };
+  }, [completed, contestId]);
 
   async function handleStartNextContest() {
     if (!contestId || !completed || startingNextContest) return;
@@ -601,6 +757,52 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                     ? "هر ۱۲ راند را با موفقیت حل کردی."
                     : "You successfully solved all twelve rounds."}
                 </p>
+                <section className="challenge-result-card" aria-live="polite" aria-label={isPersian ? "نتیجهٔ چالش" : "Challenge result"}>
+                  <div className="challenge-result-card__eyebrow">{isPersian ? "نتیجهٔ ثبت‌شدهٔ تو" : "YOUR CHALLENGE RESULT"}</div>
+                  <h4>{isPersian ? "آفرین! نتیجهٔ این دور" : "Well done! Your round result"}</h4>
+                  {completionSummaryLoading ? (
+                    <div className="challenge-result-card__loading">
+                      <LoadingIndicator compact label={isPersian ? "در حال دریافت رتبه و جایزه..." : "Loading your rank and prize..."} />
+                    </div>
+                  ) : completionSummary ? (
+                    <>
+                      <div className="challenge-result-card__metrics">
+                        <div className="challenge-result-card__metric">
+                          <span>{isPersian ? "رتبهٔ این دور" : "Round rank"}</span>
+                          <strong className="challenge-result-card__rank">#{formatNumber(completionSummary.rank)}</strong>
+                        </div>
+                        <div className="challenge-result-card__metric">
+                          <span>{isPersian ? "زمان تکمیل" : "Completion time"}</span>
+                          <strong className="mono challenge-result-card__time">{formatElapsed(completionSummary.elapsedMs)}</strong>
+                        </div>
+                        <div className="challenge-result-card__metric">
+                          <span>{completionSummary.prizeFinalized
+                            ? (isPersian ? "جایزهٔ ثبت‌شده" : "Recorded prize")
+                            : (isPersian ? "برآورد فعلی جایزه" : "Current prize estimate")}</span>
+                          <strong className="challenge-result-card__amount">
+                            {Number(completionSummary.prizeAmount).toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
+                            <small>USDT</small>
+                          </strong>
+                        </div>
+                      </div>
+                      <p className="challenge-result-card__note">
+                        {completionSummary.prizeFinalized
+                          ? (isPersian
+                              ? "این مبلغ در دفترکل آزمایشی ثبت شده است؛ پرداخت واقعی رمزارز هنوز فعال نیست."
+                              : "This amount is recorded in the simulated ledger; real crypto payouts are not enabled.")
+                          : (isPersian
+                              ? "رتبه بر اساس زمان ثبت‌شدهٔ سرور است. مبلغ جایزه تا پایان رسمی دور و تسویهٔ خودکار، برآوردی است و ممکن است تغییر کند؛ پرداخت واقعی فعال نیست."
+                              : "Your rank uses server-recorded completion time. The prize is an estimate until the official round ends and automatic settlement completes; real payouts are not enabled.") }
+                      </p>
+                    </>
+                  ) : (
+                    <p className="challenge-result-card__note">
+                      {completionSummaryError
+                        ? (isPersian ? "فعلاً دریافت جزئیات نتیجه ممکن نشد؛ صفحه را تازه‌سازی کن تا دوباره بررسی شود." : "Your result details could not be loaded. Refresh the page to retry.")
+                        : (isPersian ? "در حال آماده‌سازی نتیجه..." : "Preparing your result...")}
+                    </p>
+                  )}
+                </section>
                 <button
                   type="button"
                   className="cta-button round-complete__button"
