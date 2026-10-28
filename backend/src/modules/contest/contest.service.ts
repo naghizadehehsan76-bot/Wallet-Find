@@ -1,4 +1,5 @@
 import prisma from "../../config/prisma.js";
+import { CHALLENGE_INTERVAL_MS, getChallengeNumberAt } from "./challenge-schedule.js";
 
 import type {
   CreateContestInput,
@@ -19,7 +20,7 @@ export async function createContest(
   data: CreateContestInput
 ) {
   const requestedStart = data.startsAt ? new Date(data.startsAt) : null;
-  const ROUND_INTERVAL_MS = 15 * 60_000;
+  const ROUND_INTERVAL_MS = CHALLENGE_INTERVAL_MS;
   const startsAt = requestedStart
     ? new Date(Math.ceil(Math.max(requestedStart.getTime(), Date.now()) / ROUND_INTERVAL_MS) * ROUND_INTERVAL_MS)
     : null;
@@ -125,16 +126,8 @@ export async function getActiveContest(language: "en" | "fa" = "en") {
     select: { id: true, title: true, description: true, status: true, language: true, startsAt: true, endsAt: true },
   });
   if (active) {
-    const challengeNumber = active.startsAt
-      ? await prisma.contest.count({
-          where: {
-            language,
-            status: { not: "CANCELLED" },
-            startsAt: { lte: active.startsAt },
-          },
-        })
-      : 1;
-    return { ...active, challengeNumber: Math.max(1, challengeNumber) };
+    const challengeNumber = await getChallengeNumberAt(language, active.startsAt);
+    return { ...active, challengeNumber };
   }
 
   const due = await prisma.contest.findFirst({
@@ -149,16 +142,8 @@ export async function getActiveContest(language: "en" | "fa" = "en") {
   });
   if (due) {
     await prisma.contest.update({ where: { id: due.id }, data: { status: "ACTIVE" } });
-    const challengeNumber = due.startsAt
-      ? await prisma.contest.count({
-          where: {
-            language,
-            status: { not: "CANCELLED" },
-            startsAt: { lte: due.startsAt },
-          },
-        })
-      : 1;
-    return { ...due, status: "ACTIVE" as const, challengeNumber: Math.max(1, challengeNumber) };
+    const challengeNumber = await getChallengeNumberAt(language, due.startsAt);
+    return { ...due, status: "ACTIVE" as const, challengeNumber };
   }
 
   // Do not return the next future round as if it were the current one.
