@@ -853,7 +853,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                 <h3>{isPersian ? "چالش کامل شد!" : "Challenge completed!"}</h3>
                 <p>
                   {isPersian
-                    ? "هر ۱۲ راند را با موفقیت حل کردی."
+                    ? "هر ۱۲ کلمه را با موفقیت حل کردی."
                     : "You successfully solved all twelve rounds."}
                 </p>
                 <section className="challenge-result-card" aria-live="polite" aria-label={isPersian ? "نتیجهٔ چالش" : "Challenge result"}>
