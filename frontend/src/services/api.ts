@@ -153,6 +153,7 @@ export type ProfileResult = {
   username: string;
   role: string;
   createdAt: string;
+  avatarDataUrl: string | null;
   contestsParticipated: number;
   completedContests: number;
   solvedKeys: number;
@@ -315,6 +316,13 @@ export async function getLeaderboard(
 
 export async function getProfile(): Promise<ProfileResult> {
   return request<ProfileResult>("/profile/me", {}, true);
+}
+
+export async function uploadProfileAvatar(avatarDataUrl: string): Promise<{ avatarDataUrl: string }> {
+  return request<{ avatarDataUrl: string }>("/profile/avatar", {
+    method: "POST",
+    body: JSON.stringify({ avatarDataUrl }),
+  }, true);
 }
 
 export async function createContest(input: {
