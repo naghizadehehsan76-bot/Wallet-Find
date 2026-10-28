@@ -201,6 +201,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     poolHelp: fa ? "روزانه ۵۰ USDT فرضی به‌عنوان واریزی اسپانسرها و سرمایه‌گذاران ثبت می‌شود؛ ۵٪ بلافاصله به صندوق سود سهام پروژه و ۹۵٪ به صندوق کلی می‌رود. در شروع هر دور، ۱٪ موجودی صندوق کلی به آن دور اختصاص می‌یابد. اگر هیچ‌کس در دور پاسخی ثبت نکند، کل تخصیص استفاده‌نشده به صندوق کلی بازمی‌گردد." : "A simulated 50 USDT sponsor/investor contribution is recorded each UTC day; 5% immediately goes to the project dividend fund and 95% to the global fund. At each round's start, 1% of the global balance is allocated to that round. If nobody submits an answer, the unused allocation returns to the global fund.",
     poolFixed: fa ? "واریزی روزانه: ۵۰ USDT فرضی · سهم صندوق سهام: ۵٪ · تخصیص هر دور: ۱٪ موجودی صندوق کلی" : "Daily contribution: 50 simulated USDT · Dividend share: 5% · Each round: 1% of global balance",
     poolFixedError: fa ? "شارژ روزانه و درصد تخصیص هر دور طبق قواعد آزمایشی ثابت است." : "Daily funding and the per-round allocation are fixed by the test model.",
+    challengeAnchorProtected: fa ? "مبنای شماره‌گذاری چالش‌ها تنظیم داخلی سیستم است و از این فرم قابل تغییر نیست." : "The challenge numbering anchor is an internal setting and cannot be changed here.",
     conceptTitle: fa ? "بخش در حال طراحی" : "Module concept",
     conceptBody: fa ? "این بخش فعلاً فقط به‌عنوان جایگاه در پنل مدیریت اضافه شده است. قابلیت‌ها و عملیات آن در مراحل بعدی، جداگانه طراحی و پیاده‌سازی می‌شوند." : "This section is currently a placeholder in the admin panel. Its tools and workflows will be designed and implemented separately in later phases.",
     usersBody: fa ? "جست‌وجو و مشاهدهٔ کاربران، نقش‌ها، وضعیت حساب، تأیید ایمیل و محدودیت‌های دسترسی." : "Search users, review roles and account status, email verification, and access restrictions.",
@@ -336,6 +337,10 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     }
     if (normalizedKey === "hypothetical_prize_pool_per_round") {
       setError(copy.poolFixedError);
+      return;
+    }
+    if (normalizedKey.startsWith("challenge_schedule_anchor_")) {
+      setError(copy.challengeAnchorProtected);
       return;
     }
     setSaving(true);
