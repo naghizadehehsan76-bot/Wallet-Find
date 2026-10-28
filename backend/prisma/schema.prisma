@@ -85,6 +85,7 @@ model User {
   email        String @unique
   username     String @unique
   passwordHash String
+  avatarDataUrl String? @db.Text
 
   role UserRole @default(USER)
 
