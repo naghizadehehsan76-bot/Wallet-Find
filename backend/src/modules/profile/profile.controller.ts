@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import type { AuthenticatedRequest } from "../../middleware/auth.middleware.js";
 import { getProfile } from "./profile.service.js";
+import prisma from "../../config/prisma.js";
 
 export async function getProfileHandler(
   req: AuthenticatedRequest,
@@ -51,7 +52,6 @@ export async function updateProfileAvatarHandler(
   }
 
   try {
-    const prisma = (await import("../../config/prisma.js")).default;
     const avatar = await prisma.user.update({
       where: { id: req.user.userId },
       data: { avatarDataUrl },
