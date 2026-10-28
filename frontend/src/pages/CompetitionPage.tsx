@@ -543,13 +543,31 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       );
       await refreshCurrentClue();
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : isPersian
-            ? "خطا در ثبت پاسخ"
-            : "Unable to submit the answer.",
-      );
+      const message = err instanceof Error ? err.message : "";
+      if (message === "LANGUAGE_CHALLENGE_ALREADY_COMPLETED" && contestId) {
+        try {
+          const current = await getCurrentClue(contestId);
+          if (current.status === "LANGUAGE_BLOCKED" && current.participationBlock) {
+            applyCurrentClue(current);
+            return;
+          }
+        } catch {
+          // Fall through to the localized safety message if the refresh fails.
+        }
+        setError(
+          isPersian
+            ? "شما این چالش را در زبان دیگری تکمیل کرده‌اید؛ پس از پایان دور، صفحه را تازه‌سازی کنید."
+            : "You completed this challenge in the other language. Refresh after this round ends.",
+        );
+      } else {
+        setError(
+          message
+            ? localizeApiError(message, language)
+            : isPersian
+              ? "خطا در ثبت پاسخ"
+              : "Unable to submit the answer.",
+        );
+      }
     } finally {
       setSubmitting(false);
     }
