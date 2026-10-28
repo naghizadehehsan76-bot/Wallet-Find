@@ -192,6 +192,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     noScheduledSources: fa ? "هنوز پیوندی برای چالش‌های آینده زمان‌بندی نشده است." : "No source links are scheduled for future challenges.",
     invalidScheduledSource: fa ? "لینک باید معتبر و با HTTPS شروع شود." : "Enter a valid HTTPS source link.",
     invalidScheduledChallenge: fa ? "شماره چالش باید عددی مثبت باشد." : "Challenge number must be a positive integer.",
+    invalidScheduledSequence: fa ? "شماره خانه باید بین ۱ تا ۱۲ باشد." : "Clue cell must be between 1 and 12.",
     invalidScheduledStart: fa ? "زمان شروع باید در آینده و دقیقاً روی مرز ۱۵ دقیقه‌ای باشد (مثلاً 12:00، 12:15 یا 12:30)." : "Start time must be in the future and exactly on a 15-minute boundary (for example, 12:00, 12:15, or 12:30).",
     duplicateScheduledSource: fa ? "برای همین زبان، چالش و خانه قبلاً منبعی ثبت شده است." : "A source is already assigned to this language, challenge and clue cell.",
     invalidSource: fa ? "آدرس باید معتبر و با https:// شروع شود." : "Enter a valid URL beginning with https://.",
@@ -324,7 +325,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       return;
     }
     if (!Number.isInteger(sequence) || sequence < 1 || sequence > 12) {
-      setError(copy.invalidScheduledChallenge);
+      setError(copy.invalidScheduledSequence);
       return;
     }
     const startsAt = startsAtDate.toISOString();
