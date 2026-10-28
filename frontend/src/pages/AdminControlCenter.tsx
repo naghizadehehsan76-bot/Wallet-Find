@@ -28,6 +28,34 @@ const DEFAULT_FA_SOURCES = ["https://fa.wikipedia.org/w/api.php", "https://fa.wi
 function sourceHostname(value: string): string {
   try { return new URL(value).hostname; } catch { return value; }
 }
+
+type ScheduledSourceAssignment = {
+  id: string;
+  language: "en" | "fa";
+  url: string;
+  challengeNumber: number;
+  startsAt: string;
+  sequence: number;
+};
+
+function parseScheduledSourceAssignments(value: string | undefined): ScheduledSourceAssignment[] {
+  if (!value) return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is ScheduledSourceAssignment => {
+      if (!item || typeof item !== "object") return false;
+      const row = item as Partial<ScheduledSourceAssignment>;
+      const start = typeof row.startsAt === "string" ? Date.parse(row.startsAt) : Number.NaN;
+      return typeof row.id === "string" &&
+        (row.language === "en" || row.language === "fa") &&
+        typeof row.url === "string" && row.url.startsWith("https://") &&
+        Number.isInteger(row.challengeNumber) && Number(row.challengeNumber) > 0 &&
+        Number.isFinite(start) && Number.isInteger(row.sequence) &&
+        Number(row.sequence) >= 1 && Number(row.sequence) <= 12;
+    });
+  } catch { return []; }
+}
 function parseSourceUrls(value: string | undefined, fallback: string[]): string[] {
   if (!value) return [...fallback];
   try {
@@ -66,6 +94,12 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [sourceUrlsFa, setSourceUrlsFa] = useState<string[]>(DEFAULT_FA_SOURCES);
   const [sourceDraftEn, setSourceDraftEn] = useState("");
   const [sourceDraftFa, setSourceDraftFa] = useState("");
+  const [scheduledSources, setScheduledSources] = useState<ScheduledSourceAssignment[]>([]);
+  const [scheduledSourceUrl, setScheduledSourceUrl] = useState("");
+  const [scheduledSourceLanguage, setScheduledSourceLanguage] = useState<"en" | "fa">("en");
+  const [scheduledChallengeNumber, setScheduledChallengeNumber] = useState("");
+  const [scheduledChallengeStart, setScheduledChallengeStart] = useState("");
+  const [scheduledClueSequence, setScheduledClueSequence] = useState("1");
 
   const copy = {
     title: fa ? "مرکز کنترل Wallet-Find" : "Wallet-Find Control Center",
@@ -144,6 +178,22 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     removeSource: fa ? "حذف" : "Remove",
     sourceUrl: fa ? "آدرس کامل منبع HTTPS" : "Full HTTPS source URL",
     sourceSaved: fa ? "فهرست منابع ذخیره شد؛ در ساخت دورهای بعدی استفاده می‌شود." : "Source lists saved. They will be used for future rounds.",
+    scheduledSourcesTitle: fa ? "پیوند منابع برای چالش‌های آینده" : "Source links for future challenges",
+    scheduledSourcesHelp: fa ? "برای هر پیوند، شماره چالش، زمان شروع و خانه‌ای را مشخص کن که پاسخ آن از همین منبع ساخته شود. زمان چالش باید روی یکی از مرزهای ۱۵ دقیقه‌ای باشد." : "For each link, choose the future challenge number, its start time, and the clue cell that must use this source. The start time must align to a 15-minute boundary.",
+    scheduledSourceUrl: fa ? "لینک منبع HTTPS" : "HTTPS source link",
+    scheduledChallengeNumber: fa ? "شماره چالش آینده" : "Future challenge number",
+    scheduledChallengeStart: fa ? "تاریخ و ساعت شروع چالش" : "Challenge start date and time",
+    scheduledClueSequence: fa ? "شماره خانه (۱ تا ۱۲)" : "Clue cell (1–12)",
+    scheduledSourceLanguage: fa ? "زبان منبع" : "Source language",
+    addScheduledSource: fa ? "افزودن لینک زمان‌بندی‌شده" : "Add scheduled source link",
+    saveScheduledSources: fa ? "ذخیره زمان‌بندی منابع" : "Save source schedule",
+    scheduledSourceSaved: fa ? "زمان‌بندی پیوندهای منابع ذخیره شد." : "Scheduled source links saved.",
+    removeScheduledSource: fa ? "حذف پیوند برنامه‌ریزی‌شده" : "Remove scheduled link",
+    noScheduledSources: fa ? "هنوز پیوندی برای چالش‌های آینده زمان‌بندی نشده است." : "No source links are scheduled for future challenges.",
+    invalidScheduledSource: fa ? "لینک باید معتبر و با HTTPS شروع شود." : "Enter a valid HTTPS source link.",
+    invalidScheduledChallenge: fa ? "شماره چالش باید عددی مثبت باشد." : "Challenge number must be a positive integer.",
+    invalidScheduledStart: fa ? "زمان شروع باید در آینده و دقیقاً روی مرز ۱۵ دقیقه‌ای باشد (مثلاً 12:00، 12:15 یا 12:30)." : "Start time must be in the future and exactly on a 15-minute boundary (for example, 12:00, 12:15, or 12:30).",
+    duplicateScheduledSource: fa ? "برای همین زبان، چالش و خانه قبلاً منبعی ثبت شده است." : "A source is already assigned to this language, challenge and clue cell.",
     invalidSource: fa ? "آدرس باید معتبر و با https:// شروع شود." : "Enter a valid URL beginning with https://.",
     noSources: fa ? "منبعی ثبت نشده است." : "No sources configured.",
     securityBody: fa ? "بررسی فعالیت مشکوک، تلاش‌های ورود، گزارش‌های ضدتقلب، مسدودسازی و کنترل دسترسی مدیران." : "Review suspicious activity, login attempts, anti-fraud alerts, account restrictions, and administrator access.",
@@ -166,6 +216,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       setSettings(settingRows);
       setSourceUrlsEn(parseSourceUrls(settingRows.find((setting) => setting.key === "clue_sources_en")?.value, DEFAULT_EN_SOURCES));
       setSourceUrlsFa(parseSourceUrls(settingRows.find((setting) => setting.key === "clue_sources_fa")?.value, DEFAULT_FA_SOURCES));
+      setScheduledSources(parseScheduledSourceAssignments(settingRows.find((setting) => setting.key === "scheduled_clue_sources")?.value));
       setLogs(auditRows);
       setWallets(walletRows);
       setUsers(userRows);
@@ -244,6 +295,75 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     }
     setError("");
     setNotice("");
+  }
+
+  function addScheduledSource(event: FormEvent) {
+    event.preventDefault();
+    const url = scheduledSourceUrl.trim();
+    const challengeNumber = Number(scheduledChallengeNumber);
+    const sequence = Number(scheduledClueSequence);
+    const startsAtDate = new Date(scheduledChallengeStart);
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== "https:" || url.length > 500) throw new Error("INVALID_URL");
+    } catch {
+      setError(copy.invalidScheduledSource);
+      return;
+    }
+    if (!Number.isInteger(challengeNumber) || challengeNumber < 1) {
+      setError(copy.invalidScheduledChallenge);
+      return;
+    }
+    if (
+      !scheduledChallengeStart ||
+      Number.isNaN(startsAtDate.getTime()) ||
+      startsAtDate.getTime() <= Date.now() ||
+      startsAtDate.getTime() % (15 * 60_000) !== 0
+    ) {
+      setError(copy.invalidScheduledStart);
+      return;
+    }
+    if (!Number.isInteger(sequence) || sequence < 1 || sequence > 12) {
+      setError(copy.invalidScheduledChallenge);
+      return;
+    }
+    const startsAt = startsAtDate.toISOString();
+    const duplicate = scheduledSources.some((item) =>
+      item.language === scheduledSourceLanguage &&
+      item.challengeNumber === challengeNumber &&
+      item.startsAt === startsAt &&
+      item.sequence === sequence
+    );
+    if (duplicate) {
+      setError(copy.duplicateScheduledSource);
+      return;
+    }
+    setScheduledSources((current) => [...current, {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      language: scheduledSourceLanguage,
+      url,
+      challengeNumber,
+      startsAt,
+      sequence,
+    }].sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt) || a.challengeNumber - b.challengeNumber || a.sequence - b.sequence));
+    setScheduledSourceUrl("");
+    setError("");
+    setNotice("");
+  }
+
+  async function saveScheduledSources() {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await saveSystemSetting("scheduled_clue_sources", JSON.stringify(scheduledSources));
+      setNotice(copy.scheduledSourceSaved);
+      await load();
+    } catch {
+      setError(copy.refreshError);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function saveSources(language: "en" | "fa") {
@@ -372,6 +492,50 @@ export default function AdminControlCenter({ onNavigate }: Props) {
           <section className="admin-panel">
             <h2>{copy.ads}</h2>
             <p className="admin-footnote">{copy.adsBody}</p>
+            <div className="admin-setting-form">
+              <h3>{copy.scheduledSourcesTitle}</h3>
+              <p className="admin-footnote">{copy.scheduledSourcesHelp}</p>
+              <form onSubmit={addScheduledSource}>
+                <label>{copy.scheduledSourceUrl}
+                  <input type="url" value={scheduledSourceUrl} onChange={(event) => setScheduledSourceUrl(event.target.value)} placeholder="https://..." required />
+                </label>
+                <label>{copy.scheduledSourceLanguage}
+                  <select value={scheduledSourceLanguage} onChange={(event) => setScheduledSourceLanguage(event.target.value as "en" | "fa")}>
+                    <option value="en">{copy.sourceEn}</option>
+                    <option value="fa">{copy.sourceFa}</option>
+                  </select>
+                </label>
+                <label>{copy.scheduledChallengeNumber}
+                  <input type="number" min={1} max={1000000} step={1} value={scheduledChallengeNumber} onChange={(event) => setScheduledChallengeNumber(event.target.value)} required />
+                </label>
+                <label>{copy.scheduledChallengeStart}
+                  <input type="datetime-local" step={900} value={scheduledChallengeStart} onChange={(event) => setScheduledChallengeStart(event.target.value)} required />
+                </label>
+                <label>{copy.scheduledClueSequence}
+                  <select value={scheduledClueSequence} onChange={(event) => setScheduledClueSequence(event.target.value)}>
+                    {Array.from({ length: 12 }, (_, index) => (
+                      <option key={index + 1} value={String(index + 1)}>{(index + 1).toLocaleString(fa ? "fa-IR" : "en-US")}</option>
+                    ))}
+                  </select>
+                </label>
+                <button className="cta-button" type="submit" disabled={saving}>{copy.addScheduledSource}</button>
+              </form>
+              {scheduledSources.length === 0 ? <p className="admin-empty">{copy.noScheduledSources}</p> : (
+                <div className="admin-settings-list">
+                  {scheduledSources.map((item) => (
+                    <article className="admin-setting-row" key={item.id}>
+                      <div>
+                        <strong>{item.language === "fa" ? copy.sourceFa : copy.sourceEn} · {fa ? "چالش" : "Challenge"} {item.challengeNumber.toLocaleString(fa ? "fa-IR" : "en-US")} · {fa ? "خانه" : "Cell"} {item.sequence.toLocaleString(fa ? "fa-IR" : "en-US")}</strong>
+                        <small>{new Date(item.startsAt).toLocaleString(fa ? "fa-IR" : "en-GB", { dateStyle: "medium", timeStyle: "short" })}</small>
+                        <code>{item.url}</code>
+                      </div>
+                      <button type="button" onClick={() => { setScheduledSources((current) => current.filter((entry) => entry.id !== item.id)); setError(""); setNotice(""); }} disabled={saving}>{copy.removeScheduledSource}</button>
+                    </article>
+                  ))}
+                </div>
+              )}
+              <button className="cta-button" type="button" onClick={() => void saveScheduledSources()} disabled={saving}>{saving ? copy.saving : copy.saveScheduledSources}</button>
+            </div>
             {([
               { language: "en" as const, title: copy.sourceEn, urls: sourceUrlsEn, setUrls: setSourceUrlsEn, draft: sourceDraftEn, setDraft: setSourceDraftEn },
               { language: "fa" as const, title: copy.sourceFa, urls: sourceUrlsFa, setUrls: setSourceUrlsFa, draft: sourceDraftFa, setDraft: setSourceDraftFa },
