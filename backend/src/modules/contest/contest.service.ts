@@ -1,5 +1,6 @@
 import prisma from "../../config/prisma.js";
 import { CHALLENGE_INTERVAL_MS, getChallengeNumberAt } from "./challenge-schedule.js";
+import { getLanguageParticipationBlock } from "./language-participation.js";
 
 import type {
   CreateContestInput,
@@ -165,6 +166,7 @@ export async function getCurrentClue(
       title: true,
       description: true,
       status: true,
+      language: true,
       startsAt: true,
       endsAt: true,
     },
@@ -175,6 +177,22 @@ export async function getCurrentClue(
   }
 
   const now = new Date();
+  const participationBlock = await getLanguageParticipationBlock(userId, contest);
+  if (participationBlock) {
+    return {
+      status: "LANGUAGE_BLOCKED" as const,
+      contest,
+      serverTime: now,
+      participationBlock,
+      clue: null,
+      currentSequence: null,
+      solvedCount: 0,
+      solvedAnswers: [],
+      lockedUntil: null,
+      lockRemainingMs: 0,
+    };
+  }
+
   const scheduledRoundIsLive = contest.status === "SCHEDULED"
     && Boolean(contest.startsAt && now >= contest.startsAt)
     && Boolean(!contest.endsAt || now < contest.endsAt);
@@ -333,6 +351,7 @@ export async function submitAnswer(
     select: {
       id: true,
       status: true,
+      language: true,
       startsAt: true,
       endsAt: true,
     },
@@ -340,6 +359,11 @@ export async function submitAnswer(
 
   if (!contest) {
     throw new Error("CONTEST_NOT_FOUND");
+  }
+
+  const participationBlock = await getLanguageParticipationBlock(userId, contest);
+  if (participationBlock) {
+    throw new Error("LANGUAGE_CHALLENGE_ALREADY_COMPLETED");
   }
 
   const scheduledRoundIsLive = contest.status === "SCHEDULED"
