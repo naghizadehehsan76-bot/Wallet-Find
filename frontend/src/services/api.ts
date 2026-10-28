@@ -269,6 +269,7 @@ export async function getCurrentClue(
 
 export type ContestSourceVisitResult = {
   visitId: string;
+  trackingToken: string;
   sourceUrl: string;
   recordedAt: string;
   advertiserAttributed: boolean;
@@ -469,6 +470,10 @@ export type AdminSourceVisit = {
   advertiserContentTitle: string | null;
   advertiserName: string | null;
   advertisementOrderId: string | null;
+  externalVerificationStatus: "NOT_CONFIGURED" | "PENDING" | "CONFIRMED" | "REJECTED";
+  externalConfirmedAt: string | null;
+  externalVerificationProvider: string | null;
+  externalReferenceId: string | null;
   createdAt: string;
 };
 
@@ -495,6 +500,10 @@ export type AdminSourceVisitReport = {
     uniqueVisitors: number;
     advertiserAttributedClicks: number;
     advertiserUniqueVisitors: number;
+    partnerConfirmedVisits: number;
+    pendingExternalVerificationVisits: number;
+    notConfiguredExternalVerificationVisits: number;
+    rejectedExternalVerificationVisits: number;
   };
   advertiserPerformance: AdminAdvertiserPerformance[];
   destinationPerformance: AdminDestinationPerformance[];
@@ -502,6 +511,7 @@ export type AdminSourceVisitReport = {
   recentVisitsLimit: number;
   generatedAt: string;
   proofNote: string;
+  verificationNote: string;
 };
 
 export async function getAdminSourceVisitReport(): Promise<AdminSourceVisitReport> {
