@@ -77,6 +77,21 @@ export async function getChallengeScheduleAnchor(
     };
   }
 
+  if (saved) {
+    // Repair a malformed internal setting rather than making challenge loading fail.
+    const latest = await prisma.systemSetting.findUnique({
+      where: { key },
+      select: { value: true },
+    });
+    const latestAnchor = parseAnchor(latest?.value);
+    if (latestAnchor) return latestAnchor;
+    await prisma.systemSetting.update({
+      where: { key },
+      data: { value: JSON.stringify(anchor) },
+    });
+    return anchor;
+  }
+
   try {
     await prisma.systemSetting.create({
       data: { key, value: JSON.stringify(anchor) },
