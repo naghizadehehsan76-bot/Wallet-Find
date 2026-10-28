@@ -60,6 +60,7 @@ export async function recordContestSourceVisitHandler(
         sequence: true,
         source: true,
         sourceUrl: true,
+        publishedAt: true,
         advertiserContentId: true,
         contest: {
           select: {
@@ -111,6 +112,9 @@ export async function recordContestSourceVisitHandler(
     }
     if (clue.contest.endsAt && clue.contest.endsAt.getTime() <= now.getTime()) {
       return res.status(409).json({ success: false, error: "CONTEST_FINISHED" });
+    }
+    if (!clue.publishedAt || clue.publishedAt.getTime() > now.getTime()) {
+      return res.status(409).json({ success: false, error: "CLUE_NOT_PUBLISHED" });
     }
 
     // Only the current unsolved clue is eligible for a tracked outbound click.
