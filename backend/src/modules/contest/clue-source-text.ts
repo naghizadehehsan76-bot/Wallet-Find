@@ -140,7 +140,7 @@ export function isSearchableClueAnchor(anchor: string): boolean {
     trimmed.length >= 25 &&
     trimmed.length <= 160 &&
     !/[\r\n]/.test(trimmed) &&
-    !/\{\{|\}\}|<[^>]*>|نگهداری\s+یادکرد|(?:cite\s+web|یادکرد\s+وب)\s*:/iu.test(trimmed)
+    !/\{\{|\}\}|<[^>]*>|نگهداری\s+یادکرد|(?:cite\s+web|یادکرد\s+وب)\s*:\s*|یادکرد\s*:\s*(?:تاریخ|سال|ماه|زبان|عنوان)/iu.test(trimmed)
   );
 }
 
