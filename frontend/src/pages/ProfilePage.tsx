@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import BottomNav from "../components/BottomNav";
 import { getProfile, uploadProfileAvatar, type ProfileResult } from "../services/api";
 import { useI18n } from "../i18n";
@@ -54,6 +54,57 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
       cancelled = true;
     };
   }, [isPersian]);
+
+  async function handleAvatarChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setAvatarError(isPersian ? "فقط تصویر JPG، PNG یا WebP قابل قبول است." : "Please choose a JPG, PNG, or WebP image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarError(isPersian ? "حجم تصویر باید کمتر از ۵ مگابایت باشد." : "The image must be smaller than 5 MB.");
+      return;
+    }
+
+    setAvatarError("");
+    setAvatarSaving(true);
+    try {
+      const imageDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("IMAGE_READ_FAILED"));
+        reader.onerror = () => reject(new Error("IMAGE_READ_FAILED"));
+        reader.readAsDataURL(file);
+      });
+      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("IMAGE_READ_FAILED"));
+        img.src = imageDataUrl;
+      });
+      const canvas = document.createElement("canvas");
+      const maxDimension = 512;
+      const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("IMAGE_PROCESSING_FAILED");
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const optimized = canvas.toDataURL("image/webp", 0.82);
+      if (optimized.length > 1_400_000) throw new Error("AVATAR_TOO_LARGE");
+      const saved = await uploadProfileAvatar(optimized);
+      setProfile((current) => current ? { ...current, avatarDataUrl: saved.avatarDataUrl } : current);
+    } catch (err) {
+      const code = err instanceof Error ? err.message : "AVATAR_SAVE_FAILED";
+      setAvatarError(code === "AVATAR_TOO_LARGE"
+        ? (isPersian ? "حجم تصویر پس از پردازش همچنان زیاد است؛ تصویر دیگری انتخاب کن." : "The processed image is still too large. Please choose another image.")
+        : (isPersian ? "ذخیرهٔ عکس پروفایل ناموفق بود؛ دوباره تلاش کن." : "Could not save the profile photo. Please try again."));
+    } finally {
+      setAvatarSaving(false);
+    }
+  }
 
   return (
     <div className="app-shell">
