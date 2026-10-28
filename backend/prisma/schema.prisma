@@ -73,6 +73,13 @@ enum AdvertisementMetricType {
   PARTICIPATION
 }
 
+enum ExternalVisitVerificationStatus {
+  NOT_CONFIGURED
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
 model User {
   id           String @id @default(cuid())
   email        String @unique
@@ -412,6 +419,13 @@ model ContestSourceVisit {
   sourceUrl String
   sourceHostname String
 
+  // Opaque correlation ID for a future advertiser-side click/landing integration.
+  trackingToken String @unique @default(uuid())
+  externalVerificationStatus ExternalVisitVerificationStatus @default(NOT_CONFIGURED)
+  externalConfirmedAt DateTime?
+  externalVerificationProvider String?
+  externalReferenceId String?
+
   advertiserContentId String?
   advertiserContentTitle String?
   advertiserName String?
@@ -430,6 +444,8 @@ model ContestSourceVisit {
   @@index([userId, createdAt])
   @@index([sourceHostname, createdAt])
   @@index([advertisementOrderId, createdAt])
+  @@index([externalVerificationStatus, createdAt])
+  @@index([externalVerificationProvider, createdAt])
   @@unique([userId, clueId])
   @@map("contest_source_visits")
 }
