@@ -4,7 +4,7 @@ export type SourceWordMatch = {
   index: number;
 };
 
-export const CLUE_GENERATOR_VERSION = "[[WF_HINT_V2]]";
+export const CLUE_GENERATOR_VERSION = "[[WF_HINT_V3]]";
 
 export function generatedClueInstruction(language: "en" | "fa"): string {
   const instruction = language === "fa"
@@ -161,10 +161,15 @@ export function findUniqueAnchorBeforeTarget(
 
     const rawAnchor = sourceText.slice(firstWord.index, target.index);
     if (!rawAnchor || /[\r\n]/.test(rawAnchor)) continue;
-    if (/[.!?؟؛۔][)\]"'»’”\]]*\s/u.test(rawAnchor)) continue;
+    // Treat punctuation as a sentence boundary even when markup follows it
+    // with no intervening whitespace (a common parser artifact on Wikipedia).
+    if (/[.!?؟؛۔][)\]"'»’”\]]*(?:\s|[{<]|$)/u.test(rawAnchor)) continue;
 
     const anchor = rawAnchor.replace(/\s+/g, " ").trim();
     if (anchor.length < 25 || anchor.length > 160) continue;
+    // Do not publish literal template markup or citation-maintenance categories:
+    // they can exist in an API extract but are not reliably searchable on-page.
+    if (/\{\{|\}\}|<[^>]*>|نگهداری\s+یادکرد|(?:cite\s+web|یادکرد\s+وب)\s*:/iu.test(anchor)) continue;
 
     const comparisonAnchor = normalizeForHintComparison(anchor);
     if (countNormalizedOccurrences(comparisonSource, comparisonAnchor) !== 1) continue;
