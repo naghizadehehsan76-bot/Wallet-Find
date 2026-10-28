@@ -201,7 +201,15 @@ async function fetchWikipediaDocuments(limit: number, language: "en" | "fa" = "e
     }
 
     return Object.values(data.query?.pages ?? {})
-      .filter((page) => typeof page.extract === "string" && page.extract.length > 300)
+      // The link is pinned to the same revision that supplied the extracted
+      // text. If MediaWiki omitted a revision id, skip the page instead of
+      // publishing a link whose contents can drift after generation.
+      .filter((page) =>
+        typeof page.extract === "string" &&
+        page.extract.length > 300 &&
+        Number.isSafeInteger(page.lastrevid) &&
+        Number(page.lastrevid) > 0
+      )
       .map((page) => {
         const title = page.title ?? "Wikipedia article";
         return {
@@ -331,49 +339,106 @@ async function fetchWikipediaArticleDocument(parsed: URL): Promise<SourceDocumen
   }
   if (!title) return null;
 
+  // A supplied oldid is part of the challenge contract: fetch and parse that
+  // exact revision, rather than silently generating a hint from today's page.
+  const requestedRevisionText = parsed.searchParams.get("oldid");
+  const requestedRevision = requestedRevisionText && /^\d+$/.test(requestedRevisionText)
+    ? Number(requestedRevisionText)
+    : null;
+  if (requestedRevisionText && (!requestedRevision || !Number.isSafeInteger(requestedRevision))) {
+    console.warn("Wikipedia source has an invalid oldid revision", { url: parsed.toString() });
+    return null;
+  }
+
   const apiUrl = new URL("/w/api.php", parsed.origin);
-  apiUrl.searchParams.set("action", "query");
+  apiUrl.searchParams.set("action", "parse");
   apiUrl.searchParams.set("format", "json");
-  apiUrl.searchParams.set("prop", "extracts|info");
-  apiUrl.searchParams.set("inprop", "url");
-  apiUrl.searchParams.set("explaintext", "1");
-  apiUrl.searchParams.set("exsectionformat", "plain");
-  apiUrl.searchParams.set("redirects", "1");
-  apiUrl.searchParams.set("titles", title);
+  apiUrl.searchParams.set("prop", "text|title|revid");
+  apiUrl.searchParams.set("disabletoc", "1");
+  apiUrl.searchParams.set("disableeditsection", "1");
+  apiUrl.searchParams.set("disablelimitreport", "1");
+  if (requestedRevision) {
+    apiUrl.searchParams.set("oldid", String(requestedRevision));
+  } else {
+    apiUrl.searchParams.set("page", title);
+  }
 
   try {
     const response = await fetch(apiUrl, {
-      headers: { "User-Agent": "WalletFind/1.0 (visible Wikipedia article clue generator)" },
+      headers: { "User-Agent": "WalletFind/1.0 (visible Wikipedia revision clue generator)" },
       signal: AbortSignal.timeout(8_000),
     });
     if (!response.ok) {
-      console.warn("Wikipedia article extract failed", { url: parsed.toString(), status: response.status });
+      console.warn("Wikipedia revision parse failed", {
+        url: parsed.toString(),
+        revision: requestedRevision,
+        status: response.status,
+      });
       return null;
     }
 
     const data = await response.json() as {
-      query?: { pages?: Record<string, { title?: string; fullurl?: string; extract?: string; missing?: string; lastrevid?: number }> };
+      parse?: {
+        title?: string;
+        revid?: number;
+        text?: string | { "*": string };
+      };
       error?: { code?: string; info?: string };
     };
     if (data.error) {
-      console.warn("Wikipedia article extract API error", { url: parsed.toString(), error: data.error });
+      console.warn("Wikipedia revision parse API error", {
+        url: parsed.toString(),
+        revision: requestedRevision,
+        error: data.error,
+      });
       return null;
     }
 
-    const page = Object.values(data.query?.pages ?? {}).find((candidate) =>
-      !candidate.missing && typeof candidate.extract === "string",
-    );
-    const text = normalizeSourceText(page?.extract ?? "");
-    if (!page || text.length < 500) return null;
+    const page = data.parse;
+    const revision = page?.revid;
+    const html = typeof page?.text === "string"
+      ? page.text
+      : page?.text?.["*"] ?? "";
+
+    if (
+      !page ||
+      !Number.isSafeInteger(revision) ||
+      !revision ||
+      (requestedRevision !== null && revision !== requestedRevision)
+    ) {
+      console.warn("Wikipedia did not return the requested revision", {
+        url: parsed.toString(),
+        requestedRevision,
+        returnedRevision: revision,
+      });
+      return null;
+    }
+
+    // Derive hints from rendered article HTML, not raw wikitext or an extract
+    // which may include template tracking text not visible/searchable in-page.
+    const text = normalizeSourceText(extractVisibleTextFromHtml(html));
+    if (text.length < 500) {
+      console.warn("Wikipedia revision text was too short for clue generation", {
+        url: parsed.toString(),
+        revision,
+        textLength: text.length,
+      });
+      return null;
+    }
 
     return {
       title: page.title ?? title,
-      url: pinWikipediaRevision(page.fullurl ?? parsed.toString(), page.lastrevid),
+      // Keep an explicitly requested historical revision exactly as provided.
+      // Otherwise pin the rendered text to the revision returned by parse.
+      url: requestedRevision !== null
+        ? parsed.toString()
+        : pinWikipediaRevision(parsed.toString(), revision),
       text,
     };
   } catch (error) {
-    console.warn("Wikipedia article extract unavailable", {
+    console.warn("Wikipedia revision text unavailable", {
       url: parsed.toString(),
+      revision: requestedRevision,
       error: error instanceof Error ? error.message : String(error),
     });
     return null;
@@ -453,7 +518,12 @@ function sourceUrlMatchesAssignment(actualUrl: string | null | undefined, assign
     const assigned = new URL(assignedUrl);
     if (actual.origin !== assigned.origin) return false;
     if (actual.hostname === "en.wikipedia.org" || actual.hostname === "fa.wikipedia.org") {
-      return actual.pathname === assigned.pathname;
+      if (actual.pathname !== assigned.pathname) return false;
+      // If the admin pins a revision, an automatically generated newer/older
+      // revision is NOT the same assignment. Unpinned assignments may resolve
+      // to the exact current revision at generation time.
+      const assignedRevision = assigned.searchParams.get("oldid");
+      return !assignedRevision || actual.searchParams.get("oldid") === assignedRevision;
     }
     return actual.toString() === assigned.toString();
   } catch {
