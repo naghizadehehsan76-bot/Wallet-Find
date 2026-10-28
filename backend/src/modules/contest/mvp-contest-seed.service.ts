@@ -1031,20 +1031,21 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
   // generated, update that still-future round in place. This keeps the same
   // scheduled time and avoids creating a gap between rounds.
   if (existingScheduled?.startsAt) {
-    const actualChallengeNumber = await getChallengeNumberForStart(language, existingScheduled.startsAt, true);
+    const scheduledRound = existingScheduled;
+    const actualChallengeNumber = await getChallengeNumberForStart(language, scheduledRound.startsAt, true);
     const generationContext = {
       challengeNumber: actualChallengeNumber,
-      startsAt: existingScheduled.startsAt,
+      startsAt: scheduledRound.startsAt,
     };
     const plannedAssignments = await getScheduledSourceAssignments(language, generationContext);
     const assignmentMismatch = plannedAssignments.some((assignment) => {
-      const clue = existingScheduled?.clues.find((item) => item.sequence === assignment.sequence);
+      const clue = scheduledRound.clues.find((item) => item.sequence === assignment.sequence);
       return !sourceUrlMatchesAssignment(clue?.sourceUrl, assignment.url);
     });
     if (assignmentMismatch) {
       const lastAttemptAt = lastScheduledSourceAssignmentAttemptAt.get(language) ?? 0;
       if (now.getTime() - lastAttemptAt < AUTOMATIC_ROUND_RETRY_DELAY_MS) {
-        return { scheduled: true, contestId: existingScheduled.id, sourceAssignmentApplied: false };
+        return { scheduled: true, contestId: scheduledRound.id, sourceAssignmentApplied: false };
       }
       lastScheduledSourceAssignmentAttemptAt.set(language, now.getTime());
       try {
@@ -1056,7 +1057,7 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
             await tx.contestClue.update({
               where: {
                 contestId_sequence: {
-                  contestId: existingScheduled.id,
+                  contestId: scheduledRound.id,
                   sequence: index + 1,
                 },
               },
@@ -1066,7 +1067,7 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
                 sourceUrl: clue.sourceUrl,
                 hintAnchor: clue.hintAnchor,
                 options: clue.options,
-                publishedAt: existingScheduled.startsAt,
+                publishedAt: scheduledRound.startsAt,
               },
             });
           }
@@ -1074,10 +1075,10 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
             data: {
               action: "SCHEDULED_CHALLENGE_SOURCES_APPLIED",
               entity: "Contest",
-              entityId: existingScheduled.id,
+              entityId: scheduledRound.id,
               metadata: {
                 challengeNumber: actualChallengeNumber,
-                startsAt: existingScheduled.startsAt?.toISOString(),
+                startsAt: scheduledRound.startsAt?.toISOString(),
                 assignments: plannedAssignments.map(({ sequence, url }) => ({
                   sequence,
                   hostname: new URL(url).hostname,
@@ -1087,10 +1088,10 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
           });
         });
         lastScheduledSourceAssignmentAttemptAt.delete(language);
-        return { scheduled: true, contestId: existingScheduled.id, sourceAssignmentApplied: true };
+        return { scheduled: true, contestId: scheduledRound.id, sourceAssignmentApplied: true };
       } catch (error) {
         console.warn("Could not apply the scheduled source assignments; the existing round remains queued.", error);
-        return { scheduled: true, contestId: existingScheduled.id, sourceAssignmentApplied: false };
+        return { scheduled: true, contestId: scheduledRound.id, sourceAssignmentApplied: false };
       }
     }
   }
