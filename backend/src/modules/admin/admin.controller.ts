@@ -340,7 +340,7 @@ export async function getContestSourceVisitReportHandler(
         recentVisits,
         recentVisitsLimit: 500,
         generatedAt: new Date().toISOString(),
-        proofNote: "Wallet-Find records prove a logged, authenticated click only. An external landing is counted as confirmed only after a configured advertiser integration verifies the click token; the partner API has not been configured yet.",
+        proofNote: "Wallet-Find click records prove an authenticated outbound click only. An external landing is confirmed only after an advertiser integration verifies the click token; unconfigured, pending, and rejected records are not confirmed landings.",
         verificationNote: "Do not treat unconfigured, pending, or rejected records as verified external visits. The partner connector must validate the advertiser API response or authenticated callback before marking a record CONFIRMED.",
       },
     });
