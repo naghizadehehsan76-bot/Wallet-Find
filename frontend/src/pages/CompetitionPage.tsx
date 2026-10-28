@@ -31,8 +31,9 @@ type CompetitionPageProps = {
 type CompletionSummary = {
   rank: number;
   elapsedMs: number;
-  prizeAmount: string;
+  prizeAmount: string | null;
   prizeFinalized: boolean;
+  prizeAvailable: boolean;
 };
 
 const PRIZE_BASIS_POINTS = [5_000n, 2_250n, 1_250n] as const;
@@ -337,10 +338,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       if (initial) setCompletionSummaryLoading(true);
       try {
         if (!profile) profile = await getProfile();
-        const [leaderboard, prizeResult] = await Promise.all([
-          getLeaderboard(contestId),
-          getContestPrizePool(contestId),
-        ]);
+        const leaderboard = await getLeaderboard(contestId);
         if (cancelled || !profile) return;
 
         const entry = leaderboard.entries.find((candidate) => candidate.userId === profile?.id);
@@ -349,22 +347,36 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           return;
         }
 
-        const finalized = prizeResult.pool.status === "SETTLED";
-        const recordedAward = prizeResult.awards.find(
-          (award) => award.username === profile?.username,
-        );
-        const prizeAmount = finalized
-          ? (recordedAward?.amount ?? "0.000000")
-          : estimateCurrentPrize(leaderboard.entries, profile.id, prizeResult.pool.total);
+        // Rank and completion time must never depend on the prize-pool endpoint.
+        // A prize API failure should only hide the amount, not the user's result.
+        let prizeAmount: string | null = null;
+        let prizeFinalized = false;
+        let prizeAvailable = false;
+        try {
+          const prizeResult = await getContestPrizePool(contestId);
+          if (cancelled) return;
+          prizeFinalized = prizeResult.pool.status === "SETTLED";
+          const recordedAward = prizeResult.awards.find(
+            (award) => award.username === profile?.username,
+          );
+          prizeAmount = prizeFinalized
+            ? (recordedAward?.amount ?? "0.000000")
+            : estimateCurrentPrize(leaderboard.entries, profile.id, prizeResult.pool.total);
+          prizeAvailable = true;
+        } catch {
+          // Keep the rank and server-recorded elapsed time visible; retry the
+          // prize amount on the next refresh rather than failing the entire card.
+        }
 
         setCompletionSummary({
           rank: entry.rank,
           elapsedMs: entry.totalResponseTimeMs,
           prizeAmount,
-          prizeFinalized: finalized,
+          prizeFinalized,
+          prizeAvailable,
         });
         setCompletionSummaryError(false);
-        if (finalized && refreshTimer !== null) {
+        if (prizeFinalized && refreshTimer !== null) {
           window.clearInterval(refreshTimer);
           refreshTimer = null;
         }
@@ -784,19 +796,25 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                             ? (isPersian ? "جایزهٔ ثبت‌شده" : "Recorded prize")
                             : (isPersian ? "برآورد فعلی جایزه" : "Current prize estimate")}</span>
                           <strong className="challenge-result-card__amount">
-                            {Number(completionSummary.prizeAmount).toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
-                            <small>USDT</small>
+                            {completionSummary.prizeAmount !== null
+                              ? Number(completionSummary.prizeAmount).toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 6 })
+                              : (isPersian ? "در حال بررسی" : "Checking")}
+                            {completionSummary.prizeAmount !== null && <small>USDT</small>}
                           </strong>
                         </div>
                       </div>
                       <p className="challenge-result-card__note">
-                        {completionSummary.prizeFinalized
+                        {!completionSummary.prizeAvailable
                           ? (isPersian
-                              ? "این مبلغ در دفترکل آزمایشی ثبت شده است؛ پرداخت واقعی رمزارز هنوز فعال نیست."
-                              : "This amount is recorded in the simulated ledger; real crypto payouts are not enabled.")
-                          : (isPersian
-                              ? "رتبه بر اساس زمان ثبت‌شدهٔ سرور است. مبلغ جایزه تا پایان رسمی دور و تسویهٔ خودکار، برآوردی است و ممکن است تغییر کند؛ پرداخت واقعی فعال نیست."
-                              : "Your rank uses server-recorded completion time. The prize is an estimate until the official round ends and automatic settlement completes; real payouts are not enabled.") }
+                              ? "رتبه و زمان تکمیل از سرور دریافت شده‌اند؛ دریافت مبلغ جایزه ناموفق بود و خودکار دوباره بررسی می‌شود."
+                              : "Your rank and completion time are from the server. The prize amount could not be loaded and will be retried automatically.")
+                          : completionSummary.prizeFinalized
+                            ? (isPersian
+                                ? "این مبلغ در دفترکل آزمایشی ثبت شده است؛ پرداخت واقعی رمزارز هنوز فعال نیست."
+                                : "This amount is recorded in the simulated ledger; real crypto payouts are not enabled.")
+                            : (isPersian
+                                ? "رتبه بر اساس زمان ثبت‌شدهٔ سرور است. مبلغ جایزه تا پایان رسمی دور و تسویهٔ خودکار، برآوردی است و ممکن است تغییر کند؛ پرداخت واقعی فعال نیست."
+                                : "Your rank uses server-recorded completion time. The prize is an estimate until the official round ends and automatic settlement completes; real payouts are not enabled.")}
                       </p>
                     </>
                   ) : (
