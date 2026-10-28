@@ -364,6 +364,10 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           prizeFinalized: finalized,
         });
         setCompletionSummaryError(false);
+        if (finalized && refreshTimer !== null) {
+          window.clearInterval(refreshTimer);
+          refreshTimer = null;
+        }
       } catch {
         if (!cancelled) setCompletionSummaryError(true);
       } finally {
