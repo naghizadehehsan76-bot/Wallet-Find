@@ -997,7 +997,7 @@ export async function startNextMvpContest(userId: string, completedContestId: st
 
 
 const lastAutomaticRoundAttemptAt = new Map<"en" | "fa", number>();
-const lastScheduledSourceAssignmentAttemptAt = new Map<"en" | "fa", number>();
+const lastScheduledSourceAssignmentAttemptAt = new Map<"en" | "fa", { at: number; signature: string }>();
 const AUTOMATIC_ROUND_RETRY_DELAY_MS = 5 * 60_000;
 
 /**
@@ -1043,11 +1043,23 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
       return !sourceUrlMatchesAssignment(clue?.sourceUrl, assignment.url);
     });
     if (assignmentMismatch) {
-      const lastAttemptAt = lastScheduledSourceAssignmentAttemptAt.get(language) ?? 0;
-      if (now.getTime() - lastAttemptAt < AUTOMATIC_ROUND_RETRY_DELAY_MS) {
+      const assignmentSignature = JSON.stringify({
+        contestId: scheduledRound.id,
+        challengeNumber: actualChallengeNumber,
+        startsAt: scheduledRound.startsAt.toISOString(),
+        assignments: plannedAssignments.map(({ sequence, url }) => ({ sequence, url })),
+      });
+      const lastAttempt = lastScheduledSourceAssignmentAttemptAt.get(language);
+      if (
+        lastAttempt?.signature === assignmentSignature &&
+        now.getTime() - lastAttempt.at < AUTOMATIC_ROUND_RETRY_DELAY_MS
+      ) {
         return { scheduled: true, contestId: scheduledRound.id, sourceAssignmentApplied: false };
       }
-      lastScheduledSourceAssignmentAttemptAt.set(language, now.getTime());
+      lastScheduledSourceAssignmentAttemptAt.set(language, {
+        at: now.getTime(),
+        signature: assignmentSignature,
+      });
       try {
         const regeneratedClues = await generateMvpRounds(language, generationContext);
         await prisma.$transaction(async (tx) => {
