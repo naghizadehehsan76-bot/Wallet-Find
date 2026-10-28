@@ -204,7 +204,7 @@ export const en = {
       },
       {
         title: "Enter the complete answer token",
-        description: "Include letter prefixes or suffixes attached directly to the token; preserve a Persian zero-width non-joiner inside a Persian word. Do not enter punctuation. In English, hyphens and apostrophes break letter sequences. A correct answer unlocks the next box.",
+        description: "Include prefixes or suffixes joined directly to the word, and preserve the Persian zero-width non-joiner. For example, enter “unhelpful” or “played” in full; in Persian, keep “می‌رود” or “کتاب‌ها” whole. Do not enter punctuation. In English, hyphens and apostrophes break letter sequences. A correct answer unlocks the next box.",
       },
       {
         title: "Compete with your speed",
