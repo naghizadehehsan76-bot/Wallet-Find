@@ -32,7 +32,7 @@ app.use(
     credentials: true,
   }),
 );
-app.use(express.json({ limit: "32kb" }));
+app.use(express.json({ limit: "2mb" }));
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
