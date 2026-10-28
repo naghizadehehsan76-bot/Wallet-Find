@@ -61,8 +61,8 @@ const knownUiTexts: Record<string, { fa: string; en: string }> = {
   "Your session has expired. Please sign in again.": { fa: "نشست ورودت منقضی شده است؛ دوباره وارد حساب شو.", en: "Your session has expired. Please sign in again." },
   "شروع چالش بعدی ناموفق بود. دوباره تلاش کن.": { fa: "شروع چالش بعدی ناموفق بود. دوباره تلاش کن.", en: "Could not start the next challenge. Please try again." },
   "Could not start the next challenge. Please try again.": { fa: "شروع چالش بعدی ناموفق بود. دوباره تلاش کن.", en: "Could not start the next challenge. Please try again." },
-  "کلمه‌ی انگلیسی را در کادر مربوط به همین راند وارد کن.": { fa: "کلمه‌ی انگلیسی را در کادر مربوط به همین راند وارد کن.", en: "Type the English word into the box for this round." },
-  "Type the English word into the box for this round.": { fa: "کلمه‌ی انگلیسی را در کادر مربوط به همین راند وارد کن.", en: "Type the English word into the box for this round." },
+  "واژهٔ پاسخ را در کادر مربوط به همین راند وارد کن.": { fa: "واژهٔ پاسخ را در کادر مربوط به همین راند وارد کن.", en: "Type the answer word into the box for this round." },
+  "Type the answer word into the box for this round.": { fa: "واژهٔ پاسخ را در کادر مربوط به همین راند وارد کن.", en: "Type the answer word into the box for this round." },
   "پاسخ غلط است. کلمه را در همین کادر اصلاح کن و دوباره بررسی کن.": { fa: "پاسخ غلط است. کلمه را در همین کادر اصلاح کن و دوباره بررسی کن.", en: "Incorrect answer. Edit the word in this box and try again." },
   "Incorrect answer. Edit the word in this box and try again.": { fa: "پاسخ غلط است. کلمه را در همین کادر اصلاح کن و دوباره بررسی کن.", en: "Incorrect answer. Edit the word in this box and try again." },
   "پاسخ درست بود! تبریک، هر ۱۲ راند را کامل کردی.": { fa: "پاسخ درست بود! تبریک، هر ۱۲ راند را کامل کردی.", en: "Correct answer! Congratulations, you completed all 12 rounds." },
@@ -83,8 +83,8 @@ const knownUiTexts: Record<string, { fa: string; en: string }> = {
   "The challenge is active and players can join.": { fa: "چالش فعال شد و بازیکنان می‌توانند وارد شوند.", en: "The challenge is active and players can join." },
   "چالش پایان یافت.": { fa: "چالش پایان یافت.", en: "The challenge has ended." },
   "The challenge has ended.": { fa: "چالش پایان یافت.", en: "The challenge has ended." },
-  "Find the English word immediately after the phrase shown in the hint.": { fa: "کلمه‌ی انگلیسی را که بلافاصله پس از عبارت راهنما آمده است پیدا کن.", en: "Find the English word immediately after the phrase shown in the hint." },
-  "کلمه‌ی انگلیسی را که بلافاصله پس از عبارت راهنما آمده است پیدا کن.": { fa: "کلمه‌ی انگلیسی را که بلافاصله پس از عبارت راهنما آمده است پیدا کن.", en: "Find the English word immediately after the phrase shown in the hint." },
+  "Find the word in the selected challenge language immediately after the phrase shown in the hint.": { fa: "واژهٔ متناسب با زبان چالش را که بلافاصله پس از عبارت راهنما آمده است پیدا کن.", en: "Find the word in the selected challenge language immediately after the phrase shown in the hint." },
+  "واژهٔ متناسب با زبان چالش را که بلافاصله پس از عبارت راهنما آمده است پیدا کن.": { fa: "واژهٔ متناسب با زبان چالش را که بلافاصله پس از عبارت راهنما آمده است پیدا کن.", en: "Find the word in the selected challenge language immediately after the phrase shown in the hint." },
 };
 
 export function localizeUiMessage(message: string, language: UiLanguage): string {
