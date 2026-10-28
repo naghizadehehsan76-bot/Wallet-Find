@@ -6,6 +6,7 @@ import {
   extractVisibleTextFromHtml,
   findUniqueAnchorBeforeTarget,
   isSearchableClueAnchor,
+  sourceUrlMatchesAssignment,
   generatedClueInstruction,
   getSourceWordMatches,
   normalizeSourceText,
@@ -163,6 +164,16 @@ test("citation templates and maintenance labels cannot leak into a clue anchor",
   assert.notEqual(targetIndex, -1);
   const anchor = findUniqueAnchorBeforeTarget(text, words, targetIndex);
   assert.equal(anchor, null);
+});
+
+test("pinned Wikipedia source assignments require the exact same revision", () => {
+  const article = "https://fa.wikipedia.org/wiki/%D8%A2%D8%BA%D9%88%D8%AA%D9%85%D8%A7%D9%86";
+  const assigned = article + "?oldid=40209654";
+
+  assert.equal(sourceUrlMatchesAssignment(assigned, assigned), true);
+  assert.equal(sourceUrlMatchesAssignment(article + "?oldid=40209655", assigned), false);
+  assert.equal(sourceUrlMatchesAssignment(article + "?oldid=40209654", article), true);
+  assert.equal(sourceUrlMatchesAssignment(article + "?oldid=40209654", article + "?oldid=40209654#section"), true);
 });
 
 test("a sentence boundary is respected when Wikipedia template markup touches punctuation", () => {
