@@ -997,6 +997,7 @@ export async function startNextMvpContest(userId: string, completedContestId: st
 
 
 const lastAutomaticRoundAttemptAt = new Map<"en" | "fa", number>();
+const lastScheduledSourceAssignmentAttemptAt = new Map<"en" | "fa", number>();
 const AUTOMATIC_ROUND_RETRY_DELAY_MS = 5 * 60_000;
 
 /**
@@ -1027,24 +1028,70 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
   }
 
   // If an administrator adds a source assignment after the upcoming round was
-  // already generated, retire that queued round so it can be rebuilt with the
-  // requested URL pinned to the selected cell.
+  // generated, update that still-future round in place. This keeps the same
+  // scheduled time and avoids creating a gap between rounds.
   if (existingScheduled?.startsAt) {
     const actualChallengeNumber = await getChallengeNumberForStart(language, existingScheduled.startsAt, true);
-    const plannedAssignments = await getScheduledSourceAssignments(language, {
+    const generationContext = {
       challengeNumber: actualChallengeNumber,
       startsAt: existingScheduled.startsAt,
-    });
+    };
+    const plannedAssignments = await getScheduledSourceAssignments(language, generationContext);
     const assignmentMismatch = plannedAssignments.some((assignment) => {
       const clue = existingScheduled?.clues.find((item) => item.sequence === assignment.sequence);
       return !sourceUrlMatchesAssignment(clue?.sourceUrl, assignment.url);
     });
-    if (assignmentMismatch && existingScheduled) {
-      await prisma.contest.update({
-        where: { id: existingScheduled.id },
-        data: { status: "CANCELLED" },
-      });
-      existingScheduled = undefined;
+    if (assignmentMismatch) {
+      const lastAttemptAt = lastScheduledSourceAssignmentAttemptAt.get(language) ?? 0;
+      if (now.getTime() - lastAttemptAt < AUTOMATIC_ROUND_RETRY_DELAY_MS) {
+        return { scheduled: true, contestId: existingScheduled.id, sourceAssignmentApplied: false };
+      }
+      lastScheduledSourceAssignmentAttemptAt.set(language, now.getTime());
+      try {
+        const regeneratedClues = await generateMvpRounds(language, generationContext);
+        await prisma.$transaction(async (tx) => {
+          for (let index = 0; index < regeneratedClues.length; index += 1) {
+            const clue = regeneratedClues[index];
+            if (!clue) continue;
+            await tx.contestClue.update({
+              where: {
+                contestId_sequence: {
+                  contestId: existingScheduled.id,
+                  sequence: index + 1,
+                },
+              },
+              data: {
+                content: clue.content,
+                correctAnswer: clue.correctAnswer,
+                sourceUrl: clue.sourceUrl,
+                hintAnchor: clue.hintAnchor,
+                options: clue.options,
+                publishedAt: existingScheduled.startsAt,
+              },
+            });
+          }
+          await tx.auditLog.create({
+            data: {
+              action: "SCHEDULED_CHALLENGE_SOURCES_APPLIED",
+              entity: "Contest",
+              entityId: existingScheduled.id,
+              metadata: {
+                challengeNumber: actualChallengeNumber,
+                startsAt: existingScheduled.startsAt?.toISOString(),
+                assignments: plannedAssignments.map(({ sequence, url }) => ({
+                  sequence,
+                  hostname: new URL(url).hostname,
+                })),
+              },
+            },
+          });
+        });
+        lastScheduledSourceAssignmentAttemptAt.delete(language);
+        return { scheduled: true, contestId: existingScheduled.id, sourceAssignmentApplied: true };
+      } catch (error) {
+        console.warn("Could not apply the scheduled source assignments; the existing round remains queued.", error);
+        return { scheduled: true, contestId: existingScheduled.id, sourceAssignmentApplied: false };
+      }
     }
   }
   if (existingScheduled) return { scheduled: true, contestId: existingScheduled.id };
