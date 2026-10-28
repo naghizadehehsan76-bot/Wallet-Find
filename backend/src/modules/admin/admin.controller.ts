@@ -182,6 +182,10 @@ export async function getContestSourceVisitReportHandler(
   try {
     const [
       totalClicks,
+      partnerConfirmedVisits,
+      pendingExternalVerificationVisits,
+      notConfiguredExternalVerificationVisits,
+      rejectedExternalVerificationVisits,
       advertiserAttributedClicks,
       uniqueVisitorRows,
       advertiserUniqueVisitorRows,
@@ -191,6 +195,10 @@ export async function getContestSourceVisitReportHandler(
       destinationVisitorPairs,
     ] = await Promise.all([
       prisma.contestSourceVisit.count(),
+      prisma.contestSourceVisit.count({ where: { externalVerificationStatus: "CONFIRMED" } }),
+      prisma.contestSourceVisit.count({ where: { externalVerificationStatus: "PENDING" } }),
+      prisma.contestSourceVisit.count({ where: { externalVerificationStatus: "NOT_CONFIGURED" } }),
+      prisma.contestSourceVisit.count({ where: { externalVerificationStatus: "REJECTED" } }),
       prisma.contestSourceVisit.count({ where: { advertisementOrderId: { not: null } } }),
       prisma.contestSourceVisit.findMany({
         where: { userId: { not: null } },
@@ -221,6 +229,10 @@ export async function getContestSourceVisitReportHandler(
           advertiserContentTitle: true,
           advertiserName: true,
           advertisementOrderId: true,
+          externalVerificationStatus: true,
+          externalConfirmedAt: true,
+          externalVerificationProvider: true,
+          externalReferenceId: true,
           createdAt: true,
         },
       }),
@@ -318,13 +330,18 @@ export async function getContestSourceVisitReportHandler(
           uniqueVisitors: uniqueVisitorRows.length,
           advertiserAttributedClicks,
           advertiserUniqueVisitors: advertiserUniqueVisitorRows.length,
+          partnerConfirmedVisits,
+          pendingExternalVerificationVisits,
+          notConfiguredExternalVerificationVisits,
+          rejectedExternalVerificationVisits,
         },
         advertiserPerformance,
         destinationPerformance,
         recentVisits,
         recentVisitsLimit: 500,
         generatedAt: new Date().toISOString(),
-        proofNote: "Records prove a logged, authenticated click on a challenge source link. They do not independently prove that the external destination finished loading or that the user viewed it.",
+        proofNote: "Wallet-Find records prove a logged, authenticated click only. An external landing is counted as confirmed only after a configured advertiser integration verifies the click token; the partner API has not been configured yet.",
+        verificationNote: "Do not treat unconfigured, pending, or rejected records as verified external visits. The partner connector must validate the advertiser API response or authenticated callback before marking a record CONFIRMED.",
       },
     });
   } catch (error) {
