@@ -86,6 +86,7 @@ model User {
   advertisementOrders AdvertisementOrder[]
   auditLogs           AuditLog[]
   walletTransactions  WalletTransaction[]
+  contestSourceVisits ContestSourceVisit[]
 
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -108,6 +109,7 @@ model Contest {
 
   clues       ContestClue[]
   submissions Submission[]
+  sourceVisits ContestSourceVisit[]
 
   setting ContestSetting?
 
@@ -150,6 +152,7 @@ model AdvertiserContent {
   advertiser User @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
 
   clues ContestClue[]
+  sourceVisits ContestSourceVisit[]
 
   advertisementOrders AdvertisementOrder[]
 
@@ -186,6 +189,7 @@ model ContestClue {
   advertiserContent AdvertiserContent? @relation(fields: [advertiserContentId], references: [id], onDelete: SetNull)
 
   submissions Submission[]
+  sourceVisits ContestSourceVisit[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -307,6 +311,7 @@ model AdvertisementOrder {
 
   payments AdvertisementPayment[]
   metrics  AdvertisementMetric[]
+  sourceVisits ContestSourceVisit[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -388,6 +393,44 @@ model AdvertisementMetric {
   @@index([createdAt])
   @@index([userId])
   @@map("advertisement_metrics")
+}
+
+model ContestSourceVisit {
+  id String @id @default(cuid())
+
+  userId String?
+  username String
+
+  contestId String?
+  contestTitle String
+  contestLanguage String
+  contestStartsAt DateTime?
+
+  clueId String?
+  clueSequence Int
+
+  sourceUrl String
+  sourceHostname String
+
+  advertiserContentId String?
+  advertiserContentTitle String?
+  advertiserName String?
+  advertisementOrderId String?
+
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  contest Contest? @relation(fields: [contestId], references: [id], onDelete: SetNull)
+  clue ContestClue? @relation(fields: [clueId], references: [id], onDelete: SetNull)
+  advertiserContent AdvertiserContent? @relation(fields: [advertiserContentId], references: [id], onDelete: SetNull)
+  advertisementOrder AdvertisementOrder? @relation(fields: [advertisementOrderId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([contestId, clueSequence])
+  @@index([userId, createdAt])
+  @@index([sourceHostname, createdAt])
+  @@index([advertisementOrderId, createdAt])
+  @@map("contest_source_visits")
 }
 
 
