@@ -459,6 +459,21 @@ async function getChallengeNumberForStart(
   return existingRound ? Math.max(1, count) : Math.max(1, count + 1);
 }
 
+function sourceUrlMatchesAssignment(actualUrl: string | null | undefined, assignedUrl: string): boolean {
+  if (!actualUrl) return false;
+  try {
+    const actual = new URL(actualUrl);
+    const assigned = new URL(assignedUrl);
+    if (actual.origin !== assigned.origin) return false;
+    if (actual.hostname === "en.wikipedia.org" || actual.hostname === "fa.wikipedia.org") {
+      return actual.pathname === assigned.pathname;
+    }
+    return actual.toString() === assigned.toString();
+  } catch {
+    return actualUrl === assignedUrl;
+  }
+}
+
 async function getConfiguredSourceUrls(language: "en" | "fa"): Promise<string[]> {
   const defaults = language === "fa" ? [
     "https://fa.wikipedia.org/w/api.php",
@@ -986,10 +1001,11 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
     orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
     select: {
       id: true,
+      startsAt: true,
       clues: { select: { sequence: true, content: true, sourceUrl: true, hintAnchor: true, options: true } },
     },
   });
-  const existingScheduled = scheduledCandidates.find((candidate) =>
+  let existingScheduled = scheduledCandidates.find((candidate) =>
     hasCurrentGeneratedClues(candidate.clues)
   );
   const staleScheduledIds = scheduledCandidates
@@ -1000,6 +1016,28 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
       where: { id: { in: staleScheduledIds }, status: "SCHEDULED" },
       data: { status: "CANCELLED" },
     });
+  }
+
+  // If an administrator adds a source assignment after the upcoming round was
+  // already generated, retire that queued round so it can be rebuilt with the
+  // requested URL pinned to the selected cell.
+  if (existingScheduled?.startsAt) {
+    const actualChallengeNumber = await getChallengeNumberForStart(language, existingScheduled.startsAt, true);
+    const plannedAssignments = await getScheduledSourceAssignments(language, {
+      challengeNumber: actualChallengeNumber,
+      startsAt: existingScheduled.startsAt,
+    });
+    const assignmentMismatch = plannedAssignments.some((assignment) => {
+      const clue = existingScheduled?.clues.find((item) => item.sequence === assignment.sequence);
+      return !sourceUrlMatchesAssignment(clue?.sourceUrl, assignment.url);
+    });
+    if (assignmentMismatch && existingScheduled) {
+      await prisma.contest.update({
+        where: { id: existingScheduled.id },
+        data: { status: "CANCELLED" },
+      });
+      existingScheduled = undefined;
+    }
   }
   if (existingScheduled) return { scheduled: true, contestId: existingScheduled.id };
 
@@ -1018,13 +1056,14 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
   // required a prior ACTIVE/FINISHED round, so a fresh/empty database could
   // never create its first contest and /contests/active returned 404 forever.
   try {
-    const clues = await generateMvpRounds(language);
     const intervalMs = 15 * 60_000;
     const nextBoundary = Math.ceil(now.getTime() / intervalMs) * intervalMs;
     const previousBoundary = previous?.startsAt
       ? previous.startsAt.getTime() + intervalMs
       : nextBoundary;
     const startsAt = new Date(Math.max(nextBoundary, previousBoundary));
+    const challengeNumber = await getChallengeNumberForStart(language, startsAt);
+    const clues = await generateMvpRounds(language, { challengeNumber, startsAt });
     const endsAt = new Date(startsAt.getTime() + CONTEST_DURATION_MS);
 
     const created = await prisma.$transaction(async (tx) => {
