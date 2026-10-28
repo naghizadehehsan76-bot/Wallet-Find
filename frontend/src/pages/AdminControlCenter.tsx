@@ -484,7 +484,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     }
   }
 
-  const visibleSettings = settings.filter((setting) => setting.key !== "hypothetical_prize_pool_per_round");
+  const visibleSettings = settings.filter((setting) => setting.key !== "hypothetical_prize_pool_per_round" && !setting.key.startsWith("challenge_schedule_anchor_"));
 
   const metricCards = overview ? [
     { label: copy.users, value: overview.users, icon: "◎" },
