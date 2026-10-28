@@ -2597,3 +2597,89 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   .challenge-result-card__metric > strong { font-size: 14px; }
   .challenge-result-card__time { font-size: 11px !important; }
 }
+
+
+/* Prevent a participant from switching language to replay the same round. */
+.language-participation-block {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  margin: 22px 0;
+  padding: 22px 17px 17px;
+  border: 1px solid rgba(0, 225, 214, .38);
+  border-radius: 22px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(0, 240, 208, .12), transparent 56%),
+    linear-gradient(150deg, rgba(4, 38, 65, .97), rgba(2, 12, 27, .99));
+  box-shadow: inset 0 1px rgba(255,255,255,.045), 0 12px 34px rgba(0,0,0,.2), 0 0 24px rgba(0,145,255,.08);
+  text-align: center;
+}
+.language-participation-block__icon {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 14px;
+  border: 1px solid rgba(0, 240, 208, .38);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(0,240,208,.14), rgba(0,132,255,.12));
+  color: #00f0d0;
+  font-size: 30px;
+  box-shadow: 0 0 24px rgba(0,240,208,.08);
+}
+.language-participation-block__eyebrow {
+  color: #00f0d0;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 1.5px;
+  line-height: 1.7;
+}
+.language-participation-block h3 {
+  margin: 9px 0 10px;
+  color: #f4fbff;
+  font-size: clamp(17px, 4.5vw, 21px);
+  font-weight: 900;
+  line-height: 1.7;
+}
+.language-participation-block > p {
+  margin: 0;
+  color: #a4bfd2;
+  font-size: 12px;
+  line-height: 2;
+}
+.language-participation-block__countdown {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  margin: 18px 0 12px;
+  padding: 13px 12px;
+  border: 1px solid rgba(0, 153, 255, .27);
+  border-radius: 15px;
+  background: linear-gradient(145deg, rgba(3,31,54,.9), rgba(2,17,34,.96));
+}
+.language-participation-block__countdown span {
+  color: #95b5cd;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.language-participation-block__countdown strong {
+  color: #ffe08a;
+  font-size: clamp(27px, 8vw, 36px);
+  font-weight: 900;
+  line-height: 1.3;
+  letter-spacing: .8px;
+  text-shadow: 0 0 18px rgba(255,224,138,.12);
+}
+.language-participation-block .language-participation-block__instruction {
+  color: #d1e4f1;
+  font-size: 12px;
+  font-weight: 650;
+}
+.language-participation-block__refresh {
+  margin-top: 16px;
+}
+@media (max-width: 360px) {
+  .language-participation-block { padding: 19px 12px 14px; border-radius: 18px; }
+  .language-participation-block__icon { width: 50px; height: 50px; font-size: 26px; }
+}
