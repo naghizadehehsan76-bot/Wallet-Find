@@ -44,6 +44,7 @@ export type PublicPrizePoolStats = {
   dailyContribution: string;
   totalDailyFunding: string;
   totalRoundAllocations: string;
+  totalPrizesAwarded: string;
   currency: "USDT";
   simulatedOnly: true;
   updatedAt: string;
