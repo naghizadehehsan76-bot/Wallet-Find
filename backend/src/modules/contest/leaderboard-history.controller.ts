@@ -2,6 +2,7 @@ import type { Response } from "express";
 import type { AuthenticatedRequest } from "../../middleware/auth.middleware.js";
 import prisma from "../../config/prisma.js";
 import { getContestLeaderboard } from "./leaderboard.service.js";
+import { challengeNumberAt, getChallengeScheduleAnchor } from "./challenge-schedule.js";
 
 export async function getLeaderboardHistoryHandler(req: AuthenticatedRequest, res: Response) {
   if (!req.user) {
@@ -15,8 +16,13 @@ export async function getLeaderboardHistoryHandler(req: AuthenticatedRequest, re
         status: { in: ["ACTIVE", "FINISHED"] },
       },
       orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
-      select: { id: true, title: true, status: true, startsAt: true, endsAt: true },
+      select: { id: true, title: true, status: true, language: true, startsAt: true, endsAt: true },
     });
+
+    const [englishAnchor, persianAnchor] = await Promise.all([
+      getChallengeScheduleAnchor("en"),
+      getChallengeScheduleAnchor("fa"),
+    ]);
 
     const allAwards = await prisma.prizeAward.findMany({
       select: { userId: true, amountMicro: true },
@@ -35,7 +41,7 @@ export async function getLeaderboardHistoryHandler(req: AuthenticatedRequest, re
       const awardByUser = new Map(awards.map((award) => [award.userId, award]));
       return {
         id: contest.id,
-        number: index + 1,
+        number: challengeNumberAt(contest.startsAt, contest.language === "fa" ? persianAnchor : englishAnchor),
         title: contest.title,
         status: contest.status,
         startsAt: contest.startsAt?.toISOString() ?? null,
