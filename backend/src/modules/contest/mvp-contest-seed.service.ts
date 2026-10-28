@@ -1,5 +1,6 @@
 import prisma from "../../config/prisma.js";
 import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
+import { CHALLENGE_INTERVAL_MS, getChallengeNumberAt, getChallengeScheduleAnchor } from "./challenge-schedule.js";
 import {
   CLUE_GENERATOR_VERSION,
   extractVisibleTextFromHtml,
@@ -444,20 +445,6 @@ async function getScheduledSourceAssignments(
   }
 }
 
-async function getChallengeNumberForStart(
-  language: "en" | "fa",
-  startsAt: Date,
-  existingRound = false,
-): Promise<number> {
-  const count = await prisma.contest.count({
-    where: {
-      language,
-      status: { not: "CANCELLED" },
-      startsAt: existingRound ? { lte: startsAt } : { lt: startsAt },
-    },
-  });
-  return existingRound ? Math.max(1, count) : Math.max(1, count + 1);
-}
 
 function sourceUrlMatchesAssignment(actualUrl: string | null | undefined, assignedUrl: string): boolean {
   if (!actualUrl) return false;
@@ -608,6 +595,9 @@ async function generateMvpRounds(
  * rounds have a source URL, a hint anchor, and twelve word choices.
  */
 async function ensureMvpActiveContestInternal(language: "en" | "fa" = "en") {
+  // Persist the numbering anchor before recovery creates a replacement round;
+  // otherwise an outage could make the recovered round reset the schedule.
+  await getChallengeScheduleAnchor(language);
   const activeContests = await prisma.contest.findMany({
     where: { status: "ACTIVE", language },
     select: {
@@ -877,13 +867,13 @@ export async function startNextMvpContest(userId: string, completedContestId: st
   // completion of source retrieval, as before. If this exact future round has
   // pinned sources, regenerate with those assignments applied to their cells.
   let clues = await generateMvpRounds(language);
-  const intervalMs = 15 * 60_000;
+  const intervalMs = CHALLENGE_INTERVAL_MS;
   const nextFixedBoundary = Math.ceil(Date.now() / intervalMs) * intervalMs;
   const previousRoundBoundary = completedContest.startsAt
     ? completedContest.startsAt.getTime() + intervalMs
     : 0;
   const startsAt = new Date(Math.max(nextFixedBoundary, previousRoundBoundary));
-  const challengeNumber = await getChallengeNumberForStart(language, startsAt);
+  const challengeNumber = await getChallengeNumberAt(language, startsAt);
   const plannedAssignments = await getScheduledSourceAssignments(language, { challengeNumber, startsAt });
   if (plannedAssignments.length > 0) {
     clues = await generateMvpRounds(language, { challengeNumber, startsAt });
@@ -1034,7 +1024,7 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
     const scheduledRound = existingScheduled;
     const scheduledStartAt = scheduledRound.startsAt;
     if (!scheduledStartAt) return { scheduled: true, contestId: scheduledRound.id };
-    const actualChallengeNumber = await getChallengeNumberForStart(language, scheduledStartAt, true);
+    const actualChallengeNumber = await getChallengeNumberAt(language, scheduledStartAt);
     const generationContext = {
       challengeNumber: actualChallengeNumber,
       startsAt: scheduledStartAt,
@@ -1126,13 +1116,13 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
   // required a prior ACTIVE/FINISHED round, so a fresh/empty database could
   // never create its first contest and /contests/active returned 404 forever.
   try {
-    const intervalMs = 15 * 60_000;
+    const intervalMs = CHALLENGE_INTERVAL_MS;
     const nextBoundary = Math.ceil(now.getTime() / intervalMs) * intervalMs;
     const previousBoundary = previous?.startsAt
       ? previous.startsAt.getTime() + intervalMs
       : nextBoundary;
     const startsAt = new Date(Math.max(nextBoundary, previousBoundary));
-    const challengeNumber = await getChallengeNumberForStart(language, startsAt);
+    const challengeNumber = await getChallengeNumberAt(language, startsAt);
     const clues = await generateMvpRounds(language, { challengeNumber, startsAt });
     const endsAt = new Date(startsAt.getTime() + CONTEST_DURATION_MS);
 
