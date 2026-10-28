@@ -18,8 +18,8 @@ function BottomNav({ activePage, onNavigate }: BottomNavProps) {
   const { translation: t } = useI18n();
   const items: { page: Page; icon: string; label: string }[] = [
     { page: "home", icon: "⌂", label: t.navigation.home },
-    { page: "competition", icon: "", label: t.navigation.competition },
     { page: "leaderboard", icon: "🏆", label: t.navigation.leaderboard },
+    { page: "competition", icon: "", label: t.navigation.competition },
     { page: "wallet", icon: "◈", label: t.navigation.wallet },
     { page: "profile", icon: "◎", label: t.navigation.profile },
   ];
