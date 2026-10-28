@@ -482,6 +482,13 @@ export type AdminAdvertiserPerformance = {
   orderStatus: string;
 };
 
+export type AdminDestinationPerformance = {
+  sourceUrl: string;
+  sourceHostname: string;
+  clickCount: number;
+  uniqueVisitors: number;
+};
+
 export type AdminSourceVisitReport = {
   summary: {
     totalClicks: number;
@@ -490,6 +497,7 @@ export type AdminSourceVisitReport = {
     advertiserUniqueVisitors: number;
   };
   advertiserPerformance: AdminAdvertiserPerformance[];
+  destinationPerformance: AdminDestinationPerformance[];
   recentVisits: AdminSourceVisit[];
   recentVisitsLimit: number;
   generatedAt: string;
