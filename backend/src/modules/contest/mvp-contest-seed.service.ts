@@ -6,6 +6,7 @@ import {
   extractVisibleTextFromHtml,
   findUniqueAnchorBeforeTarget,
   isSearchableClueAnchor,
+  sourceUrlMatchesAssignment,
   generatedClueInstruction,
   getSourceWordMatches,
   normalizeSourceText,
@@ -512,25 +513,6 @@ async function getScheduledSourceAssignments(
 }
 
 
-function sourceUrlMatchesAssignment(actualUrl: string | null | undefined, assignedUrl: string): boolean {
-  if (!actualUrl) return false;
-  try {
-    const actual = new URL(actualUrl);
-    const assigned = new URL(assignedUrl);
-    if (actual.origin !== assigned.origin) return false;
-    if (actual.hostname === "en.wikipedia.org" || actual.hostname === "fa.wikipedia.org") {
-      if (actual.pathname !== assigned.pathname) return false;
-      // If the admin pins a revision, an automatically generated newer/older
-      // revision is NOT the same assignment. Unpinned assignments may resolve
-      // to the exact current revision at generation time.
-      const assignedRevision = assigned.searchParams.get("oldid");
-      return !assignedRevision || actual.searchParams.get("oldid") === assignedRevision;
-    }
-    return actual.toString() === assigned.toString();
-  } catch {
-    return actualUrl === assignedUrl;
-  }
-}
 
 async function getConfiguredSourceUrls(language: "en" | "fa"): Promise<string[]> {
   const defaults = language === "fa" ? [
