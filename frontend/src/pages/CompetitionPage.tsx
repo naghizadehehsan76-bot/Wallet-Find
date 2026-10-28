@@ -840,7 +840,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           <section className="stat-row" aria-label={isPersian ? "صندوق جایزه چالش" : "Challenge prize pool"}>
             <div className="stat-card">
               <strong>{localizeDigits(Number(prizePool.total).toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 6 }))}</strong>
-              <span>USDT</span>
+              <span className="stat-card__currency">USDT</span>
               <span>{isPersian ? "صندوق جایزهٔ این دور" : "This round’s prize pool"}</span>
             </div>
             <div className="stat-card">
