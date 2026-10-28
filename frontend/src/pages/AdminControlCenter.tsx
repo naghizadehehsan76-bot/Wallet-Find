@@ -179,7 +179,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     sourceUrl: fa ? "آدرس کامل منبع HTTPS" : "Full HTTPS source URL",
     sourceSaved: fa ? "فهرست منابع ذخیره شد؛ در ساخت دورهای بعدی استفاده می‌شود." : "Source lists saved. They will be used for future rounds.",
     scheduledSourcesTitle: fa ? "پیوند منابع برای چالش‌های آینده" : "Source links for future challenges",
-    scheduledSourcesHelp: fa ? "برای هر پیوند، شماره چالش، زمان شروع و خانه‌ای را مشخص کن که پاسخ آن از همین منبع ساخته شود. زمان چالش باید روی یکی از مرزهای ۱۵ دقیقه‌ای باشد." : "For each link, choose the future challenge number, its start time, and the clue cell that must use this source. The start time must align to a 15-minute boundary.",
+    scheduledSourcesHelp: fa ? "برای هر پیوند، شمارهٔ چالش آینده، زمان شروع و خانه‌ای را مشخص کن که پاسخ آن از همین منبع ساخته شود. زمان باید روی مرز ۱۵ دقیقه‌ای باشد و شمارهٔ چالش با شماره‌گذاری واقعی همان زمان مطابقت داشته باشد؛ فقط در صورت تطبیق هر دو مقدار، منبع اعمال می‌شود." : "For each link, choose the future challenge number, start time, and clue cell that must use this source. The start must align to a 15-minute boundary, and the challenge number must match the actual round number at that time; the assignment is applied only when both match.",
     scheduledSourceUrl: fa ? "لینک منبع HTTPS" : "HTTPS source link",
     scheduledChallengeNumber: fa ? "شماره چالش آینده" : "Future challenge number",
     scheduledChallengeStart: fa ? "تاریخ و ساعت شروع چالش" : "Challenge start date and time",
