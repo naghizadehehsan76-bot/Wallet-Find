@@ -268,7 +268,7 @@ function HomePage({
             {isPersian ? <>کیف پول رو پیدا کن، <span>کریپتو بگیر</span></> : <>FIND THE WALLET, <span>GET CRYPTO</span></>}
           </h1>
           <p className="home-concept-tagline" lang={isPersian ? "fa" : "en"} dir={isPersian ? "rtl" : "ltr"}>
-            {isPersian ? <>هر روز سرنخ‌های رسیدن به کیف پول رو بهت میدیم<br />هر چقدر سریعتر باشی درآمدت بیشتره.</> : <>We give you clues every day...<br />The faster you are, the more you earn.</>}
+            {isPersian ? <>هر روز سرنخ‌های رسیدن به کیف پول رو بهت میدیم<br />هر چقدر سریعتر باشی درآمدت بیشتره.</> : <>We give you clues to find wallet every day...<br />The faster you are, the more you earn.</>}
           </p>
         </section>
 
