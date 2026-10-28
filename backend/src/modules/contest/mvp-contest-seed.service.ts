@@ -873,7 +873,21 @@ export async function startNextMvpContest(userId: string, completedContestId: st
   // Generate and validate the complete next contest before retiring the old
   // one. If an external source is unavailable, the finished contest remains
   // available and the caller receives a clear error instead of a broken round.
-  const clues = await generateMvpRounds(language);
+  // Generate a normal set first so scheduling time is based on the actual
+  // completion of source retrieval, as before. If this exact future round has
+  // pinned sources, regenerate with those assignments applied to their cells.
+  let clues = await generateMvpRounds(language);
+  const intervalMs = 15 * 60_000;
+  const nextFixedBoundary = Math.ceil(Date.now() / intervalMs) * intervalMs;
+  const previousRoundBoundary = completedContest.startsAt
+    ? completedContest.startsAt.getTime() + intervalMs
+    : 0;
+  const startsAt = new Date(Math.max(nextFixedBoundary, previousRoundBoundary));
+  const challengeNumber = await getChallengeNumberForStart(language, startsAt);
+  const plannedAssignments = await getScheduledSourceAssignments(language, { challengeNumber, startsAt });
+  if (plannedAssignments.length > 0) {
+    clues = await generateMvpRounds(language, { challengeNumber, startsAt });
+  }
 
   try {
     const nextContest = await prisma.$transaction(async (tx) => {
@@ -909,12 +923,6 @@ export async function startNextMvpContest(userId: string, completedContestId: st
         return publicContest(contestCreatedByAnotherRequest);
       }
 
-      const ROUND_INTERVAL_MS = 15 * 60_000;
-      const nextFixedBoundary = Math.ceil(Date.now() / ROUND_INTERVAL_MS) * ROUND_INTERVAL_MS;
-      const previousRoundBoundary = completedContest.startsAt
-        ? completedContest.startsAt.getTime() + ROUND_INTERVAL_MS
-        : 0;
-      const startsAt = new Date(Math.max(nextFixedBoundary, previousRoundBoundary));
       const endsAt = new Date(startsAt.getTime() + CONTEST_DURATION_MS);
 
       const created = await tx.contest.create({
