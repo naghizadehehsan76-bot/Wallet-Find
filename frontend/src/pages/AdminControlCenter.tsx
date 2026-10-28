@@ -901,7 +901,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                           {visit.contestStartsAt && <small>{fa ? "شروع چالش" : "Challenge start"}: {new Date(visit.contestStartsAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>}
                           <small>{copy.reportAdvertiser}: {visit.advertiserName ?? copy.reportNoAdvertiser}</small>
                           <small>{copy.reportClickTime}: {new Date(visit.createdAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>
-                          <small>{copy.destinationHost}: {visit.sourceHostname}</small>
+                          <small>{copy.reportDestination}: {visit.sourceHostname}</small>
                           <code>{visit.sourceUrl}</code>
                         </div>
                       </article>
