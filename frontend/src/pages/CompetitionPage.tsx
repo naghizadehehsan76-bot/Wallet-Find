@@ -6,6 +6,7 @@ import {
   startNextContest,
   submitAnswer,
   getContestPrizePool,
+  getPublicPrizePoolStats,
   getLeaderboard,
   getProfile,
   recordContestSourceVisit,
@@ -134,6 +135,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [contestTitle, setContestTitle] = useState("");
   const [contestDate, setContestDate] = useState<string | null>(null);
   const [prizePool, setPrizePool] = useState<PrizePoolView | null>(null);
+  const [globalPrizePoolTotal, setGlobalPrizePoolTotal] = useState<string | null>(null);
   const [completionSummary, setCompletionSummary] = useState<CompletionSummary | null>(null);
   const [completionSummaryLoading, setCompletionSummaryLoading] = useState(false);
   const [completionSummaryError, setCompletionSummaryError] = useState(false);
@@ -216,6 +218,16 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
 
   useEffect(() => {
     let cancelled = false;
+    const loadGlobalPrizePool = () => {
+      void getPublicPrizePoolStats(isPersian ? "fa" : "en")
+        .then((stats) => {
+          if (!cancelled) setGlobalPrizePoolTotal(stats.totalPool);
+        })
+        .catch(() => undefined);
+    };
+
+    loadGlobalPrizePool();
+    const poolRefreshId = window.setInterval(loadGlobalPrizePool, 30_000);
 
     void getActiveContest()
       .then(async (contest) => {
@@ -266,6 +278,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
 
     return () => {
       cancelled = true;
+      window.clearInterval(poolRefreshId);
     };
   }, [isPersian]);
 
@@ -823,8 +836,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
               <span>{isPersian ? "تخصیص ۱٪ صندوق کلی به این دور" : "1% global fund allocated to this round"}</span>
             </div>
             <div className="stat-card">
-              <strong>{prizePool.projectProfit} USDT</strong>
-              <span>{isPersian ? "سهم ثبت‌شدهٔ صندوق سود سهام پروژه" : "Project dividend contribution recorded"}</span>
+              <strong>{globalPrizePoolTotal !== null ? Number(globalPrizePoolTotal).toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 6 }) : "—"} USDT</strong>
+              <span>{isPersian ? "موجودی صندوق کلی جوایز" : "Global prize fund balance"}</span>
             </div>
           </section>
         )}
