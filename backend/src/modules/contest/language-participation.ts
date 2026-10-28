@@ -23,7 +23,6 @@ type TargetContest = {
 export async function getLanguageParticipationBlock(
   userId: string,
   targetContest: TargetContest,
-  now = new Date(),
 ): Promise<LanguageParticipationBlock | null> {
   if (
     !targetContest.startsAt ||
@@ -37,14 +36,11 @@ export async function getLanguageParticipationBlock(
   const scheduleAnchor = await getChallengeScheduleAnchor();
   const targetChallengeNumber = challengeNumberAt(targetContest.startsAt, scheduleAnchor);
 
-  const finalCorrectSubmissions = await prisma.submission.findMany({
-    where: {
-      userId,
-      isCorrect: true,
-      clue: { sequence: 12 },
-    },
+  const correctSubmissions = await prisma.submission.findMany({
+    where: { userId, isCorrect: true },
     select: {
       contestId: true,
+      clue: { select: { sequence: true } },
       contest: {
         select: {
           language: true,
@@ -54,50 +50,32 @@ export async function getLanguageParticipationBlock(
     },
   });
 
-  const candidateContestIds = [...new Set(
-    finalCorrectSubmissions
-      .filter((submission) =>
-        submission.contestId !== targetContest.id &&
-        submission.contest.language === otherLanguage &&
-        submission.contest.startsAt !== null &&
-        challengeNumberAt(submission.contest.startsAt, scheduleAnchor) === targetChallengeNumber
-      )
-      .map((submission) => submission.contestId),
-  )];
-
-  if (candidateContestIds.length === 0) return null;
-
-  // A correct answer on cell 12 normally implies that the earlier cells were
-  // solved in order. Verify the complete 1..12 set as a defensive check before
-  // enforcing the cross-language block.
-  const correctSubmissions = await prisma.submission.findMany({
-    where: {
-      userId,
-      contestId: { in: candidateContestIds },
-      isCorrect: true,
-    },
-    select: {
-      contestId: true,
-      clue: { select: { sequence: true } },
-    },
-  });
-
-  const solvedByContest = new Map<string, Set<number>>();
+  const contestProgress = new Map<string, {
+    language: string;
+    startsAt: Date | null;
+    sequences: Set<number>;
+  }>();
   for (const submission of correctSubmissions) {
-    let sequences = solvedByContest.get(submission.contestId);
-    if (!sequences) {
-      sequences = new Set<number>();
-      solvedByContest.set(submission.contestId, sequences);
+    let progress = contestProgress.get(submission.contestId);
+    if (!progress) {
+      progress = {
+        language: submission.contest.language,
+        startsAt: submission.contest.startsAt,
+        sequences: new Set<number>(),
+      };
+      contestProgress.set(submission.contestId, progress);
     }
-    sequences.add(submission.clue.sequence);
+    progress.sequences.add(submission.clue.sequence);
   }
 
-  const completedOtherLanguage = finalCorrectSubmissions.find((submission) => {
-    if (!candidateContestIds.includes(submission.contestId)) return false;
-    const sequences = solvedByContest.get(submission.contestId);
-    return Boolean(sequences && Array.from({ length: 12 }, (_value, index) => index + 1)
-      .every((sequence) => sequences.has(sequence)));
-  });
+  const requiredSequences = Array.from({ length: 12 }, (_value, index) => index + 1);
+  const completedOtherLanguage = [...contestProgress.entries()].find(([contestId, progress]) =>
+    contestId !== targetContest.id &&
+    progress.language === otherLanguage &&
+    progress.startsAt !== null &&
+    challengeNumberAt(progress.startsAt, scheduleAnchor) === targetChallengeNumber &&
+    requiredSequences.every((sequence) => progress.sequences.has(sequence))
+  );
 
   if (!completedOtherLanguage) return null;
 
