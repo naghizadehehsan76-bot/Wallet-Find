@@ -972,9 +972,13 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                     </>
                   )}
                   <div className="round-hint-card__tip">
-                    {isPersian
-                      ? "فقط خود توالی پاسخ را وارد کن؛ عبارت راهنما، نشانه‌گذاری و واژهٔ جداشده را وارد نکن."
-                      : "Enter only the answer token, not the hint phrase, punctuation, or a separate neighboring word."}
+                    {contestLanguage === "fa"
+                      ? (isPersian
+                          ? "مثال: «می‌رود» و «کتاب‌ها» را کامل و با نیم‌فاصله وارد کن؛ نشانه‌گذاری، عبارت راهنما و واژهٔ جداشده را وارد نکن."
+                          : "Example: enter a Persian token such as “می‌رود” or “کتاب‌ها” whole, including its zero-width non-joiner; exclude punctuation and neighboring words.")
+                      : (isPersian
+                          ? "مثال: «unhelpful» یا «played» را کامل وارد کن؛ نشانه‌گذاری، عبارت راهنما و واژهٔ جداشده را وارد نکن."
+                          : "Example: enter “unhelpful” or “played” as a whole word; exclude punctuation, the hint phrase, and neighboring words.")}
                   </div>
                 </section>
 
