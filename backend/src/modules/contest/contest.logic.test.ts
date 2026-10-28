@@ -139,7 +139,32 @@ test("ambiguous phrases repeated in a source are not accepted as clue anchors", 
   assert.equal(findUniqueAnchorBeforeTarget(text, words, firstTargetIndex), null);
 });
 
+test("citation templates and maintenance labels cannot leak into a clue anchor", () => {
+  const text = normalizeSourceText(
+    "این صفحه یک توضیح کوتاه دارد. اطلاعات اصلی در ۲۱ آبان ۱۳۹۲.{{cite web}}: نگهداری یادکرد:تاریخ بررسی شده و نتیجهٔ نهایی برای کاربران منتشر شد.",
+  );
+  const words = getSourceWordMatches(text, "fa");
+  const targetIndex = words.findIndex((word) => word.word === "بررسی");
+
+  assert.notEqual(targetIndex, -1);
+  const anchor = findUniqueAnchorBeforeTarget(text, words, targetIndex);
+  assert.equal(anchor, null);
+});
+
+test("a sentence boundary is respected when Wikipedia template markup touches punctuation", () => {
+  const text = normalizeSourceText(
+    "مقدمه‌ای دربارهٔ موضوع وجود دارد. داده‌های اصلی در ۲۱ آبان ۱۳۹۲.{{cite web}}: نگهداری یادکرد:تاریخ جزئیات بیشتری را شرح می‌دهد.",
+  );
+  const words = getSourceWordMatches(text, "fa");
+  const targetIndex = words.findIndex((word) => word.word === "جزئیات");
+
+  assert.notEqual(targetIndex, -1);
+  const anchor = findUniqueAnchorBeforeTarget(text, words, targetIndex);
+  assert.equal(anchor, null);
+});
+
 test("generated clues carry a version marker used to retire old unreliable rounds", () => {
+  assert.equal(CLUE_GENERATOR_VERSION, "[[WF_HINT_V3]]");
   assert.equal(generatedClueInstruction("fa").startsWith(CLUE_GENERATOR_VERSION), true);
   assert.equal(generatedClueInstruction("en").startsWith(CLUE_GENERATOR_VERSION), true);
 });
