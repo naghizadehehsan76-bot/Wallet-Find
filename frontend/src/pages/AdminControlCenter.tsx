@@ -237,7 +237,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     removeScheduledSource: fa ? "حذف پیوند برنامه‌ریزی‌شده" : "Remove scheduled link",
     noScheduledSources: fa ? "هنوز پیوندی برای چالش‌های آینده زمان‌بندی نشده است." : "No source links are scheduled for future challenges.",
     invalidScheduledSource: fa ? "لینک باید معتبر و با HTTPS شروع شود." : "Enter a valid HTTPS source link.",
-    invalidScheduledChallenge: fa ? "شماره چالش باید عددی مثبت باشد." : "Challenge number must be a positive integer.",
+    invalidScheduledChallenge: fa ? "شمارهٔ چالش باید عددی صحیح و بزرگ‌تر از شمارهٔ چالش فعال باشد." : "Challenge number must be a whole number greater than the active challenge number.",
     invalidScheduledSequence: fa ? "شماره خانه باید بین ۱ تا ۱۲ باشد." : "Clue cell must be between 1 and 12.",
     invalidScheduledStart: fa ? "زمان شروع باید در آینده و دقیقاً روی مرز ۱۵ دقیقه‌ای باشد (مثلاً 12:00، 12:15 یا 12:30)." : "Start time must be in the future and exactly on a 15-minute boundary (for example, 12:00, 12:15, or 12:30).",
     duplicateScheduledSource: fa ? "برای همین زبان، چالش و خانه قبلاً منبعی ثبت شده است." : "A source is already assigned to this language, challenge and clue cell.",
@@ -645,7 +645,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                     ))}
                   </select>
                 </label>
-                <button className="cta-button" type="submit" disabled={saving}>{copy.addScheduledSource}</button>
+                <button className="cta-button" type="submit" disabled={saving || challengeScheduleLoading || !challengeScheduleAnchor}>{copy.addScheduledSource}</button>
               </form>
               {scheduledSources.length === 0 ? <p className="admin-empty">{copy.noScheduledSources}</p> : (
                 <div className="admin-settings-list">
