@@ -123,18 +123,27 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
         ) : profile ? (
           <>
             <section className="profile-head">
-              <div className="avatar-lg" style={{ overflow: "hidden", padding: 0 }}>
-                {profile.avatarDataUrl ? (
-                  <img src={profile.avatarDataUrl} alt={isPersian ? "عکس پروفایل" : "Profile photo"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                ) : profile.username.slice(0, 2).toUpperCase()}
+              <div style={{ position: "relative", width: 104, height: 104, margin: "0 auto 12px" }}>
+                <div className="avatar-lg" style={{ width: "100%", height: "100%", overflow: "hidden", padding: 0 }}>
+                  {profile.avatarDataUrl ? (
+                    <img src={profile.avatarDataUrl} alt={isPersian ? "عکس پروفایل" : "Profile photo"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : profile.username.slice(0, 2).toUpperCase()}
+                </div>
+                <label
+                  title={isPersian ? "آپلود یا تغییر عکس پروفایل" : "Upload or change profile photo"}
+                  aria-label={isPersian ? "آپلود یا تغییر عکس پروفایل" : "Upload or change profile photo"}
+                  style={{
+                    position: "absolute", right: 0, bottom: 0, width: 32, height: 32,
+                    borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                    background: "var(--brass-light)", color: "#171717", border: "3px solid var(--panel, #171717)",
+                    fontSize: 24, fontWeight: 700, lineHeight: 1, cursor: avatarSaving ? "wait" : "pointer",
+                    opacity: avatarSaving ? 0.7 : 1, boxShadow: "0 2px 8px rgba(0,0,0,.25)"
+                  }}
+                >
+                  {avatarSaving ? "…" : "+"}
+                  <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void handleAvatarChange(event)} disabled={avatarSaving} style={{ display: "none" }} />
+                </label>
               </div>
-              <label className="cta-button" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: avatarSaving ? "wait" : "pointer", marginTop: 12, opacity: avatarSaving ? 0.7 : 1 }}>
-                {avatarSaving
-                  ? (isPersian ? "در حال ذخیرهٔ عکس..." : "Saving photo...")
-                  : (isPersian ? (profile.avatarDataUrl ? "تغییر عکس پروفایل" : "آپلود عکس پروفایل") : (profile.avatarDataUrl ? "Change profile photo" : "Upload profile photo"))}
-                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void handleAvatarChange(event)} disabled={avatarSaving} style={{ display: "none" }} />
-              </label>
-              <small>{isPersian ? "JPG، PNG یا WebP؛ حداکثر ۵ مگابایت" : "JPG, PNG, or WebP; max 5 MB"}</small>
               {avatarError && <p className="inline-feedback round-error" role="alert">{avatarError}</p>}
               <h2>{profile.username}</h2>
               <span>
