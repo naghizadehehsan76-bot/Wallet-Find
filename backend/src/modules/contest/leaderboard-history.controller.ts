@@ -19,10 +19,7 @@ export async function getLeaderboardHistoryHandler(req: AuthenticatedRequest, re
       select: { id: true, title: true, status: true, language: true, startsAt: true, endsAt: true },
     });
 
-    const [englishAnchor, persianAnchor] = await Promise.all([
-      getChallengeScheduleAnchor("en"),
-      getChallengeScheduleAnchor("fa"),
-    ]);
+    const scheduleAnchor = await getChallengeScheduleAnchor();
 
     const allAwards = await prisma.prizeAward.findMany({
       select: { userId: true, amountMicro: true },
@@ -41,7 +38,7 @@ export async function getLeaderboardHistoryHandler(req: AuthenticatedRequest, re
       const awardByUser = new Map(awards.map((award) => [award.userId, award]));
       return {
         id: contest.id,
-        number: challengeNumberAt(contest.startsAt, contest.language === "fa" ? persianAnchor : englishAnchor),
+        number: challengeNumberAt(contest.startsAt, scheduleAnchor),
         title: contest.title,
         status: contest.status,
         startsAt: contest.startsAt?.toISOString() ?? null,
