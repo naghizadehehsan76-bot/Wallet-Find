@@ -198,7 +198,7 @@ function HomePage({
     },
     {
       value: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.totalPrizesAwarded)} USDT` : "—",
-      label: isPersian ? "مجموع جوایز ثبت‌شده تا امروز (آزمایشی)" : "Total prizes awarded to date (simulated)",
+      label: isPersian ? "مجموع جوایز پرداخت شده تا امروز (آزمایشی)" : "Total prizes paid to date (simulated)",
     },
     {
       value: homeTimerText,
