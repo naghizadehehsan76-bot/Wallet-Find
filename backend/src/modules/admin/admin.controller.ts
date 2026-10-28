@@ -252,7 +252,10 @@ export async function getContestSourceVisitReportHandler(
       }),
     ]);
 
-    const orderById = new Map(advertiserOrders.map((order) => [order.id, order]));
+    const orderById = new Map<string, (typeof advertiserOrders)[number]>();
+    for (const order of advertiserOrders) {
+      orderById.set(order.id, order);
+    }
     const visitorsByOrder = new Map<string, number>();
     for (const row of advertiserUniquePairs) {
       if (!row.advertisementOrderId) continue;
