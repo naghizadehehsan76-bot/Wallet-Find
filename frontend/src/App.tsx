@@ -69,11 +69,19 @@ function HomePage({
   const [prizePoolStats, setPrizePoolStats] = useState<PublicPrizePoolStats | null>(null);
   const isPersian = language === "fa";
   const homeProgressPercent = Math.min(100, (homeSolvedCount / 12) * 100);
-  const formatHomeNumber = (value: number) => value.toLocaleString(isPersian ? "fa-IR" : "en-US");
+  const localizeDigits = (value: string) => isPersian
+    ? value
+        .replace(/[0-9]/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"[Number(digit)])
+        .replace(/[٠-٩]/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"["٠١٢٣٤٥٦٧٨٩".indexOf(digit)])
+    : value
+        .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+        .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)));
+  const formatHomeNumber = (value: number) =>
+    localizeDigits(value.toLocaleString(isPersian ? "fa-IR" : "en-US"));
   const formatPrizeAmount = (value: string) => {
     const amount = Number(value);
     return Number.isFinite(amount)
-      ? amount.toLocaleString(isPersian ? "fa-IR" : "en-US", { maximumFractionDigits: 2 })
+      ? localizeDigits(amount.toLocaleString(isPersian ? "fa-IR" : "en-US", { maximumFractionDigits: 2 }))
       : "—";
   };
 
@@ -194,9 +202,11 @@ function HomePage({
   const steps = isPersian ? faSteps : enSteps;
   const homeRoundRemainingMs = 15 * 60_000 - (homeTimerNow % (15 * 60_000));
   const homeTimerSeconds = Math.ceil(homeRoundRemainingMs / 1000);
-  const homeTimerText = [Math.floor(homeTimerSeconds / 60), homeTimerSeconds % 60]
-    .map((value) => String(value).padStart(2, "0"))
-    .join(":");
+  const homeTimerText = localizeDigits(
+    [Math.floor(homeTimerSeconds / 60), homeTimerSeconds % 60]
+      .map((value) => String(value).padStart(2, "0"))
+      .join(":"),
+  );
 
   return (
     <div className="app-shell home-shell">
