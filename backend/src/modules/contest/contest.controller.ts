@@ -133,7 +133,7 @@ export async function getActiveContestHandler(
 
     return res.status(200).json({
       success: true,
-      data: { ...contest, participationBlock },
+      data: { ...contest, participationBlock, serverTime: new Date().toISOString() },
     });
   } catch (error) {
     if (
