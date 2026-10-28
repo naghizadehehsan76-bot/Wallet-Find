@@ -39,7 +39,10 @@ export async function getPublicPrizePoolStatsHandler(
       ? await getPublicPrizePool(currentContest.id)
       : null;
 
-    const globalSnapshot = await getGlobalPrizePoolSnapshot(now);
+    const [globalSnapshot, awardedTotal] = await Promise.all([
+      getGlobalPrizePoolSnapshot(now),
+      prisma.prizeAward.aggregate({ _sum: { amountMicro: true } }),
+    ]);
 
     return res.status(200).json({
       success: true,
@@ -49,6 +52,7 @@ export async function getPublicPrizePoolStatsHandler(
         dailyContribution: globalSnapshot.dailyContribution,
         totalDailyFunding: globalSnapshot.totalDailyFunding,
         totalRoundAllocations: globalSnapshot.totalRoundAllocations,
+        totalPrizesAwarded: formatMicroUsdt(BigInt(awardedTotal._sum.amountMicro ?? 0n)),
         currency: "USDT",
         simulatedOnly: true,
         updatedAt: now.toISOString(),
