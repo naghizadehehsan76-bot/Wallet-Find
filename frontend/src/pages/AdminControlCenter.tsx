@@ -7,6 +7,7 @@ import {
   getAdminProjectProfitPool,
   getAdminWallets,
   getAdminUsers,
+  getActiveContest,
   getSystemSettings,
   saveSystemSetting,
   type AdminAuditLog,
@@ -27,6 +28,44 @@ const DEFAULT_EN_SOURCES = ["https://en.wikipedia.org/w/api.php", "https://www.g
 const DEFAULT_FA_SOURCES = ["https://fa.wikipedia.org/w/api.php", "https://fa.wikipedia.org/wiki/ایران", "https://fa.wikipedia.org/wiki/تهران", "https://fa.wikipedia.org/wiki/فردوسی", "https://fa.wikipedia.org/wiki/شاهنامه", "https://fa.wikipedia.org/wiki/هوش_مصنوعی"];
 function sourceHostname(value: string): string {
   try { return new URL(value).hostname; } catch { return value; }
+}
+
+const CHALLENGE_INTERVAL_MS = 15 * 60_000;
+
+type ChallengeScheduleAnchor = {
+  challengeNumber: number;
+  startsAt: string;
+};
+
+function formatLocalDateTimeInput(timestamp: number): string {
+  const date = new Date(timestamp);
+  const localDate = new Date(timestamp - date.getTimezoneOffset() * 60_000);
+  return localDate.toISOString().slice(0, 16);
+}
+
+function challengeNumberForDateTime(
+  value: string,
+  anchor: ChallengeScheduleAnchor | null,
+): number | null {
+  if (!value || !anchor) return null;
+  const selectedMs = new Date(value).getTime();
+  const anchorMs = new Date(anchor.startsAt).getTime();
+  if (!Number.isFinite(selectedMs) || !Number.isFinite(anchorMs)) return null;
+  const difference = selectedMs - anchorMs;
+  if (difference < CHALLENGE_INTERVAL_MS || difference % CHALLENGE_INTERVAL_MS !== 0) return null;
+  return anchor.challengeNumber + difference / CHALLENGE_INTERVAL_MS;
+}
+
+function dateTimeForChallengeNumber(
+  value: string,
+  anchor: ChallengeScheduleAnchor | null,
+): string {
+  if (!value || !anchor) return "";
+  const number = Number(value);
+  if (!Number.isSafeInteger(number) || number <= anchor.challengeNumber) return "";
+  const anchorMs = new Date(anchor.startsAt).getTime();
+  if (!Number.isFinite(anchorMs)) return "";
+  return formatLocalDateTimeInput(anchorMs + (number - anchor.challengeNumber) * CHALLENGE_INTERVAL_MS);
 }
 
 type ScheduledSourceAssignment = {
@@ -100,6 +139,9 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [scheduledChallengeNumber, setScheduledChallengeNumber] = useState("");
   const [scheduledChallengeStart, setScheduledChallengeStart] = useState("");
   const [scheduledClueSequence, setScheduledClueSequence] = useState("1");
+  const [challengeScheduleAnchor, setChallengeScheduleAnchor] = useState<ChallengeScheduleAnchor | null>(null);
+  const [challengeScheduleLoading, setChallengeScheduleLoading] = useState(false);
+  const [challengeScheduleUnavailable, setChallengeScheduleUnavailable] = useState(false);
 
   const copy = {
     title: fa ? "مرکز کنترل Wallet-Find" : "Wallet-Find Control Center",
@@ -184,6 +226,10 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     scheduledChallengeNumber: fa ? "شماره چالش آینده" : "Future challenge number",
     scheduledChallengeStart: fa ? "تاریخ و ساعت شروع چالش" : "Challenge start date and time",
     scheduledClueSequence: fa ? "شماره خانه (۱ تا ۱۲)" : "Clue cell (1–12)",
+    challengeScheduleHelp: fa ? "شماره و زمان برگزاری بر اساس چالش فعال و فاصلهٔ ثابت ۱۵ دقیقه‌ای محاسبه می‌شوند. تغییر هرکدام، مورد دیگر را خودکار به‌روزرسانی می‌کند." : "The challenge number and start time are calculated from the active challenge using the fixed 15-minute interval. Changing either field automatically updates the other.",
+    challengeScheduleLoading: fa ? "در حال دریافت زمان‌بندی چالش فعال…" : "Loading the active challenge schedule…",
+    challengeScheduleUnavailable: fa ? "زمان‌بندی چالش فعال دریافت نشد؛ همگام‌سازی خودکار موقتاً در دسترس نیست. پنل را به‌روزرسانی کن." : "Could not load the active challenge schedule, so automatic syncing is unavailable. Refresh the admin panel.",
+    challengeScheduleReference: fa ? "مبنای محاسبه" : "Schedule reference",
     scheduledSourceLanguage: fa ? "زبان منبع" : "Source language",
     addScheduledSource: fa ? "افزودن لینک زمان‌بندی‌شده" : "Add scheduled source link",
     saveScheduledSources: fa ? "ذخیره زمان‌بندی منابع" : "Save source schedule",
@@ -233,6 +279,52 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     const timer = window.setTimeout(() => { void load(); }, 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setChallengeScheduleAnchor(null);
+    setChallengeScheduleUnavailable(false);
+    setChallengeScheduleLoading(true);
+    // Avoid carrying a date/number calculated for the previous language's rounds.
+    setScheduledChallengeNumber("");
+    setScheduledChallengeStart("");
+
+    getActiveContest(scheduledSourceLanguage)
+      .then((contest) => {
+        if (cancelled) return;
+        if (contest.challengeNumber && contest.startsAt) {
+          setChallengeScheduleAnchor({
+            challengeNumber: contest.challengeNumber,
+            startsAt: contest.startsAt,
+          });
+        } else {
+          setChallengeScheduleUnavailable(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setChallengeScheduleUnavailable(true);
+      })
+      .finally(() => {
+        if (!cancelled) setChallengeScheduleLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [scheduledSourceLanguage]);
+
+  function handleScheduledChallengeStartChange(value: string) {
+    setScheduledChallengeStart(value);
+    const challengeNumber = challengeNumberForDateTime(value, challengeScheduleAnchor);
+    setScheduledChallengeNumber(challengeNumber === null ? "" : String(challengeNumber));
+    setError("");
+    setNotice("");
+  }
+
+  function handleScheduledChallengeNumberChange(value: string) {
+    setScheduledChallengeNumber(value);
+    setScheduledChallengeStart(dateTimeForChallengeNumber(value, challengeScheduleAnchor));
+    setError("");
+    setNotice("");
+  }
 
   async function handleSave(event: FormEvent) {
     event.preventDefault();
@@ -311,7 +403,11 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       setError(copy.invalidScheduledSource);
       return;
     }
-    if (!Number.isInteger(challengeNumber) || challengeNumber < 1) {
+    if (!challengeScheduleAnchor) {
+      setError(copy.challengeScheduleUnavailable);
+      return;
+    }
+    if (!Number.isInteger(challengeNumber) || challengeNumber <= challengeScheduleAnchor.challengeNumber) {
       setError(copy.invalidScheduledChallenge);
       return;
     }
@@ -319,8 +415,13 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       !scheduledChallengeStart ||
       Number.isNaN(startsAtDate.getTime()) ||
       startsAtDate.getTime() <= Date.now() ||
-      startsAtDate.getTime() % (15 * 60_000) !== 0
+      startsAtDate.getTime() % CHALLENGE_INTERVAL_MS !== 0
     ) {
+      setError(copy.invalidScheduledStart);
+      return;
+    }
+    const derivedChallengeNumber = challengeNumberForDateTime(scheduledChallengeStart, challengeScheduleAnchor);
+    if (derivedChallengeNumber === null || derivedChallengeNumber !== challengeNumber) {
       setError(copy.invalidScheduledStart);
       return;
     }
@@ -506,11 +607,35 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                     <option value="fa">{copy.sourceFa}</option>
                   </select>
                 </label>
+                <p className="admin-footnote">{copy.challengeScheduleHelp}</p>
+                {challengeScheduleLoading && <p className="admin-footnote">{copy.challengeScheduleLoading}</p>}
+                {challengeScheduleUnavailable && <p className="admin-message admin-message--error" role="alert">{copy.challengeScheduleUnavailable}</p>}
+                {challengeScheduleAnchor && (
+                  <p className="admin-footnote">
+                    {copy.challengeScheduleReference}: {fa ? "چالش" : "Challenge"} {challengeScheduleAnchor.challengeNumber.toLocaleString(fa ? "fa-IR" : "en-US")} · {new Date(challengeScheduleAnchor.startsAt).toLocaleString(fa ? "fa-IR" : "en-GB", { dateStyle: "medium", timeStyle: "short" })}
+                  </p>
+                )}
                 <label>{copy.scheduledChallengeNumber}
-                  <input type="number" min={1} max={1000000} step={1} value={scheduledChallengeNumber} onChange={(event) => setScheduledChallengeNumber(event.target.value)} required />
+                  <input
+                    type="number"
+                    min={challengeScheduleAnchor ? challengeScheduleAnchor.challengeNumber + 1 : 1}
+                    max={1000000}
+                    step={1}
+                    value={scheduledChallengeNumber}
+                    onChange={(event) => handleScheduledChallengeNumberChange(event.target.value)}
+                    required
+                    disabled={!challengeScheduleAnchor || challengeScheduleLoading}
+                  />
                 </label>
                 <label>{copy.scheduledChallengeStart}
-                  <input type="datetime-local" step={900} value={scheduledChallengeStart} onChange={(event) => setScheduledChallengeStart(event.target.value)} required />
+                  <input
+                    type="datetime-local"
+                    step={900}
+                    value={scheduledChallengeStart}
+                    onChange={(event) => handleScheduledChallengeStartChange(event.target.value)}
+                    required
+                    disabled={!challengeScheduleAnchor || challengeScheduleLoading}
+                  />
                 </label>
                 <label>{copy.scheduledClueSequence}
                   <select value={scheduledClueSequence} onChange={(event) => setScheduledClueSequence(event.target.value)}>
