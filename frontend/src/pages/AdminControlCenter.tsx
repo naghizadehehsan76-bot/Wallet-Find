@@ -7,6 +7,7 @@ import {
   getAdminProjectProfitPool,
   getAdminWallets,
   getAdminUsers,
+  getAdminSourceVisitReport,
   getActiveContest,
   getSystemSettings,
   saveSystemSetting,
@@ -15,6 +16,7 @@ import {
   type AdminProjectProfitPool,
   type AdminWalletSummary,
   type AdminUserSummary,
+  type AdminSourceVisitReport,
   type SystemSettingRecord,
 } from "../services/api";
 import LoadingIndicator from "../components/LoadingIndicator";
@@ -123,6 +125,9 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [users, setUsers] = useState<AdminUserSummary[]>([]);
   const [userSearch, setUserSearch] = useState("");
   const [logs, setLogs] = useState<AdminAuditLog[]>([]);
+  const [sourceVisitReport, setSourceVisitReport] = useState<AdminSourceVisitReport | null>(null);
+  const [sourceVisitLoading, setSourceVisitLoading] = useState(false);
+  const [sourceVisitError, setSourceVisitError] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -245,8 +250,55 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     invalidSource: fa ? "آدرس باید معتبر و با https:// شروع شود." : "Enter a valid URL beginning with https://.",
     noSources: fa ? "منبعی ثبت نشده است." : "No sources configured.",
     securityBody: fa ? "بررسی فعالیت مشکوک، تلاش‌های ورود، گزارش‌های ضدتقلب، مسدودسازی و کنترل دسترسی مدیران." : "Review suspicious activity, login attempts, anti-fraud alerts, account restrictions, and administrator access.",
-    supportBody: fa ? "مدیریت پیام‌های پشتیبانی، گزارش خطا، شکایت‌ها و درخواست‌های کاربران." : "Handle support messages, bug reports, complaints, and user requests.",
+    supportBody: fa ? "گزارش کلیک‌های خروجی از لینک منبع چالش برای ارزیابی اسپانسرها و تبلیغ‌دهندگان." : "Review outbound clicks from challenge source links for sponsor and advertiser reporting.",
+    sourceReportTitle: fa ? "گزارش کلیک روی لینک‌های منبع" : "Challenge source-link click report",
+    sourceReportHelp: fa ? "آمار کلی تمام رکوردهای ثبت‌شده و جزئیات ۵۰۰ کلیک اخیر را مشاهده کن. برای هر کاربر و هر خانه فقط یک کلیک شمرده می‌شود." : "Review lifetime totals and the 500 most recent click records. Each user is counted at most once per clue.",
+    sourceReportError: fa ? "دریافت گزارش کلیک‌ها ناموفق بود؛ دسترسی مدیر و اتصال سرور را بررسی کن." : "Could not load click reporting. Check admin access and server connectivity.",
+    sourceReportLoading: fa ? "در حال دریافت گزارش کلیک‌ها…" : "Loading click report…",
+    refreshSourceReport: fa ? "به‌روزرسانی گزارش" : "Refresh report",
+    exportSourceReport: fa ? "خروجی CSV برای اسپانسر" : "Export CSV for sponsor",
+    totalSourceClicks: fa ? "کل کلیک‌های ثبت‌شده" : "Tracked source clicks",
+    uniqueSourceVisitors: fa ? "کاربران یکتای کلیک‌کننده" : "Unique users clicking",
+    advertiserSourceClicks: fa ? "کلیک‌های منتسب به سفارش تبلیغاتی" : "Advertiser-attributed clicks",
+    advertiserSourceVisitors: fa ? "کاربران یکتای لینک تبلیغ‌دهنده" : "Unique visitors to advertiser links",
+    advertiserPerformance: fa ? "عملکرد لینک‌های منتسب به تبلیغ‌دهنده" : "Advertiser-attributed link performance",
+    recentSourceVisits: fa ? "آخرین کلیک‌های ثبت‌شده" : "Recent tracked clicks",
+    noSourceVisits: fa ? "هنوز کلیکی از لینک منبع ثبت نشده است." : "No source-link clicks have been recorded yet.",
+    noAdvertiserVisits: fa ? "هنوز کلیکی به یک سفارش تبلیغاتی فعال منتسب نشده است. لینک‌ها فقط وقتی منتسب می‌شوند که منبع چالش به محتوای تبلیغ‌دهنده و مقصد متناظر آن متصل باشد." : "No clicks have been attributed to an active ad order yet. Attribution requires the clue to be linked to advertiser content whose destination matches the source URL.",
+    reportUsername: fa ? "نام کاربری" : "Username",
+    reportUserId: fa ? "شناسه کاربر" : "User ID",
+    reportChallenge: fa ? "چالش" : "Challenge",
+    reportLanguage: fa ? "زبان" : "Language",
+    reportClue: fa ? "خانه" : "Clue",
+    reportDestination: fa ? "مقصد" : "Destination",
+    reportAdvertiser: fa ? "تبلیغ‌دهنده" : "Advertiser",
+    reportClickTime: fa ? "زمان کلیک" : "Click time",
+    reportAdOrder: fa ? "شناسه سفارش" : "Ad order",
+    reportClickCount: fa ? "تعداد کلیک" : "Clicks",
+    reportUniqueVisitors: fa ? "کاربران یکتا" : "Unique visitors",
+    reportOrderStatus: fa ? "وضعیت سفارش" : "Order status",
+    reportNoAdvertiser: fa ? "بدون انتساب تبلیغ‌دهنده" : "Not advertiser-attributed",
+    reportProofNote: fa ? "این گزارش زمان و کاربرِ کلیک ثبت‌شده روی لینک داخل Wallet-Find را نشان می‌دهد. به‌تنهایی اثبات نمی‌کند که سایت خارجی کامل بارگذاری شده یا کاربر آن را مشاهده کرده است. ایمیل و نشانی IP برای این گزارش ذخیره نمی‌شود." : "This report records the user and time of a click on a Wallet-Find link. It does not independently prove that the external page fully loaded or was viewed. Email addresses and IP addresses are not stored for this report.",
+    reportLimitNotice: fa ? "مجموع‌ها مربوط به کل سابقه هستند؛ فهرست و فایل CSV شامل حداکثر ۵۰۰ رکورد اخیر است." : "Totals cover all recorded history; the list and CSV include up to the 500 most recent records.",
   };
+
+  const loadSourceVisitReport = useCallback(async () => {
+    setSourceVisitLoading(true);
+    setSourceVisitError("");
+    try {
+      const report = await getAdminSourceVisitReport();
+      setSourceVisitReport(report);
+    } catch {
+      setSourceVisitError(copy.sourceReportError);
+    } finally {
+      setSourceVisitLoading(false);
+    }
+  }, [copy.sourceReportError]);
+
+  useEffect(() => {
+    if (section !== "support") return;
+    void loadSourceVisitReport();
+  }, [section, loadSourceVisitReport]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -487,6 +539,50 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     } finally {
       setSaving(false);
     }
+  }
+
+  function exportSourceVisitReportCsv() {
+    if (!sourceVisitReport) return;
+    const escapeCsv = (value: unknown) => {
+      const text = value === null || value === undefined ? "" : String(value);
+      return `"${text.replace(/"/g, '""')}"`;
+    };
+    const headers = [
+      "click_time",
+      "username",
+      "user_id",
+      "challenge_title",
+      "challenge_language",
+      "challenge_start",
+      "clue_number",
+      "destination_url",
+      "destination_host",
+      "advertiser",
+      "advertisement_order_id",
+    ];
+    const rows = sourceVisitReport.recentVisits.map((visit) => [
+      visit.createdAt,
+      visit.username,
+      visit.userId,
+      visit.contestTitle,
+      visit.contestLanguage,
+      visit.contestStartsAt,
+      visit.clueSequence,
+      visit.sourceUrl,
+      visit.sourceHostname,
+      visit.advertiserName,
+      visit.advertisementOrderId,
+    ]);
+    const csv = "\\uFEFF" + [headers, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\\r\\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = `wallet-find-source-visits-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
   }
 
   const visibleSettings = settings.filter((setting) => setting.key !== "hypothetical_prize_pool_per_round" && !setting.key.startsWith("challenge_schedule_anchor_"));
