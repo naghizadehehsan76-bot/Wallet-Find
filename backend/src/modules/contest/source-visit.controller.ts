@@ -133,21 +133,52 @@ export async function recordContestSourceVisitHandler(
       return res.status(401).json({ success: false, error: "AUTHENTICATION_REQUIRED" });
     }
 
-    // Do not label an ordinary clue-source link as an advertiser visit unless
-    // the clue explicitly belongs to advertiser content and both destinations match.
-    const advertiserContent = clue.source === "ADVERTISER" ? clue.advertiserContent : null;
-    const sameAdvertiserDestination = Boolean(
-      advertiserContent?.url &&
-      canonicalDestination(advertiserContent.url) === targetUrl,
+    // Attribute a click only when the destination matches registered advertiser
+    // content and has an active order for this contest or a general campaign.
+    // A clue may be scheduled from an advertiser URL without having the optional
+    // advertiserContentId relation set, so fall back to matching registered URLs.
+    let advertiserContents = clue.advertiserContent ? [clue.advertiserContent] : [];
+    const hasLinkedDestination = advertiserContents.some(
+      (content) => canonicalDestination(content.url) === targetUrl,
     );
-    const activeOrders = sameAdvertiserDestination
-      ? (advertiserContent?.advertisementOrders ?? []).filter((order) => isOrderInWindow(order, now, contestId))
-        .sort((a, b) => {
-          const aSpecific = a.contestId === contestId ? 1 : 0;
-          const bSpecific = b.contestId === contestId ? 1 : 0;
-          return bSpecific - aSpecific || b.createdAt.getTime() - a.createdAt.getTime();
-        })
-      : [];
+    if (!hasLinkedDestination) {
+      const registeredAdvertiserContents = await prisma.advertiserContent.findMany({
+        where: {
+          url: { not: null },
+          advertisementOrders: { some: { status: "ACTIVE" } },
+        },
+        select: {
+          id: true,
+          title: true,
+          url: true,
+          advertiser: { select: { username: true } },
+          advertisementOrders: {
+            where: { status: "ACTIVE" },
+            select: {
+              id: true,
+              contestId: true,
+              startsAt: true,
+              endsAt: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 25,
+          },
+        },
+      });
+      advertiserContents = [...advertiserContents, ...registeredAdvertiserContents];
+    }
+
+    const advertiserContent = advertiserContents.find(
+      (content) => canonicalDestination(content.url) === targetUrl,
+    ) ?? null;
+    const activeOrders = (advertiserContent?.advertisementOrders ?? [])
+      .filter((order) => isOrderInWindow(order, now, contestId))
+      .sort((a, b) => {
+        const aSpecific = a.contestId === contestId ? 1 : 0;
+        const bSpecific = b.contestId === contestId ? 1 : 0;
+        return bSpecific - aSpecific || b.createdAt.getTime() - a.createdAt.getTime();
+      });
     const advertiserOrder = activeOrders[0] ?? null;
 
     // One recorded visit per authenticated user per clue avoids inflated click
