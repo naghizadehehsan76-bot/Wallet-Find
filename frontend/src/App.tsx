@@ -180,6 +180,13 @@ function HomePage({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [mobileMenuOpen]);
+  const homeRoundRemainingMs = 15 * 60_000 - (homeTimerNow % (15 * 60_000));
+  const homeTimerSeconds = Math.ceil(homeRoundRemainingMs / 1000);
+  const homeTimerText = localizeDigits(
+    [Math.floor(homeTimerSeconds / 60), homeTimerSeconds % 60]
+      .map((value) => String(value).padStart(2, "0"))
+      .join(":"),
+  );
   const stats = [
     {
       value: siteStats ? formatHomeNumber(siteStats.onlineUsers) : "—",
@@ -197,16 +204,16 @@ function HomePage({
       value: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.dailyContribution)} USDT` : "—",
       label: isPersian ? "واریزی فرضی امروز اسپانسرها" : "Today's simulated sponsor funding",
     },
-    ...(isPersian ? faStats : enStats),
+    {
+      value: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.totalPrizesAwarded)} USDT` : "—",
+      label: isPersian ? "مجموع جوایز ثبت‌شده تا امروز (آزمایشی)" : "Total prizes awarded to date (simulated)",
+    },
+    {
+      value: homeTimerText,
+      label: isPersian ? "تا شروع دور بعدی" : "Until next round starts",
+    },
   ];
   const steps = isPersian ? faSteps : enSteps;
-  const homeRoundRemainingMs = 15 * 60_000 - (homeTimerNow % (15 * 60_000));
-  const homeTimerSeconds = Math.ceil(homeRoundRemainingMs / 1000);
-  const homeTimerText = localizeDigits(
-    [Math.floor(homeTimerSeconds / 60), homeTimerSeconds % 60]
-      .map((value) => String(value).padStart(2, "0"))
-      .join(":"),
-  );
 
   return (
     <div className="app-shell home-shell">
