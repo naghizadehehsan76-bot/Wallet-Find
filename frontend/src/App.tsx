@@ -200,10 +200,6 @@ function HomePage({
       value: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.totalPrizesAwarded)} USDT` : "—",
       label: isPersian ? "مجموع جوایز پرداخت شده تا امروز (آزمایشی)" : "Total prizes paid to date (simulated)",
     },
-    {
-      value: homeTimerText,
-      label: isPersian ? "تا شروع دور بعدی" : "Until next round starts",
-    },
   ];
   const steps = isPersian ? faSteps : enSteps;
 
