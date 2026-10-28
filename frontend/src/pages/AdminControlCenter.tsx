@@ -573,7 +573,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       visit.advertiserName,
       visit.advertisementOrderId,
     ]);
-    const csv = "\\uFEFF" + [headers, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\\r\\n");
+    const csv = "\uFEFF" + [headers, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\r\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -821,24 +821,99 @@ export default function AdminControlCenter({ onNavigate }: Props) {
           </section>
         )}
 
-        {(["finance", "security", "support"] as Section[]).includes(section) && (
+        {(["finance", "security"] as Section[]).includes(section) && (
           <section className="admin-panel">
             <h2>{({
               finance: copy.finance,
-              prizes: copy.prizes,
-              ads: copy.ads,
               security: copy.security,
-              support: copy.support,
             } as Record<string, string>)[section]}</h2>
             <p>{copy.conceptTitle}</p>
             <p className="admin-footnote">{({
               finance: copy.financeBody,
-              prizes: copy.prizesBody,
-              ads: copy.adsBody,
               security: copy.securityBody,
-              support: copy.supportBody,
             } as Record<string, string>)[section]}</p>
             <p className="admin-footnote">{copy.conceptBody}</p>
+          </section>
+        )}
+
+        {section === "support" && (
+          <section className="admin-panel admin-source-report">
+            <div className="admin-source-report__heading">
+              <div>
+                <h2>{copy.sourceReportTitle}</h2>
+                <p className="admin-footnote">{copy.sourceReportHelp}</p>
+              </div>
+              <div className="admin-source-report__actions">
+                <button className="admin-refresh" type="button" onClick={() => void loadSourceVisitReport()} disabled={sourceVisitLoading}>↻ {copy.refreshSourceReport}</button>
+                <button className="cta-button" type="button" onClick={exportSourceVisitReportCsv} disabled={!sourceVisitReport || sourceVisitReport.recentVisits.length === 0}>{copy.exportSourceReport}</button>
+              </div>
+            </div>
+            {sourceVisitLoading && !sourceVisitReport && <div className="admin-empty"><LoadingIndicator label={copy.sourceReportLoading} /></div>}
+            {sourceVisitError && <div className="admin-message admin-message--error" role="alert">{sourceVisitError}</div>}
+            {sourceVisitReport && (
+              <>
+                <section className="admin-metrics-grid admin-source-report__metrics">
+                  {[
+                    { label: copy.totalSourceClicks, value: sourceVisitReport.summary.totalClicks },
+                    { label: copy.uniqueSourceVisitors, value: sourceVisitReport.summary.uniqueVisitors },
+                    { label: copy.advertiserSourceClicks, value: sourceVisitReport.summary.advertiserAttributedClicks },
+                    { label: copy.advertiserSourceVisitors, value: sourceVisitReport.summary.advertiserUniqueVisitors },
+                  ].map((metric) => (
+                    <article className="admin-metric-card" key={metric.label}>
+                      <span className="admin-metric-card__label">{metric.label}</span>
+                      <strong>{metric.value.toLocaleString(fa ? "fa-IR" : "en-US")}</strong>
+                    </article>
+                  ))}
+                </section>
+                <p className="admin-footnote">{copy.reportProofNote}</p>
+                <p className="admin-footnote">{copy.reportLimitNotice}</p>
+
+                <h3>{copy.advertiserPerformance}</h3>
+                {sourceVisitReport.advertiserPerformance.length === 0 ? (
+                  <p className="admin-empty">{copy.noAdvertiserVisits}</p>
+                ) : (
+                  <div className="admin-settings-list">
+                    {sourceVisitReport.advertiserPerformance.map((performance) => (
+                      <article className="admin-setting-row" key={performance.advertisementOrderId}>
+                        <div>
+                          <strong>{performance.advertiserName}{performance.contentTitle ? " · " + performance.contentTitle : ""}</strong>
+                          <small>{copy.reportAdOrder}: {performance.advertisementOrderId}</small>
+                          <small>{copy.reportClickCount}: {performance.clickCount.toLocaleString(fa ? "fa-IR" : "en-US")} · {copy.reportUniqueVisitors}: {performance.uniqueVisitors.toLocaleString(fa ? "fa-IR" : "en-US")}</small>
+                          <small>{copy.reportOrderStatus}: {performance.orderStatus}</small>
+                          {performance.destinationUrl && <code>{performance.destinationUrl}</code>}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+
+                <h3 className="admin-source-report__recent-title">{copy.recentSourceVisits} ({sourceVisitReport.recentVisits.length.toLocaleString(fa ? "fa-IR" : "en-US")})</h3>
+                {sourceVisitReport.recentVisits.length === 0 ? (
+                  <p className="admin-empty">{copy.noSourceVisits}</p>
+                ) : (
+                  <div className="admin-settings-list">
+                    {sourceVisitReport.recentVisits.slice(0, 100).map((visit) => (
+                      <article className="admin-setting-row admin-source-visit-row" key={visit.id}>
+                        <div>
+                          <strong>{visit.username} · {copy.reportClue} {visit.clueSequence.toLocaleString(fa ? "fa-IR" : "en-US")}</strong>
+                          <small>{copy.reportUserId}: {visit.userId ?? copy.notAvailable}</small>
+                          <small>{copy.reportChallenge}: {visit.contestTitle} · {visit.contestLanguage === "fa" ? (fa ? "فارسی" : "Persian") : (fa ? "انگلیسی" : "English")}</small>
+                          {visit.contestStartsAt && <small>{fa ? "شروع چالش" : "Challenge start"}: {new Date(visit.contestStartsAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>}
+                          <small>{copy.reportAdvertiser}: {visit.advertiserName ?? copy.reportNoAdvertiser}</small>
+                          <small>{copy.reportClickTime}: {new Date(visit.createdAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>
+                          <small>{copy.destinationHost}: {visit.sourceHostname}</small>
+                          <code>{visit.sourceUrl}</code>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+                {sourceVisitReport.recentVisits.length > 100 && (
+                  <p className="admin-footnote">{fa ? "۱۰۰ رکورد اخیر در صفحه نمایش داده می‌شود؛ فایل CSV تا ۵۰۰ رکورد را دربرمی‌گیرد." : "The page shows the latest 100 records; the CSV includes up to 500 records."}</p>
+                )}
+                {sourceVisitReport.generatedAt && <p className="admin-footnote">{fa ? "آخرین به‌روزرسانی: " : "Report generated: "}{new Date(sourceVisitReport.generatedAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</p>}
+              </>
+            )}
           </section>
         )}
 
