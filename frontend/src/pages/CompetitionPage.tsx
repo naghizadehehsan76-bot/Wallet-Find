@@ -487,8 +487,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       setFeedbackTone("info");
       setFeedback(
         isPersian
-          ? "کلمه‌ی انگلیسی را در کادر مربوط به همین راند وارد کن."
-          : "Type the English word into the box for this round.",
+          ? "واژهٔ پاسخ را در کادر مربوط به همین راند وارد کن."
+          : "Type the answer word into the box for this round.",
       );
       return;
     }
@@ -946,9 +946,13 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                   </div>
                   {hintAnchor ? (
                     <p>
-                      {isPersian
-                        ? `در صفحه‌ی منبع جمله‌ی زیر را دقیقاً پیدا کنید؛ کلمه‌ی فارسی بلافاصله پس از این جمله پاسخ خانه‌ی ${formatNumber(displayedRound)} است:`
-                        : `Find this exact phrase on the source page. The ${contestLanguage === "fa" ? "Persian" : "English"} word immediately after it is the answer for box ${formatNumber(displayedRound)}:`}
+                      {contestLanguage === "fa"
+                        ? (isPersian
+                            ? `در صفحهٔ منبع عبارت زیر را دقیقاً پیدا کن؛ پاسخ خانهٔ ${formatNumber(displayedRound)} توالی پیوستهٔ ۳ تا ۲۴ نویسهٔ فارسیِ بلافاصله پس از عبارت است. نیم‌فاصله و پیشوند/پسوند چسبیده را نگه دار؛ نشانه‌گذاری را وارد نکن.`
+                            : `Find this exact phrase on the source page. The answer for box ${formatNumber(displayedRound)} is the contiguous Persian-script token immediately after it (3–24 characters). Keep attached prefixes/suffixes and any internal zero-width non-joiner; omit punctuation.`)
+                        : (isPersian
+                            ? `در صفحهٔ منبع عبارت زیر را دقیقاً پیدا کن؛ پاسخ خانهٔ ${formatNumber(displayedRound)} توالی پیوستهٔ ۴ تا ۱۲ حرف انگلیسی A–Z بلافاصله پس از عبارت است. بخش‌های حروفیِ چسبیده را کامل وارد کن؛ فاصله، خط تیره و آپاستروف توالی را جدا می‌کنند و نشانه‌گذاری جزو پاسخ نیست.`
+                            : `Find this exact phrase on the source page. The answer for box ${formatNumber(displayedRound)} is the continuous sequence of 4–12 English letters (A–Z) immediately after it. Include attached letter prefixes/suffixes; spaces, hyphens, and apostrophes separate sequences, and punctuation is not part of the answer.`)}
                     </p>
                   ) : (
                     <p>{localizeUiMessage(clueContent, language)}</p>
@@ -969,8 +973,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                   )}
                   <div className="round-hint-card__tip">
                     {isPersian
-                      ? "راهنما کلمه‌ی جواب را نشان نمی‌دهد؛ آن را در خود صفحه‌ی منبع پیدا کن."
-                      : "The hint does not reveal the answer; find it on the source page itself."}
+                      ? "فقط خود توالی پاسخ را وارد کن؛ عبارت راهنما، نشانه‌گذاری و واژهٔ جداشده را وارد نکن."
+                      : "Enter only the answer token, not the hint phrase, punctuation, or a separate neighboring word."}
                   </div>
                 </section>
 
@@ -1055,9 +1059,13 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
               <div className="step-number mono">{formatNumber(2)}</div>
               <div className="step-content">
                 <p>
-                  {isPersian
-                    ? "کلمه‌ی انگلیسی بلافاصله بعد از عبارت را پیدا کن و خودت در یکی از کادرهای خالی تایپ کن."
-                    : "Find the English word immediately after the phrase and type it yourself into an empty box."}
+                  {contestLanguage === "fa"
+                    ? (isPersian
+                        ? "پاسخ، توالی پیوستهٔ فارسیِ ۳ تا ۲۴ نویسه‌ای است که بلافاصله پس از عبارت می‌آید؛ پاسخ لزوماً بین دو فاصله نیست. نیم‌فاصله و پیشوند/پسوند چسبیده را نگه دار و نشانه‌گذاری را ننویس."
+                        : "The answer is the 3–24-character Persian-script token immediately after the phrase; it is not necessarily text between two spaces. Keep an internal zero-width non-joiner and attached affixes; omit punctuation.")
+                    : (isPersian
+                        ? "پاسخ، توالی پیوستهٔ ۴ تا ۱۲ حرف انگلیسی A–Z پس از عبارت است؛ پاسخ لزوماً بین دو فاصله نیست. بخش‌های حروفی چسبیده را کامل وارد کن؛ خط تیره و آپاستروف توالی را جدا می‌کنند."
+                        : "The answer is a continuous sequence of 4–12 English letters (A–Z) after the phrase, not necessarily text between two spaces. Include attached letter prefixes/suffixes; hyphens and apostrophes break the sequence.")}
                 </p>
               </div>
             </div>
