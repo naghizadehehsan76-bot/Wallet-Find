@@ -187,6 +187,8 @@ export async function getContestSourceVisitReportHandler(
       advertiserUniqueVisitorRows,
       recentVisits,
       advertiserGroups,
+      destinationGroups,
+      destinationVisitorPairs,
     ] = await Promise.all([
       prisma.contestSourceVisit.count(),
       prisma.contestSourceVisit.count({ where: { advertisementOrderId: { not: null } } }),
@@ -227,6 +229,15 @@ export async function getContestSourceVisitReportHandler(
         where: { advertisementOrderId: { not: null } },
         _count: { _all: true },
       }),
+      prisma.contestSourceVisit.groupBy({
+        by: ["sourceUrl", "sourceHostname"],
+        _count: { _all: true },
+      }),
+      prisma.contestSourceVisit.findMany({
+        where: { userId: { not: null } },
+        distinct: ["sourceUrl", "userId"],
+        select: { sourceUrl: true, userId: true },
+      }),
     ]);
 
     const advertiserOrderIds = advertiserGroups
@@ -251,6 +262,22 @@ export async function getContestSourceVisitReportHandler(
         select: { advertisementOrderId: true, userId: true },
       }),
     ]);
+
+    const visitorsByDestination = new Map<string, number>();
+    for (const row of destinationVisitorPairs) {
+      visitorsByDestination.set(
+        row.sourceUrl,
+        (visitorsByDestination.get(row.sourceUrl) ?? 0) + 1,
+      );
+    }
+    const destinationPerformance = destinationGroups
+      .map((group) => ({
+        sourceUrl: group.sourceUrl,
+        sourceHostname: group.sourceHostname,
+        clickCount: group._count._all,
+        uniqueVisitors: visitorsByDestination.get(group.sourceUrl) ?? 0,
+      }))
+      .sort((a, b) => b.clickCount - a.clickCount);
 
     const orderById = new Map<string, (typeof advertiserOrders)[number]>();
     for (const order of advertiserOrders) {
@@ -293,6 +320,7 @@ export async function getContestSourceVisitReportHandler(
           advertiserUniqueVisitors: advertiserUniqueVisitorRows.length,
         },
         advertiserPerformance,
+        destinationPerformance,
         recentVisits,
         recentVisitsLimit: 500,
         generatedAt: new Date().toISOString(),
