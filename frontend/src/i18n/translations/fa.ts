@@ -78,7 +78,7 @@ export const fa = {
     finalCorrectAnswerEnglish: "Correct answer! Congratulations, you completed all 12 rounds.",
     completeTitle: "چالش کامل شد!",
     completeTitleEnglish: "Challenge completed!",
-    completeDescription: "هر ۱۲ راند را با موفقیت حل کردی.",
+    completeDescription: "هر ۱۲ کلمه را با موفقیت حل کردی.",
     completeDescriptionEnglish: "You successfully solved all twelve rounds.",
     waiting: "در انتظار آماده‌شدن راند بعدی...",
     waitingEnglish: "Waiting for the next round...",
