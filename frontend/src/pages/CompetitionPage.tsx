@@ -833,7 +833,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           <section className="stat-row" aria-label={isPersian ? "صندوق جایزه چالش" : "Challenge prize pool"}>
             <div className="stat-card">
               <strong>{prizePool.total} USDT</strong>
-              <span>{isPersian ? "تخصیص ۱٪ صندوق کلی به این دور" : "1% global fund allocated to this round"}</span>
+              <span>{isPersian ? "صندوق جایزهٔ این دور" : "This round’s prize pool"}</span>
             </div>
             <div className="stat-card">
               <strong>{globalPrizePoolTotal !== null ? Number(globalPrizePoolTotal).toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 6 }) : "—"} USDT</strong>
