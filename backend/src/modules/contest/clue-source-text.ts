@@ -144,6 +144,32 @@ export function isSearchableClueAnchor(anchor: string): boolean {
   );
 }
 
+/**
+ * Match source assignments without treating two different pinned Wikipedia
+ * revisions as the same page. Unpinned assignments may be resolved and pinned
+ * to the current revision when the challenge is generated.
+ */
+export function sourceUrlMatchesAssignment(
+  actualUrl: string | null | undefined,
+  assignedUrl: string,
+): boolean {
+  if (!actualUrl) return false;
+  try {
+    const actual = new URL(actualUrl);
+    const assigned = new URL(assignedUrl);
+    if (actual.origin !== assigned.origin) return false;
+
+    if (actual.hostname === "en.wikipedia.org" || actual.hostname === "fa.wikipedia.org") {
+      if (actual.pathname !== assigned.pathname) return false;
+      const assignedRevision = assigned.searchParams.get("oldid");
+      return !assignedRevision || actual.searchParams.get("oldid") === assignedRevision;
+    }
+    return actual.toString() === assigned.toString();
+  } catch {
+    return actualUrl === assignedUrl;
+  }
+}
+
 function countNormalizedOccurrences(source: string, phrase: string): number {
   if (!phrase) return 0;
   let count = 0;
