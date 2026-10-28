@@ -644,7 +644,14 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
 
   const displayedRound = currentSequence ?? (completed ? 12 : solvedCount + 1);
   const numberLocale = isPersian ? "fa-IR" : "en-US";
-  const formatNumber = (value: number) => value.toLocaleString(numberLocale);
+  const localizeDigits = (value: string) => isPersian
+    ? value
+        .replace(/[0-9]/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"[Number(digit)])
+        .replace(/[٠-٩]/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"["٠١٢٣٤٥٦٧٨٩".indexOf(digit)])
+    : value
+        .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+        .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)));
+  const formatNumber = (value: number) => localizeDigits(value.toLocaleString(numberLocale));
   const progressPercent = Math.min(100, (solvedCount / 12) * 100);
   const authoritativeNow = timerNow + serverTimeOffset;
   const lockRemainingMs = lockedUntil ? Math.max(0, Date.parse(lockedUntil) - authoritativeNow) : 0;
@@ -836,7 +843,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
               <span>{isPersian ? "صندوق جایزهٔ این دور" : "This round’s prize pool"}</span>
             </div>
             <div className="stat-card">
-              <strong>{globalPrizePoolTotal !== null ? Number(globalPrizePoolTotal).toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 6 }) : "—"} USDT</strong>
+              <strong>{globalPrizePoolTotal !== null ? localizeDigits(Number(globalPrizePoolTotal).toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 6 })) : "—"} USDT</strong>
               <span>{isPersian ? "موجودی صندوق کلی جوایز" : "Global prize fund balance"}</span>
             </div>
           </section>
@@ -942,7 +949,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                             : (isPersian ? "برآورد فعلی جایزه" : "Current prize estimate")}</span>
                           <strong className="challenge-result-card__amount">
                             {completionSummary.prizeAmount !== null
-                              ? Number(completionSummary.prizeAmount).toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 6 })
+                              ? localizeDigits(Number(completionSummary.prizeAmount).toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 6 }))
                               : (isPersian ? "در حال بررسی" : "Checking")}
                             {completionSummary.prizeAmount !== null && <small>USDT</small>}
                           </strong>
