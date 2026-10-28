@@ -234,9 +234,9 @@ export async function login(
   });
 }
 
-export async function getActiveContest(): Promise<ActiveContest> {
-  const language = localStorage.getItem("walletFindContestLanguage") === "fa" ? "fa" : "en";
-  return request<ActiveContest>(`/contests/active?language=${language}`, {}, true);
+export async function getActiveContest(language?: "fa" | "en"): Promise<ActiveContest> {
+  const selectedLanguage = language ?? (localStorage.getItem("walletFindContestLanguage") === "fa" ? "fa" : "en");
+  return request<ActiveContest>(`/contests/active?language=${selectedLanguage}`, {}, true);
 }
 
 export async function startNextContest(
