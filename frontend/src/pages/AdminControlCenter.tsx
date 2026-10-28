@@ -261,6 +261,9 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     uniqueSourceVisitors: fa ? "کاربران یکتای کلیک‌کننده" : "Unique users clicking",
     advertiserSourceClicks: fa ? "کلیک‌های منتسب به سفارش تبلیغاتی" : "Advertiser-attributed clicks",
     advertiserSourceVisitors: fa ? "کاربران یکتای لینک تبلیغ‌دهنده" : "Unique visitors to advertiser links",
+    destinationPerformanceTitle: fa ? "آمار به تفکیک لینک مقصد" : "Performance by destination link",
+    noDestinationPerformance: fa ? "هنوز کلیکی ثبت نشده است." : "No destination clicks have been recorded yet.",
+    destinationRowsLimit: fa ? "۱۰۰ مقصد با بیشترین کلیک نمایش داده می‌شود." : "Showing the 100 destinations with the most clicks.",
     advertiserPerformance: fa ? "عملکرد لینک‌های منتسب به تبلیغ‌دهنده" : "Advertiser-attributed link performance",
     recentSourceVisits: fa ? "آخرین کلیک‌های ثبت‌شده" : "Recent tracked clicks",
     noSourceVisits: fa ? "هنوز کلیکی از لینک منبع ثبت نشده است." : "No source-link clicks have been recorded yet.",
@@ -867,6 +870,26 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                 </section>
                 <p className="admin-footnote">{copy.reportProofNote}</p>
                 <p className="admin-footnote">{copy.reportLimitNotice}</p>
+
+                <h3>{copy.destinationPerformanceTitle}</h3>
+                {sourceVisitReport.destinationPerformance.length === 0 ? (
+                  <p className="admin-empty">{copy.noDestinationPerformance}</p>
+                ) : (
+                  <>
+                    <div className="admin-settings-list">
+                      {sourceVisitReport.destinationPerformance.slice(0, 100).map((destination) => (
+                        <article className="admin-setting-row" key={destination.sourceUrl}>
+                          <div>
+                            <strong>{destination.sourceHostname}</strong>
+                            <small>{copy.reportClickCount}: {destination.clickCount.toLocaleString(fa ? "fa-IR" : "en-US")} · {copy.reportUniqueVisitors}: {destination.uniqueVisitors.toLocaleString(fa ? "fa-IR" : "en-US")}</small>
+                            <code>{destination.sourceUrl}</code>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                    {sourceVisitReport.destinationPerformance.length > 100 && <p className="admin-footnote">{copy.destinationRowsLimit}</p>}
+                  </>
+                )}
 
                 <h3>{copy.advertiserPerformance}</h3>
                 {sourceVisitReport.advertiserPerformance.length === 0 ? (
