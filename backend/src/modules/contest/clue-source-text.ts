@@ -77,8 +77,8 @@ function decodeHtmlEntities(value: string): string {
 }
 
 /**
- * Lightweight visible-text extraction for non-Wikipedia HTML pages.
- * Wikipedia article URLs use the MediaWiki plaintext API instead.
+ * Extract visible text from HTML, including rendered MediaWiki parser output.
+ * Block-level boundaries are preserved so anchors cannot bridge paragraphs.
  */
 export function extractVisibleTextFromHtml(html: string): string {
   const blockTags = "address|article|blockquote|dd|div|dl|dt|figcaption|figure|h[1-6]|li|main|ol|p|pre|section|table|tbody|td|th|tr|ul";
