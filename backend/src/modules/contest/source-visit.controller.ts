@@ -189,13 +189,14 @@ export async function recordContestSourceVisitHandler(
     // totals from repeated refreshes or repeated clicks on the same link.
     const existing = await prisma.contestSourceVisit.findFirst({
       where: { userId, clueId },
-      select: { id: true, createdAt: true, advertisementOrderId: true },
+      select: { id: true, trackingToken: true, createdAt: true, advertisementOrderId: true },
     });
     if (existing) {
       return res.status(200).json({
         success: true,
         data: {
           visitId: existing.id,
+          trackingToken: existing.trackingToken,
           sourceUrl: clue.sourceUrl,
           recordedAt: existing.createdAt.toISOString(),
           advertiserAttributed: Boolean(existing.advertisementOrderId),
@@ -242,6 +243,7 @@ export async function recordContestSourceVisitHandler(
       success: true,
       data: {
         visitId: visit.id,
+        trackingToken: visit.trackingToken,
         sourceUrl: clue.sourceUrl,
         recordedAt: visit.createdAt.toISOString(),
         advertiserAttributed: Boolean(advertiserOrder),
@@ -254,7 +256,7 @@ export async function recordContestSourceVisitHandler(
     if (isErrorWithCode(error, "P2002")) {
       const existing = await prisma.contestSourceVisit.findFirst({
         where: { userId, clueId },
-        select: { id: true, createdAt: true, advertisementOrderId: true },
+        select: { id: true, trackingToken: true, createdAt: true, advertisementOrderId: true },
       });
       if (existing) {
         const clue = await prisma.contestClue.findFirst({
@@ -266,6 +268,7 @@ export async function recordContestSourceVisitHandler(
             success: true,
             data: {
               visitId: existing.id,
+              trackingToken: existing.trackingToken,
               sourceUrl: clue.sourceUrl,
               recordedAt: existing.createdAt.toISOString(),
               advertiserAttributed: Boolean(existing.advertisementOrderId),
