@@ -1153,6 +1153,11 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                         ? "پاسخ، توالی پیوستهٔ ۴ تا ۱۲ حرف انگلیسی A–Z پس از عبارت است؛ پاسخ لزوماً بین دو فاصله نیست. بخش‌های حروفی چسبیده را کامل وارد کن؛ خط تیره و آپاستروف توالی را جدا می‌کنند."
                         : "The answer is a continuous sequence of 4–12 English letters (A–Z) after the phrase, not necessarily text between two spaces. Include attached letter prefixes/suffixes; hyphens and apostrophes break the sequence.")}
                 </p>
+                <small>
+                  {isPersian
+                    ? "هنگام وارد کردن پاسخ، لازم نیست علائم نگارشی مثل نقطه (.)، ویرگول (،)، دونقطه (:) یا علامت سؤال (؟) را بنویسی؛ فقط خود کلمه را وارد می‌کنی."
+                    : "When entering your answer, you do not need to type punctuation such as a period (.), comma (,), colon (:), or question mark (?); enter only the word itself."}
+                </small>
               </div>
             </div>
             <div className="step">
