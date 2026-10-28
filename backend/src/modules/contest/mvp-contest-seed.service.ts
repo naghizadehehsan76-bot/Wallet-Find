@@ -5,6 +5,7 @@ import {
   CLUE_GENERATOR_VERSION,
   extractVisibleTextFromHtml,
   findUniqueAnchorBeforeTarget,
+  isSearchableClueAnchor,
   generatedClueInstruction,
   getSourceWordMatches,
   normalizeSourceText,
@@ -127,7 +128,7 @@ function hasCurrentGeneratedClues(clues: readonly StoredGeneratedClue[]): boolea
       clue.content.startsWith(CLUE_GENERATOR_VERSION) &&
       Boolean(clue.sourceUrl) &&
       typeof clue.hintAnchor === "string" &&
-      clue.hintAnchor.trim().length >= 25 &&
+      isSearchableClueAnchor(clue.hintAnchor) &&
       Array.isArray(clue.options) &&
       clue.options.length === 12
     )
