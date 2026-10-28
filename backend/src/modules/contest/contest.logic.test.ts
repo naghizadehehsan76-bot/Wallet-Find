@@ -5,6 +5,7 @@ import {
   CLUE_GENERATOR_VERSION,
   extractVisibleTextFromHtml,
   findUniqueAnchorBeforeTarget,
+  isSearchableClueAnchor,
   generatedClueInstruction,
   getSourceWordMatches,
   normalizeSourceText,
@@ -140,6 +141,18 @@ test("ambiguous phrases repeated in a source are not accepted as clue anchors", 
 });
 
 test("citation templates and maintenance labels cannot leak into a clue anchor", () => {
+  const invalidAnchors = [
+    "اطلاعات اصلی در ۲۱ آبان ۱۳۹۲.{{cite web}}: نگهداری یادکرد:تاریخ",
+    "این یک عبارت قابل جستجو با {{cite web}} درون متن است",
+    "عبارت طولانی و دارای نگهداری یادکرد:تاریخ برای بررسی",
+  ];
+  for (const anchor of invalidAnchors) {
+    assert.equal(isSearchableClueAnchor(anchor), false);
+  }
+
+  const validAnchor = "The system can identify patterns in medical images";
+  assert.equal(isSearchableClueAnchor(validAnchor), true);
+
   const text = normalizeSourceText(
     "این صفحه یک توضیح کوتاه دارد. اطلاعات اصلی در ۲۱ آبان ۱۳۹۲.{{cite web}}: نگهداری یادکرد:تاریخ بررسی شده و نتیجهٔ نهایی برای کاربران منتشر شد.",
   );
