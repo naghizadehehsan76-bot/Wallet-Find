@@ -57,6 +57,12 @@ export async function sendOnlineHeartbeat(): Promise<{ recorded: boolean }> {
   return request<{ recorded: boolean }>("/stats/heartbeat", { method: "POST" }, true);
 }
 
+export type LanguageParticipationBlock = {
+  challengeNumber: number;
+  completedLanguage: "fa" | "en";
+  retryAt: string;
+};
+
 export type ActiveContest = {
   id: string;
   challengeNumber?: number;
@@ -66,10 +72,13 @@ export type ActiveContest = {
   language?: string;
   startsAt: string | null;
   endsAt: string | null;
+  serverTime?: string;
+  participationBlock?: LanguageParticipationBlock | null;
 };
 
 export type CurrentClueResult = {
-  status: "READY" | "WAITING_FOR_CLUE" | "CONTEST_COMPLETED";
+  status: "READY" | "WAITING_FOR_CLUE" | "CONTEST_COMPLETED" | "LANGUAGE_BLOCKED";
+  participationBlock?: LanguageParticipationBlock | null;
   contest: ActiveContest;
   clue: {
     id: string;
