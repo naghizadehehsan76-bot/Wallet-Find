@@ -667,7 +667,7 @@ async function ensureMvpActiveContestInternal(language: "en" | "fa" = "en") {
   const clues = await generateMvpRounds(language);
   // Restore the missing current round at the most recent fixed boundary.
   // A future scheduled round, if present, remains queued for the next boundary.
-  const ROUND_INTERVAL_MS = 15 * 60_000;
+  const ROUND_INTERVAL_MS = CHALLENGE_INTERVAL_MS;
   const recoveryNow = Date.now();
   const startsAt = new Date(Math.floor(recoveryNow / ROUND_INTERVAL_MS) * ROUND_INTERVAL_MS);
   const endsAt = new Date(startsAt.getTime() + CONTEST_DURATION_MS);
