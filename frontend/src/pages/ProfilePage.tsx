@@ -93,7 +93,7 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
       if (!context) throw new Error("IMAGE_PROCESSING_FAILED");
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
       const optimized = canvas.toDataURL("image/webp", 0.82);
-      if (optimized.length > 1_400_000) throw new Error("AVATAR_TOO_LARGE");
+      if (optimized.length > 1_390_000) throw new Error("AVATAR_TOO_LARGE");
       const saved = await uploadProfileAvatar(optimized);
       setProfile((current) => current ? { ...current, avatarDataUrl: saved.avatarDataUrl } : current);
     } catch (err) {
