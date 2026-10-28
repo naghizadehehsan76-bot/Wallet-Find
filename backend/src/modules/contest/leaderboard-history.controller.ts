@@ -32,7 +32,7 @@ export async function getLeaderboardHistoryHandler(req: AuthenticatedRequest, re
       totalEarnedByUser.set(award.userId, (totalEarnedByUser.get(award.userId) ?? 0n) + award.amountMicro);
     }
 
-    const rounds = await Promise.all(contests.map(async (contest, index) => {
+    const rounds = await Promise.all(contests.map(async (contest) => {
       const leaderboard = await getContestLeaderboard(contest.id, 500);
       const awards = await prisma.prizeAward.findMany({
         where: { contestId: contest.id },
