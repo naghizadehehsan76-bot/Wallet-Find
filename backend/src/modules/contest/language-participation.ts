@@ -24,8 +24,9 @@ export async function getLanguageParticipationBlock(
   userId: string,
   targetContest: TargetContest,
 ): Promise<LanguageParticipationBlock | null> {
+  const targetStartsAt = targetContest.startsAt;
   if (
-    !targetContest.startsAt ||
+    !targetStartsAt ||
     (targetContest.language !== "en" && targetContest.language !== "fa")
   ) {
     return null;
@@ -34,7 +35,7 @@ export async function getLanguageParticipationBlock(
   const targetLanguage = targetContest.language as ChallengeLanguage;
   const otherLanguage: ChallengeLanguage = targetLanguage === "en" ? "fa" : "en";
   const scheduleAnchor = await getChallengeScheduleAnchor();
-  const targetChallengeNumber = challengeNumberAt(targetContest.startsAt, scheduleAnchor);
+  const targetChallengeNumber = challengeNumberAt(targetStartsAt, scheduleAnchor);
 
   const correctSubmissions = await prisma.submission.findMany({
     where: { userId, isCorrect: true },
@@ -82,6 +83,6 @@ export async function getLanguageParticipationBlock(
   return {
     challengeNumber: targetChallengeNumber,
     completedLanguage: otherLanguage,
-    retryAt: new Date(targetContest.startsAt.getTime() + CHALLENGE_INTERVAL_MS).toISOString(),
+    retryAt: new Date(targetStartsAt.getTime() + CHALLENGE_INTERVAL_MS).toISOString(),
   };
 }
