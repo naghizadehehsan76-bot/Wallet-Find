@@ -8,6 +8,7 @@ import {
   getContestPrizePool,
   getLeaderboard,
   getProfile,
+  recordContestSourceVisit,
   type LeaderboardEntry,
   type LanguageParticipationBlock,
   type PrizePoolView,
@@ -153,6 +154,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [startingNextContest, setStartingNextContest] = useState(false);
+  const [sourceVisitOpening, setSourceVisitOpening] = useState(false);
   const [error, setError] = useState("");
   const [completed, setCompleted] = useState(false);
   const [waitingForClue, setWaitingForClue] = useState(false);
@@ -321,6 +323,53 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     const current = await getCurrentClue(contestId);
 
     applyCurrentClue(current);
+  }
+
+  async function openTrackedSource() {
+    if (!contestId || !currentClueId || !sourceUrl || sourceVisitOpening) return;
+
+    // Open synchronously inside the click gesture so browser popup blockers do
+    // not discard the advertiser/source tab while the authenticated request runs.
+    const destinationTab = window.open("about:blank", "_blank");
+    if (!destinationTab) {
+      setError(
+        isPersian
+          ? "مرورگر اجازهٔ باز کردن زبانهٔ جدید را نداد؛ اجازهٔ پنجره‌های بازشو را فعال و دوباره تلاش کن."
+          : "Your browser blocked the new tab. Allow pop-ups for this site and try again.",
+      );
+      return;
+    }
+
+    destinationTab.opener = null;
+    setSourceVisitOpening(true);
+    setError("");
+    try {
+      const result = await recordContestSourceVisit(contestId, currentClueId);
+      const target = new URL(result.sourceUrl);
+      if (target.protocol !== "https:" || target.username || target.password) {
+        throw new Error("INVALID_SOURCE_URL");
+      }
+      destinationTab.location.replace(target.toString());
+      setFeedbackTone("success");
+      setFeedback(
+        isPersian
+          ? result.alreadyRecorded
+            ? "این کلیک قبلاً برای گزارش ثبت شده است؛ صفحهٔ منبع باز می‌شود."
+            : "کلیک ثبت شد؛ صفحهٔ منبع باز می‌شود."
+          : result.alreadyRecorded
+            ? "This visit was already recorded; opening the source page."
+            : "Click recorded; opening the source page.",
+      );
+    } catch {
+      destinationTab.close();
+      setError(
+        isPersian
+          ? "ثبت کلیک ناموفق بود و لینک باز نشد؛ کمی بعد دوباره تلاش کن."
+          : "The click could not be recorded, so the link was not opened. Please try again shortly.",
+      );
+    } finally {
+      setSourceVisitOpening(false);
+    }
   }
 
   async function copyHintAnchor() {
@@ -992,15 +1041,27 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="round-source-link"
+                      aria-disabled={sourceVisitOpening}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        void openTrackedSource();
+                      }}
                     >
                       <span className="round-source-link__icon">↗</span>
                       <span>
-                        {isPersian ? "باز کردن لینک منبع" : "Open source link"}
+                        {sourceVisitOpening
+                          ? (isPersian ? "در حال ثبت کلیک..." : "Recording click...")
+                          : (isPersian ? "باز کردن لینک منبع" : "Open source link")}
                       </span>
                     </a>
                     <div className="round-source-url" dir="ltr">
                       {sourceUrl}
                     </div>
+                    <p className="round-source-card__notice">
+                      {isPersian
+                        ? "با کلیک، نام کاربری، چالش، شمارهٔ خانه، مقصد و زمان کلیک برای گزارش داخلی ثبت می‌شود؛ ایمیل و نشانی IP در این گزارش ذخیره نمی‌شود. ثبت کلیک به‌تنهایی تأیید نمی‌کند که صفحهٔ مقصد کامل بارگذاری یا مشاهده شده است."
+                        : "Clicking records your username, challenge, clue number, destination, and click time for internal reporting. This report does not store your email or IP address. A recorded click does not independently confirm that the destination fully loaded or was viewed."}
+                    </p>
                   </section>
                 )}
 
