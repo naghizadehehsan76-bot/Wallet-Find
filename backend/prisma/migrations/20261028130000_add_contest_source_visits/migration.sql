@@ -25,6 +25,7 @@ CREATE INDEX "contest_source_visits_contestId_clueSequence_idx" ON "contest_sour
 CREATE INDEX "contest_source_visits_userId_createdAt_idx" ON "contest_source_visits"("userId", "createdAt");
 CREATE INDEX "contest_source_visits_sourceHostname_createdAt_idx" ON "contest_source_visits"("sourceHostname", "createdAt");
 CREATE INDEX "contest_source_visits_advertisementOrderId_createdAt_idx" ON "contest_source_visits"("advertisementOrderId", "createdAt");
+CREATE UNIQUE INDEX "contest_source_visits_userId_clueId_key" ON "contest_source_visits"("userId", "clueId");
 
 ALTER TABLE "contest_source_visits"
     ADD CONSTRAINT "contest_source_visits_userId_fkey"
