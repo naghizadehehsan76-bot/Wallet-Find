@@ -139,8 +139,8 @@ export function isSearchableClueAnchor(anchor: string): boolean {
   return (
     trimmed.length >= 25 &&
     trimmed.length <= 160 &&
-    !/[\\r\\n]/.test(trimmed) &&
-    !/\\{\\{|\\}\\}|<[^>]*>|نگهداری\\s+یادکرد|(?:cite\\s+web|یادکرد\\s+وب)\\s*:/iu.test(trimmed)
+    !/[\r\n]/.test(trimmed) &&
+    !/\{\{|\}\}|<[^>]*>|نگهداری\s+یادکرد|(?:cite\s+web|یادکرد\s+وب)\s*:/iu.test(trimmed)
   );
 }
 
