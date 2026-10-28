@@ -123,13 +123,14 @@ export async function getActiveContestHandler(
     });
   }
 
+  const userId = req.user.userId;
   const language = req.query.language === "fa" ? "fa" : "en";
   try {
     // Validate the clue-generator version before serving an active round.
     // This replaces old rounds whose source phrases cannot be found reliably.
     await ensureMvpActiveContest(language);
     const contest = await getActiveContest(language);
-    const participationBlock = await getLanguageParticipationBlock(req.user.userId, contest);
+    const participationBlock = await getLanguageParticipationBlock(userId, contest);
 
     return res.status(200).json({
       success: true,
