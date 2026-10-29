@@ -73,7 +73,7 @@ export async function updateContestRestrictionHandler(req: AuthenticatedRequest,
 
     await prisma.auditLog.create({
       data: {
-        userId: req.user?.userId,
+        userId: req.user?.userId ?? null,
         action: blocked ? "CONTEST_PARTICIPATION_RESTRICTED" : "CONTEST_PARTICIPATION_RESTORED",
         entity: "User",
         entityId: userId,
