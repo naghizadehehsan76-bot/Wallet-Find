@@ -313,7 +313,10 @@ export default function AdminControlCenter({ onNavigate }: Props) {
 
   useEffect(() => {
     if (section !== "support") return;
-    void loadSourceVisitReport();
+    const timer = window.setTimeout(() => {
+      void loadSourceVisitReport();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [section, loadSourceVisitReport]);
 
   const load = useCallback(async () => {
@@ -352,33 +355,39 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   useEffect(() => {
     if (section !== "ads") return;
     let cancelled = false;
-    setChallengeScheduleAnchor(null);
-    setChallengeScheduleUnavailable(false);
-    setChallengeScheduleLoading(true);
-    // Avoid carrying a date/number calculated for the previous language's rounds.
-    setScheduledChallengeNumber("");
-    setScheduledChallengeStart("");
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+      setChallengeScheduleAnchor(null);
+      setChallengeScheduleUnavailable(false);
+      setChallengeScheduleLoading(true);
+      // Avoid carrying a date/number calculated for the previous language's rounds.
+      setScheduledChallengeNumber("");
+      setScheduledChallengeStart("");
 
-    getActiveContest(scheduledSourceLanguage)
-      .then((contest) => {
-        if (cancelled) return;
-        if (contest.challengeNumber && contest.startsAt) {
-          setChallengeScheduleAnchor({
-            challengeNumber: contest.challengeNumber,
-            startsAt: contest.startsAt,
-          });
-        } else {
-          setChallengeScheduleUnavailable(true);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setChallengeScheduleUnavailable(true);
-      })
-      .finally(() => {
-        if (!cancelled) setChallengeScheduleLoading(false);
-      });
+      getActiveContest(scheduledSourceLanguage)
+        .then((contest) => {
+          if (cancelled) return;
+          if (contest.challengeNumber && contest.startsAt) {
+            setChallengeScheduleAnchor({
+              challengeNumber: contest.challengeNumber,
+              startsAt: contest.startsAt,
+            });
+          } else {
+            setChallengeScheduleUnavailable(true);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setChallengeScheduleUnavailable(true);
+        })
+        .finally(() => {
+          if (!cancelled) setChallengeScheduleLoading(false);
+        });
+    }, 0);
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [scheduledSourceLanguage, section]);
 
   function handleScheduledChallengeStartChange(value: string) {
