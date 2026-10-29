@@ -366,12 +366,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
 
     destinationTab.opener = null;
     setError("");
-    setFeedbackTone("info");
-    setFeedback(
-      isPersian
-        ? "صفحهٔ منبع باز شد؛ ثبت کلیک برای گزارش‌های اسپانسری موقتاً غیرفعال است."
-        : "Source page opened; sponsor click reporting is temporarily disabled.",
-    );
+    setFeedback("");
   }
 
   async function copyHintAnchor() {
@@ -1071,11 +1066,6 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                     <div className="round-source-url" dir="ltr">
                       {sourceUrl}
                     </div>
-                    <p className="round-source-card__notice">
-                      {isPersian
-                        ? "ثبت کلیک برای گزارش‌های اسپانسری موقتاً غیرفعال است؛ لینک منبع مستقیماً باز می‌شود."
-                        : "Sponsor click reporting is temporarily disabled; the source link opens directly."}
-                    </p>
                   </section>
                 )}
 
