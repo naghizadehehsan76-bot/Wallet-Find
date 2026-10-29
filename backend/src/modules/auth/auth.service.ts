@@ -152,19 +152,6 @@ async function getValidChallenge(email: string, purpose: "EMAIL_VERIFICATION" | 
   return challenge;
 }
 
-async function consumeChallenge(challengeId: string) {
-  const consumed = await prisma.authChallenge.updateMany({
-    where: {
-      id: challengeId,
-      usedAt: null,
-      expiresAt: { gt: new Date() },
-      attempts: { lt: MAX_CODE_ATTEMPTS },
-    },
-    data: { usedAt: new Date() },
-  });
-  if (consumed.count !== 1) throw new Error("INVALID_OR_EXPIRED_CODE");
-}
-
 export async function registerUser(input: RegisterInput) {
   const email = normalizeEmail(input.email);
   const existingUser = await prisma.user.findFirst({
@@ -206,7 +193,11 @@ export async function verifyEmail(input: VerifyEmailInput) {
   const email = normalizeEmail(input.email);
   const challenge = await getValidChallenge(email, "EMAIL_VERIFICATION", input.code);
   await prisma.$transaction(async (tx) => {
-    await consumeChallenge(challenge.id);
+    const consumed = await tx.authChallenge.updateMany({
+      where: { id: challenge.id, usedAt: null, expiresAt: { gt: new Date() }, attempts: { lt: MAX_CODE_ATTEMPTS } },
+      data: { usedAt: new Date() },
+    });
+    if (consumed.count !== 1) throw new Error("INVALID_OR_EXPIRED_CODE");
     const updated = await tx.user.updateMany({
       where: { email: { equals: email, mode: "insensitive" }, emailVerifiedAt: null },
       data: { emailVerifiedAt: new Date() },
@@ -275,7 +266,11 @@ export async function resetPassword(input: ResetPasswordInput) {
 
   const passwordHash = await bcrypt.hash(input.password, 12);
   await prisma.$transaction(async (tx) => {
-    await consumeChallenge(challenge.id);
+    const consumed = await tx.authChallenge.updateMany({
+      where: { id: challenge.id, usedAt: null, expiresAt: { gt: new Date() }, attempts: { lt: MAX_CODE_ATTEMPTS } },
+      data: { usedAt: new Date() },
+    });
+    if (consumed.count !== 1) throw new Error("INVALID_OR_EXPIRED_CODE");
     await tx.user.update({ where: { id: user.id }, data: { passwordHash } });
     await tx.authChallenge.updateMany({
       where: { email, purpose: "PASSWORD_RESET", usedAt: null },
