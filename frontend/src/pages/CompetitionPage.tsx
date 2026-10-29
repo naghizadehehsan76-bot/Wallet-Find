@@ -591,8 +591,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
 
       setFeedback(
         isPersian
-          ? "پاسخ درست بود! کلمه در کادر سبز باقی می‌ماند."
-          : "Correct answer! The word stays green in its box.",
+          ? "پاسخ درست بود! کلمه ی بعدی رو پیدا کن ."
+          : "Correct answer! Find the next word.",
       );
       await refreshCurrentClue();
     } catch (err) {
