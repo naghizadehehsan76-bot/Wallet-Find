@@ -41,7 +41,10 @@ function AuthPage({
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   useEffect(() => {
-    if (initialNotice) setError(initialNotice);
+    const timer = window.setTimeout(() => {
+      if (initialNotice) setError(initialNotice);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [initialNotice]);
 
   function saveSession(result: { token: string; user: unknown }) {
