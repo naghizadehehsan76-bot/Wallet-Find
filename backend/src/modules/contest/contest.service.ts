@@ -346,7 +346,7 @@ export async function submitAnswer(
   // lock, two parallel requests can both read the same unsolved clue and
   // create competing submissions before either request observes the other.
   return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${userId + ":" + contestId}, 0))`;
+    await tx.$queryRaw`SELECT 1 AS locked FROM (SELECT pg_advisory_xact_lock(hashtextextended(${userId + ":" + contestId}, 0))) AS advisory_lock`;
 
   
     // Capture the server-side submission timestamp immediately on entry.
