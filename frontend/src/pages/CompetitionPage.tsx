@@ -405,10 +405,12 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
 
   useEffect(() => {
     if (!completed || !contestId) {
-      setCompletionSummary(null);
-      setCompletionSummaryError(false);
-      setCompletionSummaryLoading(false);
-      return;
+      const resetTimer = window.setTimeout(() => {
+        setCompletionSummary(null);
+        setCompletionSummaryError(false);
+        setCompletionSummaryLoading(false);
+      }, 0);
+      return () => window.clearTimeout(resetTimer);
     }
 
     let cancelled = false;
