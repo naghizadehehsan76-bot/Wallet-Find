@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const emailSchema = z.string().trim().email().max(254);
-const codeSchema = z.string().trim().regex(/^\d{6}$/);
+const codeSchema = z.string().trim().regex(/^\d{6}$/);\nconst languageSchema = z.enum(["fa", "en"]).optional();
 
 export const registerSchema = z.object({
   email: emailSchema,
