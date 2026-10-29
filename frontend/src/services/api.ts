@@ -228,10 +228,38 @@ export async function register(
   email: string,
   username: string,
   password: string,
-): Promise<AuthResult> {
-  return request<AuthResult>("/auth/register", {
+): Promise<{ email: string; verificationRequired: boolean }> {
+  return request<{ email: string; verificationRequired: boolean }>("/auth/register", {
     method: "POST",
     body: JSON.stringify({ email, username, password }),
+  });
+}
+
+export async function verifyEmail(email: string, code: string): Promise<AuthResult> {
+  return request<AuthResult>("/auth/verify-email", {
+    method: "POST",
+    body: JSON.stringify({ email, code }),
+  });
+}
+
+export async function resendVerification(email: string): Promise<{ requested: boolean }> {
+  return request<{ requested: boolean }>("/auth/resend-verification", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function forgotPassword(email: string): Promise<{ requested: boolean }> {
+  return request<{ requested: boolean }>("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetPassword(email: string, code: string, password: string): Promise<{ passwordReset: boolean }> {
+  return request<{ passwordReset: boolean }>("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ email, code, password }),
   });
 }
 
