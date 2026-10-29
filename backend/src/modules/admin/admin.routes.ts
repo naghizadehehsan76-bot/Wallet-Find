@@ -21,6 +21,7 @@ import {
   finishContestHandler,
 } from "./contest-management.controller.js";
 import { getAdminWalletsHandler } from "../wallet/wallet.controller.js";
+import { getSecurityFlagsHandler, updateContestRestrictionHandler } from "./security.controller.js";
 import {
   getPrizePoolHandler,
   testFundPrizePoolHandler,
@@ -33,6 +34,8 @@ router.use(requireAuth, requireAdmin);
 
 router.get("/overview", getAdminOverviewHandler);
 router.get("/users", getAdminUsersHandler);
+router.get("/security/flags", getSecurityFlagsHandler);
+router.patch("/security/users/:userId/contest-restriction", updateContestRestrictionHandler);
 router.get("/settings", getSystemSettingsHandler);
 router.post("/settings", upsertSystemSettingHandler);
 
