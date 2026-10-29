@@ -9,7 +9,6 @@ import {
   getPublicPrizePoolStats,
   getLeaderboard,
   getProfile,
-  recordContestSourceVisit,
   type LeaderboardEntry,
   type LanguageParticipationBlock,
   type PrizePoolView,
@@ -156,7 +155,6 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [startingNextContest, setStartingNextContest] = useState(false);
-  const [sourceVisitOpening, setSourceVisitOpening] = useState(false);
   const [error, setError] = useState("");
   const [completed, setCompleted] = useState(false);
   const [waitingForClue, setWaitingForClue] = useState(false);
@@ -338,12 +336,25 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     applyCurrentClue(current);
   }
 
-  async function openTrackedSource() {
-    if (!contestId || !currentClueId || !sourceUrl || sourceVisitOpening) return;
+  function openTrackedSource() {
+    if (!sourceUrl) return;
 
-    // Open synchronously inside the click gesture so browser popup blockers do
-    // not discard the advertiser/source tab while the authenticated request runs.
-    const destinationTab = window.open("about:blank", "_blank");
+    // Temporarily disable sponsor/source click reporting. Open the validated
+    // source directly without calling the tracking API.
+    let target: URL;
+    try {
+      target = new URL(sourceUrl);
+    } catch {
+      setError(isPersian ? "نشانی صفحهٔ منبع معتبر نیست." : "The source URL is invalid.");
+      return;
+    }
+
+    if (target.protocol !== "https:" || target.username || target.password) {
+      setError(isPersian ? "نشانی صفحهٔ منبع معتبر نیست." : "The source URL is invalid.");
+      return;
+    }
+
+    const destinationTab = window.open(target.toString(), "_blank");
     if (!destinationTab) {
       setError(
         isPersian
@@ -354,35 +365,13 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     }
 
     destinationTab.opener = null;
-    setSourceVisitOpening(true);
     setError("");
-    try {
-      const result = await recordContestSourceVisit(contestId, currentClueId);
-      const target = new URL(result.sourceUrl);
-      if (target.protocol !== "https:" || target.username || target.password) {
-        throw new Error("INVALID_SOURCE_URL");
-      }
-      destinationTab.location.replace(target.toString());
-      setFeedbackTone("success");
-      setFeedback(
-        isPersian
-          ? result.alreadyRecorded
-            ? "این کلیک قبلاً برای گزارش ثبت شده است؛ صفحهٔ منبع باز می‌شود."
-            : "کلیک ثبت شد؛ صفحهٔ منبع باز می‌شود."
-          : result.alreadyRecorded
-            ? "This visit was already recorded; opening the source page."
-            : "Click recorded; opening the source page.",
-      );
-    } catch {
-      destinationTab.close();
-      setError(
-        isPersian
-          ? "ثبت کلیک ناموفق بود و لینک باز نشد؛ کمی بعد دوباره تلاش کن."
-          : "The click could not be recorded, so the link was not opened. Please try again shortly.",
-      );
-    } finally {
-      setSourceVisitOpening(false);
-    }
+    setFeedbackTone("info");
+    setFeedback(
+      isPersian
+        ? "صفحهٔ منبع باز شد؛ ثبت کلیک برای گزارش‌های اسپانسری موقتاً غیرفعال است."
+        : "Source page opened; sponsor click reporting is temporarily disabled.",
+    );
   }
 
   async function copyHintAnchor() {
@@ -409,7 +398,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
 
     const timerId = window.setInterval(() => {
       setTimerNow(Date.now());
-    }, 100);
+    }, 1000);
 
     return () => window.clearInterval(timerId);
   }, [contestDate, completed]);
@@ -1024,8 +1013,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                             ? <><button
                                 type="button"
                                 onClick={() => void openTrackedSource()}
-                                disabled={!sourceUrl || sourceVisitOpening}
-                                style={{ display: "inline", padding: 0, border: 0, background: "none", color: "var(--accent-color, #14b8a6)", textDecoration: "underline", cursor: sourceUrl && !sourceVisitOpening ? "pointer" : "not-allowed", font: "inherit" }}
+                                disabled={!sourceUrl}
+                                style={{ display: "inline", padding: 0, border: 0, background: "none", color: "var(--accent-color, #14b8a6)", textDecoration: "underline", cursor: sourceUrl ? "pointer" : "not-allowed", font: "inherit" }}
                               >صفحهٔ منبع</button> عبارت زیر را دقیقاً پیدا کن؛ پاسخ خانهٔ ( {formatNumber(displayedRound)} ) اولین کلمه بعد عبارت راهنما است.</>
                             : `Find this exact phrase on the source page. The answer for box ${formatNumber(displayedRound)} is the continuous sequence of 4–12 English letters (A–Z) immediately after it. Include attached letter prefixes/suffixes; spaces, hyphens, and apostrophes separate sequences, and punctuation is not part of the answer.`)}
                     </p>
@@ -1067,7 +1056,6 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="round-source-link"
-                      aria-disabled={sourceVisitOpening}
                       onClick={(event) => {
                         event.preventDefault();
                         void openTrackedSource();
@@ -1075,9 +1063,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                     >
                       <span className="round-source-link__icon">↗</span>
                       <span>
-                        {sourceVisitOpening
-                          ? (isPersian ? "در حال ثبت کلیک..." : "Recording click...")
-                          : (isPersian ? "باز کردن لینک منبع" : "Open source link")}
+                        {isPersian ? "باز کردن لینک منبع" : "Open source link"}
                       </span>
                     </a>
                     <div className="round-source-url" dir="ltr">
@@ -1085,8 +1071,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                     </div>
                     <p className="round-source-card__notice">
                       {isPersian
-                        ? "با کلیک، نام کاربری، چالش، شمارهٔ خانه، مقصد و زمان کلیک برای گزارش داخلی ثبت می‌شود؛ ایمیل و نشانی IP در این گزارش ذخیره نمی‌شود. ثبت کلیک به‌تنهایی تأیید نمی‌کند که صفحهٔ مقصد کامل بارگذاری یا مشاهده شده است."
-                        : "Clicking records your username, challenge, clue number, destination, and click time for internal reporting. This report does not store your email or IP address. A recorded click does not independently confirm that the destination fully loaded or was viewed."}
+                        ? "ثبت کلیک برای گزارش‌های اسپانسری موقتاً غیرفعال است؛ لینک منبع مستقیماً باز می‌شود."
+                        : "Sponsor click reporting is temporarily disabled; the source link opens directly."}
                     </p>
                   </section>
                 )}
