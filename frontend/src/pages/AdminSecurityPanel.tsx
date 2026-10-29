@@ -28,7 +28,10 @@ export default function AdminSecurityPanel() {
     }
   }, [fa]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   const toggleRestriction = async (flag: AdminSecurityFlag) => {
     const blocked = !flag.user.contestParticipationBlocked;
