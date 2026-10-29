@@ -2725,3 +2725,32 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   outline: none !important;
   outline-offset: 0;
 }
+
+
+/* Email verification and password recovery feedback. */
+.auth-success {
+  margin: 14px 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(0, 190, 150, .35);
+  border-radius: 10px;
+  background: rgba(0, 190, 150, .08);
+  color: var(--text, inherit);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.auth-description {
+  margin: 0 0 18px;
+  color: var(--muted, #7b8794);
+  line-height: 1.7;
+}
+.auth-secondary-action {
+  display: block;
+  margin: 14px auto 0;
+  padding: 8px 10px;
+  text-align: center;
+  cursor: pointer;
+}
+.auth-secondary-action:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
