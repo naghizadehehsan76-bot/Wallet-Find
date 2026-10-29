@@ -342,11 +342,11 @@ export async function submitAnswer(
   contestId: string,
   data: SubmitAnswerInput
 ) {
-  // Serialize submissions for the same user and round. Without a database
-  // lock, two parallel requests can both read the same unsolved clue and
-  // create competing submissions before either request observes the other.
+  // Serialize all submissions by this user, not only submissions to one round.
+  // This prevents parallel requests to different language variants of the same
+  // scheduled challenge from bypassing the one-language participation rule.
   return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT 1 AS locked FROM (SELECT pg_advisory_xact_lock(hashtextextended(${userId + ":" + contestId}, 0))) AS advisory_lock`;
+    await tx.$queryRaw`SELECT 1 AS locked FROM (SELECT pg_advisory_xact_lock(hashtextextended(${userId}, 0))) AS advisory_lock`;
 
   
     // Capture the server-side submission timestamp immediately on entry.
