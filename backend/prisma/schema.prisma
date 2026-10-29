@@ -85,6 +85,7 @@ model User {
   email        String @unique
   username     String @unique
   passwordHash String
+  emailVerifiedAt DateTime? @default(now())
   avatarDataUrl String? @db.Text
 
   role UserRole @default(USER)
@@ -587,4 +588,20 @@ model ProjectProfitLedger {
 
   @@index([type, effectiveAt])
   @@map("project_profit_ledger")
+}
+
+
+model AuthChallenge {
+  id        String   @id @default(cuid())
+  email     String
+  purpose   String
+  tokenHash String
+  expiresAt DateTime
+  usedAt    DateTime?
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([email, purpose, createdAt])
+  @@index([expiresAt])
+  @@map("auth_challenges")
 }
