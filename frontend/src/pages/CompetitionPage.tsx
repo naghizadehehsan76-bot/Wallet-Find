@@ -1021,7 +1021,12 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                             ? `در صفحهٔ منبع عبارت زیر را دقیقاً پیدا کن؛ پاسخ خانهٔ (${formatNumber(displayedRound)}) نویسهٔ فارسیِ بلافاصله پس از عبارت راهنما است.`
                             : `Find the exact phrase below on the source page. The answer for box (${formatNumber(displayedRound)}) is the Persian character immediately after the hint phrase.`)
                         : (isPersian
-                            ? `در صفحهٔ منبع عبارت زیر را دقیقاً پیدا کن؛ پاسخ خانهٔ ( ${formatNumber(displayedRound)} ) اولین کلمه بعد عبارت راهنما است.`
+                            ? <><button
+                                type="button"
+                                onClick={() => void openTrackedSource()}
+                                disabled={!sourceUrl || sourceVisitOpening}
+                                style={{ display: "inline", padding: 0, border: 0, background: "none", color: "var(--accent-color, #14b8a6)", textDecoration: "underline", cursor: sourceUrl && !sourceVisitOpening ? "pointer" : "not-allowed", font: "inherit" }}
+                              >صفحهٔ منبع</button> عبارت زیر را دقیقاً پیدا کن؛ پاسخ خانهٔ ( {formatNumber(displayedRound)} ) اولین کلمه بعد عبارت راهنما است.</>
                             : `Find this exact phrase on the source page. The answer for box ${formatNumber(displayedRound)} is the continuous sequence of 4–12 English letters (A–Z) immediately after it. Include attached letter prefixes/suffixes; spaces, hyphens, and apostrophes separate sequences, and punctuation is not part of the answer.`)}
                     </p>
                   ) : (
