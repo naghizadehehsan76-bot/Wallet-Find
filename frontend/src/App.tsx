@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import AuthPage from "./pages/AuthPage";
 import CompetitionPage from "./pages/CompetitionPage";
 import KeyStagePage from "./pages/KeyStagePage";
@@ -604,11 +604,20 @@ function App() {
     document.documentElement.dir = isRTL ? "rtl" : "ltr";
   }, [language, isRTL]);
 
+  const handleSessionExpired = useCallback(() => {
+    localStorage.removeItem("walletFindToken");
+    localStorage.removeItem("walletFindUser");
+    setAuthStatus("unauthenticated");
+    setAuthMode("login");
+    setAuthNotice("TOKEN_EXPIRED");
+    setPage("auth");
+  }, []);
+
   useEffect(() => {
     const handleSessionExpiredEvent = () => handleSessionExpired();
     window.addEventListener("wallet-find:session-expired", handleSessionExpiredEvent);
     return () => window.removeEventListener("wallet-find:session-expired", handleSessionExpiredEvent);
-  }, []);
+  }, [handleSessionExpired]);
 
   useEffect(() => {
     const token = localStorage.getItem("walletFindToken");
@@ -664,7 +673,7 @@ function App() {
       });
 
     return () => { cancelled = true; };
-  }, []);
+  }, [handleSessionExpired]);
 
   useEffect(() => {
     if (authStatus !== "authenticated") return;
@@ -711,15 +720,6 @@ function App() {
     setAuthNotice("");
     setAuthStatus("authenticated");
     setPage("competition");
-  }
-
-  function handleSessionExpired() {
-    localStorage.removeItem("walletFindToken");
-    localStorage.removeItem("walletFindUser");
-    setAuthStatus("unauthenticated");
-    setAuthMode("login");
-    setAuthNotice("TOKEN_EXPIRED");
-    setPage("auth");
   }
 
   function handleLogout() {
