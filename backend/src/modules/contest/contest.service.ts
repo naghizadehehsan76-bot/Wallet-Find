@@ -544,10 +544,15 @@ export async function submitAnswer(
       );
   
     if (!nextClue) {
-      const firstCorrectAt = correctSubmissions.reduce<Date | null>((earliest, submission) =>
-        !earliest || submission.submittedAt < earliest ? submission.submittedAt : earliest, null);
-      const completionTimeMs = firstCorrectAt ? Math.max(0, now.getTime() - firstCorrectAt.getTime()) : 0;
-      const suspiciousFastCompletion = completionTimeMs > 0 && completionTimeMs < 120_000;
+      const firstAttempt = await tx.submission.findFirst({
+        where: { userId, contestId },
+        orderBy: [{ submittedAt: "asc" }, { id: "asc" }],
+        select: { submittedAt: true },
+      });
+      const completionTimeMs = firstAttempt
+        ? Math.max(0, now.getTime() - firstAttempt.submittedAt.getTime())
+        : 0;
+      const suspiciousFastCompletion = completionTimeMs < 120_000;
       if (suspiciousFastCompletion) {
         await tx.securityFlag.upsert({
           where: { userId_contestId: { userId, contestId } },
