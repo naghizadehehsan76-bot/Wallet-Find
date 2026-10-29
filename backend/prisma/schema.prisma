@@ -96,6 +96,11 @@ model User {
   auditLogs           AuditLog[]
   walletTransactions  WalletTransaction[]
   contestSourceVisits ContestSourceVisit[]
+  securityFlags SecurityFlag[]
+  contestParticipationBlocked Boolean @default(false)
+  contestParticipationBlockedAt DateTime?
+  contestParticipationBlockedById String?
+  contestParticipationBlockReason String? @db.Text
 
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -119,6 +124,7 @@ model Contest {
   clues       ContestClue[]
   submissions Submission[]
   sourceVisits ContestSourceVisit[]
+  securityFlags SecurityFlag[]
 
   setting ContestSetting?
 
@@ -604,4 +610,20 @@ model AuthChallenge {
   @@index([email, purpose, createdAt])
   @@index([expiresAt])
   @@map("auth_challenges")
+}
+
+
+model SecurityFlag {
+  id String @id @default(cuid())
+  userId String
+  contestId String
+  reason String
+  completionTimeMs BigInt
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contest Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  @@unique([userId, contestId])
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@map("security_flags")
 }

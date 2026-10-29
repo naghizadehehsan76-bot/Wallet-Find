@@ -20,6 +20,7 @@ import {
   type SystemSettingRecord,
 } from "../services/api";
 import LoadingIndicator from "../components/LoadingIndicator";
+import AdminSecurityPanel from "./AdminSecurityPanel";
 
 type AdminDestination = "home" | "admin-manage";
 
@@ -854,20 +855,16 @@ export default function AdminControlCenter({ onNavigate }: Props) {
           </section>
         )}
 
-        {(["finance", "security"] as Section[]).includes(section) && (
+        {section === "finance" && (
           <section className="admin-panel">
-            <h2>{({
-              finance: copy.finance,
-              security: copy.security,
-            } as Record<string, string>)[section]}</h2>
+            <h2>{copy.finance}</h2>
             <p>{copy.conceptTitle}</p>
-            <p className="admin-footnote">{({
-              finance: copy.financeBody,
-              security: copy.securityBody,
-            } as Record<string, string>)[section]}</p>
+            <p className="admin-footnote">{copy.financeBody}</p>
             <p className="admin-footnote">{copy.conceptBody}</p>
           </section>
         )}
+
+        {section === "security" && <AdminSecurityPanel />}
 
         {section === "support" && (
           <section className="admin-panel admin-source-report">

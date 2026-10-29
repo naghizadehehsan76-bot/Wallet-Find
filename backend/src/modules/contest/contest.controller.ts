@@ -274,6 +274,18 @@ export async function getCurrentClueHandler(
       });
     }
 
+    if (error.message === "CONTEST_PARTICIPATION_BLOCKED") {
+      return res.status(403).json({ success: false, error: error.message });
+    }
+
+    if (error.message === "CONTEST_PARTICIPATION_BLOCKED") {
+      return res.status(403).json({ success: false, error: error.message });
+    }
+
+    if (error.message === "CONTEST_PARTICIPATION_BLOCKED") {
+      return res.status(403).json({ success: false, error: error.message });
+    }
+
     const conflictErrors = new Set([
       "CONTEST_NOT_ACTIVE",
       "CONTEST_NOT_STARTED",
@@ -354,6 +366,10 @@ export async function submitAnswerHandler(
         success: false,
         error: "INTERNAL_SERVER_ERROR",
       });
+    }
+
+    if (error.message === "CONTEST_PARTICIPATION_BLOCKED") {
+      return res.status(403).json({ success: false, error: error.message });
     }
 
     const clientErrors = new Set([

@@ -176,6 +176,14 @@ export async function getCurrentClue(
     throw new Error("CONTEST_NOT_FOUND");
   }
 
+  const userRestriction = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { contestParticipationBlocked: true },
+  });
+  if (userRestriction?.contestParticipationBlocked) {
+    throw new Error("CONTEST_PARTICIPATION_BLOCKED");
+  }
+
   const now = new Date();
   const participationBlock = await getLanguageParticipationBlock(userId, contest);
   if (participationBlock) {
@@ -367,6 +375,14 @@ export async function submitAnswer(
     if (!contest) {
       throw new Error("CONTEST_NOT_FOUND");
     }
+
+    const userRestriction = await tx.user.findUnique({
+      where: { id: userId },
+      select: { contestParticipationBlocked: true },
+    });
+    if (userRestriction?.contestParticipationBlocked) {
+      throw new Error("CONTEST_PARTICIPATION_BLOCKED");
+    }
   
     const participationBlock = await getLanguageParticipationBlock(userId, contest);
     if (participationBlock) {
@@ -528,6 +544,27 @@ export async function submitAnswer(
       );
   
     if (!nextClue) {
+      const firstAttempt = await tx.submission.findFirst({
+        where: { userId, contestId },
+        orderBy: [{ submittedAt: "asc" }, { id: "asc" }],
+        select: { submittedAt: true },
+      });
+      const completionTimeMs = firstAttempt
+        ? Math.max(0, now.getTime() - firstAttempt.submittedAt.getTime())
+        : 0;
+      const suspiciousFastCompletion = completionTimeMs < 120_000;
+      if (suspiciousFastCompletion) {
+        await tx.securityFlag.upsert({
+          where: { userId_contestId: { userId, contestId } },
+          update: { completionTimeMs: BigInt(completionTimeMs), reason: "COMPLETED_12_CLUES_UNDER_2_MINUTES" },
+          create: {
+            userId,
+            contestId,
+            completionTimeMs: BigInt(completionTimeMs),
+            reason: "COMPLETED_12_CLUES_UNDER_2_MINUTES",
+          },
+        });
+      }
       return {
         status: "CONTEST_COMPLETED" as const,
         isCorrect: true,
@@ -535,6 +572,8 @@ export async function submitAnswer(
         currentSequence: currentClue.sequence,
         nextSequence: null,
         completedAt: now,
+        suspiciousFastCompletion,
+        completionTimeMs,
       };
     }
   
