@@ -228,10 +228,11 @@ export async function register(
   email: string,
   username: string,
   password: string,
+  language: "fa" | "en" = "en",
 ): Promise<{ email: string; verificationRequired: boolean }> {
   return request<{ email: string; verificationRequired: boolean }>("/auth/register", {
     method: "POST",
-    body: JSON.stringify({ email, username, password }),
+    body: JSON.stringify({ email, username, password, language }),
   });
 }
 
@@ -242,17 +243,17 @@ export async function verifyEmail(email: string, code: string): Promise<AuthResu
   });
 }
 
-export async function resendVerification(email: string): Promise<{ requested: boolean }> {
+export async function resendVerification(email: string, language: "fa" | "en" = "en"): Promise<{ requested: boolean }> {
   return request<{ requested: boolean }>("/auth/resend-verification", {
     method: "POST",
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, language }),
   });
 }
 
-export async function forgotPassword(email: string): Promise<{ requested: boolean }> {
+export async function forgotPassword(email: string, language: "fa" | "en" = "en"): Promise<{ requested: boolean }> {
   return request<{ requested: boolean }>("/auth/forgot-password", {
     method: "POST",
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, language }),
   });
 }
 
