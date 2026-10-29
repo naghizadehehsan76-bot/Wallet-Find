@@ -78,7 +78,7 @@ function HomePage({
   };
 
   useEffect(() => {
-    const timerId = window.setInterval(() => setHomeTimerNow(Date.now()), 250);
+    const timerId = window.setInterval(() => setHomeTimerNow(Date.now()), 1000);
     return () => window.clearInterval(timerId);
   }, []);
 
@@ -100,7 +100,7 @@ function HomePage({
     }
 
     void refreshPublicSiteStats();
-    const intervalId = window.setInterval(() => void refreshPublicSiteStats(), 15000);
+    const intervalId = window.setInterval(() => void refreshPublicSiteStats(), 30000);
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
@@ -125,7 +125,7 @@ function HomePage({
     }
 
     void refreshPrizePoolStats();
-    const intervalId = window.setInterval(() => void refreshPrizePoolStats(), 15000);
+    const intervalId = window.setInterval(() => void refreshPrizePoolStats(), 30000);
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
@@ -157,7 +157,7 @@ function HomePage({
     }
 
     void refreshHomeProgress();
-    const intervalId = window.setInterval(() => void refreshHomeProgress(), 3000);
+    const intervalId = window.setInterval(() => void refreshHomeProgress(), 10000);
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
