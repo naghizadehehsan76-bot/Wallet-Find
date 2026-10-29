@@ -705,3 +705,38 @@ export type AdminUserSummary = {
 export async function getAdminUsers(): Promise<AdminUserSummary[]> {
   return request<AdminUserSummary[]>("/admin/users", {}, true);
 }
+
+
+export type AdminSecurityFlag = {
+  id: string;
+  userId: string;
+  contestId: string;
+  reason: string;
+  completionTimeMs: number;
+  createdAt: string;
+  user: {
+    id: string;
+    username: string;
+    email: string;
+    role: string;
+    contestParticipationBlocked: boolean;
+    contestParticipationBlockedAt: string | null;
+    contestParticipationBlockReason: string | null;
+  };
+  contest: { id: string; title: string; language: string; startsAt: string | null; endsAt: string | null };
+};
+
+export async function getAdminSecurityFlags(): Promise<AdminSecurityFlag[]> {
+  return request<AdminSecurityFlag[]>("/admin/security/flags", {}, true);
+}
+
+export async function setContestParticipationRestriction(
+  userId: string,
+  blocked: boolean,
+  reason?: string,
+): Promise<{ id: string; username: string; contestParticipationBlocked: boolean; contestParticipationBlockedAt: string | null; contestParticipationBlockReason: string | null }> {
+  return request("/admin/security/users/" + encodeURIComponent(userId) + "/contest-restriction", {
+    method: "PATCH",
+    body: JSON.stringify({ blocked, reason }),
+  }, true);
+}
