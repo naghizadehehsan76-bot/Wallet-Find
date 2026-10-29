@@ -45,18 +45,33 @@ function createCode(): string {
   return String(randomInt(100000, 1_000_000));
 }
 
-async function sendAuthEmail(email: string, code: string, purpose: "EMAIL_VERIFICATION" | "PASSWORD_RESET") {
+async function sendAuthEmail(
+  email: string,
+  code: string,
+  purpose: "EMAIL_VERIFICATION" | "PASSWORD_RESET",
+  language: "fa" | "en" = "en",
+) {
   const apiKey = process.env.EPOSTIX_API_KEY;
   if (!apiKey) throw new Error("EMAIL_PROVIDER_NOT_CONFIGURED");
 
   const isReset = purpose === "PASSWORD_RESET";
-  const subject = isReset ? "Reset your Wallet-Find password" : "Verify your Wallet-Find email";
-  const title = isReset ? "Password reset code" : "Email verification code";
-  const action = isReset
-    ? "Use this code to reset your Wallet-Find password."
-    : "Use this code to verify your Wallet-Find email address.";
-  const text = `${title}\n\nYour code is: ${code}\n\n${action}\nThis code expires in ${isReset ? RESET_CODE_TTL_MINUTES : CODE_TTL_MINUTES} minutes. If you did not request this, you can ignore this email.`;
-  const html = `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#172033"><h2>${title}</h2><p>${action}</p><p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p><p>This code expires in ${isReset ? RESET_CODE_TTL_MINUTES : CODE_TTL_MINUTES} minutes.</p><p>If you did not request this, you can ignore this email.</p><p>Wallet-Find</p></body></html>`;
+  const isPersian = language === "fa";
+  const subject = isPersian
+    ? (isReset ? "بازیابی رمز عبور Wallet-Find" : "تأیید ایمیل Wallet-Find")
+    : (isReset ? "Reset your Wallet-Find password" : "Verify your Wallet-Find email");
+  const title = isPersian
+    ? (isReset ? "کد بازیابی رمز عبور" : "کد تأیید ایمیل")
+    : (isReset ? "Password reset code" : "Email verification code");
+  const action = isPersian
+    ? (isReset ? "از این کد برای تنظیم رمز عبور جدید Wallet-Find استفاده کن." : "از این کد برای تأیید نشانی ایمیل Wallet-Find استفاده کن.")
+    : (isReset ? "Use this code to reset your Wallet-Find password." : "Use this code to verify your Wallet-Find email address.");
+  const expires = isReset ? RESET_CODE_TTL_MINUTES : CODE_TTL_MINUTES;
+  const expiryText = isPersian ? `این کد تا ${expires} دقیقه اعتبار دارد.` : `This code expires in ${expires} minutes.`;
+  const ignoreText = isPersian
+    ? "اگر این درخواست را ثبت نکرده‌ای، این ایمیل را نادیده بگیر."
+    : "If you did not request this, you can ignore this email.";
+  const text = `${title}\n\n${action}\n\n${isPersian ? "کد شما:" : "Your code:"} ${code}\n\n${expiryText}\n${ignoreText}\nWallet-Find`;
+  const html = `<!doctype html><html lang="${isPersian ? "fa" : "en"}"><body style="font-family:Arial,sans-serif;color:#172033;line-height:1.7;direction:${isPersian ? "rtl" : "ltr"}"><h2>${title}</h2><p>${action}</p><p style="font-size:28px;font-weight:700;letter-spacing:6px;direction:ltr">${code}</p><p>${expiryText}</p><p>${ignoreText}</p><p>Wallet-Find</p></body></html>`;
 
   let response: Response;
   try {
@@ -86,14 +101,14 @@ async function sendAuthEmail(email: string, code: string, purpose: "EMAIL_VERIFI
       const body = await response.json() as { type?: string };
       providerType = body.type ?? providerType;
     } catch {
-      // Do not log email contents, credentials, or verification codes.
+      // Never log email contents, credentials, or verification codes.
     }
     console.error("Epostix rejected email", response.status, providerType);
     throw new Error("EMAIL_SEND_FAILED");
   }
 }
 
-async function issueCode(email: string, purpose: "EMAIL_VERIFICATION" | "PASSWORD_RESET") {
+async function issueCode(email: string, purpose: "EMAIL_VERIFICATION" | "PASSWORD_RESET", language: "fa" | "en" = "en") {
   const now = new Date();
   const sinceDay = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const recentCount = await prisma.authChallenge.count({
@@ -122,7 +137,7 @@ async function issueCode(email: string, purpose: "EMAIL_VERIFICATION" | "PASSWOR
   });
 
   try {
-    await sendAuthEmail(email, code, purpose);
+    await sendAuthEmail(email, code, purpose, language);
   } catch (error) {
     await prisma.authChallenge.delete({ where: { id: challenge.id } }).catch(() => undefined);
     throw error;
@@ -175,7 +190,7 @@ export async function registerUser(input: RegisterInput) {
     select: { id: true },
   });
 
-  await issueCode(email, "EMAIL_VERIFICATION");
+  await issueCode(email, "EMAIL_VERIFICATION", input.language);
   return { email, verificationRequired: true };
 }
 
@@ -186,7 +201,7 @@ export async function resendVerification(input: ResendVerificationInput) {
     select: { email: true, emailVerifiedAt: true },
   });
   if (!user || user.emailVerifiedAt) return;
-  await issueCode(user.email, "EMAIL_VERIFICATION");
+  await issueCode(user.email, "EMAIL_VERIFICATION", input.language);
 }
 
 export async function verifyEmail(input: VerifyEmailInput) {
@@ -246,7 +261,7 @@ export async function requestPasswordReset(input: ForgotPasswordInput) {
   if (!user) return;
 
   try {
-    await issueCode(user.email, "PASSWORD_RESET");
+    await issueCode(user.email, "PASSWORD_RESET", input.language);
   } catch (error) {
     if (error instanceof Error && error.message === "EMAIL_SEND_FAILED") return;
     // Keep the same public response for unknown, throttled and known addresses.
