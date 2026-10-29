@@ -16,7 +16,6 @@ import {
 import { getLeaderboardHandler } from "./leaderboard.controller.js";
 import { getLeaderboardHistoryHandler } from "./leaderboard-history.controller.js";
 import { getPublicPrizePoolHandler } from "./prize-pool.controller.js";
-import { recordContestSourceVisitHandler } from "./source-visit.controller.js";
 
 const router = Router();
 
@@ -52,11 +51,7 @@ router.post(
   startNextContestHandler,
 );
 
-router.post(
-  "/:contestId/clues/:clueId/source-visit",
-  requireAuth,
-  recordContestSourceVisitHandler,
-);
+// Sponsor click tracking is temporarily disabled; the source-visit endpoint is not registered.
 
 router.get(
   "/:contestId/current-clue",
