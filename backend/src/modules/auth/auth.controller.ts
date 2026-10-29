@@ -83,6 +83,12 @@ export async function resendVerificationCode(req: AuthenticatedRequest, res: Res
     await resendVerification(parsed.data);
     return res.status(200).json({ success: true, data: { requested: true } });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message === "CODE_RESEND_TOO_SOON" || message === "CODE_RESEND_LIMIT" ||
+        message === "EMAIL_SEND_FAILED" || message === "EMAIL_PROVIDER_NOT_CONFIGURED") {
+      // Keep the response identical for known, unknown, throttled, and failed addresses.
+      return res.status(200).json({ success: true, data: { requested: true } });
+    }
     return sendAuthError(res, error);
   }
 }
