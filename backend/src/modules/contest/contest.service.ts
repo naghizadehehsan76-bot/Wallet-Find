@@ -342,200 +342,209 @@ export async function submitAnswer(
   contestId: string,
   data: SubmitAnswerInput
 ) {
-  // Capture the server-side submission timestamp immediately on entry.
-  const now = new Date();
-  const contest = await prisma.contest.findUnique({
-    where: {
-      id: contestId,
-    },
-    select: {
-      id: true,
-      status: true,
-      language: true,
-      startsAt: true,
-      endsAt: true,
-    },
-  });
+  // Serialize submissions for the same user and round. Without a database
+  // lock, two parallel requests can both read the same unsolved clue and
+  // create competing submissions before either request observes the other.
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${userId + ":" + contestId}, 0))`;
 
-  if (!contest) {
-    throw new Error("CONTEST_NOT_FOUND");
-  }
-
-  const participationBlock = await getLanguageParticipationBlock(userId, contest);
-  if (participationBlock) {
-    throw new Error("LANGUAGE_CHALLENGE_ALREADY_COMPLETED");
-  }
-
-  const scheduledRoundIsLive = contest.status === "SCHEDULED"
-    && Boolean(contest.startsAt && now >= contest.startsAt)
-    && Boolean(!contest.endsAt || now < contest.endsAt);
-  if (scheduledRoundIsLive) {
-    await prisma.contest.update({ where: { id: contestId }, data: { status: "ACTIVE" } });
-  }
-
-  if (contest.status !== "ACTIVE" && !scheduledRoundIsLive) {
-    throw new Error("CONTEST_NOT_ACTIVE");
-  }
-
-  if (
-    contest.startsAt &&
-    now < contest.startsAt
-  ) {
-    throw new Error("CONTEST_NOT_STARTED");
-  }
-
-  if (
-    contest.endsAt &&
-    now >= contest.endsAt
-  ) {
-    throw new Error("CONTEST_FINISHED");
-  }
-
-  const clues = await prisma.contestClue.findMany({
-    where: {
-      contestId,
-    },
-    orderBy: {
-      sequence: "asc",
-    },
-    select: {
-      id: true,
-      sequence: true,
-      content: true,
-      correctAnswer: true,
-      publishedAt: true,
-    },
-  });
-
-  if (!hasCompleteClueSequence(clues.map((clue) => clue.sequence))) {
-    throw new Error("CONTEST_REQUIRES_12_CLUES");
-  }
-
-  const correctSubmissions = await prisma.submission.findMany({
-    where: {
-      userId,
-      contestId,
-      isCorrect: true,
-    },
-    select: {
-      clueId: true,
-      submittedAt: true,
-    },
-  });
-
-  const solvedClueIds = new Set(
-    correctSubmissions.map((submission) => submission.clueId),
-  );
-  const progress = getContestProgress(clues, solvedClueIds);
-
-  if (progress.completed || !progress.currentClue) {
-    const finalCorrectSubmission = correctSubmissions.find((submission) =>
-      clues.find((clue) => clue.id === submission.clueId)?.sequence === REQUIRED_CLUE_COUNT
+  
+    // Capture the server-side submission timestamp immediately on entry.
+    const now = new Date();
+    const contest = await tx.contest.findUnique({
+      where: {
+        id: contestId,
+      },
+      select: {
+        id: true,
+        status: true,
+        language: true,
+        startsAt: true,
+        endsAt: true,
+      },
+    });
+  
+    if (!contest) {
+      throw new Error("CONTEST_NOT_FOUND");
+    }
+  
+    const participationBlock = await getLanguageParticipationBlock(userId, contest);
+    if (participationBlock) {
+      throw new Error("LANGUAGE_CHALLENGE_ALREADY_COMPLETED");
+    }
+  
+    const scheduledRoundIsLive = contest.status === "SCHEDULED"
+      && Boolean(contest.startsAt && now >= contest.startsAt)
+      && Boolean(!contest.endsAt || now < contest.endsAt);
+    if (scheduledRoundIsLive) {
+      await tx.contest.update({ where: { id: contestId }, data: { status: "ACTIVE" } });
+    }
+  
+    if (contest.status !== "ACTIVE" && !scheduledRoundIsLive) {
+      throw new Error("CONTEST_NOT_ACTIVE");
+    }
+  
+    if (
+      contest.startsAt &&
+      now < contest.startsAt
+    ) {
+      throw new Error("CONTEST_NOT_STARTED");
+    }
+  
+    if (
+      contest.endsAt &&
+      now >= contest.endsAt
+    ) {
+      throw new Error("CONTEST_FINISHED");
+    }
+  
+    const clues = await tx.contestClue.findMany({
+      where: {
+        contestId,
+      },
+      orderBy: {
+        sequence: "asc",
+      },
+      select: {
+        id: true,
+        sequence: true,
+        content: true,
+        correctAnswer: true,
+        publishedAt: true,
+      },
+    });
+  
+    if (!hasCompleteClueSequence(clues.map((clue) => clue.sequence))) {
+      throw new Error("CONTEST_REQUIRES_12_CLUES");
+    }
+  
+    const correctSubmissions = await tx.submission.findMany({
+      where: {
+        userId,
+        contestId,
+        isCorrect: true,
+      },
+      select: {
+        clueId: true,
+        submittedAt: true,
+      },
+    });
+  
+    const solvedClueIds = new Set(
+      correctSubmissions.map((submission) => submission.clueId),
     );
+    const progress = getContestProgress(clues, solvedClueIds);
+  
+    if (progress.completed || !progress.currentClue) {
+      const finalCorrectSubmission = correctSubmissions.find((submission) =>
+        clues.find((clue) => clue.id === submission.clueId)?.sequence === REQUIRED_CLUE_COUNT
+      );
+      return {
+        status: "CONTEST_COMPLETED" as const,
+        isCorrect: true,
+        responseTimeMs: 0,
+        currentSequence: REQUIRED_CLUE_COUNT,
+        nextSequence: null,
+        completedAt: finalCorrectSubmission?.submittedAt ?? now,
+      };
+    }
+  
+    const currentClue = progress.currentClue;
+    const previousClue = clues.find((clue) => clue.sequence === currentClue.sequence - 1);
+    const clueAvailableAt = currentClue.sequence === 1
+      ? contest.startsAt
+      : correctSubmissions.find((submission) => submission.clueId === previousClue?.id)?.submittedAt
+        ?? contest.startsAt;
+  
+    if (data.clueId !== currentClue.id) {
+      throw new Error("CLUE_NOT_CURRENT");
+    }
+  
+    const latestWrongAttempt = await tx.submission.findFirst({
+      where: { userId, contestId, clueId: currentClue.id, isCorrect: false },
+      orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
+      select: { submittedAt: true },
+    });
+    const lockedUntil = latestWrongAttempt
+      ? new Date(latestWrongAttempt.submittedAt.getTime() + WRONG_ANSWER_LOCK_MS)
+      : null;
+    if (lockedUntil && now < lockedUntil) {
+      const error = new Error("CLUE_LOCKED") as Error & { lockedUntil?: string };
+      error.lockedUntil = lockedUntil.toISOString();
+      throw error;
+    }
+  
+    const existingCorrectSubmission = await tx.submission.findFirst({
+      where: {
+        userId,
+        contestId,
+        clueId: currentClue.id,
+        isCorrect: true,
+      },
+      select: {
+        id: true,
+      },
+    });
+  
+    if (existingCorrectSubmission) {
+      throw new Error("CLUE_ALREADY_SOLVED");
+    }
+  
+    const isCorrect =
+      normalizeAnswer(data.answer) ===
+      normalizeAnswer(currentClue.correctAnswer);
+  
+    const responseTimeMs = calculateResponseTimeMs(now, [clueAvailableAt]);
+  
+    await tx.submission.create({
+      data: {
+        userId,
+        contestId,
+        clueId: currentClue.id,
+        answer: data.answer,
+        isCorrect,
+        submittedAt: now,
+        responseTimeMs: BigInt(responseTimeMs),
+      },
+    });
+  
+    if (!isCorrect) {
+      return {
+        status: "INCORRECT" as const,
+        isCorrect: false,
+        responseTimeMs,
+        currentSequence: currentClue.sequence,
+        nextSequence: currentClue.sequence,
+      };
+    }
+  
+    const nextClue =
+      clues.find(
+        (clue) =>
+          clue.sequence >
+          currentClue.sequence &&
+          clue.sequence ===
+            currentClue.sequence + 1
+      );
+  
+    if (!nextClue) {
+      return {
+        status: "CONTEST_COMPLETED" as const,
+        isCorrect: true,
+        responseTimeMs,
+        currentSequence: currentClue.sequence,
+        nextSequence: null,
+        completedAt: now,
+      };
+    }
+  
     return {
-      status: "CONTEST_COMPLETED" as const,
+      status: "CORRECT" as const,
       isCorrect: true,
-      responseTimeMs: 0,
-      currentSequence: REQUIRED_CLUE_COUNT,
-      nextSequence: null,
-      completedAt: finalCorrectSubmission?.submittedAt ?? now,
-    };
-  }
-
-  const currentClue = progress.currentClue;
-  const previousClue = clues.find((clue) => clue.sequence === currentClue.sequence - 1);
-  const clueAvailableAt = currentClue.sequence === 1
-    ? contest.startsAt
-    : correctSubmissions.find((submission) => submission.clueId === previousClue?.id)?.submittedAt
-      ?? contest.startsAt;
-
-  if (data.clueId !== currentClue.id) {
-    throw new Error("CLUE_NOT_CURRENT");
-  }
-
-  const latestWrongAttempt = await prisma.submission.findFirst({
-    where: { userId, contestId, clueId: currentClue.id, isCorrect: false },
-    orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
-    select: { submittedAt: true },
-  });
-  const lockedUntil = latestWrongAttempt
-    ? new Date(latestWrongAttempt.submittedAt.getTime() + WRONG_ANSWER_LOCK_MS)
-    : null;
-  if (lockedUntil && now < lockedUntil) {
-    const error = new Error("CLUE_LOCKED") as Error & { lockedUntil?: string };
-    error.lockedUntil = lockedUntil.toISOString();
-    throw error;
-  }
-
-  const existingCorrectSubmission = await prisma.submission.findFirst({
-    where: {
-      userId,
-      contestId,
-      clueId: currentClue.id,
-      isCorrect: true,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  if (existingCorrectSubmission) {
-    throw new Error("CLUE_ALREADY_SOLVED");
-  }
-
-  const isCorrect =
-    normalizeAnswer(data.answer) ===
-    normalizeAnswer(currentClue.correctAnswer);
-
-  const responseTimeMs = calculateResponseTimeMs(now, [clueAvailableAt]);
-
-  await prisma.submission.create({
-    data: {
-      userId,
-      contestId,
-      clueId: currentClue.id,
-      answer: data.answer,
-      isCorrect,
-      submittedAt: now,
-      responseTimeMs: BigInt(responseTimeMs),
-    },
-  });
-
-  if (!isCorrect) {
-    return {
-      status: "INCORRECT" as const,
-      isCorrect: false,
       responseTimeMs,
       currentSequence: currentClue.sequence,
-      nextSequence: currentClue.sequence,
+      nextSequence: nextClue.sequence,
     };
-  }
-
-  const nextClue =
-    clues.find(
-      (clue) =>
-        clue.sequence >
-        currentClue.sequence &&
-        clue.sequence ===
-          currentClue.sequence + 1
-    );
-
-  if (!nextClue) {
-    return {
-      status: "CONTEST_COMPLETED" as const,
-      isCorrect: true,
-      responseTimeMs,
-      currentSequence: currentClue.sequence,
-      nextSequence: null,
-      completedAt: now,
-    };
-  }
-
-  return {
-    status: "CORRECT" as const,
-    isCorrect: true,
-    responseTimeMs,
-    currentSequence: currentClue.sequence,
-    nextSequence: nextClue.sequence,
-  };
+  
+  });
 }
