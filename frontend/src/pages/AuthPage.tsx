@@ -70,7 +70,7 @@ function AuthPage({
         const result = await login(email, password);
         saveSession(result);
       } else if (mode === "signup") {
-        await register(email, username, password);
+        await register(email, username, password, language);
         setPassword("");
         setCode("");
         setMode("verify");
@@ -79,7 +79,7 @@ function AuthPage({
         const result = await verifyEmail(email, code);
         saveSession(result);
       } else if (mode === "forgot") {
-        await forgotPassword(email);
+        await forgotPassword(email, language);
         setCode("");
         setPassword("");
         setMode("reset");
@@ -112,7 +112,7 @@ function AuthPage({
     setSuccess("");
     setLoading(true);
     try {
-      await resendVerification(email);
+      await resendVerification(email, language);
       setSuccess(t.auth.resendRequested);
     } catch (err) {
       setError(err instanceof Error ? err.message : "NETWORK_ERROR");
