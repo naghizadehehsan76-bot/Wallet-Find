@@ -1015,7 +1015,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                                 onClick={() => void openTrackedSource()}
                                 disabled={!sourceUrl}
                                 style={{ display: "inline", padding: 0, border: 0, background: "none", color: "var(--accent-color, #14b8a6)", textDecoration: "underline", cursor: sourceUrl ? "pointer" : "not-allowed", font: "inherit" }}
-                              >صفحهٔ منبع</button> عبارت زیر را دقیقاً پیدا کن؛ پاسخ خانهٔ ( {formatNumber(displayedRound)} ) اولین کلمه بعد عبارت راهنما است.</>
+                              >صفحهٔ منبع</button> داخل عبارت زیر را دقیقاً پیدا کن؛ پاسخ خانهٔ ( {formatNumber(displayedRound)} ) اولین کلمه بعد عبارت راهنما است.</>
                             : `Find this exact phrase on the source page. The answer for box ${formatNumber(displayedRound)} is the continuous sequence of 4–12 English letters (A–Z) immediately after it. Include attached letter prefixes/suffixes; spaces, hyphens, and apostrophes separate sequences, and punctuation is not part of the answer.`)}
                     </p>
                   ) : (
