@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 const emailSchema = z.string().trim().email().max(254);
-const codeSchema = z.string().trim().regex(/^\d{6}$/);\nconst languageSchema = z.enum(["fa", "en"]).optional();
+const codeSchema = z.string().trim().regex(/^\d{6}$/);
+const languageSchema = z.enum(["fa", "en"]).optional();
 
 export const registerSchema = z.object({
   email: emailSchema,
@@ -12,6 +13,7 @@ export const registerSchema = z.object({
     .max(30)
     .regex(/^[a-zA-Z0-9_]+$/),
   password: z.string().min(8).max(100),
+  language: languageSchema,
 });
 
 export const loginSchema = z.object({
@@ -26,10 +28,12 @@ export const verifyEmailSchema = z.object({
 
 export const resendVerificationSchema = z.object({
   email: emailSchema,
+  language: languageSchema,
 });
 
 export const forgotPasswordSchema = z.object({
   email: emailSchema,
+  language: languageSchema,
 });
 
 export const resetPasswordSchema = z.object({
