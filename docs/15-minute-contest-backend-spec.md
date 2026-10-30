@@ -58,7 +58,7 @@ The global pool receives 50.000000 simulated USDT each UTC day. When a round sta
 
 - First place receives 50% of the round allocation, second 22.5%, and third 12.5%.
 - Ranks four and lower share 10% proportionally by speed score: `score = 900 seconds - elapsed completion time`. Use integer milliseconds and micro-USDT amounts, never floating-point arithmetic.
-- At settlement, 5% of the round allocation is recorded in the project dividend pool. These contributions are aggregated in `projectProfitMicro` and `GlobalPrizeFund` is not reduced by them a second time because the full 1% round allocation was already deducted at round start.
+- At settlement, 5% of the round allocation is recorded in the project dividend pool. These contributions are aggregated in `projectProfitMicro` and `GlobalPrizeFund` is not reduced by them a second time because the full round allocation was already deducted at round start.
 - A round without participants still allocates 5% of its round pool to the project dividend pool; the remaining 95% stays unused. No amount from an unused round balance is carried forward.
 - When fewer than three finishers are eligible, only the available podium shares are paid. Unfilled podium shares and an unallocated lower-rank share remain unused.
 - Any rounding remainder remains unused in the round. Settlement must be idempotent.
