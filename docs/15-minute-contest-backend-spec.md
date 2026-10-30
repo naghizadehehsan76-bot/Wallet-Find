@@ -16,7 +16,7 @@ Define the backend behavior for a shared, server-timed, 12-answer contest round.
 - No answer is accepted at or after `endsAt`. Incomplete participants receive no prize; previously accepted correct answers remain saved.
 - At the deadline, the server finalizes ranking and prizes. Exact-time ties share the relevant top-three rank-slot allocations equally.
 - **Experimental funding model:** the global prize fund receives 50.000000 simulated USDT once per UTC day. Missing days are recorded when the scheduler resumes after an outage.
-- **Per-round allocation:** at round start, 1% of the then-available global fund balance is allocated to that round once and deducted from the global fund. The allocated amount varies with the global balance.
+- **Per-round allocation:** at round start, a fixed 1.000000 USDT is allocated to that round once and deducted from the global fund. If the available balance is less than 1 USDT, the round receives only the remaining available balance; the global fund never goes negative.
 - Round prize split: rank 1 = 50%, rank 2 = 22.5%, rank 3 = 12.5%, ranks four and lower share 10% by completion speed, and 5% is recorded in the project dividend pool.
 - No unused amount is carried into a later round. If a round has no participants, 5% of its allocation still goes to the project dividend pool and the remaining 95% stays unused in that settled round.
 - All funding, allocations, participant awards, and project contributions are simulated bookkeeping only; no real USDT is held or transferred.
@@ -54,7 +54,7 @@ For each authenticated submission:
 
 ## 6. Prize calculation and experimental accounting
 
-The global pool receives 50.000000 simulated USDT each UTC day. When a round starts, 1% of the currently available global balance is taken from that fund and recorded as the round's pool.
+The global pool receives 50.000000 simulated USDT each UTC day. When a round starts, 1.000000 USDT is taken from the currently available global balance and recorded as the round's pool (or the remaining balance if it is below 1 USDT).
 
 - First place receives 50% of the round allocation, second 22.5%, and third 12.5%.
 - Ranks four and lower share 10% proportionally by speed score: `score = 900 seconds - elapsed completion time`. Use integer milliseconds and micro-USDT amounts, never floating-point arithmetic.
@@ -68,7 +68,7 @@ The global pool receives 50.000000 simulated USDT each UTC day. When a round sta
 Recommended lifecycle: `SCHEDULED -> ACTIVE -> FINISHED`.
 
 - Prepare the next round before its start boundary with 12 complete, ordered clues.
-- At `startsAt`, initialize that round's 1% allocation from the global fund exactly once.
+- At `startsAt`, initialize that round's fixed 1 USDT allocation from the global fund exactly once.
 - At `endsAt`, submissions are rejected immediately. The scheduler marks the round finished, snapshots ranking, computes awards, records the project contribution, and marks settlement complete.
 - The scheduler records 50 USDT of simulated daily funding once per UTC date and backfills missed dates after a restart. Unique ledger keys prevent duplicate daily funding.
 - No unused round balance is rolled into a later round.
@@ -77,7 +77,7 @@ Recommended lifecycle: `SCHEDULED -> ACTIVE -> FINISHED`.
 ## 8. Data model
 
 - `GlobalPrizeFund` stores the currently available global balance and cumulative daily funding and round allocations.
-- `GlobalPrizeLedger` records one 50 USDT daily contribution per UTC date and each round's 1% allocation with unique reference keys.
+- `GlobalPrizeLedger` records one 50 USDT daily contribution per UTC date and each round's fixed 1 USDT allocation with unique reference keys.
 - `PrizePool` stores the amount allocated to each round, awards, project contribution, and settlement status. Legacy rollover fields remain for compatibility but the new test settlement sets rollover to zero.
 - `PrizeLedger` records the round's global allocation, participant awards, and project contribution.
 - The global project dividend total is calculated from settled `projectProfitMicro` values. It is not a participant wallet balance or a real asset.
@@ -107,7 +107,7 @@ Recommended lifecycle: `SCHEDULED -> ACTIVE -> FINISHED`.
 10. The 50% / 22.5% / 12.5% podium shares, speed-weighted 10%, and 5% project contribution account for the round allocation.
 11. A 50 USDT contribution is recorded exactly once per UTC date; repeated scheduler/API calls do not duplicate it.
 12. Missed UTC days are backfilled after a scheduler outage.
-13. Each round receives exactly 1% of the then-available global balance only once.
+13. Each round receives a fixed 1 USDT allocation (or the remaining balance if below 1 USDT) only once.
 14. A round with no participants still records the 5% project contribution; the other 95% remains unused and nothing rolls over.
 15. Ranks four and lower divide the 10% allocation by completion-speed weights.
 16. Unused shares do not increase the next round's allocation.
@@ -117,7 +117,7 @@ Recommended lifecycle: `SCHEDULED -> ACTIVE -> FINISHED`.
 ## 11. Prize pool implementation and test mode
 
 - All amounts use integer micro-USDT units (six decimal places).
-- Daily global funding is fixed at 50.000000 simulated USDT per UTC day; the current available global balance is reduced by a one-time 1% allocation when each round starts.
+- Daily global funding is fixed at 50.000000 simulated USDT per UTC day; the current available global balance is reduced by a one-time fixed 1 USDT allocation when each round starts (or by the remaining balance if below 1 USDT).
 - The 50% / 22.5% / 12.5% / 10% / 5% distribution applies to that per-round allocation, not to the entire global fund.
 - No unused amount from a settled round is returned to the global fund or transferred to a future round.
 - The project dividend pool is the sum of the 5% simulated contributions recorded at each round settlement.
@@ -126,9 +126,9 @@ Recommended lifecycle: `SCHEDULED -> ACTIVE -> FINISHED`.
 
 
 - Prize accounting is persisted in `PrizePool`, `PrizeLedger`, and `PrizeAward`; all amounts use integer micro-USDT units (six decimal places).
-- Each round receives exactly 100.000000 simulated USDT, initialized once per round. This fixed test amount does not use the real-money 1% global-pool rule.
+- Each round receives a fixed 1.000000 simulated USDT allocation from the global prize fund, initialized once per round.
 - The test distribution is 50% / 22.5% / 12.5% for the top three, 10% proportionally among ranks four and lower, and 5% recorded in the project-dividend pool at every settlement.
 - Nothing rolls over from a settled round. If a round has no submissions, 5% still goes to the project-dividend pool and the other 95% remains unused.
 - Admin endpoints expose pool summary and idempotent settlement. The panel shows participant awards, project-dividend allocation, and the simulated ledger.
-- Future real-money model (not active): the global pool may be funded by the owner's initial crypto contribution, sponsors, and investors under separately agreed terms. Each round would be assigned 1% of the global pool's balance, then split using the same 50% / 22.5% / 12.5% / 10% / 5% allocation. Real custody, sponsor invoicing, investor profit-share terms, risk controls, and on-chain settlement need separate implementation and review.
+- Future real-money model (not active): the global pool may be funded by the owner's initial crypto contribution, sponsors, and investors under separately agreed terms. Each round would be assigned a fixed 1 USDT from the global pool, then split using the same 50% / 22.5% / 12.5% / 10% / 5% allocation. Real custody, sponsor invoicing, investor profit-share terms, risk controls, and on-chain settlement need separate implementation and review.
 - Test-only records must never be interpreted as real wallet balances, withdrawable funds, or proof of an on-chain transfer.
