@@ -6,7 +6,7 @@ const BASIS_POINTS = 10_000n;
 const PODIUM_BASIS_POINTS = [5_000n, 2_250n, 1_250n] as const;
 const LOWER_RANK_BASIS_POINTS = 1_000n;
 const PROJECT_PROFIT_BASIS_POINTS = 500n;
-const ROUND_ALLOCATION_BASIS_POINTS = 100n;
+const ROUND_ALLOCATION_MICRO = 1n * MICRO;
 const DAILY_GLOBAL_FUNDING = 50n * MICRO;
 
 function formatMicro(value: bigint) {
@@ -127,8 +127,8 @@ async function ensurePool(tx: any, contestId: string, now = new Date()) {
     return pool;
   }
 
-  // Take exactly 1% of the global fund's currently available balance once
-  // per round. The unique ledger key and singleton row lock make retries safe.
+  // Allocate exactly 1 USDT from the available global fund once per round.
+  // The unique ledger key makes retries safe.
   const allocationKey = "round-allocation:" + contestId;
   let allocation = await tx.globalPrizeLedger.findUnique({
     where: { referenceKey: allocationKey },
@@ -136,8 +136,8 @@ async function ensurePool(tx: any, contestId: string, now = new Date()) {
 
   if (!allocation) {
     const available = BigInt(globalFund?.balanceMicro ?? 0n);
-    const amount = available * ROUND_ALLOCATION_BASIS_POINTS / BASIS_POINTS;
-    const note = "SIMULATED ROUND ALLOCATION 1% of global prize fund for round " + contestId + "; no real assets transferred";
+    const amount = available < ROUND_ALLOCATION_MICRO ? available : ROUND_ALLOCATION_MICRO;
+    const note = "SIMULATED ROUND ALLOCATION 1.000000 USDT from global prize fund for round " + contestId + "; no real assets transferred";
     allocation = await tx.globalPrizeLedger.create({
       data: {
         id: "round-allocation-" + contestId,
@@ -172,14 +172,13 @@ async function ensurePool(tx: any, contestId: string, now = new Date()) {
     },
   });
 
-  // Keep the per-round ledger aligned with the 1% allocation, including legacy
-  // open pools that were previously seeded with a fixed 100 USDT.
+  // Keep the per-round ledger aligned with the fixed 1 USDT allocation.
   const roundLedgerKey = "test-funding-initial:" + contestId;
   const roundLedger = await tx.prizeLedger.findUnique({
     where: { referenceKey: roundLedgerKey },
     select: { id: true, amountMicro: true, type: true, note: true },
   });
-  const roundLedgerNote = "SIMULATED 1% GLOBAL PRIZE FUND ALLOCATION " + formatMicro(allocatedAmount) + " USDT for round " + contestId + "; no real assets transferred";
+  const roundLedgerNote = "SIMULATED FIXED 1 USDT GLOBAL PRIZE FUND ALLOCATION " + formatMicro(allocatedAmount) + " USDT for round " + contestId + "; no real assets transferred";
   if (!roundLedger) {
     await tx.prizeLedger.create({
       data: {
