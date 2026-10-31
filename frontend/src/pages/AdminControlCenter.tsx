@@ -9,9 +9,11 @@ import {
   getPrizeTreasuryWallet,
   getTreasuryPrizeFunding,
   getAdminTreasuryDeposits,
+  getAdminTreasuryLedgerHistory,
   reconcileTreasuryAccounting,
   type TreasuryPrizeFundingSnapshot,
   type AdminTreasuryDeposit,
+  type AdminTreasuryLedgerEntry,
   type PrizeTreasuryProvisionResult,
   getAdminUsers,
   getAdminSourceVisitReport,
@@ -136,6 +138,9 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [treasuryDeposits, setTreasuryDeposits] = useState<AdminTreasuryDeposit[]>([]);
   const [treasuryDepositsLoading, setTreasuryDepositsLoading] = useState(false);
   const [treasuryDepositsError, setTreasuryDepositsError] = useState(false);
+  const [treasuryLedgerEntries, setTreasuryLedgerEntries] = useState<AdminTreasuryLedgerEntry[]>([]);
+  const [treasuryLedgerLoading, setTreasuryLedgerLoading] = useState(false);
+  const [treasuryLedgerError, setTreasuryLedgerError] = useState(false);
   const [treasuryReconciling, setTreasuryReconciling] = useState(false);
   const [users, setUsers] = useState<AdminUserSummary[]>([]);
   const [userSearch, setUserSearch] = useState("");
@@ -178,6 +183,11 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     treasuryTitle: fa ? "خزانه اصلی جوایز (Polygon)" : "Main prize treasury (Polygon)",
     treasuryLiveBalance: fa ? "موجودی واقعی خزانه (USDT0)" : "Live treasury balance (USDT0)",
     treasuryDepositTitle: fa ? "واریزهای خزانه" : "Treasury deposits",
+    treasuryLedgerTitle: fa ? "تاریخچه تراکنش‌های خزانه" : "Treasury transaction history",
+    treasuryLedgerHelp: fa ? "تمام رویدادهای ثبت‌شده در دفتر حسابداری خزانه، شامل واریز، برگشت و اصلاحات حسابداری." : "All recorded treasury ledger events, including deposits, reversals and accounting adjustments.",
+    treasuryLedgerEmpty: fa ? "هنوز تراکنشی در دفتر خزانه ثبت نشده است." : "No treasury ledger transactions recorded yet.",
+    treasuryLedgerError: fa ? "دریافت تاریخچه تراکنش‌های خزانه ناموفق بود." : "Could not load treasury transaction history.",
+    treasuryLedgerRefresh: fa ? "به‌روزرسانی تاریخچه" : "Refresh history",
     treasuryDepositHelp: fa ? "واریزها به‌صورت خودکار از بلاک‌چین شناسایی می‌شوند. پس از ۱۲۸ تأیید شبکه، دفتر حسابداری خزانه به‌روزرسانی می‌شود." : "Deposits are detected automatically from Polygon. Treasury accounting is credited after 128 network confirmations.",
     treasuryNoDeposits: fa ? "هنوز واریزی برای خزانه شناسایی نشده است." : "No treasury deposits detected yet.",
     treasuryDepositRefresh: fa ? "به‌روزرسانی واریزها" : "Refresh deposits",
@@ -403,15 +413,17 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     const refresh = async () => {
       setTreasuryFundingLoading(true);
       try {
-        const [snapshot, depositResult] = await Promise.all([getTreasuryPrizeFunding(), getAdminTreasuryDeposits()]);
+        const [snapshot, depositResult, ledgerResult] = await Promise.all([getTreasuryPrizeFunding(), getAdminTreasuryDeposits(), getAdminTreasuryLedgerHistory()]);
         if (!cancelled) {
           setTreasuryFunding(snapshot);
           setTreasuryFundingError(false);
           setTreasuryDeposits(depositResult.deposits);
           setTreasuryDepositsError(false);
+          setTreasuryLedgerEntries(ledgerResult.transactions);
+          setTreasuryLedgerError(false);
         }
       } catch {
-        if (!cancelled) { setTreasuryFundingError(true); setTreasuryDepositsError(true); }
+        if (!cancelled) { setTreasuryFundingError(true); setTreasuryDepositsError(true); setTreasuryLedgerError(true); }
       } finally {
         if (!cancelled) setTreasuryFundingLoading(false);
       }
@@ -1178,6 +1190,38 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                       <a href={"https://polygonscan.com/tx/" + deposit.transactionHash} target="_blank" rel="noreferrer">{fa ? "مشاهده تراکنش در PolygonScan" : "View on PolygonScan"}</a>
                     </article>
                   ))}
+                </div>
+              }
+            </section>
+          )}
+          {treasury && (
+            <section className="admin-panel admin-treasury-deposits">
+              <div className="admin-treasury-deposits__heading">
+                <div><h2>{copy.treasuryLedgerTitle}</h2><p className="admin-footnote">{copy.treasuryLedgerHelp}</p></div>
+                <button type="button" onClick={() => {
+                  setTreasuryLedgerLoading(true);
+                  void getAdminTreasuryLedgerHistory().then((result) => { setTreasuryLedgerEntries(result.transactions); setTreasuryLedgerError(false); }).catch(() => setTreasuryLedgerError(true)).finally(() => setTreasuryLedgerLoading(false));
+                }} disabled={treasuryLedgerLoading}>{treasuryLedgerLoading ? "…" : copy.treasuryLedgerRefresh}</button>
+              </div>
+              {treasuryLedgerError ? <p className="admin-empty">{copy.treasuryLedgerError}</p> : treasuryLedgerEntries.length === 0 ? <p className="admin-empty">{copy.treasuryLedgerEmpty}</p> :
+                <div className="admin-settings-list admin-treasury-deposit-list">
+                  {treasuryLedgerEntries.map((entry) => {
+                    const positive = !entry.amount.startsWith("-");
+                    const typeLabels: Record<AdminTreasuryLedgerEntry["type"], string> = {
+                      DEPOSIT_CREDIT: fa ? "ثبت واریز" : "Deposit credit", DEPOSIT_REVERSAL: fa ? "برگشت واریز" : "Deposit reversal",
+                      WITHDRAWAL_DEBIT: fa ? "برداشت" : "Withdrawal", WITHDRAWAL_REVERSAL: fa ? "برگشت برداشت" : "Withdrawal reversal",
+                      GAS_EXPENSE: fa ? "هزینه کارمزد شبکه" : "Network gas expense", MANUAL_ADJUSTMENT: fa ? "اصلاح دستی حسابداری" : "Manual accounting adjustment",
+                    };
+                    return (
+                      <article className="admin-setting-row admin-wallet-row admin-treasury-deposit-card" key={entry.id}>
+                        <div className="admin-treasury-deposit-card__content">
+                          <div className="admin-treasury-deposit-row__top"><strong style={{ color: positive ? "#20c997" : "#ff8b8b" }}>{positive ? "+" : ""}{Number(entry.amount).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong><span className="wallet-network-status">{typeLabels[entry.type]}</span></div>
+                          <small>{fa ? "زمان ثبت: " : "Recorded: "}{new Date(entry.effectiveAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small><small>{entry.note}</small>
+                          {entry.transactionHash && <><code>{entry.transactionHash}</code><a href={"https://polygonscan.com/tx/" + entry.transactionHash} target="_blank" rel="noreferrer">{fa ? "مشاهده در PolygonScan" : "View on PolygonScan"}</a></>}
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
               }
             </section>
