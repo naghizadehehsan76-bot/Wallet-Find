@@ -95,7 +95,7 @@ async function reconcileCursorReorg(
         where: { id: deposit.id },
         select: { status: true, amountMicro: true, treasuryWalletId: true, transactionHash: true },
       });
-      if (!current || !["CONFIRMING", "CONFIRMED", "CREDITED"].includes(current.status)) return false;
+      if (!current || (current.status !== "CONFIRMING" && current.status !== "CONFIRMED" && current.status !== "CREDITED")) return false;
 
       // Match the exact status we just read. If a concurrent scan credits this
       // deposit between the read and update, this claim fails and the next scan
