@@ -3363,3 +3363,34 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   .wallet-table-head,
   .wallet-transaction { grid-template-columns: minmax(0,.85fr) minmax(0,1fr) minmax(0,.8fr); }
 }
+
+.admin-user-search {
+  width: 100%;
+  min-height: 44px;
+  margin: 2px 0 14px;
+  padding: 11px 13px;
+  border: 1px solid var(--line-cyan);
+  border-radius: 10px;
+  background: var(--ink);
+  color: var(--paper);
+  outline: none;
+}
+.admin-user-search:focus { border-color: var(--verdigris); }
+.admin-user-row__details { display: grid; min-width: 0; gap: 7px; }
+.admin-user-row__details > strong { line-height: 1.6; }
+.admin-user-row__details > strong small,
+.admin-user-row small,
+.admin-wallet-row small { color: var(--muted); font-size: 10px; line-height: 1.65; overflow-wrap: anywhere; }
+.admin-wallet-row { align-items: flex-start; }
+.admin-wallet-row > div { display: grid; min-width: 0; gap: 8px; }
+.admin-wallet-row code { color: var(--paper); font-size: 11px; line-height: 1.65; overflow-wrap: anywhere; white-space: normal; }
+.admin-treasury-live-balance { margin-top: 12px; padding: 12px; border: 1px solid var(--line-cyan); border-radius: 11px; background: rgba(66,232,212,.045); }
+.admin-treasury-live-balance > strong { display: block; margin-bottom: 8px; color: var(--verdigris); font-size: 12px; }
+.admin-treasury-live-balance .admin-settings-list { margin-top: 0; }
+@media (max-width: 620px) {
+  .admin-user-row,
+  .admin-wallet-row,
+  .admin-setting-row { align-items: flex-start; flex-direction: column; }
+  .admin-user-row > div,
+  .admin-wallet-row > div { width: 100%; }
+}
