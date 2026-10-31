@@ -34,9 +34,10 @@ async function reconcileCursorReorg(
     return { reorgDetected: false, nextFromBlock: cursor.lastBlockNumber + 1n };
   }
 
-  const rewindFrom = cursor.lastBlockNumber > BigInt(reorgLookback)
+  const candidateRewind = cursor.lastBlockNumber > BigInt(reorgLookback)
     ? cursor.lastBlockNumber - BigInt(reorgLookback)
     : initialBlock;
+  const rewindFrom = candidateRewind > initialBlock ? candidateRewind : initialBlock;
   const affected = await prisma.walletDeposit.findMany({
     where: { chainId, blockNumber: { gte: rewindFrom, lte: cursor.lastBlockNumber }, status: { in: ["CONFIRMING", "CONFIRMED", "CREDITED"] } },
     select: { id: true, blockNumber: true, blockHash: true, status: true, walletAccountId: true },
