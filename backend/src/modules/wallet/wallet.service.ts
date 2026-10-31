@@ -549,6 +549,40 @@ export async function getTreasuryPrizeFundingSnapshot() {
   };
 }
 
+export async function getAdminTreasuryDeposits() {
+  const treasury = await prisma.treasuryWallet.findUnique({ where: { id: TREASURY_ID }, select: { id: true, address: true, status: true, chainId: true } });
+  if (!treasury || treasury.status !== "ACTIVE" || !treasury.address) throw new Error("TREASURY_NOT_READY");
+  const rows = await prisma.treasuryDeposit.findMany({
+    where: { treasuryWalletId: treasury.id },
+    orderBy: [{ detectedAt: "desc" }, { blockNumber: "desc" }],
+    take: 100,
+    select: {
+      id: true, transactionHash: true, logIndex: true, blockNumber: true,
+      fromAddress: true, toAddress: true, amountMicro: true, status: true,
+      confirmationCount: true, detectedAt: true, confirmedAt: true, creditedAt: true,
+    },
+  });
+  return {
+    treasuryAddress: treasury.address,
+    chainId: treasury.chainId,
+    deposits: rows.map((row) => ({
+      id: row.id,
+      transactionHash: row.transactionHash,
+      logIndex: row.logIndex,
+      blockNumber: row.blockNumber.toString(),
+      fromAddress: row.fromAddress,
+      toAddress: row.toAddress,
+      amount: row.amountMicro === null ? null : formatMicro(row.amountMicro),
+      status: row.status,
+      confirmationCount: row.confirmationCount,
+      detectedAt: row.detectedAt.toISOString(),
+      confirmedAt: row.confirmedAt?.toISOString() ?? null,
+      creditedAt: row.creditedAt?.toISOString() ?? null,
+    })),
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 export async function allocateTreasuryToPrizeFund(rawAmount: unknown, adminUserId: string) {
   if (typeof rawAmount !== "string" && typeof rawAmount !== "number") throw new Error("INVALID_ALLOCATION_AMOUNT");
   const amountText = String(rawAmount).trim();
