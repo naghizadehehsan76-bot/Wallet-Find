@@ -1,16 +1,10 @@
 import prisma from "../../config/prisma.js";
+import { isTurnkeyConfigured, provisionTurnkeyWallet } from "./turnkey.service.js";
 const MICRO = 1_000_000n;
 function formatMicro(value: bigint): string {
   const whole = value / MICRO;
   const fraction = (value % MICRO).toString().padStart(6, "0");
   return whole.toString() + "." + fraction;
-}
-function parseAmount(value: unknown): bigint {
-  if (typeof value !== "string" || !/^\d{1,12}(\.\d{1,6})?$/.test(value.trim())) throw new Error("INVALID_WALLET_AMOUNT");
-  const [whole = "0", fraction = ""] = value.trim().split(".");
-  const amount = BigInt(whole) * MICRO + BigInt(fraction.padEnd(6, "0") || "0");
-  if (amount <= 0n) throw new Error("INVALID_WALLET_AMOUNT");
-  return amount;
 }
 async function calculateBalances(tx: any, userId: string) {
   const rows = await tx.walletTransaction.findMany({ where: { userId }, select: { type: true, status: true, amountMicro: true } });
@@ -18,7 +12,7 @@ async function calculateBalances(tx: any, userId: string) {
   for (const row of rows) {
     const amount = BigInt(row.amountMicro);
     if (row.status === "COMPLETED") {
-      if (row.type === "PRIZE_CREDIT" || row.type === "DEPOSIT") balance += amount;
+      if (row.type === "DEPOSIT") balance += amount;
       if (row.type === "WITHDRAWAL") balance -= amount;
     }
     if (row.type === "WITHDRAWAL_REQUEST" && row.status === "PENDING") pendingWithdrawals += amount;
@@ -29,27 +23,17 @@ function serializeTransaction(row: any) {
   return { id: row.id, type: row.type, status: row.status, amount: formatMicro(BigInt(row.amountMicro)), currency: row.currency, note: row.note, contestId: row.contestId, createdAt: row.createdAt };
 }
 export async function getWallet(userId: string) {
+  // Provision an EVM address only after server-side Turnkey credentials are configured.
+  // No private key material is returned to the API caller.
+  const turnkeyWallet = isTurnkeyConfigured() ? await provisionTurnkeyWallet(userId) : null;
   return prisma.$transaction(async (tx) => {
     const balances = await calculateBalances(tx, userId);
     const transactions = await tx.walletTransaction.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 100 });
-    return { currency: "USDT", simulatedOnly: true, balance: formatMicro(balances.balance), availableBalance: formatMicro(balances.availableBalance), transactions: transactions.map(serializeTransaction) };
+    return { currency: "USDT", simulatedOnly: false, turnkeyConfigured: isTurnkeyConfigured(), walletAddress: turnkeyWallet?.address ?? null, supportedNetworks: turnkeyWallet?.networkAccounts.map((network) => ({ chainId: network.chainId, networkKey: network.networkKey, depositEnabled: network.depositEnabled, withdrawalEnabled: network.withdrawalEnabled })) ?? [], balance: formatMicro(balances.balance), availableBalance: formatMicro(balances.availableBalance), transactions: transactions.map(serializeTransaction) };
   });
 }
-export async function requestWalletDeposit(userId: string, rawAmount: unknown) {
-  const amount = parseAmount(rawAmount);
-  const transaction = await prisma.walletTransaction.create({ data: { userId, type: "DEPOSIT_REQUEST", status: "PENDING", amountMicro: amount, currency: "USDT", note: "Simulated deposit request; balance is not credited and no real payment was made." } });
-  return { transaction: serializeTransaction(transaction), message: "DEPOSIT_REQUEST_CREATED" };
-}
-export async function requestWalletWithdrawal(userId: string, rawAmount: unknown) {
-  const amount = parseAmount(rawAmount);
-  return prisma.$transaction(async (tx) => {
-    const balances = await calculateBalances(tx, userId);
-    if (amount > balances.availableBalance) throw new Error("INSUFFICIENT_WALLET_BALANCE");
-    const transaction = await tx.walletTransaction.create({ data: { userId, type: "WITHDRAWAL_REQUEST", status: "PENDING", amountMicro: amount, currency: "USDT", note: "Simulated withdrawal request; no real assets are transferred." } });
-    return { transaction: serializeTransaction(transaction), message: "WITHDRAWAL_REQUEST_CREATED" };
-  });
-}
-
+export async function requestWalletDeposit(_userId: string, _rawAmount: unknown): Promise<never> { throw new Error("REAL_DEPOSITS_NOT_CONFIGURED"); }
+export async function requestWalletWithdrawal(_userId: string, _rawAmount: unknown): Promise<never> { throw new Error("REAL_WITHDRAWALS_NOT_CONFIGURED"); }
 
 export async function getAdminWallets() {
   const users = await prisma.user.findMany({
@@ -64,7 +48,7 @@ export async function getAdminWallets() {
     for (const row of user.walletTransactions) {
       const amount = BigInt(row.amountMicro);
       if (row.status === "COMPLETED") {
-        if (row.type === "PRIZE_CREDIT" || row.type === "DEPOSIT") balance += amount;
+        if (row.type === "DEPOSIT") balance += amount;
         if (row.type === "WITHDRAWAL") balance -= amount;
       }
       if (row.type === "WITHDRAWAL_REQUEST" && row.status === "PENDING") pendingWithdrawals += amount;

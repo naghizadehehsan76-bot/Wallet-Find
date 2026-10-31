@@ -31,7 +31,7 @@ export const en = {
     title: "Wallet",
     displayBalance: "MVP display balance",
     notice: "Real deposits and withdrawals will be added after the challenge engine is stable.",
-    balance: "128.40 ₮",
+    balance: "0.00 ₮",
   },
   competition: {
     defaultTitle: "Word-Finding Challenge",
@@ -232,16 +232,16 @@ export const en = {
       },
     ],
     rewardsTitle: "How are rewards determined?",
-    rewardsDetail: "In the test model, 5% of each simulated sponsor or investor contribution is transferred immediately to the project dividend fund and 95% to the global prize fund. At the start of each round, 1% of the available global balance is allocated to that round. If no participant submits an answer during a round, its entire unused allocation returns to the global fund. The project dividend share is calculated from incoming contributions, not from each round pool.",
-    previewNotice: "Note: This is still a preview release. Real payments and reward transfers are not currently enabled. This page describes the planned challenge and does not mean payouts are active.",
+    rewardsDetail: "Up to 1 USDT is allocated to each round from the verified real global prize fund. If less than 1 USDT is available, only the available amount is allocated; if the balance is zero, the round prize is zero. No prizes are paid until real deposit and payout processing is operational.",
+    previewNotice: "Rewards are funded only by real, verified USDT deposits. No payouts occur until real payment processing is operational.",
   },
   infoPages: {
     rewards: {
       title: "Rewards",
       description: "Learn how the prize pool is funded and how rewards are distributed after each round.",
-      detail: "Transparency matters: in the current preview, USDT amounts are simulated in an internal ledger only. No real funds are held or paid out, and real crypto transfers are not enabled.",
+      detail: "Balances and prizes are based only on real, verified USDT deposits. No prize transfers or withdrawals are available until real transfer processing is operational.",
       fundingTitle: "Where does the prize pool come from?",
-      fundingDetail: "In testing, a simulated daily contribution of 50 USDT represents sponsor and investor funding. Immediately when each contribution is recorded, 5% goes to the project dividend fund and 95% goes to the global prize fund. For example, from 50 USDT, 2.5 USDT goes to the dividend fund and 47.5 USDT to the global fund. At the start of each round, 1% of the available global balance is allocated to that round. These amounts are simulated only; no real crypto is transferred.",
+      fundingDetail: "The prize pool increases only through real, verified deposits. Up to 1 USDT is allocated from the real global balance to each round. If less than 1 USDT is available, only that amount is allocated; if the balance is zero, the round prize is zero.",
       distributionTitle: "How are prizes distributed?",
       distributionFirst: "50% of the round's pool goes to first place, 22.5% to second place, and 12.5% to third place.",
       distributionRemainder: "10% of the round pool is shared by finishers ranked fourth or lower, weighted by completion speed. The project dividend share is taken from sponsor and investor contributions and is not deducted from each round pool.",
@@ -249,7 +249,7 @@ export const en = {
       rolloverTitle: "Do unused prize shares roll over?",
       rolloverDetail: "If no participant submits an answer during a round, the entire unused allocation is returned to the global prize fund and becomes available for future round allocations. The 5% project dividend share is calculated immediately from each sponsor or investor contribution, so it is not deducted again at round settlement. Participants who do not complete all 12 keys before the deadline receive no prize.",
       statusTitle: "Payment status",
-      statusDetail: "Until real payouts are enabled, all displayed balances and prizes are simulated and do not represent real funds or an available withdrawal.",
+      statusDetail: "A balance is considered real only after its on-chain deposit is verified. Prize payouts remain disabled until real transfer processing is operational.",
     },
     help: {
       title: "Help Center",

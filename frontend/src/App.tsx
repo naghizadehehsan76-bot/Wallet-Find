@@ -190,15 +190,11 @@ function HomePage({
       value: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.totalPool)} USDT` : "—",
       label: isPersian ? "موجودی صندوق کلی جایزه" : "Available global prize fund",
       secondaryValue: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.currentRoundPool)} USDT` : "—",
-      secondaryLabel: isPersian ? "۱٪ صندوق کلی برای دور جاری" : "1% global pool allocated to this round",
-    },
-    {
-      value: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.dailyContribution)} USDT` : "—",
-      label: isPersian ? "واریزی فرضی امروز اسپانسرها" : "Today's simulated sponsor funding",
+      secondaryLabel: isPersian ? "حداکثر ۱ تتر اختصاص‌یافته به دور جاری" : "Up to 1 USDT allocated to this round",
     },
     {
       value: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.totalPrizesAwarded)} USDT` : "—",
-      label: isPersian ? "مجموع جوایز پرداخت شده تا امروز (آزمایشی)" : "Total prizes paid to date (simulated)",
+      label: isPersian ? "مجموع جوایز پرداخت‌شده" : "Total prizes paid",
     },
   ];
   const steps = isPersian ? faSteps : enSteps;
