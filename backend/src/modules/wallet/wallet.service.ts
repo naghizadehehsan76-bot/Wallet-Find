@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createPublicClient, http, isAddress, parseUnits, parseAbi } from "viem";
+import { createPublicClient, http, isAddress, parseUnits, parseAbi, parseEventLogs } from "viem";
 import { polygon } from "viem/chains";
 import prisma from "../../config/prisma.js";
 import { createTurnkeySigner, isTurnkeyConfigured, provisionTurnkeyWallet } from "./turnkey.service.js";
@@ -107,7 +107,7 @@ export async function requestWalletWithdrawal(userId: string, rawAmount: unknown
 }
 
 
-const polygonUsdt0Abi = parseAbi(["function transfer(address to, uint256 value) returns (bool)"]);
+const polygonUsdt0Abi = parseAbi(["function transfer(address to, uint256 value) returns (bool)", "event Transfer(address indexed from, address indexed to, uint256 value)"]);
 const polygonUsdt0Contract = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f" as const;
 const polygonWithdrawalConfirmations = Math.max(32, Number.parseInt(process.env.POLYGON_WITHDRAWAL_CONFIRMATIONS ?? "128", 10) || 128);
 
@@ -198,7 +198,7 @@ export async function executeApprovedWalletWithdrawal(withdrawalId: string, admi
 }
 
 export async function reconcileBroadcastWalletWithdrawal(withdrawalId: string, adminUserId: string) {
-  const withdrawal = await prisma.walletWithdrawal.findUnique({ where: { id: withdrawalId } });
+  const withdrawal = await prisma.walletWithdrawal.findUnique({ where: { id: withdrawalId }, include: { walletAccount: true } });
   if (!withdrawal) throw new Error("WITHDRAWAL_NOT_FOUND");
   if (withdrawal.status !== "BROADCAST" || !withdrawal.transactionHash) throw new Error("WITHDRAWAL_NOT_BROADCAST");
   const client = polygonRpcClient();
@@ -209,6 +209,16 @@ export async function reconcileBroadcastWalletWithdrawal(withdrawalId: string, a
   const confirmations = Number(latestBlock - receipt.blockNumber + 1n);
   if (confirmations < polygonWithdrawalConfirmations) {
     return { id: withdrawal.id, status: "BROADCAST", transactionHash: withdrawal.transactionHash, confirmations, confirmationsRequired: polygonWithdrawalConfirmations };
+  }
+  if (receipt.status === "success") {
+    const transferEvents = parseEventLogs({ abi: polygonUsdt0Abi, logs: receipt.logs, eventName: "Transfer", strict: false });
+    const expectedAmount = BigInt(withdrawal.amountMicro);
+    const verifiedTransfer = transferEvents.some((event) =>
+      event.args.from?.toLowerCase() === withdrawal.walletAccount.address.toLowerCase() &&
+      event.args.to?.toLowerCase() === withdrawal.destinationAddress.toLowerCase() &&
+      event.args.value === expectedAmount
+    );
+    if (!verifiedTransfer) throw new Error("WITHDRAWAL_TRANSFER_EVENT_MISSING");
   }
   if (receipt.status !== "success") {
     await prisma.$transaction(async (tx) => {
