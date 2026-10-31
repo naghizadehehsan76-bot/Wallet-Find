@@ -20,7 +20,7 @@ import {
   activateContestHandler,
   finishContestHandler,
 } from "./contest-management.controller.js";
-import { getAdminWalletsHandler, getAdminWithdrawalRequestsHandler, reviewAdminWithdrawalHandler, provisionPrizeTreasuryWalletHandler } from "../wallet/wallet.controller.js";
+import { getAdminWalletsHandler, getAdminWithdrawalRequestsHandler, reviewAdminWithdrawalHandler, provisionPrizeTreasuryWalletHandler, getTreasuryPrizeFundingHandler, allocateTreasuryPrizeFundHandler } from "../wallet/wallet.controller.js";
 import {
   getPrizePoolHandler,
 } from "../contest/prize-pool.controller.js";
@@ -44,6 +44,8 @@ router.get("/audit-logs", getAuditLogsHandler);
 router.get("/source-visit-report", getContestSourceVisitReportHandler);
 router.get("/wallets", getAdminWalletsHandler);
 router.post("/treasury-wallet/provision", provisionPrizeTreasuryWalletHandler);
+router.get("/treasury-wallet/prize-funding", getTreasuryPrizeFundingHandler);
+router.post("/treasury-wallet/allocate-prize-fund", allocateTreasuryPrizeFundHandler);
 router.get("/wallet-withdrawals", getAdminWithdrawalRequestsHandler);
 router.post("/wallet-withdrawals/:withdrawalId/review", reviewAdminWithdrawalHandler);
 router.get("/project-profit-pool", getProjectProfitPoolAdminHandler);
