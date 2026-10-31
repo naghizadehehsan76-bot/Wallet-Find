@@ -215,20 +215,6 @@ export async function scanPolygonUsdtDepositsOnce() {
     };
   }
 
-  const assets = await prisma.chainAsset.findMany({
-    where: {
-      chainId,
-      symbol: "USDT0",
-      contractAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f",
-      decimals: 6,
-      depositEnabled: true,
-      canonicalStatus: "ONCHAIN_VERIFIED",
-    },
-    take: 2,
-  });
-  if (assets.length !== 1) return { skipped: assets.length === 0 ? "NO_VERIFIED_ENABLED_USDT0_ASSET" : "AMBIGUOUS_POLYGON_USDT0_ASSET" };
-  const asset = assets[0]!;
-
   // Explicit operator gate: enable only the verified Polygon USDT0 asset and
   // network accounts belonging to active users with independent Turnkey
   // sub-organizations. BSC and withdrawal flags are never touched here.
@@ -258,6 +244,21 @@ export async function scanPolygonUsdtDepositsOnce() {
       data: { depositEnabled: true, withdrawalEnabled: false },
     });
   }
+
+  const assets = await prisma.chainAsset.findMany({
+    where: {
+      chainId,
+      symbol: "USDT0",
+      contractAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f",
+      decimals: 6,
+      canonicalStatus: "ONCHAIN_VERIFIED",
+    },
+    take: 2,
+  });
+  if (assets.length !== 1) return { skipped: assets.length === 0 ? "NO_VERIFIED_ENABLED_USDT0_ASSET" : "AMBIGUOUS_POLYGON_USDT0_ASSET" };
+  const asset = assets[0]!;
+
+
 
   const wallets = await prisma.walletNetworkAccount.findMany({
     where: {
