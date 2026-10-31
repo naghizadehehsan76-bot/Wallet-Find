@@ -228,10 +228,6 @@ async function readTreasuryChainSnapshot(address: string) {
   return { blockNumber, blockHash: block.hash, balanceMicro: BigInt(balance) };
 }
 
-async function readTreasuryChainBalance(address: string) {
-  const snapshot = await readTreasuryChainSnapshot(address);
-  return snapshot.balanceMicro;
-}
 
 export async function reconcileTreasuryAccounting(adminUserId: string) {
   const treasury = await prisma.treasuryWallet.findUnique({ where: { id: TREASURY_ID } });
@@ -375,6 +371,6 @@ export async function allocateTreasuryToPrizeFund(rawAmount: unknown, adminUserI
     const fund = await tx.globalPrizeFund.update({ where: { id: "global" }, data: { balanceMicro: { increment: amount }, totalFundedMicro: { increment: amount } } });
     await tx.globalPrizeLedger.create({ data: { type: "TREASURY_FUNDING", amountMicro: amount, effectiveAt: new Date(), referenceKey, note: "Admin internal allocation from reconciled Polygon treasury; no on-chain transfer" } });
     await tx.auditLog.create({ data: { userId: adminUserId, action: "TREASURY_PRIZE_FUND_ALLOCATION", entity: "GlobalPrizeFund", entityId: "global", metadata: { amountMicro: amount.toString(), treasuryAddress: snapshot.treasuryAddress, reconciliationBlockNumber: snapshot.snapshotBlockNumber } } });
-    return { amount: formatMicro(amount), treasuryAddress: snapshot.treasuryAddress, chainId: 137, asset: "USDT0", onChainBalance: snapshot.onChainBalance, allocatedToPrizeFund: formatMicro(alreadyReserved + amount), unallocatedTreasuryBalance: formatMicro(liveBalance - alreadyReserved - amount), prizeFundBalance: formatMicro(BigInt(fund.balanceMicro)), updatedAt: new Date().toISOString() };
+    return { amount: formatMicro(amount), treasuryAddress: snapshot.treasuryAddress, chainId: 137, asset: "USDT0", snapshotBlockNumber: snapshot.snapshotBlockNumber, snapshotBlockHash: snapshot.snapshotBlockHash, onChainBalance: snapshot.onChainBalance, treasuryLedgerBalance: snapshot.treasuryLedgerBalance, accountingDifference: snapshot.accountingDifference, accountingStatus: snapshot.accountingStatus, allocatedToPrizeFund: formatMicro(alreadyReserved + amount), unallocatedTreasuryBalance: formatMicro(liveBalance - alreadyReserved - amount), prizeFundBalance: formatMicro(BigInt(fund.balanceMicro)), updatedAt: new Date().toISOString() };
   }, { isolationLevel: "Serializable" });
 }
