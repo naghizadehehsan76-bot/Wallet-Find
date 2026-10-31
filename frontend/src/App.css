@@ -3394,3 +3394,21 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   .admin-user-row > div,
   .admin-wallet-row > div { width: 100%; }
 }
+
+.admin-treasury-deposits__heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.admin-treasury-deposits__heading > div { min-width:0; }
+.admin-treasury-instructions { margin:12px 0; padding:13px; border:1px solid var(--line-cyan); border-radius:12px; background:rgba(66,232,212,.045); }
+.admin-treasury-instructions p { margin:0 0 9px; color:var(--paper); font-size:12px; line-height:1.8; }
+.admin-treasury-instructions small { display:block; color:var(--muted); line-height:1.8; overflow-wrap:anywhere; }
+.admin-treasury-instructions code { color:var(--verdigris); overflow-wrap:anywhere; }
+.admin-treasury-deposit-list { display:grid; gap:10px; margin-top:12px; }
+.admin-treasury-deposit-row { display:grid; gap:7px; min-width:0; padding:13px; border:1px solid var(--line-cyan); border-radius:12px; background:rgba(10,24,40,.38); }
+.admin-treasury-deposit-row__top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.admin-treasury-deposit-row__top strong { color:var(--verdigris); font-size:15px; }
+.admin-treasury-deposit-row small { color:var(--muted); font-size:10px; line-height:1.7; }
+.admin-treasury-deposit-row code { color:var(--paper); font-size:10px; overflow-wrap:anywhere; white-space:normal; }
+.admin-treasury-deposit-row a { width:fit-content; color:var(--verdigris); font-size:11px; text-decoration:underline; }
+@media (max-width:620px) {
+  .admin-treasury-deposits__heading { flex-direction:column; }
+  .admin-treasury-deposits__heading button { width:100%; }
+}
