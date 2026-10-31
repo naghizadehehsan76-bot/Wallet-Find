@@ -747,6 +747,18 @@ model WalletWithdrawal {
   @@map("wallet_withdrawals")
 }
 
+model TreasuryWallet {
+  id              String   @id
+  turnkeyWalletId String?  @unique
+  address         String?  @unique
+  chainId         Int      @default(137)
+  networkKey      String   @default("polygon")
+  status          String   @default("CREATING")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@map("treasury_wallets")
+}
+
 model ChainScanCursor {
   chainId          Int @id
   lastBlockNumber  BigInt @default(0)
