@@ -4,29 +4,46 @@ import { polygon } from "viem/chains";
 import prisma from "../../config/prisma.js";
 import { createTurnkeySigner, isTurnkeyConfigured, provisionTurnkeyWallet } from "./turnkey.service.js";
 const MICRO = 1_000_000n;
-function formatMicro(value: bigint): string {
+const POL_WEI = 1_000_000_000_000_000_000n;
+function formatUnits(value: bigint, decimals: number): string {
   const negative = value < 0n;
   const absolute = negative ? -value : value;
-  const whole = absolute / MICRO;
-  const fraction = (absolute % MICRO).toString().padStart(6, "0");
-  return (negative ? "-" : "") + whole.toString() + "." + fraction;
+  const scale = 10n ** BigInt(decimals);
+  const whole = absolute / scale;
+  const fraction = (absolute % scale).toString().padStart(decimals, "0").replace(/0+$/, "");
+  return (negative ? "-" : "") + whole.toString() + (fraction ? "." + fraction : "");
+}
+function formatMicro(value: bigint): string { return formatUnits(value, 6); }
+function formatCurrency(value: bigint, currency: string): string {
+  return formatUnits(value, currency === "POL" ? 18 : 6);
 }
 async function calculateBalances(tx: any, userId: string) {
-  const rows = await tx.walletTransaction.findMany({ where: { userId }, select: { type: true, status: true, amountMicro: true } });
-  let balance = 0n, pendingWithdrawals = 0n;
+  const rows = await tx.walletTransaction.findMany({ where: { userId }, select: { type: true, status: true, amountMicro: true, currency: true } });
+  const totals = new Map<string, { balance: bigint; pendingWithdrawals: bigint }>();
   for (const row of rows) {
+    const currency = row.currency || "USDT";
+    const current = totals.get(currency) ?? { balance: 0n, pendingWithdrawals: 0n };
     const amount = BigInt(row.amountMicro);
     if (row.status === "COMPLETED") {
-      if (row.type === "DEPOSIT") balance += amount;
-      if (row.type === "DEPOSIT_REVERSAL") balance -= amount;
-      if (row.type === "WITHDRAWAL") balance -= amount;
+      if (row.type === "DEPOSIT") current.balance += amount;
+      if (row.type === "DEPOSIT_REVERSAL" || row.type === "WITHDRAWAL") current.balance -= amount;
     }
-    if (row.type === "WITHDRAWAL_REQUEST" && row.status === "PENDING") pendingWithdrawals += amount;
+    if (row.type === "WITHDRAWAL_REQUEST" && row.status === "PENDING") current.pendingWithdrawals += amount;
+    totals.set(currency, current);
   }
-  return { balance, availableBalance: balance - pendingWithdrawals };
+  const usdt = totals.get("USDT") ?? totals.get("USDT0") ?? { balance: 0n, pendingWithdrawals: 0n };
+  const pol = totals.get("POL") ?? { balance: 0n, pendingWithdrawals: 0n };
+  return {
+    balance: usdt.balance,
+    availableBalance: usdt.balance - usdt.pendingWithdrawals,
+    assets: {
+      USDT0: { balance: formatCurrency(usdt.balance, "USDT0"), availableBalance: formatCurrency(usdt.balance - usdt.pendingWithdrawals, "USDT0") },
+      POL: { balance: formatCurrency(pol.balance, "POL"), availableBalance: formatCurrency(pol.balance - pol.pendingWithdrawals, "POL") },
+    },
+  };
 }
 function serializeTransaction(row: any) {
-  return { id: row.id, type: row.type, status: row.status, amount: formatMicro(BigInt(row.amountMicro)), currency: row.currency, note: row.note, contestId: row.contestId, createdAt: row.createdAt };
+  return { id: row.id, type: row.type, status: row.status, amount: formatCurrency(BigInt(row.amountMicro), row.currency || "USDT"), currency: row.currency, note: row.note, contestId: row.contestId, createdAt: row.createdAt };
 }
 export async function getWallet(userId: string) {
   // Provision an EVM address only after server-side Turnkey credentials are configured.
@@ -35,7 +52,7 @@ export async function getWallet(userId: string) {
   return prisma.$transaction(async (tx) => {
     const balances = await calculateBalances(tx, userId);
     const transactions = await tx.walletTransaction.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 100 });
-    return { currency: "USDT", simulatedOnly: false, turnkeyConfigured: isTurnkeyConfigured(), walletAddress: turnkeyWallet?.address ?? null, supportedNetworks: turnkeyWallet?.networkAccounts.map((network) => ({ chainId: network.chainId, networkKey: network.networkKey, depositEnabled: network.depositEnabled, withdrawalEnabled: network.withdrawalEnabled })) ?? [], balance: formatMicro(balances.balance), availableBalance: formatMicro(balances.availableBalance), transactions: transactions.map(serializeTransaction) };
+    return { currency: "USDT", simulatedOnly: false, turnkeyConfigured: isTurnkeyConfigured(), walletAddress: turnkeyWallet?.address ?? null, supportedNetworks: turnkeyWallet?.networkAccounts.map((network) => ({ chainId: network.chainId, networkKey: network.networkKey, depositEnabled: network.depositEnabled, withdrawalEnabled: network.withdrawalEnabled })) ?? [], balance: formatMicro(balances.balance), availableBalance: formatMicro(balances.availableBalance), assets: balances.assets, transactions: transactions.map(serializeTransaction) };
   });
 }
 export async function requestWalletDeposit(userId: string, _rawAmount: unknown) {
