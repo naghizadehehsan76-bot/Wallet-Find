@@ -652,6 +652,22 @@ export async function getAdminWallets(): Promise<AdminWalletSummary[]> {
   return request<AdminWalletSummary[]>("/admin/wallets", {}, true);
 }
 
+export type PrizeTreasuryProvisionResult = {
+  created: boolean;
+  walletId: string;
+  address: string;
+  chainId: number;
+  networkKey: string;
+  status: string;
+};
+
+export async function provisionPrizeTreasuryWallet(): Promise<PrizeTreasuryProvisionResult> {
+  return request<PrizeTreasuryProvisionResult>("/admin/treasury-wallet/provision", {
+    method: "POST",
+    body: JSON.stringify({}),
+  }, true);
+}
+
 
 export type AdminUserSummary = {
   id: string;
