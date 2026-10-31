@@ -1182,25 +1182,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
               }
             </section>
           )}
-          <section className="admin-panel">
-            <h2>{copy.wallets}</h2>
-            <p className="admin-footnote">{copy.walletNote}</p>
-            {wallets.length === 0 ? <p className="admin-empty">{copy.noWallets}</p> : (
-              <div className="admin-settings-list">
-                {wallets.map((wallet) => (
-                  <article className="admin-setting-row admin-wallet-row" key={wallet.userId}>
-                    <div>
-                      <strong>{wallet.username}</strong>
-                      <small>{wallet.email}</small>
-                      <code>{copy.walletBalance}: {Number(wallet.balance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</code>
-                      <code>{copy.walletAvailable}: {Number(wallet.availableBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</code>
-                      <small>{copy.pendingDeposits}: {wallet.pendingDepositRequests} · {copy.pendingWithdrawals}: {wallet.pendingWithdrawalRequests}</small>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
+
           </>
         )}
 
