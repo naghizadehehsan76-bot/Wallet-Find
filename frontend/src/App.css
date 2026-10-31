@@ -3284,3 +3284,82 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 @media (prefers-reduced-motion: reduce) {
   .wallet-action { transition: none; }
 }
+
+
+/* Wallet-Find admin and wallet UX consistency refinements */
+.admin-center-shell {
+  width: min(100% - 28px, 1040px);
+  margin-inline: auto;
+}
+.admin-center { display: grid; gap: 16px; }
+.admin-center__heading { margin: 4px 0 2px; }
+.admin-center__tabs {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-cyan) transparent;
+  box-shadow: 0 8px 24px rgba(0,0,0,.16);
+}
+.admin-center__tabs button { white-space: nowrap; }
+.admin-metrics-grid { align-items: stretch; }
+.admin-metric-card { min-width: 0; }
+.admin-module-card,
+.admin-panel,
+.admin-source-report,
+.admin-user-row,
+.admin-wallet-row,
+.admin-audit-row,
+.admin-setting-row {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.admin-module-card { min-height: 132px; }
+.admin-panel { margin-block: 4px; }
+.admin-panel h2,
+.admin-source-report h2 { line-height: 1.55; }
+.admin-center-shell input,
+.admin-center-shell textarea,
+.admin-center-shell select { max-width: 100%; }
+.admin-center-shell button:focus-visible,
+.wallet-page button:focus-visible,
+.wallet-page input:focus-visible {
+  outline: 2px solid var(--verdigris);
+  outline-offset: 3px;
+}
+.wallet-network-status--active {
+  border-color: rgba(66,232,212,.32);
+  background: rgba(66,232,212,.09);
+  color: var(--verdigris) !important;
+}
+.wallet-status-on { color: var(--verdigris) !important; }
+.wallet-deposit-minimum {
+  margin: 10px 0;
+  color: #9dbbd0;
+  font-size: 10px;
+  line-height: 1.8;
+}
+.wallet-deposit-address button:disabled { opacity: .7; cursor: default; }
+@media (min-width: 900px) {
+  .admin-center-shell { padding-inline: 18px; }
+  .admin-metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .admin-module-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  .admin-center-shell { width: min(100% - 22px, 480px); }
+  .admin-center { padding-top: 12px; gap: 13px; }
+  .admin-center__heading { align-items: flex-start; margin-bottom: 4px; }
+  .admin-center__tabs { margin-inline: -2px; }
+  .admin-center__tabs button { flex: 0 0 auto; min-height: 40px; }
+  .admin-metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-module-grid { grid-template-columns: 1fr; }
+  .admin-module-card { min-height: 0; }
+  .admin-panel { padding: 14px; }
+  .admin-source-report__heading { align-items: stretch; }
+}
+@media (max-width: 360px) {
+  .admin-metrics-grid { grid-template-columns: 1fr; }
+  .admin-center__heading .page-title { font-size: 19px; }
+  .wallet-table-head,
+  .wallet-transaction { grid-template-columns: minmax(0,.85fr) minmax(0,1fr) minmax(0,.8fr); }
+}
