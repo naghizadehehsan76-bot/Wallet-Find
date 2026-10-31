@@ -9,8 +9,10 @@ import {
   provisionPrizeTreasuryWallet,
   getPrizeTreasuryWallet,
   getTreasuryPrizeFunding,
+  getAdminTreasuryDeposits,
   reconcileTreasuryAccounting,
   type TreasuryPrizeFundingSnapshot,
+  type AdminTreasuryDeposit,
   type PrizeTreasuryProvisionResult,
   getAdminUsers,
   getAdminSourceVisitReport,
@@ -134,6 +136,9 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [treasuryFunding, setTreasuryFunding] = useState<TreasuryPrizeFundingSnapshot | null>(null);
   const [treasuryFundingLoading, setTreasuryFundingLoading] = useState(false);
   const [treasuryFundingError, setTreasuryFundingError] = useState(false);
+  const [treasuryDeposits, setTreasuryDeposits] = useState<AdminTreasuryDeposit[]>([]);
+  const [treasuryDepositsLoading, setTreasuryDepositsLoading] = useState(false);
+  const [treasuryDepositsError, setTreasuryDepositsError] = useState(false);
   const [treasuryReconciling, setTreasuryReconciling] = useState(false);
   const [users, setUsers] = useState<AdminUserSummary[]>([]);
   const [userSearch, setUserSearch] = useState("");
@@ -175,6 +180,17 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     wallets: fa ? "کیف پول و تراکنش‌ها" : "Wallets & transactions",
     treasuryTitle: fa ? "خزانه اصلی جوایز (Polygon)" : "Main prize treasury (Polygon)",
     treasuryLiveBalance: fa ? "موجودی واقعی خزانه (USDT0)" : "Live treasury balance (USDT0)",
+    treasuryDepositTitle: fa ? "واریزهای خزانه" : "Treasury deposits",
+    treasuryDepositHelp: fa ? "واریزها به‌صورت خودکار از بلاک‌چین شناسایی می‌شوند. پس از ۱۲۸ تأیید شبکه، دفتر حسابداری خزانه به‌روزرسانی می‌شود." : "Deposits are detected automatically from Polygon. Treasury accounting is credited after 128 network confirmations.",
+    treasuryNoDeposits: fa ? "هنوز واریزی برای خزانه شناسایی نشده است." : "No treasury deposits detected yet.",
+    treasuryDepositRefresh: fa ? "به‌روزرسانی واریزها" : "Refresh deposits",
+    treasuryDepositAmount: fa ? "مبلغ" : "Amount",
+    treasuryDepositStatus: fa ? "وضعیت" : "Status",
+    treasuryDepositConfirmations: fa ? "تأییدها" : "Confirmations",
+    treasuryDepositDate: fa ? "زمان شناسایی" : "Detected",
+    treasuryDepositError: fa ? "دریافت تاریخچه واریزهای خزانه ناموفق بود." : "Could not load treasury deposit history.",
+    treasuryNetworkInstruction: fa ? "فقط USDT0 روی شبکه Polygon PoS به این آدرس ارسال شود. از شبکه‌های دیگر استفاده نکن." : "Send only USDT0 on Polygon PoS to this address. Do not use another network.",
+    treasuryContract: fa ? "قرارداد توکن USDT0" : "USDT0 token contract",
     treasuryAllocated: fa ? "تخصیص‌یافته به صندوق جوایز" : "Allocated to prize fund",
     treasuryFree: fa ? "موجودی آزاد خزانه" : "Unallocated treasury balance",
     internalPrizeBalance: fa ? "موجودی داخلی صندوق جوایز" : "Internal prize fund balance",
@@ -392,10 +408,15 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     const refresh = async () => {
       setTreasuryFundingLoading(true);
       try {
-        const snapshot = await getTreasuryPrizeFunding();
-        if (!cancelled) { setTreasuryFunding(snapshot); setTreasuryFundingError(false); }
+        const [snapshot, depositResult] = await Promise.all([getTreasuryPrizeFunding(), getAdminTreasuryDeposits()]);
+        if (!cancelled) {
+          setTreasuryFunding(snapshot);
+          setTreasuryFundingError(false);
+          setTreasuryDeposits(depositResult.deposits);
+          setTreasuryDepositsError(false);
+        }
       } catch {
-        if (!cancelled) setTreasuryFundingError(true);
+        if (!cancelled) { setTreasuryFundingError(true); setTreasuryDepositsError(true); }
       } finally {
         if (!cancelled) setTreasuryFundingLoading(false);
       }
@@ -1128,6 +1149,39 @@ export default function AdminControlCenter({ onNavigate }: Props) {
               </div>
             )}
           </section>
+          {treasury && (
+            <section className="admin-panel admin-treasury-deposits">
+              <div className="admin-treasury-deposits__heading">
+                <div><h2>{copy.treasuryDepositTitle}</h2><p className="admin-footnote">{copy.treasuryDepositHelp}</p></div>
+                <button type="button" onClick={() => {
+                  setTreasuryDepositsLoading(true);
+                  void getAdminTreasuryDeposits().then((result) => { setTreasuryDeposits(result.deposits); setTreasuryDepositsError(false); })
+                    .catch(() => setTreasuryDepositsError(true)).finally(() => setTreasuryDepositsLoading(false));
+                }} disabled={treasuryDepositsLoading}>{treasuryDepositsLoading ? "…" : copy.treasuryDepositRefresh}</button>
+              </div>
+              <div className="admin-treasury-instructions">
+                <p>{copy.treasuryNetworkInstruction}</p>
+                <small>{copy.treasuryContract}: <code>0xc2132d05d31c914a87c6611c10748aeb04b58e8f</code></small>
+              </div>
+              {treasuryDepositsError ? <p className="admin-empty">{copy.treasuryDepositError}</p> :
+                treasuryDeposits.length === 0 ? <p className="admin-empty">{copy.treasuryNoDeposits}</p> :
+                <div className="admin-treasury-deposit-list">
+                  {treasuryDeposits.map((deposit) => (
+                    <article className="admin-treasury-deposit-row" key={deposit.id}>
+                      <div className="admin-treasury-deposit-row__top">
+                        <strong>{deposit.amount ?? "—"} USDT0</strong>
+                        <span className={deposit.status === "CREDITED" ? "wallet-network-status wallet-network-status--active" : "wallet-network-status"}>{deposit.status}</span>
+                      </div>
+                      <small>{copy.treasuryDepositConfirmations}: {deposit.confirmationCount.toLocaleString(fa ? "fa-IR" : "en-US")} / 128</small>
+                      <small>{copy.treasuryDepositDate}: {new Date(deposit.detectedAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>
+                      <code>{deposit.transactionHash}</code>
+                      <a href={"https://polygonscan.com/tx/" + deposit.transactionHash} target="_blank" rel="noreferrer">{fa ? "مشاهده تراکنش در PolygonScan" : "View on PolygonScan"}</a>
+                    </article>
+                  ))}
+                </div>
+              }
+            </section>
+          )}
           <section className="admin-panel">
             <h2>{copy.wallets}</h2>
             <p className="admin-footnote">{copy.walletNote}</p>
