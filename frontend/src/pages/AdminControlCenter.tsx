@@ -7,6 +7,7 @@ import {
   getAdminProjectProfitPool,
   getAdminWallets,
   provisionPrizeTreasuryWallet,
+  getPrizeTreasuryWallet,
   type PrizeTreasuryProvisionResult,
   getAdminUsers,
   getAdminSourceVisitReport,
@@ -376,6 +377,20 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     const timer = window.setTimeout(() => { void load(); }, 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+
+  useEffect(() => {
+    if (section !== "wallets") return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      getPrizeTreasuryWallet()
+        .then((result) => { if (!cancelled) setTreasury(result); })
+        .catch(() => { if (!cancelled) setTreasury(null); });
+    }, 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [section]);
 
   useEffect(() => {
     if (section !== "ads") return;
@@ -1028,9 +1043,11 @@ export default function AdminControlCenter({ onNavigate }: Props) {
           <section className="admin-panel">
             <h2>{copy.treasuryTitle}</h2>
             <p className="admin-footnote">{copy.treasuryHelp}</p>
-            <button className="cta-button" type="button" onClick={() => void handleProvisionTreasury()} disabled={treasuryLoading}>
-              {treasuryLoading ? copy.treasuryCreating : copy.treasuryCreate}
-            </button>
+            {!treasury && (
+              <button className="cta-button" type="button" onClick={() => void handleProvisionTreasury()} disabled={treasuryLoading}>
+                {treasuryLoading ? copy.treasuryCreating : copy.treasuryCreate}
+              </button>
+            )}
             {treasury && (
               <div className="admin-settings-list">
                 <article className="admin-setting-row">
