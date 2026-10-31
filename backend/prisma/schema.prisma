@@ -686,6 +686,7 @@ model ChainAsset {
   withdrawalEnabled Boolean @default(false)
   deposits          WalletDeposit[]
   withdrawals       WalletWithdrawal[]
+  treasuryDeposits  TreasuryDeposit[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   @@unique([chainId, contractAddress])
@@ -760,9 +761,75 @@ model TreasuryWallet {
   chainId         Int      @default(137)
   networkKey      String   @default("polygon")
   status          String   @default("CREATING")
+  deposits        TreasuryDeposit[]
+  ledgerEntries   TreasuryLedger[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   @@map("treasury_wallets")
+}
+
+// Treasury deposits are deliberately separate from user WalletDeposit records.
+model TreasuryDeposit {
+  id                String @id @default(cuid())
+  treasuryWalletId  String
+  chainAssetId      String
+  chainId           Int
+  transactionHash   String
+  logIndex          Int
+  blockNumber       BigInt
+  blockHash         String
+  fromAddress       String
+  toAddress         String
+  rawAmount         String
+  amountMicro       BigInt?
+  status            WalletDepositStatus @default(DETECTED)
+  confirmationCount Int @default(0)
+  detectedAt        DateTime @default(now())
+  confirmedAt       DateTime?
+  creditedAt        DateTime?
+  updatedAt         DateTime @updatedAt
+
+  treasuryWallet TreasuryWallet @relation(fields: [treasuryWalletId], references: [id], onDelete: Restrict)
+  asset          ChainAsset     @relation(fields: [chainAssetId], references: [id], onDelete: Restrict)
+  ledgerEntries  TreasuryLedger[]
+
+  @@unique([chainId, transactionHash, logIndex])
+  @@index([treasuryWalletId, status, detectedAt])
+  @@index([chainId, blockNumber])
+  @@map("treasury_deposits")
+}
+
+enum TreasuryLedgerType {
+  DEPOSIT_CREDIT
+  DEPOSIT_REVERSAL
+  WITHDRAWAL_DEBIT
+  WITHDRAWAL_REVERSAL
+  GAS_EXPENSE
+  MANUAL_ADJUSTMENT
+}
+
+// amountMicro is signed: positive values increase treasury accounting balance;
+// negative values decrease it. Every entry has a unique idempotency reference.
+model TreasuryLedger {
+  id               String @id @default(cuid())
+  treasuryWalletId String
+  depositId        String?
+  type             TreasuryLedgerType
+  amountMicro      BigInt
+  currency         String @default("USDT0")
+  transactionHash  String?
+  referenceKey     String @unique
+  note             String
+  effectiveAt      DateTime
+  createdAt        DateTime @default(now())
+
+  treasuryWallet TreasuryWallet  @relation(fields: [treasuryWalletId], references: [id], onDelete: Restrict)
+  deposit        TreasuryDeposit? @relation(fields: [depositId], references: [id], onDelete: Restrict)
+
+  @@index([treasuryWalletId, effectiveAt])
+  @@index([type, effectiveAt])
+  @@index([depositId])
+  @@map("treasury_ledger")
 }
 
 model ChainScanCursor {
