@@ -21,10 +21,10 @@ Implementation branch: `feature/real-wallet-foundation`
 
 | Network | Chain ID | Asset | Contract | Status |
 |---|---:|---|---|---|
-| BNB Smart Chain mainnet | 56 | USDT / BEP20 | Not approved | Deposits disabled pending authoritative contract verification |
+| BNB Smart Chain mainnet | 56 | Binance-Peg USDT representation / BEP20 | `0x55d398326f99059fF775485246999027B3197955` | Stored as a candidate representation; deposits and withdrawals disabled |
 | Polygon PoS mainnet | 137 | USDT0 | `0xc2132D05D31c914a87C6611C10748AEb04B58e8F` | Listed by USDT0 deployment documentation; verify on-chain before enabling |
 
-Important: Tether's supported-protocol page lists USDT on BNB Smart Chain as an ERC-20-compatible deployment, but its BNB section does not publish a USD₮ contract address (it lists XAU₮ only). Do not treat a popular BSC token with symbol USDT as canonical merely because its name or symbol matches. The BNB token address must be confirmed through an authoritative issuer or network source and checked on-chain (contract bytecode, decimals, symbol/name, transfer behavior, and verified explorer metadata) before deposits can be enabled.
+Important BNB distinction: Tether's supported-protocol page lists BNB Smart Chain under its ERC-20-compatible protocol family, but the BNB section currently publishes an XAU₮ contract address, not a USD₮ contract address. The commonly used BSC contract `0x55d398326f99059fF775485246999027B3197955` is identified by BNB ecosystem references as Binance-Peg / wrapped BSC-USD (often displayed as USDT), not as a Tether-published native USD₮ contract. Its on-chain decimals are 18, not 6. Wallet-Find records this as a Binance-Peg USDT representation, not as issuer-direct Tether USDT. Do not enable deposits until the exact asset representation is explicitly accepted in product disclosures and its live on-chain contract behavior, decimals, bridge/custody provenance, and redemption risk have been independently verified.
 
 Polygon's USDT0 documentation lists Polygon PoS (chain ID 137) token address `0xc2132D05D31c914a87C6611C10748AEb04B58e8F`. Polygon announced the migration of its USDT to native USDT0. The implementation must identify this asset by both chain ID and exact contract address, not symbol alone.
 
@@ -37,7 +37,7 @@ Polygon's USDT0 documentation lists Polygon PoS (chain ID 137) token address `0x
 - `@turnkey/sdk-server` is not currently a backend dependency.
 - Existing `WalletTransaction` rows must not be silently interpreted as on-chain funds.
 
-## Proposed data model (not yet applied)
+## Schema implementation status\n\nThe current branch now contains the initial Prisma models and SQL migration for wallet accounts, per-network accounts, assets, deposits, withdrawals, and chain scan cursors. The migration seeds both networks with deposits and withdrawals disabled. It also removes simulated prize credits and prize award history when applied. These changes are not deployed to production.\n\nThe same migration deletes only `PRIZE_CREDIT` wallet history, all `PrizeAward` rows, and `AWARD` prize-ledger rows; it preserves contest participation/submission history, deposits, withdrawals, and other non-prize wallet transactions. It resets historical per-round `awardedMicro` totals to zero.\n\n## Data model notes
 
 1. `WalletAccount`
    - `id`, `userId` (unique), `turnkeyWalletId`, `turnkeyAccountId`, `address`, `derivationPath`, `status`, timestamps.
@@ -109,4 +109,4 @@ Polygon's USDT0 documentation lists Polygon PoS (chain ID 137) token address `0x
 - No Render environment-variable changes.
 - No production deploy.
 - No real deposits, withdrawals, sweeps, or prize payouts.
-- No changes to existing balances or prize accounting.
+- The migration has not yet run against the production database; live simulated prize rows remain until deployment.
