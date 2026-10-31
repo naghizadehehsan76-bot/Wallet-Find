@@ -23,6 +23,9 @@ SET "balanceMicro" = 0,
     "totalContributedMicro" = 0,
     "updatedAt" = CURRENT_TIMESTAMP;
 
+ALTER TABLE "prize_pools" ALTER COLUMN "testOnly" SET DEFAULT false;
+ALTER TABLE "prize_awards" ALTER COLUMN "status" SET DEFAULT 'PENDING_PAYMENT';
+
 UPDATE "prize_pools"
 SET "seededMicro" = 0,
     "rolloverInMicro" = 0,
