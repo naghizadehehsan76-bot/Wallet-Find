@@ -22,11 +22,11 @@ Implementation branch: `feature/real-wallet-foundation`
 | Network | Chain ID | Asset | Contract | Status |
 |---|---:|---|---|---|
 | BNB Smart Chain mainnet | 56 | USDT / BEP20 | Not approved | Deposits disabled pending authoritative contract verification |
-| Polygon PoS mainnet | 137 | USDT0 | `0xc2132D05D31c914a87C6611C10748AEb04B58e8E` | Contract listed by USDT0 deployment documentation; still verify on-chain before enabling |
+| Polygon PoS mainnet | 137 | USDT0 | `0xc2132D05D31c914a87C6611C10748AEb04B58e8F` | Listed by USDT0 deployment documentation; verify on-chain before enabling |
 
 Important: Tether's supported-protocol page lists USDT on BNB Smart Chain as an ERC-20-compatible deployment, but its BNB section does not publish a USD₮ contract address (it lists XAU₮ only). Do not treat a popular BSC token with symbol USDT as canonical merely because its name or symbol matches. The BNB token address must be confirmed through an authoritative issuer or network source and checked on-chain (contract bytecode, decimals, symbol/name, transfer behavior, and verified explorer metadata) before deposits can be enabled.
 
-Polygon's USDT0 documentation lists Polygon PoS (chain ID 137) token address `0xc2132D05D31c914a87C6611C10748AEb04B58e8E`. Polygon announced the migration of its USDT to native USDT0. The implementation must identify this asset by both chain ID and exact contract address, not symbol alone.
+Polygon's USDT0 documentation lists Polygon PoS (chain ID 137) token address `0xc2132D05D31c914a87C6611C10748AEb04B58e8F`. Polygon announced the migration of its USDT to native USDT0. The implementation must identify this asset by both chain ID and exact contract address, not symbol alone.
 
 ## Current repository facts
 
