@@ -65,3 +65,20 @@ export async function getAdminWalletsHandler(_req: AuthenticatedRequest, res: Re
     return res.status(500).json({ success: false, error: "INTERNAL_SERVER_ERROR" });
   }
 }
+
+
+export async function provisionPrizeTreasuryWalletHandler(_req: AuthenticatedRequest, res: Response) {
+  try {
+    const { provisionPrizeTreasuryWallet } = await import("./turnkey.service.js");
+    const data = await provisionPrizeTreasuryWallet();
+    return res.status(data.created ? 201 : 200).json({ success: true, data });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+    if (message === "TURNKEY_NOT_CONFIGURED") return res.status(503).json({ success: false, error: message });
+    if (message === "TREASURY_CREATION_IN_PROGRESS" || message === "TREASURY_CREATION_REQUIRES_REVIEW") {
+      return res.status(409).json({ success: false, error: message });
+    }
+    console.error("Prize treasury provisioning failed", error);
+    return res.status(502).json({ success: false, error: "TREASURY_PROVISIONING_FAILED" });
+  }
+}
