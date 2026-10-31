@@ -7,9 +7,6 @@ import {
   getAdminProjectProfitPool,
   getAdminWallets,
   provisionPrizeTreasuryWallet,
-  getTreasuryPrizeFunding,
-  allocateTreasuryPrizeFunding,
-  type TreasuryPrizeFundingSnapshot,
   type PrizeTreasuryProvisionResult,
   getAdminUsers,
   getAdminSourceVisitReport,
@@ -130,9 +127,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [wallets, setWallets] = useState<AdminWalletSummary[]>([]);
   const [treasury, setTreasury] = useState<PrizeTreasuryProvisionResult | null>(null);
   const [treasuryLoading, setTreasuryLoading] = useState(false);
-  const [treasuryFunding, setTreasuryFunding] = useState<TreasuryPrizeFundingSnapshot | null>(null);
-  const [treasuryFundingAmount, setTreasuryFundingAmount] = useState("1");
-  const [treasuryFundingLoading, setTreasuryFundingLoading] = useState(false);
   const [users, setUsers] = useState<AdminUserSummary[]>([]);
   const [userSearch, setUserSearch] = useState("");
   const [logs, setLogs] = useState<AdminAuditLog[]>([]);
@@ -434,17 +428,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     setScheduledChallengeStart(dateTimeForChallengeNumber(value, challengeScheduleAnchor));
     setError("");
     setNotice("");
-  }
-
-  async function refreshTreasuryFunding() {
-    try { setTreasuryFunding(await getTreasuryPrizeFunding()); } catch { setTreasuryFunding(null); }
-  }
-
-  async function handleAllocateTreasuryFunding() {
-    setTreasuryFundingLoading(true); setError(""); setNotice("");
-    try { const result = await allocateTreasuryPrizeFunding(treasuryFundingAmount); setTreasuryFunding(result); setNotice(fa ? "مبلغ به‌صورت داخلی به صندوق جوایز تخصیص یافت؛ انتقال بلاک‌چینی انجام نشد." : "Amount allocated internally; no blockchain transfer was made."); }
-    catch (cause) { const code = cause instanceof Error ? cause.message : ""; setError(code === "TREASURY_RPC_NOT_CONFIGURED" ? (fa ? "اتصال RPC شبکه Polygon روی سرور تنظیم نشده است." : "Polygon RPC is not configured on the server.") : code === "INSUFFICIENT_UNALLOCATED_TREASURY_BALANCE" || code === "INSUFFICIENT_TREASURY_BALANCE" ? (fa ? "موجودی آزاد خزانه برای این تخصیص کافی نیست." : "Insufficient unallocated treasury balance.") : (fa ? "تخصیص ناموفق بود؛ موجودی شبکه و گزارش سرور را بررسی کن." : "Allocation failed; check the chain balance and server logs.")); }
-    finally { setTreasuryFundingLoading(false); }
   }
 
   async function handleProvisionTreasury() {
