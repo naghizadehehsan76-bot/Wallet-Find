@@ -128,10 +128,7 @@ export async function scanPolygonUsdtDepositsOnce() {
     cursor = await prisma.chainScanCursor.findUnique({ where: { chainId } });
   }
   const fromBlock = cursor ? cursor.lastBlockNumber + 1n : initialBlock;
-  if (fromBlock > safeHead) {
-    return { scanned: 0, latestBlock: latestBlock.toString(), safeHead: safeHead.toString(), ...reorgResult };
-  }
-
+  const hasNewBlocks = fromBlock <= safeHead;
   const recipients = new Map(wallets.map((wallet) => [wallet.walletAccount.address.toLowerCase(), wallet]));
   const treasuryAddress = treasury?.address?.toLowerCase() ?? null;
   if (treasuryAddress && recipients.has(treasuryAddress)) {
@@ -146,6 +143,7 @@ export async function scanPolygonUsdtDepositsOnce() {
   let detected = 0;
   let treasuryDetected = 0;
 
+  if (hasNewBlocks) {
   for (let start = fromBlock; start <= safeHead; start += BigInt(chunkSize)) {
     const end = start + BigInt(chunkSize) - 1n > safeHead ? safeHead : start + BigInt(chunkSize) - 1n;
     // Split recipient filters to avoid provider limits on large address arrays.
@@ -243,12 +241,16 @@ export async function scanPolygonUsdtDepositsOnce() {
     scannedThrough = end;
   }
 
-  const lastBlock = await client.getBlock({ blockNumber: scannedThrough });
-  await prisma.chainScanCursor.upsert({
-    where: { chainId },
-    create: { chainId, lastBlockNumber: scannedThrough, lastBlockHash: lastBlock.hash },
-    update: { lastBlockNumber: scannedThrough, lastBlockHash: lastBlock.hash },
-  });
+  }
+
+  if (hasNewBlocks) {
+    const lastBlock = await client.getBlock({ blockNumber: scannedThrough });
+    await prisma.chainScanCursor.upsert({
+      where: { chainId },
+      create: { chainId, lastBlockNumber: scannedThrough, lastBlockHash: lastBlock.hash },
+      update: { lastBlockNumber: scannedThrough, lastBlockHash: lastBlock.hash },
+    });
+  }
 
   const mature = await prisma.walletDeposit.findMany({
     where: { chainId, status: "CONFIRMING", blockNumber: { lte: safeHead } },
@@ -289,10 +291,70 @@ export async function scanPolygonUsdtDepositsOnce() {
     credited++;
   }
 
+  const matureTreasuryDeposits = await prisma.treasuryDeposit.findMany({
+    where: {
+      chainId,
+      status: { in: ["CONFIRMING", "CONFIRMED"] },
+      blockNumber: { lte: safeHead },
+    },
+    take: 250,
+    orderBy: { blockNumber: "asc" },
+  });
+  let treasuryCredited = 0;
+
+  for (const deposit of matureTreasuryDeposits) {
+    const canonicalBlock = await client.getBlock({ blockNumber: deposit.blockNumber });
+    if (canonicalBlock.hash.toLowerCase() !== deposit.blockHash.toLowerCase()) {
+      await prisma.treasuryDeposit.updateMany({
+        where: { id: deposit.id, status: { in: ["CONFIRMING", "CONFIRMED"] } },
+        data: { status: "REORGED" },
+      });
+      continue;
+    }
+
+    const count = Number(latestBlock - deposit.blockNumber + 1n);
+    if (count < confirmationsRequired || deposit.amountMicro === null || deposit.amountMicro <= 0n) continue;
+
+    const credited = await prisma.$transaction(async (tx) => {
+      // Conditional state transition prevents concurrent scanner instances from
+      // creating more than one accounting credit for the same deposit.
+      const claimed = await tx.treasuryDeposit.updateMany({
+        where: { id: deposit.id, status: { in: ["CONFIRMING", "CONFIRMED"] } },
+        data: { status: "CONFIRMED", confirmationCount: count, confirmedAt: new Date() },
+      });
+      if (claimed.count !== 1) return false;
+
+      await tx.treasuryLedger.upsert({
+        where: { referenceKey: `polygon-treasury-usdt0-deposit:${deposit.id}` },
+        create: {
+          treasuryWalletId: deposit.treasuryWalletId,
+          depositId: deposit.id,
+          type: "DEPOSIT_CREDIT",
+          amountMicro: deposit.amountMicro!,
+          currency: asset.symbol,
+          transactionHash: deposit.transactionHash,
+          referenceKey: `polygon-treasury-usdt0-deposit:${deposit.id}`,
+          note: "Confirmed USDT0 deposit credited to treasury accounting on Polygon PoS",
+          effectiveAt: new Date(),
+        },
+        update: {},
+      });
+
+      await tx.treasuryDeposit.update({
+        where: { id: deposit.id },
+        data: { status: "CREDITED", confirmationCount: count, creditedAt: new Date() },
+      });
+      return true;
+    });
+
+    if (credited) treasuryCredited++;
+  }
+
   return {
-    scanned: Number(scannedThrough - fromBlock + 1n),
+    scanned: hasNewBlocks ? Number(scannedThrough - fromBlock + 1n) : 0,
     detected,
     treasuryDetected,
+    treasuryCredited,
     credited,
     latestBlock: latestBlock.toString(),
     safeHead: safeHead.toString(),
