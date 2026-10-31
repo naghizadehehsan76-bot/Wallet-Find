@@ -115,6 +115,20 @@ export async function getTreasuryPrizeFundingHandler(_req: AuthenticatedRequest,
   }
 }
 
+export async function getAdminTreasuryDepositsHandler(_req: AuthenticatedRequest, res: Response) {
+  try {
+    const { getAdminTreasuryDeposits } = await import("./wallet.service.js");
+    return res.json({ success: true, data: await getAdminTreasuryDeposits() });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    const known = ["TREASURY_NOT_READY"];
+    return res.status(known.includes(message) ? 503 : 500).json({
+      success: false,
+      error: known.includes(message) ? message : "TREASURY_DEPOSITS_UNAVAILABLE",
+    });
+  }
+}
+
 export async function allocateTreasuryPrizeFundHandler(req: AuthenticatedRequest, res: Response) {
   const adminUserId = req.user?.userId;
   if (!adminUserId) return res.status(401).json({ success: false, error: "AUTHENTICATION_REQUIRED" });
