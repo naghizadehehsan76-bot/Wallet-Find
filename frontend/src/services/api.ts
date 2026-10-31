@@ -625,8 +625,7 @@ export type WalletResult = {
   walletAddress?: string | null;
   supportedNetworks?: Array<{
     chainId: number;
-    network: string;
-    asset: string;
+    networkKey: string;
     depositEnabled: boolean;
     withdrawalEnabled: boolean;
   }>;
