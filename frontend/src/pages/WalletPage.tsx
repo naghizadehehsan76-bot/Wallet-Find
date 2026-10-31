@@ -53,7 +53,7 @@ export default function WalletPage({ onNavigate }: Props) {
     withdrawDisabled: fa ? "برداشت هنوز غیرفعال است؛ امکان ارسال ارز از کیف پول وجود ندارد." : "Withdrawals are currently disabled. Outgoing transfers are unavailable.",
     depositReady: fa ? "واریز فعال است. پس از تأییدهای شبکه، مبلغ به‌صورت خودکار به موجودی شما اضافه می‌شود." : "Deposits are enabled. Funds are credited automatically after the required network confirmations.",
     depositWarning: fa ? "فقط USDT0 روی شبکه Polygon PoS ارسال کنید. ارسال توکن یا شبکهٔ اشتباه ممکن است باعث از دست رفتن دارایی شود." : "Send only USDT0 on Polygon PoS. Using another token or network may result in lost funds.",
-    confirmations: fa ? "تأییدهای لازم شبکه" : "Required confirmations",
+    confirmations: fa ? "پس از تأییدهای لازم شبکه" : "After required network confirmations",
     contract: fa ? "قرارداد رسمی توکن" : "Token contract",
     noMinimum: fa ? "حداقل مبلغ واریز در کد فعلی تعیین نشده است؛ هر واریز مثبتِ شناسایی‌شده قابل ثبت است." : "No minimum deposit is configured in the current code; any detected positive transfer can be recorded.",
     status: fa ? "وضعیت واریز" : "Deposit status",
@@ -146,7 +146,7 @@ export default function WalletPage({ onNavigate }: Props) {
           {address ? <><code>{address}</code><button type="button" onClick={() => void copyAddress()} disabled={!depositEnabled || copied}>{copied ? "✓ " + copy.copied : copy.copyAddress}</button></> : <p>{copy.depositDisabled}</p>}
         </div>
         {depositEnabled ? <>
-          <div className="wallet-network-row"><span>{copy.confirmations}</span><strong>128</strong></div>
+          <div className="wallet-network-row"><span>{copy.confirmations}</span><strong>{copy.confirmations}</strong></div>
           <div className="wallet-deposit-address"><label>{copy.contract}</label><code>{POLYGON_USDT0_CONTRACT}</code></div>
           <div className="wallet-warning"><strong>⚠ {fa ? "نکتهٔ مهم" : "Important"}</strong><p>{copy.depositWarning}</p></div>
           <p className="wallet-deposit-minimum">{copy.noMinimum}</p>
