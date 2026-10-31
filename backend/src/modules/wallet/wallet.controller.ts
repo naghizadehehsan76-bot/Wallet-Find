@@ -127,3 +127,32 @@ export async function allocateTreasuryPrizeFundHandler(req: AuthenticatedRequest
     return res.status(known.includes(message) ? 400 : 502).json({ success: false, error: known.includes(message) ? message : "TREASURY_ALLOCATION_FAILED" });
   }
 }
+
+
+export async function reconcileTreasuryAccountingHandler(req: AuthenticatedRequest, res: Response) {
+  const adminUserId = req.user?.userId;
+  if (!adminUserId) return res.status(401).json({ success: false, error: "AUTHENTICATION_REQUIRED" });
+  try {
+    const { reconcileTreasuryAccounting } = await import("./wallet.service.js");
+    const data = await reconcileTreasuryAccounting(adminUserId);
+    return res.json({ success: true, data });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    const known = ["TREASURY_RPC_NOT_CONFIGURED", "TREASURY_NOT_READY"];
+    console.error("Treasury accounting reconciliation failed", error);
+    return res.status(known.includes(message) ? 503 : 502).json({
+      success: false,
+      error: known.includes(message) ? message : "TREASURY_RECONCILIATION_FAILED",
+    });
+  }
+}
+
+export async function getLatestTreasuryReconciliationHandler(_req: AuthenticatedRequest, res: Response) {
+  try {
+    const { getLatestTreasuryAccountingReconciliation } = await import("./wallet.service.js");
+    return res.json({ success: true, data: await getLatestTreasuryAccountingReconciliation() });
+  } catch (error) {
+    console.error("Latest treasury reconciliation lookup failed", error);
+    return res.status(503).json({ success: false, error: "TREASURY_RECONCILIATION_UNAVAILABLE" });
+  }
+}
