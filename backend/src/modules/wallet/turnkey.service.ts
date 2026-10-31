@@ -88,6 +88,19 @@ export function isTurnkeyConfigured(): boolean {
  * Creates the single Polygon prize treasury wallet once.
  * This operation creates an address only: it does not move funds or enable payouts.
  */
+export async function getPrizeTreasuryWallet() {
+  const existing = await prisma.treasuryWallet.findUnique({ where: { id: "polygon-prize-treasury" } });
+  if (!existing) return null;
+  return {
+    created: false,
+    walletId: existing.turnkeyWalletId ?? "",
+    address: existing.address ?? "",
+    chainId: existing.chainId,
+    networkKey: existing.networkKey,
+    status: existing.status,
+  };
+}
+
 export async function provisionPrizeTreasuryWallet() {
   const key = "polygon-prize-treasury";
   const existing = await prisma.treasuryWallet.findUnique({ where: { id: key } });
