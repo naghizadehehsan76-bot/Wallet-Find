@@ -661,6 +661,10 @@ export type PrizeTreasuryProvisionResult = {
   status: string;
 };
 
+export async function getPrizeTreasuryWallet(): Promise<PrizeTreasuryProvisionResult | null> {
+  return request<PrizeTreasuryProvisionResult | null>("/admin/treasury-wallet", {}, true);
+}
+
 export async function provisionPrizeTreasuryWallet(): Promise<PrizeTreasuryProvisionResult> {
   return request<PrizeTreasuryProvisionResult>("/admin/treasury-wallet/provision", {
     method: "POST",
