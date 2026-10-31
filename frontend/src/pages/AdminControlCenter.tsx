@@ -6,6 +6,8 @@ import {
   getAdminOverview,
   getAdminProjectProfitPool,
   getAdminWallets,
+  provisionPrizeTreasuryWallet,
+  type PrizeTreasuryProvisionResult,
   getAdminUsers,
   getAdminSourceVisitReport,
   getActiveContest,
@@ -123,6 +125,8 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [projectProfitPool, setProjectProfitPool] = useState<AdminProjectProfitPool | null>(null);
   const [settings, setSettings] = useState<SystemSettingRecord[]>([]);
   const [wallets, setWallets] = useState<AdminWalletSummary[]>([]);
+  const [treasury, setTreasury] = useState<PrizeTreasuryProvisionResult | null>(null);
+  const [treasuryLoading, setTreasuryLoading] = useState(false);
   const [users, setUsers] = useState<AdminUserSummary[]>([]);
   const [userSearch, setUserSearch] = useState("");
   const [logs, setLogs] = useState<AdminAuditLog[]>([]);
@@ -161,6 +165,19 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     support: fa ? "پشتیبانی و گزارش‌ها" : "Support & reports",
     settings: fa ? "تنظیمات سایت" : "Site settings",
     wallets: fa ? "کیف پول و تراکنش‌ها" : "Wallets & transactions",
+    treasuryTitle: fa ? "خزانه اصلی جوایز (Polygon)" : "Main prize treasury (Polygon)",
+    treasuryHelp: fa ? "این عملیات یک کیف پول مستقل برای نگهداری جوایز در Turnkey ایجاد می‌کند. فعلاً هیچ وجهی منتقل نمی‌شود و قابلیت برداشت یا امضای تراکنش فعال نمی‌شود." : "This creates a dedicated Turnkey wallet for prize funds. No funds are transferred and signing or withdrawals are not enabled.",
+    treasuryCreate: fa ? "ساخت خزانه Polygon" : "Create Polygon treasury",
+    treasuryCreating: fa ? "در حال ساخت خزانه…" : "Creating treasury…",
+    treasuryCreated: fa ? "خزانه با موفقیت ساخته شد." : "Treasury created successfully.",
+    treasuryExisting: fa ? "خزانه از قبل وجود داشت؛ همان آدرس بازیابی شد." : "An existing treasury was found; its address was returned.",
+    treasuryAddress: fa ? "آدرس عمومی خزانه" : "Treasury public address",
+    treasuryWalletId: fa ? "شناسه کیف پول Turnkey" : "Turnkey wallet ID",
+    treasuryStatus: fa ? "وضعیت" : "Status",
+    treasuryError: fa ? "ساخت خزانه ناموفق بود. تنظیمات Turnkey و گزارش سرور را بررسی کن." : "Treasury creation failed. Check Turnkey configuration and server logs.",
+    treasuryInProgress: fa ? "ساخت خزانه در حال انجام است؛ کمی بعد دوباره وضعیت را بررسی کن." : "Treasury creation is in progress; check again shortly.",
+    treasuryNeedsReview: fa ? "وضعیت ساخت قبلی نیازمند بررسی دستی است؛ دوباره تلاش نکن." : "A previous creation attempt needs manual review; do not retry.",
+    turnkeyNotConfigured: fa ? "تنظیمات اتصال Turnkey روی سرور کامل نیست." : "Turnkey is not fully configured on the server.",
     walletBalance: fa ? "موجودی ثبت‌شده" : "Recorded balance",
     walletAvailable: fa ? "موجودی قابل برداشت" : "Available balance",
     pendingDeposits: fa ? "واریزهای در انتظار" : "Pending deposits",
@@ -404,6 +421,24 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     setScheduledChallengeStart(dateTimeForChallengeNumber(value, challengeScheduleAnchor));
     setError("");
     setNotice("");
+  }
+
+  async function handleProvisionTreasury() {
+    setTreasuryLoading(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await provisionPrizeTreasuryWallet();
+      setTreasury(result);
+      setNotice(result.created ? copy.treasuryCreated : copy.treasuryExisting);
+    } catch (cause) {
+      const code = cause instanceof Error ? cause.message : "";
+      setError(code === "TREASURY_CREATION_IN_PROGRESS" ? copy.treasuryInProgress :
+        code === "TREASURY_CREATION_REQUIRES_REVIEW" ? copy.treasuryNeedsReview :
+        code === "TURNKEY_NOT_CONFIGURED" ? copy.turnkeyNotConfigured : copy.treasuryError);
+    } finally {
+      setTreasuryLoading(false);
+    }
   }
 
   async function handleSave(event: FormEvent) {
@@ -983,6 +1018,26 @@ export default function AdminControlCenter({ onNavigate }: Props) {
 
         {section === "wallets" && (
           <>
+          <section className="admin-panel">
+            <h2>{copy.treasuryTitle}</h2>
+            <p className="admin-footnote">{copy.treasuryHelp}</p>
+            <button className="cta-button" type="button" onClick={() => void handleProvisionTreasury()} disabled={treasuryLoading}>
+              {treasuryLoading ? copy.treasuryCreating : copy.treasuryCreate}
+            </button>
+            {treasury && (
+              <div className="admin-settings-list">
+                <article className="admin-setting-row">
+                  <div>
+                    <strong>{copy.treasuryAddress}</strong>
+                    <code>{treasury.address}</code>
+                    <small>{copy.treasuryWalletId}: {treasury.walletId}</small>
+                    <small>{copy.treasuryStatus}: {treasury.status} · Polygon ({treasury.chainId})</small>
+                  </div>
+                  <button type="button" onClick={() => { void navigator.clipboard?.writeText(treasury.address); setNotice(fa ? "آدرس کپی شد." : "Address copied."); }}>{fa ? "کپی آدرس" : "Copy address"}</button>
+                </article>
+              </div>
+            )}
+          </section>
           <WalletWithdrawalReview fa={fa} />
           <section className="admin-panel">
             <h2>{copy.wallets}</h2>
