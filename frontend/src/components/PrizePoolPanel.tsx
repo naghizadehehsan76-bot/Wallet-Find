@@ -1,108 +1,39 @@
-import { useCallback, useEffect, useState } from "react";
-import { getPrizePool, settlePrizePool, type PrizePoolResult } from "../services/api";
+import { useEffect, useState } from "react";
+import { getPrizePool, type PrizePoolResult } from "../services/api";
 
 type Props = { contestId: string; contestStatus: string };
 
-export default function PrizePoolPanel({ contestId, contestStatus }: Props) {
+export default function PrizePoolPanel({ contestId }: Props) {
   const [data, setData] = useState<PrizePoolResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const isFa = typeof document !== "undefined" && document.documentElement.dir === "rtl";
-
-  const refresh = useCallback(async () => {
-    try {
-      setData(await getPrizePool(contestId));
-      setError("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "REQUEST_FAILED");
-    }
-  }, [contestId]);
 
   useEffect(() => {
     let cancelled = false;
     void getPrizePool(contestId)
-      .then((result) => {
-        if (!cancelled) setData(result);
-      })
+      .then((result) => { if (!cancelled) setData(result); })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : "REQUEST_FAILED");
       });
     return () => { cancelled = true; };
   }, [contestId]);
 
-  async function settle() {
-    if (!window.confirm(isFa ? "تسویهٔ آزمایشی ثبت شود؟ هیچ پرداخت واقعی انجام نمی‌شود." : "Run simulated settlement? No real payment will be made.")) return;
-    setLoading(true); setMessage(""); setError("");
-    try {
-      const result = await settlePrizePool(contestId);
-      setMessage(isFa
-        ? `تسویهٔ آزمایشی انجام شد؛ ${result.awards.length} جایزه ثبت شد.`
-        : `Simulated settlement complete; ${result.awards.length} awards recorded.`);
-      await refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "REQUEST_FAILED");
-    } finally { setLoading(false); }
-  }
-
   return (
     <section className="info-panel" style={{ display: "block", marginTop: 24, textAlign: "start" }}>
-      <div className="eyebrow">{isFa ? "حسابداری آزمایشی" : "TEST ACCOUNTING"}</div>
-      <h2 className="page-title" style={{ marginTop: 8 }}>{isFa ? "صندوق جایزه" : "Prize pool"}</h2>
+      <div className="eyebrow">{isFa ? "صندوق جوایز" : "PRIZE POOL"}</div>
+      <h2 className="page-title" style={{ marginTop: 8 }}>{isFa ? "موجودی واقعی جوایز" : "Real prize funds"}</h2>
       <p className="hero-description">
         {isFa
-          ? "تمام مبالغ این بخش فرضی‌اند. این محیط فقط دفترکل و محاسبهٔ جایزه را آزمایش می‌کند و هیچ USDT واقعی ارسال نمی‌شود."
-          : "All amounts here are simulated. This tests accounting only and never transfers real USDT."}
+          ? "فقط تتر واقعیِ واریزشده و تأییدشده در صندوق قابل تخصیص است. برای هر دور حداکثر ۱ تتر از موجودی واقعی کنار گذاشته می‌شود. تا زمان فعال‌شدن واریز و پرداخت واقعی، هیچ جایزه‌ای پرداخت نمی‌شود."
+          : "Only real, confirmed USDT deposits can be allocated. Up to 1 USDT is reserved from the real global fund for each round. No prizes are paid until real deposit and payout processing is operational."}
       </p>
       {data && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, margin: "16px 0" }}>
-          {[
-            [isFa ? "موجودی کل" : "Total pool", data.pool.total],
-            [isFa ? "قابل تخصیص" : "Available", data.pool.available],
-            [isFa ? "جوایز ثبت‌شده" : "Participant awards", data.pool.awarded],
-            [isFa ? "سهم صندوق سود سهام پروژه" : "Project dividend contribution", data.pool.projectProfit],
-            [isFa ? "ماندهٔ استفاده‌نشده (بدون انتقال)" : "Unused balance (not rolled over)", data.pool.unused],
-          ].map(([label, value]) => (
-            <div key={label} className="stat-card"><strong>{value} USDT</strong><span>{label}</span></div>
-          ))}
+          <div className="stat-card"><strong>{data.pool.total} USDT</strong><span>{isFa ? "موجودی اختصاص‌یافته به این دور" : "Allocated to this round"}</span></div>
+          <div className="stat-card"><strong>{data.pool.available} USDT</strong><span>{isFa ? "موجودی قابل‌استفاده" : "Available"}</span></div>
         </div>
       )}
-      <p className="admin-footnote" style={{ marginBottom: 12 }}>
-        {isFa
-          ? "هر روز UTC، مبلغ ۵۰ USDT فرضی به صندوق کلی افزوده می‌شود. با شروع هر دور، ۱٪ موجودی قابل‌استفادهٔ صندوق کلی به این دور اختصاص می‌یابد؛ ماندهٔ این دور به دور بعد منتقل نمی‌شود."
-          : "Each UTC day, 50 simulated USDT is added to the global fund. When a round starts, 1% of the available global balance is allocated to that round; unused round balances do not roll over."}
-      </p>
-      <div className="cta-group">
-        <button className="cta-button" type="button" onClick={() => void settle()} disabled={loading || data?.pool.status === "SETTLED" || (contestStatus !== "finished" && data?.pool.status !== "SETTLED")}>
-          {isFa ? "محاسبه و ثبت جوایز آزمایشی" : "Calculate & record test awards"}
-        </button>
-      </div>
-      {data?.pool.status !== "SETTLED" && contestStatus !== "finished" && (
-        <p className="inline-feedback">{isFa ? "برای تسویه، ابتدا دور را پایان بده." : "Finish the round before settlement."}</p>
-      )}
-      {message && <p className="inline-feedback">{message}</p>}
       {error && <p className="inline-feedback">{error}</p>}
-      {data?.awards.length ? (
-        <div style={{ marginTop: 14 }}>
-          <h3 className="section-heading">{isFa ? "جوایز محاسبه‌شده (فرضی)" : "Calculated awards (simulated)"}</h3>
-          {data.awards.map((award, index) => (
-            <div key={`${award.username}-${index}`} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--line)" }}>
-              <span>{award.rank}. {award.username}</span><strong>{award.amount} USDT</strong>
-            </div>
-          ))}
-        </div>
-      ) : null}
-      {data?.ledger.length ? (
-        <details style={{ marginTop: 12 }}>
-          <summary>{isFa ? "نمایش دفترکل تراکنش‌های فرضی" : "View simulated ledger"}</summary>
-          {data.ledger.map((entry) => (
-            <div key={entry.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--line)" }}>
-              <strong>{entry.type} · {entry.amount} USDT</strong>
-              <div className="date">{entry.note}</div>
-            </div>
-          ))}
-        </details>
-      ) : null}
     </section>
   );
 }
