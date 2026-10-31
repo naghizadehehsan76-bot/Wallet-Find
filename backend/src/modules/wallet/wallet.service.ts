@@ -103,6 +103,81 @@ export async function requestWalletWithdrawal(userId: string, rawAmount: unknown
   }, { isolationLevel: "Serializable" });
 }
 
+export async function getAdminWithdrawalRequests() {
+  const rows = await prisma.walletWithdrawal.findMany({
+    where: { status: { in: ["REQUESTED", "APPROVED"] } },
+    orderBy: { requestedAt: "asc" },
+    take: 200,
+    include: { user: { select: { username: true, email: true } } },
+  });
+  return rows.map((row) => ({
+    id: row.id,
+    userId: row.userId,
+    username: row.user.username,
+    email: row.user.email,
+    network: "Polygon PoS",
+    asset: "USDT0",
+    destinationAddress: row.destinationAddress,
+    amount: formatMicro(BigInt(row.amountMicro)),
+    fee: formatMicro(BigInt(row.feeMicro)),
+    status: row.status,
+    requestedAt: row.requestedAt,
+    transactionHash: row.transactionHash,
+  }));
+}
+
+export async function reviewWalletWithdrawal(
+  withdrawalId: string,
+  decision: "APPROVE" | "REJECT",
+  adminUserId: string,
+  reason?: string,
+) {
+  if (!withdrawalId || withdrawalId.length > 128) throw new Error("WITHDRAWAL_NOT_FOUND");
+  const normalizedReason = reason?.trim().slice(0, 500) || null;
+  return prisma.$transaction(async (tx) => {
+    const withdrawal = await tx.walletWithdrawal.findUnique({
+      where: { id: withdrawalId },
+      select: { id: true, userId: true, amountMicro: true, status: true },
+    });
+    if (!withdrawal) throw new Error("WITHDRAWAL_NOT_FOUND");
+    if (withdrawal.status !== "REQUESTED") throw new Error("WITHDRAWAL_ALREADY_REVIEWED");
+
+    const nextStatus = decision === "APPROVE" ? "APPROVED" : "CANCELLED";
+    const changed = await tx.walletWithdrawal.updateMany({
+      where: { id: withdrawalId, status: "REQUESTED" },
+      data: { status: nextStatus },
+    });
+    if (changed.count !== 1) throw new Error("WITHDRAWAL_ALREADY_REVIEWED");
+
+    if (decision === "REJECT") {
+      await tx.walletTransaction.updateMany({
+        where: {
+          userId: withdrawal.userId,
+          referenceKey: `withdrawal-request:${withdrawal.id}`,
+          type: "WITHDRAWAL_REQUEST",
+          status: "PENDING",
+        },
+        data: { status: "CANCELLED", note: normalizedReason ? `Withdrawal request rejected: ${normalizedReason}` : "Withdrawal request rejected by admin" },
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        userId: adminUserId,
+        action: decision === "APPROVE" ? "WALLET_WITHDRAWAL_APPROVED" : "WALLET_WITHDRAWAL_REJECTED",
+        entity: "WalletWithdrawal",
+        entityId: withdrawal.id,
+        metadata: {
+          userId: withdrawal.userId,
+          amountMicro: withdrawal.amountMicro.toString(),
+          reason: normalizedReason,
+        },
+      },
+    });
+    return { id: withdrawal.id, status: nextStatus };
+  }, { isolationLevel: "Serializable" });
+}
+
 export async function getAdminWallets() {
   const users = await prisma.user.findMany({
     select: {

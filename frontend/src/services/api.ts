@@ -669,3 +669,35 @@ export type AdminUserSummary = {
 export async function getAdminUsers(): Promise<AdminUserSummary[]> {
   return request<AdminUserSummary[]>("/admin/users", {}, true);
 }
+
+
+export type AdminWalletWithdrawal = {
+  id: string;
+  userId: string;
+  username: string;
+  email: string;
+  network: string;
+  asset: string;
+  destinationAddress: string;
+  amount: string;
+  fee: string;
+  status: "REQUESTED" | "APPROVED";
+  requestedAt: string;
+  transactionHash: string | null;
+};
+
+export async function getAdminWalletWithdrawals(): Promise<AdminWalletWithdrawal[]> {
+  return request<AdminWalletWithdrawal[]>("/admin/wallet-withdrawals", {}, true);
+}
+
+export async function reviewAdminWalletWithdrawal(
+  withdrawalId: string,
+  decision: "APPROVE" | "REJECT",
+  reason?: string,
+): Promise<{ id: string; status: string }> {
+  return request<{ id: string; status: string }>(
+    `/admin/wallet-withdrawals/${encodeURIComponent(withdrawalId)}/review`,
+    { method: "POST", body: JSON.stringify({ decision, reason }) },
+    true,
+  );
+}

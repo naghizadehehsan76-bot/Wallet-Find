@@ -20,6 +20,7 @@ import {
   type SystemSettingRecord,
 } from "../services/api";
 import LoadingIndicator from "../components/LoadingIndicator";
+import WalletWithdrawalReview from "../components/WalletWithdrawalReview";
 
 type AdminDestination = "home" | "admin-manage";
 
@@ -981,6 +982,8 @@ export default function AdminControlCenter({ onNavigate }: Props) {
         )}
 
         {section === "wallets" && (
+          <>
+          <WalletWithdrawalReview fa={fa} />
           <section className="admin-panel">
             <h2>{copy.wallets}</h2>
             <p className="admin-footnote">{copy.walletNote}</p>
@@ -1000,6 +1003,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
               </div>
             )}
           </section>
+          </>
         )}
 
         {section === "settings" && (
