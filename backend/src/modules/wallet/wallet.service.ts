@@ -32,8 +32,8 @@ export async function getWallet(userId: string) {
     return { currency: "USDT", simulatedOnly: false, turnkeyConfigured: isTurnkeyConfigured(), walletAddress: turnkeyWallet?.address ?? null, supportedNetworks: turnkeyWallet?.networkAccounts.map((network) => ({ chainId: network.chainId, networkKey: network.networkKey, depositEnabled: network.depositEnabled, withdrawalEnabled: network.withdrawalEnabled })) ?? [], balance: formatMicro(balances.balance), availableBalance: formatMicro(balances.availableBalance), transactions: transactions.map(serializeTransaction) };
   });
 }
-export async function requestWalletDeposit(): Promise<never> { throw new Error("REAL_DEPOSITS_NOT_CONFIGURED"); }
-export async function requestWalletWithdrawal(): Promise<never> { throw new Error("REAL_WITHDRAWALS_NOT_CONFIGURED"); }
+export async function requestWalletDeposit(_userId: string, _rawAmount: unknown): Promise<never> { throw new Error("REAL_DEPOSITS_NOT_CONFIGURED"); }
+export async function requestWalletWithdrawal(_userId: string, _rawAmount: unknown): Promise<never> { throw new Error("REAL_WITHDRAWALS_NOT_CONFIGURED"); }
 
 export async function getAdminWallets() {
   const users = await prisma.user.findMany({
