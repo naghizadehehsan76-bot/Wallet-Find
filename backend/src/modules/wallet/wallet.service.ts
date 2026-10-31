@@ -5,9 +5,11 @@ import prisma from "../../config/prisma.js";
 import { isTurnkeyConfigured, provisionTurnkeyWallet } from "./turnkey.service.js";
 const MICRO = 1_000_000n;
 function formatMicro(value: bigint): string {
-  const whole = value / MICRO;
-  const fraction = (value % MICRO).toString().padStart(6, "0");
-  return whole.toString() + "." + fraction;
+  const negative = value < 0n;
+  const absolute = negative ? -value : value;
+  const whole = absolute / MICRO;
+  const fraction = (absolute % MICRO).toString().padStart(6, "0");
+  return (negative ? "-" : "") + whole.toString() + "." + fraction;
 }
 async function calculateBalances(tx: any, userId: string) {
   const rows = await tx.walletTransaction.findMany({ where: { userId }, select: { type: true, status: true, amountMicro: true } });
