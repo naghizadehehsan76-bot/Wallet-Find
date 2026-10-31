@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { isAddress, parseUnits } from "viem";
+import { createPublicClient, http, isAddress, parseUnits, parseAbi } from "viem";
+import { polygon } from "viem/chains";
 import prisma from "../../config/prisma.js";
 import { isTurnkeyConfigured, provisionTurnkeyWallet } from "./turnkey.service.js";
 const MICRO = 1_000_000n;
@@ -204,4 +205,60 @@ export async function getAdminWallets() {
       pendingWithdrawalRequests: user.walletTransactions.filter((row) => row.type === "WITHDRAWAL_REQUEST" && row.status === "PENDING").length,
     };
   });
+}
+
+
+const TREASURY_ID = "polygon-prize-treasury";
+const USDT0_ADDRESS = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f" as const;
+const USDT0_ABI = parseAbi(["function balanceOf(address account) view returns (uint256)"]);
+
+async function readTreasuryChainBalance(address: string) {
+  const rpc = process.env.POLYGON_RPC_URL?.trim();
+  if (!rpc) throw new Error("TREASURY_RPC_NOT_CONFIGURED");
+  const client = createPublicClient({ chain: polygon, transport: http(rpc) });
+  const balance = await client.readContract({ address: USDT0_ADDRESS, abi: USDT0_ABI, functionName: "balanceOf", args: [address as `0x${string}`] });
+  return BigInt(balance);
+}
+
+export async function getTreasuryPrizeFundingSnapshot() {
+  const treasury = await prisma.treasuryWallet.findUnique({ where: { id: TREASURY_ID } });
+  if (!treasury || treasury.status !== "ACTIVE" || !treasury.address) throw new Error("TREASURY_NOT_READY");
+  const [onChainBalance, fund, fundingRows] = await Promise.all([
+    readTreasuryChainBalance(treasury.address),
+    prisma.globalPrizeFund.findUnique({ where: { id: "global" } }),
+    prisma.globalPrizeLedger.aggregate({ where: { type: "TREASURY_FUNDING" }, _sum: { amountMicro: true } }),
+  ]);
+  const reserved = BigInt(fundingRows._sum.amountMicro ?? 0n);
+  return {
+    treasuryAddress: treasury.address,
+    chainId: 137,
+    asset: "USDT0",
+    onChainBalance: formatMicro(onChainBalance),
+    allocatedToPrizeFund: formatMicro(reserved),
+    unallocatedTreasuryBalance: formatMicro(onChainBalance > reserved ? onChainBalance - reserved : 0n),
+    prizeFundBalance: formatMicro(BigInt(fund?.balanceMicro ?? 0n)),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export async function allocateTreasuryToPrizeFund(rawAmount: unknown, adminUserId: string) {
+  if (typeof rawAmount !== "string" && typeof rawAmount !== "number") throw new Error("INVALID_ALLOCATION_AMOUNT");
+  const amountText = String(rawAmount).trim();
+  if (!/^\\d+(\\.\\d{1,6})?$/.test(amountText)) throw new Error("INVALID_ALLOCATION_AMOUNT");
+  const amount = parseUnits(amountText, 6);
+  if (amount <= 0n) throw new Error("INVALID_ALLOCATION_AMOUNT");
+  const snapshot = await getTreasuryPrizeFundingSnapshot();
+  const liveBalance = parseUnits(snapshot.onChainBalance, 6);
+  if (amount > liveBalance) throw new Error("INSUFFICIENT_TREASURY_BALANCE");
+  return prisma.$transaction(async (tx) => {
+    await tx.globalPrizeFund.upsert({ where: { id: "global" }, update: {}, create: { id: "global" } });
+    const prior = await tx.globalPrizeLedger.aggregate({ where: { type: "TREASURY_FUNDING" }, _sum: { amountMicro: true } });
+    const alreadyReserved = BigInt(prior._sum.amountMicro ?? 0n);
+    if (alreadyReserved + amount > liveBalance) throw new Error("INSUFFICIENT_UNALLOCATED_TREASURY_BALANCE");
+    const referenceKey = "treasury-prize-funding:" + randomUUID();
+    const fund = await tx.globalPrizeFund.update({ where: { id: "global" }, data: { balanceMicro: { increment: amount }, totalFundedMicro: { increment: amount } } });
+    await tx.globalPrizeLedger.create({ data: { type: "TREASURY_FUNDING", amountMicro: amount, effectiveAt: new Date(), referenceKey, note: "Admin internal allocation from Polygon treasury; no on-chain transfer" } });
+    await tx.auditLog.create({ data: { userId: adminUserId, action: "TREASURY_PRIZE_FUND_ALLOCATION", entity: "GlobalPrizeFund", entityId: "global", metadata: { amountMicro: amount.toString(), treasuryAddress: snapshot.treasuryAddress } } });
+    return { amount: formatMicro(amount), treasuryAddress: snapshot.treasuryAddress, chainId: 137, asset: "USDT0", onChainBalance: snapshot.onChainBalance, allocatedToPrizeFund: formatMicro(alreadyReserved + amount), unallocatedTreasuryBalance: formatMicro(liveBalance - alreadyReserved - amount), prizeFundBalance: formatMicro(BigInt(fund.balanceMicro)), updatedAt: new Date().toISOString() };
+  }, { isolationLevel: "Serializable" });
 }

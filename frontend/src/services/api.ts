@@ -717,3 +717,25 @@ export async function reviewAdminWalletWithdrawal(
     true,
   );
 }
+
+
+export type TreasuryPrizeFundingSnapshot = {
+  treasuryAddress: string;
+  chainId: number;
+  asset: string;
+  onChainBalance: string;
+  allocatedToPrizeFund: string;
+  unallocatedTreasuryBalance: string;
+  prizeFundBalance: string;
+  updatedAt: string;
+};
+
+export async function getTreasuryPrizeFunding(): Promise<TreasuryPrizeFundingSnapshot> {
+  return request<TreasuryPrizeFundingSnapshot>("/admin/treasury-wallet/prize-funding", {}, true);
+}
+
+export async function allocateTreasuryPrizeFunding(amount: string): Promise<TreasuryPrizeFundingSnapshot & { amount: string }> {
+  return request<TreasuryPrizeFundingSnapshot & { amount: string }>("/admin/treasury-wallet/allocate-prize-fund", {
+    method: "POST", body: JSON.stringify({ amount }),
+  }, true);
+}

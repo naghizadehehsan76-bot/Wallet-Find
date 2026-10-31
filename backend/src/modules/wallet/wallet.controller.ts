@@ -82,3 +82,28 @@ export async function provisionPrizeTreasuryWalletHandler(_req: AuthenticatedReq
     return res.status(502).json({ success: false, error: "TREASURY_PROVISIONING_FAILED" });
   }
 }
+
+
+export async function getTreasuryPrizeFundingHandler(_req: AuthenticatedRequest, res: Response) {
+  try {
+    const { getTreasuryPrizeFundingSnapshot } = await import("./wallet.service.js");
+    return res.json({ success: true, data: await getTreasuryPrizeFundingSnapshot() });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    const known = ["TREASURY_RPC_NOT_CONFIGURED", "TREASURY_NOT_READY"];
+    return res.status(known.includes(message) ? 503 : 502).json({ success: false, error: known.includes(message) ? message : "TREASURY_BALANCE_UNAVAILABLE" });
+  }
+}
+
+export async function allocateTreasuryPrizeFundHandler(req: AuthenticatedRequest, res: Response) {
+  const adminUserId = req.user?.userId;
+  if (!adminUserId) return res.status(401).json({ success: false, error: "AUTHENTICATION_REQUIRED" });
+  try {
+    const { allocateTreasuryToPrizeFund } = await import("./wallet.service.js");
+    return res.json({ success: true, data: await allocateTreasuryToPrizeFund(req.body?.amount, adminUserId) });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    const known = ["INVALID_ALLOCATION_AMOUNT", "INSUFFICIENT_TREASURY_BALANCE", "INSUFFICIENT_UNALLOCATED_TREASURY_BALANCE", "TREASURY_RPC_NOT_CONFIGURED", "TREASURY_NOT_READY"];
+    return res.status(known.includes(message) ? 400 : 502).json({ success: false, error: known.includes(message) ? message : "TREASURY_ALLOCATION_FAILED" });
+  }
+}
