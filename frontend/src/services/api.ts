@@ -746,6 +746,32 @@ export type TreasuryPrizeFundingSnapshot = {
   updatedAt: string;
 };
 
+export type AdminTreasuryDeposit = {
+  id: string;
+  transactionHash: string;
+  logIndex: number;
+  blockNumber: string;
+  fromAddress: string;
+  toAddress: string;
+  amount: string | null;
+  status: "DETECTED" | "CONFIRMING" | "CONFIRMED" | "CREDITED" | "REORGED" | "IGNORED";
+  confirmationCount: number;
+  detectedAt: string;
+  confirmedAt: string | null;
+  creditedAt: string | null;
+};
+
+export type AdminTreasuryDepositsResult = {
+  treasuryAddress: string;
+  chainId: number;
+  deposits: AdminTreasuryDeposit[];
+  generatedAt: string;
+};
+
+export async function getAdminTreasuryDeposits(): Promise<AdminTreasuryDepositsResult> {
+  return request<AdminTreasuryDepositsResult>("/admin/treasury-wallet/deposits", {}, true);
+}
+
 export async function getTreasuryPrizeFunding(): Promise<TreasuryPrizeFundingSnapshot> {
   return request<TreasuryPrizeFundingSnapshot>("/admin/treasury-wallet/prize-funding", {}, true);
 }
