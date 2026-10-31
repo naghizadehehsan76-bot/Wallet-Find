@@ -6,13 +6,6 @@ function formatMicro(value: bigint): string {
   const fraction = (value % MICRO).toString().padStart(6, "0");
   return whole.toString() + "." + fraction;
 }
-function parseAmount(value: unknown): bigint {
-  if (typeof value !== "string" || !/^\d{1,12}(\.\d{1,6})?$/.test(value.trim())) throw new Error("INVALID_WALLET_AMOUNT");
-  const [whole = "0", fraction = ""] = value.trim().split(".");
-  const amount = BigInt(whole) * MICRO + BigInt(fraction.padEnd(6, "0") || "0");
-  if (amount <= 0n) throw new Error("INVALID_WALLET_AMOUNT");
-  return amount;
-}
 async function calculateBalances(tx: any, userId: string) {
   const rows = await tx.walletTransaction.findMany({ where: { userId }, select: { type: true, status: true, amountMicro: true } });
   let balance = 0n, pendingWithdrawals = 0n;
