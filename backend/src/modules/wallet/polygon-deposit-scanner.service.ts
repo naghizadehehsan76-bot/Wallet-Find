@@ -168,71 +168,86 @@ export async function scanPolygonUsdtDepositsOnce() {
 
         const unique = { chainId, transactionHash: log.transactionHash, logIndex: log.logIndex };
         if (wallet) {
-          const existing = await prisma.walletDeposit.findUnique({ where: { chainId_transactionHash_logIndex: unique } });
-          if (!existing) {
-            await prisma.walletDeposit.create({
-              data: {
-                userId: wallet.walletAccount.userId,
-                walletAccountId: wallet.walletAccountId,
-                walletNetworkAccountId: wallet.id,
-                chainAssetId: asset.id,
-                chainId,
-                transactionHash: log.transactionHash,
-                logIndex: log.logIndex,
-                blockNumber: log.blockNumber,
-                blockHash: log.blockHash,
-                fromAddress: log.args.from.toLowerCase(),
-                toAddress: recipientAddress,
-                rawAmount: log.args.value.toString(),
-                amountMicro,
-                status: "CONFIRMING",
-                confirmationCount: Number(latestBlock - log.blockNumber + 1n),
-              },
-            });
+          // PostgreSQL enforces the compound unique key during insertion. With
+          // skipDuplicates, concurrent/repeated scans cannot create duplicate rows
+          // and a duplicate log does not abort the whole scan.
+          const inserted = await prisma.walletDeposit.createMany({
+            data: [{
+              userId: wallet.walletAccount.userId,
+              walletAccountId: wallet.walletAccountId,
+              walletNetworkAccountId: wallet.id,
+              chainAssetId: asset.id,
+              chainId,
+              transactionHash: log.transactionHash,
+              logIndex: log.logIndex,
+              blockNumber: log.blockNumber,
+              blockHash: log.blockHash,
+              fromAddress: log.args.from.toLowerCase(),
+              toAddress: recipientAddress,
+              rawAmount: log.args.value.toString(),
+              amountMicro,
+              status: "CONFIRMING",
+              confirmationCount: Number(latestBlock - log.blockNumber + 1n),
+            }],
+            skipDuplicates: true,
+          });
+          if (inserted.count === 1) {
             detected++;
-          } else if (existing.status === "CONFIRMING" || existing.status === "CONFIRMED") {
-            await prisma.walletDeposit.update({
-              where: { id: existing.id },
-              data: {
-                confirmationCount: Number(latestBlock - log.blockNumber + 1n),
-                blockHash: log.blockHash,
-              },
+          } else {
+            const existing = await prisma.walletDeposit.findUnique({
+              where: { chainId_transactionHash_logIndex: unique },
+              select: { id: true, status: true },
             });
+            if (existing && (existing.status === "CONFIRMING" || existing.status === "CONFIRMED")) {
+              await prisma.walletDeposit.updateMany({
+                where: { id: existing.id, status: { in: ["CONFIRMING", "CONFIRMED"] } },
+                data: {
+                  confirmationCount: Number(latestBlock - log.blockNumber + 1n),
+                  blockHash: log.blockHash,
+                },
+              });
+            }
           }
           // CREDITED and REORGED user records are intentionally never reset by rescans.
         }
 
         if (isTreasuryRecipient && treasury) {
-          const existingTreasuryDeposit = await prisma.treasuryDeposit.findUnique({
-            where: { chainId_transactionHash_logIndex: unique },
+          // The database compound unique constraint is the final arbiter. This
+          // insert is atomic and safely ignores a log already stored by another scan.
+          const insertedTreasury = await prisma.treasuryDeposit.createMany({
+            data: [{
+              treasuryWalletId: treasury.id,
+              chainAssetId: asset.id,
+              chainId,
+              transactionHash: log.transactionHash,
+              logIndex: log.logIndex,
+              blockNumber: log.blockNumber,
+              blockHash: log.blockHash,
+              fromAddress: log.args.from.toLowerCase(),
+              toAddress: recipientAddress,
+              rawAmount: log.args.value.toString(),
+              amountMicro,
+              status: "CONFIRMING",
+              confirmationCount: Number(latestBlock - log.blockNumber + 1n),
+            }],
+            skipDuplicates: true,
           });
-          if (!existingTreasuryDeposit) {
-            await prisma.treasuryDeposit.create({
-              data: {
-                treasuryWalletId: treasury.id,
-                chainAssetId: asset.id,
-                chainId,
-                transactionHash: log.transactionHash,
-                logIndex: log.logIndex,
-                blockNumber: log.blockNumber,
-                blockHash: log.blockHash,
-                fromAddress: log.args.from.toLowerCase(),
-                toAddress: recipientAddress,
-                rawAmount: log.args.value.toString(),
-                amountMicro,
-                status: "CONFIRMING",
-                confirmationCount: Number(latestBlock - log.blockNumber + 1n),
-              },
-            });
+          if (insertedTreasury.count === 1) {
             treasuryDetected++;
-          } else if (existingTreasuryDeposit.status === "CONFIRMING" || existingTreasuryDeposit.status === "CONFIRMED") {
-            await prisma.treasuryDeposit.update({
-              where: { id: existingTreasuryDeposit.id },
-              data: {
-                confirmationCount: Number(latestBlock - log.blockNumber + 1n),
-                blockHash: log.blockHash,
-              },
+          } else {
+            const existingTreasuryDeposit = await prisma.treasuryDeposit.findUnique({
+              where: { chainId_transactionHash_logIndex: unique },
+              select: { id: true, status: true },
             });
+            if (existingTreasuryDeposit && (existingTreasuryDeposit.status === "CONFIRMING" || existingTreasuryDeposit.status === "CONFIRMED")) {
+              await prisma.treasuryDeposit.updateMany({
+                where: { id: existingTreasuryDeposit.id, status: { in: ["CONFIRMING", "CONFIRMED"] } },
+                data: {
+                  confirmationCount: Number(latestBlock - log.blockNumber + 1n),
+                  blockHash: log.blockHash,
+                },
+              });
+            }
           }
           // Treasury ledger credit is intentionally deferred to the confirmation/accounting stage.
         }
