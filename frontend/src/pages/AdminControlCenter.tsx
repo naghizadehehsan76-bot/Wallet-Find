@@ -8,6 +8,8 @@ import {
   getAdminWallets,
   provisionPrizeTreasuryWallet,
   getPrizeTreasuryWallet,
+  getTreasuryPrizeFunding,
+  type TreasuryPrizeFundingSnapshot,
   type PrizeTreasuryProvisionResult,
   getAdminUsers,
   getAdminSourceVisitReport,
@@ -128,6 +130,9 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [wallets, setWallets] = useState<AdminWalletSummary[]>([]);
   const [treasury, setTreasury] = useState<PrizeTreasuryProvisionResult | null>(null);
   const [treasuryLoading, setTreasuryLoading] = useState(false);
+  const [treasuryFunding, setTreasuryFunding] = useState<TreasuryPrizeFundingSnapshot | null>(null);
+  const [treasuryFundingLoading, setTreasuryFundingLoading] = useState(false);
+  const [treasuryFundingError, setTreasuryFundingError] = useState(false);
   const [users, setUsers] = useState<AdminUserSummary[]>([]);
   const [userSearch, setUserSearch] = useState("");
   const [logs, setLogs] = useState<AdminAuditLog[]>([]);
@@ -381,14 +386,29 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   useEffect(() => {
     if (section !== "wallets") return;
     let cancelled = false;
+    let interval: number | undefined;
+    const refresh = async () => {
+      setTreasuryFundingLoading(true);
+      try {
+        const snapshot = await getTreasuryPrizeFunding();
+        if (!cancelled) { setTreasuryFunding(snapshot); setTreasuryFundingError(false); }
+      } catch {
+        if (!cancelled) setTreasuryFundingError(true);
+      } finally {
+        if (!cancelled) setTreasuryFundingLoading(false);
+      }
+    };
     const timer = window.setTimeout(() => {
       getPrizeTreasuryWallet()
         .then((result) => { if (!cancelled) setTreasury(result); })
         .catch(() => { if (!cancelled) setTreasury(null); });
+      void refresh();
+      interval = window.setInterval(() => { void refresh(); }, 30_000);
     }, 0);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
+      if (interval !== undefined) window.clearInterval(interval);
     };
   }, [section]);
 
@@ -1059,6 +1079,19 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                     <code>{treasury.address}</code>
                     <small>{copy.treasuryWalletId}: {treasury.walletId}</small>
                     <small>{copy.treasuryStatus}: {treasury.status} · Polygon ({treasury.chainId})</small>
+                    <div className="admin-treasury-live-balance">
+                      <strong>{copy.treasuryLiveBalance}</strong>
+                      {treasuryFunding ? (
+                        <div className="admin-settings-list">
+                          <code>{Number(treasuryFunding.onChainBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</code>
+                          <small>{copy.treasuryAllocated}: {Number(treasuryFunding.allocatedToPrizeFund).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</small>
+                          <small>{copy.treasuryFree}: {Number(treasuryFunding.unallocatedTreasuryBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</small>
+                          <small>{copy.internalPrizeBalance}: {Number(treasuryFunding.prizeFundBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</small>
+                          <small>{fa ? "آخرین بررسی: " : "Last checked: "}{new Date(treasuryFunding.updatedAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>
+                        </div>
+                      ) : <small>{treasuryFundingLoading ? (fa ? "در حال دریافت موجودی از شبکه Polygon…" : "Loading balance from Polygon…") : treasuryFundingError ? (fa ? "دریافت موجودی ناموفق بود؛ اتصال RPC شبکه Polygon را بررسی کن." : "Could not load balance; check the Polygon RPC connection.") : "—"}</small>}
+                      <button type="button" onClick={() => { setTreasuryFundingLoading(true); void getTreasuryPrizeFunding().then((snapshot) => { setTreasuryFunding(snapshot); setTreasuryFundingError(false); }).catch(() => setTreasuryFundingError(true)).finally(() => setTreasuryFundingLoading(false)); }} disabled={treasuryFundingLoading}>{fa ? "به‌روزرسانی موجودی" : "Refresh balance"}</button>
+                    </div>
                   </div>
                   <button type="button" onClick={() => { void navigator.clipboard?.writeText(treasury.address); setNotice(fa ? "آدرس کپی شد." : "Address copied."); }}>{fa ? "کپی آدرس" : "Copy address"}</button>
                 </article>
