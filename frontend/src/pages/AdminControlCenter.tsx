@@ -1109,13 +1109,16 @@ export default function AdminControlCenter({ onNavigate }: Props) {
               </button>
             )}
             {treasury && (
-              <div className="admin-settings-list">
-                <article className="admin-setting-row">
-                  <div>
-                    <strong>{copy.treasuryAddress}</strong>
+              <div className="admin-settings-list admin-treasury-card-list">
+                <article className="admin-setting-row admin-wallet-row admin-treasury-wallet-card">
+                  <div className="admin-treasury-wallet-card__content">
+                    <div className="admin-treasury-wallet-card__heading">
+                      <strong>{copy.treasuryTitle}</strong>
+                      <span className="wallet-network-status wallet-network-status--active">{treasury.status} · Polygon ({treasury.chainId})</span>
+                    </div>
+                    <small>{copy.treasuryAddress}</small>
                     <code>{treasury.address}</code>
                     <small>{copy.treasuryWalletId}: {treasury.walletId}</small>
-                    <small>{copy.treasuryStatus}: {treasury.status} · Polygon ({treasury.chainId})</small>
                     <div className="admin-treasury-live-balance">
                       <strong>{copy.treasuryLiveBalance}</strong>
                       {treasuryFunding ? (
@@ -1160,16 +1163,18 @@ export default function AdminControlCenter({ onNavigate }: Props) {
               </div>
               {treasuryDepositsError ? <p className="admin-empty">{copy.treasuryDepositError}</p> :
                 treasuryDeposits.length === 0 ? <p className="admin-empty">{copy.treasuryNoDeposits}</p> :
-                <div className="admin-treasury-deposit-list">
+                <div className="admin-settings-list admin-treasury-deposit-list">
                   {treasuryDeposits.map((deposit) => (
-                    <article className="admin-treasury-deposit-row" key={deposit.id}>
-                      <div className="admin-treasury-deposit-row__top">
-                        <strong>{deposit.amount ?? "—"} USDT0</strong>
-                        <span className={deposit.status === "CREDITED" ? "wallet-network-status wallet-network-status--active" : "wallet-network-status"}>{deposit.status}</span>
+                    <article className="admin-setting-row admin-wallet-row admin-treasury-deposit-card" key={deposit.id}>
+                      <div className="admin-treasury-deposit-card__content">
+                        <div className="admin-treasury-deposit-row__top">
+                          <strong>{deposit.amount ?? "—"} USDT0</strong>
+                          <span className={deposit.status === "CREDITED" ? "wallet-network-status wallet-network-status--active" : "wallet-network-status"}>{deposit.status}</span>
+                        </div>
+                        <small>{copy.treasuryDepositConfirmations}: {deposit.confirmationCount.toLocaleString(fa ? "fa-IR" : "en-US")} / 128</small>
+                        <small>{copy.treasuryDepositDate}: {new Date(deposit.detectedAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>
+                        <code>{deposit.transactionHash}</code>
                       </div>
-                      <small>{copy.treasuryDepositConfirmations}: {deposit.confirmationCount.toLocaleString(fa ? "fa-IR" : "en-US")} / 128</small>
-                      <small>{copy.treasuryDepositDate}: {new Date(deposit.detectedAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>
-                      <code>{deposit.transactionHash}</code>
                       <a href={"https://polygonscan.com/tx/" + deposit.transactionHash} target="_blank" rel="noreferrer">{fa ? "مشاهده تراکنش در PolygonScan" : "View on PolygonScan"}</a>
                     </article>
                   ))}
