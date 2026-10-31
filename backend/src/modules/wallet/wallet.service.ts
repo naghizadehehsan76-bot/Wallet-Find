@@ -144,7 +144,7 @@ export async function executeApprovedWalletWithdrawal(withdrawalId: string, admi
   try {
     const client = polygonRpcClient();
     const amount = BigInt(withdrawal.amountMicro);
-    const accountAddress = withdrawal.walletAccount.address as \`0x\${string}\`;
+    const accountAddress = withdrawal.walletAccount.address as `0x${string}`;
     const tokenBalance = await client.readContract({
       address: polygonUsdt0Contract, abi: polygonUsdt0Abi,
       functionName: "balanceOf", args: [accountAddress],
@@ -152,7 +152,7 @@ export async function executeApprovedWalletWithdrawal(withdrawalId: string, admi
     if (tokenBalance < amount) throw new Error("INSUFFICIENT_ONCHAIN_USDT0");
     const gas = await client.estimateContractGas({
       account: accountAddress, address: polygonUsdt0Contract, abi: polygonUsdt0Abi,
-      functionName: "transfer", args: [withdrawal.destinationAddress as \`0x\${string}\`, amount],
+      functionName: "transfer", args: [withdrawal.destinationAddress as `0x${string}`, amount],
     });
     const gasPrice = await client.getGasPrice();
     const estimatedGasCost = gas * gasPrice;
@@ -164,7 +164,7 @@ export async function executeApprovedWalletWithdrawal(withdrawalId: string, admi
     const hash = await signer.writeContract({
       account: signer.account!, chain: polygon, address: polygonUsdt0Contract,
       abi: polygonUsdt0Abi, functionName: "transfer",
-      args: [withdrawal.destinationAddress as \`0x\${string}\`, amount], gas, gasPrice,
+      args: [withdrawal.destinationAddress as `0x${string}`, amount], gas, gasPrice,
     });
     await prisma.$transaction(async (tx) => {
       const changed = await tx.walletWithdrawal.updateMany({
@@ -202,7 +202,7 @@ export async function reconcileBroadcastWalletWithdrawal(withdrawalId: string, a
   if (!withdrawal) throw new Error("WITHDRAWAL_NOT_FOUND");
   if (withdrawal.status !== "BROADCAST" || !withdrawal.transactionHash) throw new Error("WITHDRAWAL_NOT_BROADCAST");
   const client = polygonRpcClient();
-  const receipt = await client.getTransactionReceipt({ hash: withdrawal.transactionHash as \`0x\${string}\` });
+  const receipt = await client.getTransactionReceipt({ hash: withdrawal.transactionHash as `0x${string}` });
   const latestBlock = await client.getBlockNumber();
   const canonicalBlock = await client.getBlock({ blockNumber: receipt.blockNumber });
   if (canonicalBlock.hash.toLowerCase() !== receipt.blockHash.toLowerCase()) throw new Error("WITHDRAWAL_RECEIPT_NOT_CANONICAL");
