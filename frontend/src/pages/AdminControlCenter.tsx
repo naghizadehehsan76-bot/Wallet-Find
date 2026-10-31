@@ -666,7 +666,8 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       visit.externalVerificationProvider,
       visit.externalReferenceId,
     ]);
-    const csv = "\uFEFF" + [headers, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\\r\\n");
+    const csv = "\uFEFF" + [headers, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\r
+");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -1061,31 +1062,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                 </article>
               </div>
             )}
-          </section>
-          <section className="admin-panel">
-            <h2>{fa ? "موجودی خزانه و تخصیص به صندوق جوایز" : "Treasury balance and prize-fund allocation"}</h2>
-            <p className="admin-footnote">{fa ? "موجودی زنده USDT0 روی شبکه Polygon و مبالغ ثبت‌شده در حسابداری داخلی." : "Live USDT0 balance on Polygon and amounts recorded in the internal ledger."}</p>
-            <button type="button" onClick={() => void refreshTreasuryFunding()} disabled={treasuryFundingLoading}>
-              {treasuryFundingLoading ? (fa ? "در حال دریافت..." : "Refreshing...") : (fa ? "به‌روزرسانی موجودی" : "Refresh balances")}
-            </button>
-            {treasuryFunding && (
-              <div className="admin-settings-list">
-                <article className="admin-setting-row"><strong>{fa ? "موجودی روی شبکه" : "On-chain balance"}</strong><span>{treasuryFunding.onChainBalance} USDT0</span></article>
-                <article className="admin-setting-row"><strong>{fa ? "تخصیص‌یافته قبلی" : "Previously allocated"}</strong><span>{treasuryFunding.allocatedToPrizeFund} USDT0</span></article>
-                <article className="admin-setting-row"><strong>{fa ? "موجودی آزاد خزانه" : "Unallocated treasury balance"}</strong><span>{treasuryFunding.unallocatedTreasuryBalance} USDT0</span></article>
-                <article className="admin-setting-row"><strong>{fa ? "موجودی صندوق جوایز" : "Prize-fund balance"}</strong><span>{treasuryFunding.prizeFundBalance} USDT0</span></article>
-                <article className="admin-setting-row"><strong>{fa ? "آدرس خزانه" : "Treasury address"}</strong><code>{treasuryFunding.treasuryAddress}</code></article>
-              </div>
-            )}
-            <div className="admin-form-row">
-              <label>{fa ? "مبلغ تخصیص از خزانه به صندوق جوایز (USDT0)" : "Amount to allocate from treasury to prize fund (USDT0)"}
-                <input type="number" min="0.000001" step="0.000001" value={treasuryFundingAmount} onChange={(event) => setTreasuryFundingAmount(event.target.value)} />
-              </label>
-              <button className="cta-button" type="button" onClick={() => void handleAllocateTreasuryFunding()} disabled={treasuryFundingLoading || !treasuryFundingAmount.trim() || Number(treasuryFundingAmount) <= 0}>
-                {treasuryFundingLoading ? (fa ? "در حال انجام..." : "Processing...") : (fa ? "تخصیص به صندوق جوایز" : "Allocate to prize fund")}
-              </button>
-            </div>
-            <p className="admin-footnote">{fa ? "این عملیات فقط ثبت حسابداری داخلی است و هیچ انتقالی روی بلاک‌چین انجام نمی‌دهد." : "This is an internal ledger allocation only; it does not make a blockchain transfer."}</p>
           </section>
           <WalletWithdrawalReview fa={fa} />
           <section className="admin-panel">
