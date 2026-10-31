@@ -38,7 +38,7 @@ export async function requestWalletDeposit(_userId: string, _rawAmount: unknown)
 export async function requestWalletWithdrawal(userId: string, rawAmount: unknown, rawDestination: unknown) {
   if (typeof rawAmount !== "string" && typeof rawAmount !== "number") throw new Error("INVALID_WALLET_AMOUNT");
   const amountText = String(rawAmount).trim();
-  if (!/^\\d+(\\.\\d{1,6})?$/.test(amountText)) throw new Error("INVALID_WALLET_AMOUNT");
+  if (!/^\d+(\.\d{1,6})?$/.test(amountText)) throw new Error("INVALID_WALLET_AMOUNT");
   const amountMicro = parseUnits(amountText, 6);
   if (amountMicro <= 0n) throw new Error("INVALID_WALLET_AMOUNT");
   if (typeof rawDestination !== "string" || !isAddress(rawDestination.trim())) throw new Error("INVALID_DESTINATION_ADDRESS");
