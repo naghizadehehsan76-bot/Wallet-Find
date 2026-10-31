@@ -532,7 +532,6 @@ model WalletTransaction {
 
 
 enum GlobalPrizeLedgerType {
-  DAILY_FUNDING
   ROUND_ALLOCATION
   ROUND_UNUSED_RETURN
 }
