@@ -164,6 +164,41 @@ async function reconcileCursorReorg(
 export async function scanPolygonUsdtDepositsOnce() {
   if (process.env.POLYGON_DEPOSIT_SCANNER_ENABLED !== "true") return { skipped: "SCANNER_DISABLED" };
 
+  // Establish a one-time activation boundary before checking whether any
+  // asset or user network account is enabled. This prevents the first enabled
+  // scan from backfilling historical transfers and crediting old deposits.
+  // The cursor is anchored at the confirmation-safe head, so scanning begins
+  // strictly after the scanner's first successful initialization.
+  const bootstrapClient = getClient();
+  const bootstrapLatestBlock = await bootstrapClient.getBlockNumber();
+  const bootstrapSafeHead = bootstrapLatestBlock > BigInt(confirmationsRequired)
+    ? bootstrapLatestBlock - BigInt(confirmationsRequired)
+    : 0n;
+  if (bootstrapSafeHead === 0n) {
+    return { scanned: 0, reason: "WAITING_FOR_SAFE_BOOTSTRAP_BLOCK" };
+  }
+  const existingCursor = await prisma.chainScanCursor.findUnique({ where: { chainId } });
+  if (!existingCursor) {
+    const anchor = await bootstrapClient.getBlock({ blockNumber: bootstrapSafeHead });
+    await prisma.chainScanCursor.createMany({
+      data: [{ chainId, lastBlockNumber: bootstrapSafeHead, lastBlockHash: anchor.hash }],
+      skipDuplicates: true,
+    });
+    const initializedCursor = await prisma.chainScanCursor.findUnique({ where: { chainId } });
+    console.log("Polygon deposit scanner activation boundary initialized", {
+      chainId,
+      lastScannedBlock: initializedCursor?.lastBlockNumber.toString(),
+      nextScanBlock: initializedCursor ? (initializedCursor.lastBlockNumber + 1n).toString() : null,
+      anchorBlockHash: initializedCursor?.lastBlockHash,
+    });
+    return {
+      initialized: true,
+      chainId,
+      lastScannedBlock: initializedCursor?.lastBlockNumber.toString(),
+      nextScanBlock: initializedCursor ? (initializedCursor.lastBlockNumber + 1n).toString() : null,
+    };
+  }
+
   const asset = await prisma.chainAsset.findFirst({
     where: { chainId, depositEnabled: true, canonicalStatus: "ONCHAIN_VERIFIED" },
   });
