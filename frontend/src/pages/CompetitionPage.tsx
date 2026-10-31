@@ -57,8 +57,6 @@ function formatUsdtMicro(value: bigint): string {
   return `${whole}.${fraction}`;
 }
 
-// Mirrors the server's current simulated prize distribution for a live estimate.
-// The scheduler's settled ledger remains the authoritative final amount.
 function estimateCurrentPrize(
   entries: LeaderboardEntry[],
   userId: string,
@@ -954,8 +952,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                               : "Your rank and completion time are from the server. The prize amount could not be loaded and will be retried automatically.")
                           : completionSummary.prizeFinalized
                             ? (isPersian
-                                ? "این مبلغ در دفترکل آزمایشی ثبت شده است؛ پرداخت واقعی رمزارز هنوز فعال نیست."
-                                : "This amount is recorded in the simulated ledger; real crypto payouts are not enabled.")
+                                ? "این مبلغ تا زمان تأیید و فعال‌شدن پرداخت واقعی، جایزهٔ قابل‌برداشت محسوب نمی‌شود."
+                                : "This amount is not a withdrawable prize until real payout processing is enabled.")
                             : (isPersian
                                 ? "رتبه بر اساس زمان ثبت‌شدهٔ سرور است. مبلغ جایزه تا پایان رسمی دور و تسویهٔ خودکار، برآوردی است و ممکن است تغییر کند؛ پرداخت واقعی فعال نیست."
                                 : "Your rank uses server-recorded completion time. The prize is an estimate until the official round ends and automatic settlement completes; real payouts are not enabled.")}
