@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createPublicClient, http, isAddress, parseUnits, parseAbi } from "viem";
 import { polygon } from "viem/chains";
 import prisma from "../../config/prisma.js";
-import { isTurnkeyConfigured, provisionTurnkeyWallet } from "./turnkey.service.js";
+import { createTurnkeySigner, isTurnkeyConfigured, provisionTurnkeyWallet } from "./turnkey.service.js";
 const MICRO = 1_000_000n;
 function formatMicro(value: bigint): string {
   const negative = value < 0n;
@@ -104,6 +104,146 @@ export async function requestWalletWithdrawal(userId: string, rawAmount: unknown
       requestedAt: withdrawal.requestedAt,
     };
   }, { isolationLevel: "Serializable" });
+}
+
+
+const polygonUsdt0Abi = parseAbi(["function transfer(address to, uint256 value) returns (bool)"]);
+const polygonUsdt0Contract = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f" as const;
+const polygonWithdrawalConfirmations = Math.max(32, Number.parseInt(process.env.POLYGON_WITHDRAWAL_CONFIRMATIONS ?? "128", 10) || 128);
+
+function polygonRpcClient() {
+  const rpc = process.env.POLYGON_RPC_URL?.trim();
+  if (!rpc) throw new Error("POLYGON_RPC_NOT_CONFIGURED");
+  return createPublicClient({ chain: polygon, transport: http(rpc, { timeout: 20_000, retryCount: 2 }) });
+}
+
+export async function executeApprovedWalletWithdrawal(withdrawalId: string, adminUserId: string) {
+  if (process.env.POLYGON_WITHDRAWALS_EXECUTION_ENABLED !== "true") throw new Error("REAL_WITHDRAWAL_EXECUTION_DISABLED");
+  if (!withdrawalId || withdrawalId.length > 128) throw new Error("WITHDRAWAL_NOT_FOUND");
+  const withdrawal = await prisma.walletWithdrawal.findUnique({
+    where: { id: withdrawalId },
+    include: { walletAccount: true, networkAccount: true, asset: true },
+  });
+  if (!withdrawal) throw new Error("WITHDRAWAL_NOT_FOUND");
+  if (withdrawal.status !== "APPROVED") throw new Error("WITHDRAWAL_NOT_APPROVED");
+  if (withdrawal.chainId !== 137 || withdrawal.asset.symbol !== "USDT0" ||
+      withdrawal.asset.contractAddress.toLowerCase() !== polygonUsdt0Contract.toLowerCase() ||
+      withdrawal.asset.decimals !== 6 || withdrawal.asset.canonicalStatus !== "ONCHAIN_VERIFIED" ||
+      !withdrawal.asset.withdrawalEnabled || !withdrawal.networkAccount.withdrawalEnabled) {
+    throw new Error("WITHDRAWALS_DISABLED");
+  }
+  if (withdrawal.walletAccount.status !== "ACTIVE") throw new Error("WALLET_NOT_ACTIVE");
+  const claimed = await prisma.walletWithdrawal.updateMany({
+    where: { id: withdrawal.id, status: "APPROVED" },
+    data: { status: "SIGNING" },
+  });
+  if (claimed.count !== 1) throw new Error("WITHDRAWAL_ALREADY_PROCESSING");
+
+  // A SIGNING record is never automatically retried: an ambiguous Turnkey
+  // response may mean the transaction was broadcast but the response was lost.
+  try {
+    const client = polygonRpcClient();
+    const amount = BigInt(withdrawal.amountMicro);
+    const accountAddress = withdrawal.walletAccount.address as \`0x\${string}\`;
+    const tokenBalance = await client.readContract({
+      address: polygonUsdt0Contract, abi: polygonUsdt0Abi,
+      functionName: "balanceOf", args: [accountAddress],
+    });
+    if (tokenBalance < amount) throw new Error("INSUFFICIENT_ONCHAIN_USDT0");
+    const gas = await client.estimateContractGas({
+      account: accountAddress, address: polygonUsdt0Contract, abi: polygonUsdt0Abi,
+      functionName: "transfer", args: [withdrawal.destinationAddress as \`0x\${string}\`, amount],
+    });
+    const gasPrice = await client.getGasPrice();
+    const estimatedGasCost = gas * gasPrice;
+    const nativeBalance = await client.getBalance({ address: accountAddress });
+    if (nativeBalance < estimatedGasCost) throw new Error("INSUFFICIENT_POLYGON_POL_FOR_GAS");
+
+    const signer = await createTurnkeySigner(withdrawal.walletAccount.address, 137);
+    const hash = await signer.writeContract({
+      account: signer.account!, chain: polygon, address: polygonUsdt0Contract,
+      abi: polygonUsdt0Abi, functionName: "transfer",
+      args: [withdrawal.destinationAddress as \`0x\${string}\`, amount], gas, gasPrice,
+    });
+    await prisma.$transaction(async (tx) => {
+      const changed = await tx.walletWithdrawal.updateMany({
+        where: { id: withdrawal.id, status: "SIGNING" },
+        data: { status: "BROADCAST", transactionHash: hash, broadcastAt: new Date() },
+      });
+      if (changed.count !== 1) throw new Error("WITHDRAWAL_STATE_CHANGED_AFTER_BROADCAST");
+      await tx.auditLog.create({
+        data: {
+          userId: adminUserId, action: "WALLET_WITHDRAWAL_BROADCAST",
+          entity: "WalletWithdrawal", entityId: withdrawal.id,
+          metadata: {
+            chainId: 137, asset: "USDT0", transactionHash: hash,
+            destinationAddress: withdrawal.destinationAddress,
+            amountMicro: amount.toString(), estimatedGas: gas.toString(),
+            gasPriceWei: gasPrice.toString(), estimatedGasCostWei: estimatedGasCost.toString(),
+          },
+        },
+      });
+    });
+    return { id: withdrawal.id, status: "BROADCAST", transactionHash: hash, chainId: 137,
+      asset: "USDT0", amount: formatMicro(amount), estimatedGasCostPOLWei: estimatedGasCost.toString() };
+  } catch (error) {
+    console.error("Withdrawal remains SIGNING and requires manual review; automatic retry is disabled", { withdrawalId, error });
+    throw error;
+  }
+}
+
+export async function reconcileBroadcastWalletWithdrawal(withdrawalId: string, adminUserId: string) {
+  const withdrawal = await prisma.walletWithdrawal.findUnique({ where: { id: withdrawalId } });
+  if (!withdrawal) throw new Error("WITHDRAWAL_NOT_FOUND");
+  if (withdrawal.status !== "BROADCAST" || !withdrawal.transactionHash) throw new Error("WITHDRAWAL_NOT_BROADCAST");
+  const client = polygonRpcClient();
+  const receipt = await client.getTransactionReceipt({ hash: withdrawal.transactionHash as \`0x\${string}\` });
+  const latestBlock = await client.getBlockNumber();
+  const canonicalBlock = await client.getBlock({ blockNumber: receipt.blockNumber });
+  if (canonicalBlock.hash.toLowerCase() !== receipt.blockHash.toLowerCase()) throw new Error("WITHDRAWAL_RECEIPT_NOT_CANONICAL");
+  const confirmations = Number(latestBlock - receipt.blockNumber + 1n);
+  if (confirmations < polygonWithdrawalConfirmations) {
+    return { id: withdrawal.id, status: "BROADCAST", transactionHash: withdrawal.transactionHash, confirmations, confirmationsRequired: polygonWithdrawalConfirmations };
+  }
+  if (receipt.status !== "success") {
+    await prisma.$transaction(async (tx) => {
+      await tx.walletWithdrawal.updateMany({
+        where: { id: withdrawal.id, status: "BROADCAST" },
+        data: { status: "FAILED", failureCode: "ONCHAIN_TRANSACTION_REVERTED" },
+      });
+      await tx.walletTransaction.updateMany({
+        where: { userId: withdrawal.userId, referenceKey: "withdrawal-request:" + withdrawal.id, status: "PENDING" },
+        data: { status: "CANCELLED", note: "Withdrawal transaction reverted on Polygon; reserved USDT0 balance released" },
+      });
+      await tx.auditLog.create({
+        data: { userId: adminUserId, action: "WALLET_WITHDRAWAL_REVERTED", entity: "WalletWithdrawal", entityId: withdrawal.id, metadata: { transactionHash: withdrawal.transactionHash, confirmations } },
+      });
+    });
+    return { id: withdrawal.id, status: "FAILED", transactionHash: withdrawal.transactionHash, confirmations };
+  }
+  await prisma.$transaction(async (tx) => {
+    const changed = await tx.walletWithdrawal.updateMany({
+      where: { id: withdrawal.id, status: "BROADCAST", transactionHash: withdrawal.transactionHash },
+      data: { status: "CONFIRMED", confirmedAt: new Date(), failureCode: null },
+    });
+    if (changed.count !== 1) throw new Error("WITHDRAWAL_STATE_CHANGED");
+    await tx.walletTransaction.updateMany({
+      where: { userId: withdrawal.userId, referenceKey: "withdrawal-request:" + withdrawal.id, status: "PENDING" },
+      data: { status: "CANCELLED", note: "Withdrawal reservation settled on canonical Polygon confirmation" },
+    });
+    await tx.walletTransaction.create({
+      data: {
+        userId: withdrawal.userId, type: "WITHDRAWAL", status: "COMPLETED",
+        amountMicro: withdrawal.amountMicro, currency: "USDT",
+        note: "Confirmed Polygon USDT0 withdrawal",
+        referenceKey: "withdrawal-completed:" + withdrawal.id,
+      },
+    });
+    await tx.auditLog.create({
+      data: { userId: adminUserId, action: "WALLET_WITHDRAWAL_CONFIRMED", entity: "WalletWithdrawal", entityId: withdrawal.id, metadata: { transactionHash: withdrawal.transactionHash, confirmations, receiptBlock: receipt.blockNumber.toString() } },
+    });
+  });
+  return { id: withdrawal.id, status: "CONFIRMED", transactionHash: withdrawal.transactionHash, confirmations };
 }
 
 export async function getAdminWithdrawalRequests() {
