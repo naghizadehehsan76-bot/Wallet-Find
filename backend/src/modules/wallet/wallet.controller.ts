@@ -25,6 +25,37 @@ export async function requestWithdrawalHandler(req: AuthenticatedRequest, res: R
   try { return res.status(201).json({ success: true, data: await requestWalletWithdrawal(id, req.body?.amount, req.body?.destinationAddress) }); } catch (error) { return sendError(res, error); }
 }
 
+export async function getAdminWithdrawalRequestsHandler(_req: AuthenticatedRequest, res: Response) {
+  try {
+    const { getAdminWithdrawalRequests } = await import("./wallet.service.js");
+    return res.json({ success: true, data: await getAdminWithdrawalRequests() });
+  } catch (error) {
+    console.error("Admin withdrawal request listing failed", error);
+    return res.status(500).json({ success: false, error: "INTERNAL_SERVER_ERROR" });
+  }
+}
+
+export async function reviewAdminWithdrawalHandler(req: AuthenticatedRequest, res: Response) {
+  const adminUserId = req.user?.userId;
+  if (!adminUserId) return res.status(401).json({ success: false, error: "AUTHENTICATION_REQUIRED" });
+  const decision = req.body?.decision;
+  if (decision !== "APPROVE" && decision !== "REJECT") {
+    return res.status(400).json({ success: false, error: "INVALID_WITHDRAWAL_DECISION" });
+  }
+  const reason = typeof req.body?.reason === "string" ? req.body.reason : undefined;
+  try {
+    const { reviewWalletWithdrawal } = await import("./wallet.service.js");
+    const result = await reviewWalletWithdrawal(String(req.params.withdrawalId), decision, adminUserId, reason);
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+    if (message === "WITHDRAWAL_NOT_FOUND") return res.status(404).json({ success: false, error: message });
+    if (message === "WITHDRAWAL_ALREADY_REVIEWED") return res.status(409).json({ success: false, error: message });
+    console.error("Admin withdrawal review failed", error);
+    return res.status(500).json({ success: false, error: "INTERNAL_SERVER_ERROR" });
+  }
+}
+
 export async function getAdminWalletsHandler(_req: AuthenticatedRequest, res: Response) {
   try {
     const { getAdminWallets } = await import("./wallet.service.js");
