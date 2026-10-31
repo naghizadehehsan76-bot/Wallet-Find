@@ -96,6 +96,8 @@ model User {
   auditLogs           AuditLog[]
   walletTransactions  WalletTransaction[]
   walletAccount       WalletAccount?
+  walletDeposits      WalletDeposit[]
+  walletWithdrawals   WalletWithdrawal[]
   contestSourceVisits ContestSourceVisit[]
 
   createdAt  DateTime @default(now())
@@ -709,6 +711,7 @@ model WalletDeposit {
   confirmedAt          DateTime?
   creditedAt           DateTime?
   updatedAt            DateTime @updatedAt
+  user                 User @relation(fields: [userId], references: [id], onDelete: Restrict)
   walletAccount        WalletAccount @relation(fields: [walletAccountId], references: [id], onDelete: Restrict)
   networkAccount       WalletNetworkAccount @relation(fields: [walletNetworkAccountId], references: [id], onDelete: Restrict)
   asset                ChainAsset @relation(fields: [chainAssetId], references: [id], onDelete: Restrict)
@@ -737,6 +740,7 @@ model WalletWithdrawal {
   broadcastAt           DateTime?
   confirmedAt           DateTime?
   updatedAt             DateTime @updatedAt
+  user                  User @relation(fields: [userId], references: [id], onDelete: Restrict)
   walletAccount         WalletAccount @relation(fields: [walletAccountId], references: [id], onDelete: Restrict)
   networkAccount        WalletNetworkAccount @relation(fields: [walletNetworkAccountId], references: [id], onDelete: Restrict)
   asset                 ChainAsset @relation(fields: [chainAssetId], references: [id], onDelete: Restrict)
