@@ -736,6 +736,11 @@ export type TreasuryPrizeFundingSnapshot = {
   chainId: number;
   asset: string;
   onChainBalance: string;
+  treasuryLedgerBalance: string;
+  accountingDifference: string;
+  accountingStatus: "MATCH" | "MISMATCH";
+  snapshotBlockNumber: string;
+  snapshotBlockHash: string;
   allocatedToPrizeFund: string;
   unallocatedTreasuryBalance: string;
   prizeFundBalance: string;
@@ -749,5 +754,26 @@ export async function getTreasuryPrizeFunding(): Promise<TreasuryPrizeFundingSna
 export async function allocateTreasuryPrizeFunding(amount: string): Promise<TreasuryPrizeFundingSnapshot & { amount: string }> {
   return request<TreasuryPrizeFundingSnapshot & { amount: string }>("/admin/treasury-wallet/allocate-prize-fund", {
     method: "POST", body: JSON.stringify({ amount }),
+  }, true);
+}
+
+export type TreasuryReconciliationResult = {
+  id: string;
+  treasuryAddress: string;
+  chainId: number;
+  asset: string;
+  blockNumber: string;
+  blockHash: string;
+  onChainBalance: string;
+  ledgerBalance: string;
+  difference: string;
+  status: "MATCH" | "MISMATCH";
+  checkedAt: string;
+  note: string;
+};
+
+export async function reconcileTreasuryAccounting(): Promise<TreasuryReconciliationResult> {
+  return request<TreasuryReconciliationResult>("/admin/treasury-wallet/reconciliation", {
+    method: "POST",
   }, true);
 }
