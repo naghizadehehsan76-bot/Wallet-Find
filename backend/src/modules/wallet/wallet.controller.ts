@@ -156,3 +156,37 @@ export async function getLatestTreasuryReconciliationHandler(_req: Authenticated
     return res.status(503).json({ success: false, error: "TREASURY_RECONCILIATION_UNAVAILABLE" });
   }
 }
+
+export async function executeAdminWalletWithdrawalHandler(req: AuthenticatedRequest, res: Response) {
+  const adminUserId = req.user?.userId;
+  if (!adminUserId) return res.status(401).json({ success: false, error: "AUTHENTICATION_REQUIRED" });
+  try {
+    const { executeApprovedWalletWithdrawal } = await import("./wallet.service.js");
+    return res.json({ success: true, data: await executeApprovedWalletWithdrawal(String(req.params.withdrawalId), adminUserId) });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    const known = ["REAL_WITHDRAWAL_EXECUTION_DISABLED", "WITHDRAWAL_NOT_FOUND", "WITHDRAWAL_NOT_APPROVED", "WITHDRAWAL_ALREADY_PROCESSING", "WITHDRAWALS_DISABLED", "WALLET_NOT_ACTIVE", "INSUFFICIENT_ONCHAIN_USDT0", "INSUFFICIENT_POLYGON_POL_FOR_GAS", "POLYGON_RPC_NOT_CONFIGURED", "TURNKEY_NOT_CONFIGURED", "TURNKEY_ENCRYPTION_KEY_NOT_CONFIGURED", "TURNKEY_USER_ORGANIZATION_NOT_FOUND"];
+    if (!known.includes(message)) console.error("Admin withdrawal execution failed; request may require manual review", error);
+    const status = message === "REAL_WITHDRAWAL_EXECUTION_DISABLED" || message === "WITHDRAWALS_DISABLED" ? 503 :
+      message === "WITHDRAWAL_NOT_FOUND" ? 404 :
+      message === "WITHDRAWAL_NOT_APPROVED" || message === "WITHDRAWAL_ALREADY_PROCESSING" ? 409 :
+      known.includes(message) ? 400 : 502;
+    return res.status(status).json({ success: false, error: known.includes(message) ? message : "WITHDRAWAL_EXECUTION_REQUIRES_REVIEW" });
+  }
+}
+
+export async function reconcileAdminWalletWithdrawalHandler(req: AuthenticatedRequest, res: Response) {
+  const adminUserId = req.user?.userId;
+  if (!adminUserId) return res.status(401).json({ success: false, error: "AUTHENTICATION_REQUIRED" });
+  try {
+    const { reconcileBroadcastWalletWithdrawal } = await import("./wallet.service.js");
+    return res.json({ success: true, data: await reconcileBroadcastWalletWithdrawal(String(req.params.withdrawalId), adminUserId) });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message === "WITHDRAWAL_NOT_FOUND") return res.status(404).json({ success: false, error: message });
+    if (message === "WITHDRAWAL_NOT_BROADCAST") return res.status(409).json({ success: false, error: message });
+    console.error("Admin withdrawal confirmation check failed", error);
+    return res.status(502).json({ success: false, error: message === "WITHDRAWAL_RECEIPT_NOT_CANONICAL" ? message : "WITHDRAWAL_CONFIRMATION_CHECK_FAILED" });
+  }
+}
+
