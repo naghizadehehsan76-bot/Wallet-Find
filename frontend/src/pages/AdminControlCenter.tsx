@@ -7,6 +7,9 @@ import {
   getAdminProjectProfitPool,
   getAdminWallets,
   provisionPrizeTreasuryWallet,
+  getTreasuryPrizeFunding,
+  allocateTreasuryPrizeFunding,
+  type TreasuryPrizeFundingSnapshot,
   type PrizeTreasuryProvisionResult,
   getAdminUsers,
   getAdminSourceVisitReport,
@@ -127,6 +130,9 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [wallets, setWallets] = useState<AdminWalletSummary[]>([]);
   const [treasury, setTreasury] = useState<PrizeTreasuryProvisionResult | null>(null);
   const [treasuryLoading, setTreasuryLoading] = useState(false);
+  const [treasuryFunding, setTreasuryFunding] = useState<TreasuryPrizeFundingSnapshot | null>(null);
+  const [treasuryFundingAmount, setTreasuryFundingAmount] = useState("1");
+  const [treasuryFundingLoading, setTreasuryFundingLoading] = useState(false);
   const [users, setUsers] = useState<AdminUserSummary[]>([]);
   const [userSearch, setUserSearch] = useState("");
   const [logs, setLogs] = useState<AdminAuditLog[]>([]);
@@ -166,6 +172,13 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     settings: fa ? "تنظیمات سایت" : "Site settings",
     wallets: fa ? "کیف پول و تراکنش‌ها" : "Wallets & transactions",
     treasuryTitle: fa ? "خزانه اصلی جوایز (Polygon)" : "Main prize treasury (Polygon)",
+    treasuryLiveBalance: fa ? "موجودی واقعی خزانه (USDT0)" : "Live treasury balance (USDT0)",
+    treasuryAllocated: fa ? "تخصیص‌یافته به صندوق جوایز" : "Allocated to prize fund",
+    treasuryFree: fa ? "موجودی آزاد خزانه" : "Unallocated treasury balance",
+    internalPrizeBalance: fa ? "موجودی داخلی صندوق جوایز" : "Internal prize fund balance",
+    fundingAmount: fa ? "مبلغ تخصیص (USDT)" : "Allocation amount (USDT)",
+    allocateFunding: fa ? "تخصیص به صندوق جوایز" : "Allocate to prize fund",
+    fundingHelp: fa ? "آدرس زیر تنها آدرس واریز بلاک‌چینی است. صندوق جوایز حساب داخلی است؛ تخصیص فقط ثبت حسابداری است و انتقالی روی بلاک‌چین انجام نمی‌دهد." : "The treasury address below is the only on-chain deposit address. The prize fund is an internal ledger; allocation is accounting only and makes no blockchain transfer.",
     treasuryHelp: fa ? "این عملیات یک کیف پول مستقل برای نگهداری جوایز در Turnkey ایجاد می‌کند. فعلاً هیچ وجهی منتقل نمی‌شود و قابلیت برداشت یا امضای تراکنش فعال نمی‌شود." : "This creates a dedicated Turnkey wallet for prize funds. No funds are transferred and signing or withdrawals are not enabled.",
     treasuryCreate: fa ? "ساخت خزانه Polygon" : "Create Polygon treasury",
     treasuryCreating: fa ? "در حال ساخت خزانه…" : "Creating treasury…",
@@ -423,7 +436,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     setNotice("");
   }
 
-  async function handleProvisionTreasury() {
+  async function refreshTreasuryFunding() {\n    try { setTreasuryFunding(await getTreasuryPrizeFunding()); } catch { setTreasuryFunding(null); }\n  }\n\n  async function handleAllocateTreasuryFunding() {\n    setTreasuryFundingLoading(true); setError(""); setNotice("");\n    try { const result = await allocateTreasuryPrizeFunding(treasuryFundingAmount); setTreasuryFunding(result); setNotice(fa ? "مبلغ به‌صورت داخلی به صندوق جوایز تخصیص یافت؛ انتقال بلاک‌چینی انجام نشد." : "Amount allocated internally; no blockchain transfer was made."); }\n    catch (cause) { const code = cause instanceof Error ? cause.message : ""; setError(code === "TREASURY_RPC_NOT_CONFIGURED" ? (fa ? "اتصال RPC شبکه Polygon روی سرور تنظیم نشده است." : "Polygon RPC is not configured on the server.") : code === "INSUFFICIENT_UNALLOCATED_TREASURY_BALANCE" || code === "INSUFFICIENT_TREASURY_BALANCE" ? (fa ? "موجودی آزاد خزانه برای این تخصیص کافی نیست." : "Insufficient unallocated treasury balance.") : (fa ? "تخصیص ناموفق بود؛ موجودی شبکه و گزارش سرور را بررسی کن." : "Allocation failed; check the chain balance and server logs.")); }\n    finally { setTreasuryFundingLoading(false); }\n  }\n\n  async function handleProvisionTreasury() {
     setTreasuryLoading(true);
     setError("");
     setNotice("");
