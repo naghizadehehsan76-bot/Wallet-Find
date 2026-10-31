@@ -139,8 +139,8 @@ export async function executeApprovedWalletWithdrawal(withdrawalId: string, admi
   });
   if (claimed.count !== 1) throw new Error("WITHDRAWAL_ALREADY_PROCESSING");
 
-  // A SIGNING record is never automatically retried: an ambiguous Turnkey
-  // response may mean the transaction was broadcast but the response was lost.
+  // A SIGNING record is never automatically retried after the broadcast attempt.
+  let broadcastAttempted = false;
   try {
     const client = polygonRpcClient();
     const amount = BigInt(withdrawal.amountMicro);
@@ -160,6 +160,7 @@ export async function executeApprovedWalletWithdrawal(withdrawalId: string, admi
     if (nativeBalance < estimatedGasCost) throw new Error("INSUFFICIENT_POLYGON_POL_FOR_GAS");
 
     const signer = await createTurnkeySigner(withdrawal.walletAccount.address, 137);
+    broadcastAttempted = true;
     const hash = await signer.writeContract({
       account: signer.account!, chain: polygon, address: polygonUsdt0Contract,
       abi: polygonUsdt0Abi, functionName: "transfer",
@@ -187,7 +188,11 @@ export async function executeApprovedWalletWithdrawal(withdrawalId: string, admi
     return { id: withdrawal.id, status: "BROADCAST", transactionHash: hash, chainId: 137,
       asset: "USDT0", amount: formatMicro(amount), estimatedGasCostPOLWei: estimatedGasCost.toString() };
   } catch (error) {
-    console.error("Withdrawal remains SIGNING and requires manual review; automatic retry is disabled", { withdrawalId, error });
+    if (!broadcastAttempted) {
+      await prisma.walletWithdrawal.updateMany({ where: { id: withdrawal.id, status: "SIGNING" }, data: { status: "APPROVED" } }).catch(() => undefined);
+    } else {
+      console.error("Withdrawal remains SIGNING and requires manual review; automatic retry is disabled", { withdrawalId, error });
+    }
     throw error;
   }
 }
