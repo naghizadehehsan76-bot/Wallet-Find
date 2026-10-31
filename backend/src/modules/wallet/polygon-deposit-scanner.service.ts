@@ -102,7 +102,13 @@ export async function scanPolygonUsdtDepositsOnce() {
       walletAccount: { select: { userId: true, address: true, status: true } },
     },
   });
-  if (!wallets.length) return { skipped: "NO_ENABLED_DEPOSIT_ADDRESSES" };
+  const treasury = await prisma.treasuryWallet.findFirst({
+    where: { chainId, networkKey: "polygon", status: "ACTIVE", address: { not: null } },
+    select: { id: true, address: true },
+  });
+  if (!wallets.length && !treasury?.address) {
+    return { skipped: "NO_ENABLED_USER_OR_ACTIVE_TREASURY_ADDRESSES" };
+  }
 
   const startBlockSetting = process.env.POLYGON_DEPOSIT_START_BLOCK?.trim();
   if (!startBlockSetting || !/^\d+$/.test(startBlockSetting)) {
@@ -127,10 +133,18 @@ export async function scanPolygonUsdtDepositsOnce() {
   }
 
   const recipients = new Map(wallets.map((wallet) => [wallet.walletAccount.address.toLowerCase(), wallet]));
-  const addresses = wallets.map((wallet) => wallet.walletAccount.address as Address);
+  const treasuryAddress = treasury?.address?.toLowerCase() ?? null;
+  if (treasuryAddress && recipients.has(treasuryAddress)) {
+    throw new Error("TREASURY_ADDRESS_COLLIDES_WITH_USER_WALLET");
+  }
+  const addresses = Array.from(new Set([
+    ...wallets.map((wallet) => wallet.walletAccount.address.toLowerCase()),
+    ...(treasuryAddress ? [treasuryAddress] : []),
+  ])) as Address[];
   const tokenAddress = asset.contractAddress as Address;
   let scannedThrough = fromBlock - 1n;
   let detected = 0;
+  let treasuryDetected = 0;
 
   for (let start = fromBlock; start <= safeHead; start += BigInt(chunkSize)) {
     const end = start + BigInt(chunkSize) - 1n > safeHead ? safeHead : start + BigInt(chunkSize) - 1n;
@@ -147,44 +161,83 @@ export async function scanPolygonUsdtDepositsOnce() {
 
       for (const log of logs) {
         if (!log.args.to || !log.args.from || log.args.value === undefined || log.blockNumber === null || !log.blockHash || log.transactionHash === null) continue;
-        const wallet = recipients.get(log.args.to.toLowerCase());
-        if (!wallet) continue;
+        const recipientAddress = log.args.to.toLowerCase();
+        const wallet = recipients.get(recipientAddress);
+        const isTreasuryRecipient = treasuryAddress !== null && recipientAddress === treasuryAddress;
+        if (!wallet && !isTreasuryRecipient) continue;
         const amountMicro = toMicro(log.args.value, asset.decimals);
         if (amountMicro === null || amountMicro <= 0n) continue;
 
         const unique = { chainId, transactionHash: log.transactionHash, logIndex: log.logIndex };
-        const existing = await prisma.walletDeposit.findUnique({ where: { chainId_transactionHash_logIndex: unique } });
-        if (!existing) {
-          await prisma.walletDeposit.create({
-            data: {
-              userId: wallet.walletAccount.userId,
-              walletAccountId: wallet.walletAccountId,
-              walletNetworkAccountId: wallet.id,
-              chainAssetId: asset.id,
-              chainId,
-              transactionHash: log.transactionHash,
-              logIndex: log.logIndex,
-              blockNumber: log.blockNumber,
-              blockHash: log.blockHash,
-              fromAddress: log.args.from.toLowerCase(),
-              toAddress: log.args.to.toLowerCase(),
-              rawAmount: log.args.value.toString(),
-              amountMicro,
-              status: "CONFIRMING",
-              confirmationCount: Number(latestBlock - log.blockNumber + 1n),
-            },
-          });
-          detected++;
-        } else if (existing.status === "CONFIRMING" || existing.status === "CONFIRMED") {
-          await prisma.walletDeposit.update({
-            where: { id: existing.id },
-            data: {
-              confirmationCount: Number(latestBlock - log.blockNumber + 1n),
-              blockHash: log.blockHash,
-            },
-          });
+        if (wallet) {
+          const existing = await prisma.walletDeposit.findUnique({ where: { chainId_transactionHash_logIndex: unique } });
+          if (!existing) {
+            await prisma.walletDeposit.create({
+              data: {
+                userId: wallet.walletAccount.userId,
+                walletAccountId: wallet.walletAccountId,
+                walletNetworkAccountId: wallet.id,
+                chainAssetId: asset.id,
+                chainId,
+                transactionHash: log.transactionHash,
+                logIndex: log.logIndex,
+                blockNumber: log.blockNumber,
+                blockHash: log.blockHash,
+                fromAddress: log.args.from.toLowerCase(),
+                toAddress: recipientAddress,
+                rawAmount: log.args.value.toString(),
+                amountMicro,
+                status: "CONFIRMING",
+                confirmationCount: Number(latestBlock - log.blockNumber + 1n),
+              },
+            });
+            detected++;
+          } else if (existing.status === "CONFIRMING" || existing.status === "CONFIRMED") {
+            await prisma.walletDeposit.update({
+              where: { id: existing.id },
+              data: {
+                confirmationCount: Number(latestBlock - log.blockNumber + 1n),
+                blockHash: log.blockHash,
+              },
+            });
+          }
+          // CREDITED and REORGED user records are intentionally never reset by rescans.
         }
-        // CREDITED and REORGED records are intentionally never reset by rescans.
+
+        if (isTreasuryRecipient && treasury) {
+          const existingTreasuryDeposit = await prisma.treasuryDeposit.findUnique({
+            where: { chainId_transactionHash_logIndex: unique },
+          });
+          if (!existingTreasuryDeposit) {
+            await prisma.treasuryDeposit.create({
+              data: {
+                treasuryWalletId: treasury.id,
+                chainAssetId: asset.id,
+                chainId,
+                transactionHash: log.transactionHash,
+                logIndex: log.logIndex,
+                blockNumber: log.blockNumber,
+                blockHash: log.blockHash,
+                fromAddress: log.args.from.toLowerCase(),
+                toAddress: recipientAddress,
+                rawAmount: log.args.value.toString(),
+                amountMicro,
+                status: "CONFIRMING",
+                confirmationCount: Number(latestBlock - log.blockNumber + 1n),
+              },
+            });
+            treasuryDetected++;
+          } else if (existingTreasuryDeposit.status === "CONFIRMING" || existingTreasuryDeposit.status === "CONFIRMED") {
+            await prisma.treasuryDeposit.update({
+              where: { id: existingTreasuryDeposit.id },
+              data: {
+                confirmationCount: Number(latestBlock - log.blockNumber + 1n),
+                blockHash: log.blockHash,
+              },
+            });
+          }
+          // Treasury ledger credit is intentionally deferred to the confirmation/accounting stage.
+        }
       }
     }
     scannedThrough = end;
@@ -239,6 +292,7 @@ export async function scanPolygonUsdtDepositsOnce() {
   return {
     scanned: Number(scannedThrough - fromBlock + 1n),
     detected,
+    treasuryDetected,
     credited,
     latestBlock: latestBlock.toString(),
     safeHead: safeHead.toString(),
