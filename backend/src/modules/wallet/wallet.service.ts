@@ -1,4 +1,5 @@
 import prisma from "../../config/prisma.js";
+import { isTurnkeyConfigured, provisionTurnkeyWallet } from "./turnkey.service.js";
 const MICRO = 1_000_000n;
 function formatMicro(value: bigint): string {
   const whole = value / MICRO;
@@ -29,10 +30,13 @@ function serializeTransaction(row: any) {
   return { id: row.id, type: row.type, status: row.status, amount: formatMicro(BigInt(row.amountMicro)), currency: row.currency, note: row.note, contestId: row.contestId, createdAt: row.createdAt };
 }
 export async function getWallet(userId: string) {
+  // Provision an EVM address only after server-side Turnkey credentials are configured.
+  // No private key material is returned to the API caller.
+  const turnkeyWallet = isTurnkeyConfigured() ? await provisionTurnkeyWallet(userId) : null;
   return prisma.$transaction(async (tx) => {
     const balances = await calculateBalances(tx, userId);
     const transactions = await tx.walletTransaction.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 100 });
-    return { currency: "USDT", simulatedOnly: true, balance: formatMicro(balances.balance), availableBalance: formatMicro(balances.availableBalance), transactions: transactions.map(serializeTransaction) };
+    return { currency: "USDT", simulatedOnly: true, turnkeyConfigured: isTurnkeyConfigured(), walletAddress: turnkeyWallet?.address ?? null, supportedNetworks: turnkeyWallet?.networkAccounts.map((network) => ({ chainId: network.chainId, networkKey: network.networkKey, depositEnabled: network.depositEnabled, withdrawalEnabled: network.withdrawalEnabled })) ?? [], balance: formatMicro(balances.balance), availableBalance: formatMicro(balances.availableBalance), transactions: transactions.map(serializeTransaction) };
   });
 }
 export async function requestWalletDeposit(userId: string, rawAmount: unknown) {
