@@ -622,6 +622,7 @@ export type WalletResult = {
   currency: string;
   balance: string;
   availableBalance: string;
+  assets?: { USDT0: { balance: string; availableBalance: string }; POL: { balance: string; availableBalance: string } };
   walletAddress?: string | null;
   supportedNetworks?: Array<{
     chainId: number;
