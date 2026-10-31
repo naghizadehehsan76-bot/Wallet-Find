@@ -9,6 +9,7 @@ import {
   provisionPrizeTreasuryWallet,
   getPrizeTreasuryWallet,
   getTreasuryPrizeFunding,
+  reconcileTreasuryAccounting,
   type TreasuryPrizeFundingSnapshot,
   type PrizeTreasuryProvisionResult,
   getAdminUsers,
@@ -133,6 +134,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [treasuryFunding, setTreasuryFunding] = useState<TreasuryPrizeFundingSnapshot | null>(null);
   const [treasuryFundingLoading, setTreasuryFundingLoading] = useState(false);
   const [treasuryFundingError, setTreasuryFundingError] = useState(false);
+  const [treasuryReconciling, setTreasuryReconciling] = useState(false);
   const [users, setUsers] = useState<AdminUserSummary[]>([]);
   const [userSearch, setUserSearch] = useState("");
   const [logs, setLogs] = useState<AdminAuditLog[]>([]);
@@ -480,6 +482,25 @@ export default function AdminControlCenter({ onNavigate }: Props) {
         code === "TURNKEY_NOT_CONFIGURED" ? copy.turnkeyNotConfigured : copy.treasuryError);
     } finally {
       setTreasuryLoading(false);
+    }
+  }
+
+  async function handleTreasuryReconciliation() {
+    setTreasuryReconciling(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await reconcileTreasuryAccounting();
+      const snapshot = await getTreasuryPrizeFunding();
+      setTreasuryFunding(snapshot);
+      setTreasuryFundingError(false);
+      setNotice(result.status === "MATCH"
+        ? (fa ? "تطبیق خزانه موفق بود؛ موجودی شبکه و دفتر حسابداری برابرند." : "Treasury reconciliation passed; on-chain and ledger balances match.")
+        : (fa ? "اختلاف حسابداری خزانه شناسایی شد؛ تا بررسی و اصلاح مجاز، تخصیص جایزه مسدود است." : "Treasury accounting mismatch detected; prize allocation is blocked pending review."));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : (fa ? "تطبیق خزانه ناموفق بود." : "Treasury reconciliation failed."));
+    } finally {
+      setTreasuryReconciling(false);
     }
   }
 
@@ -1087,10 +1108,19 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                           <small>{copy.treasuryAllocated}: {Number(treasuryFunding.allocatedToPrizeFund).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</small>
                           <small>{copy.treasuryFree}: {Number(treasuryFunding.unallocatedTreasuryBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</small>
                           <small>{copy.internalPrizeBalance}: {Number(treasuryFunding.prizeFundBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</small>
+                          <small>{fa ? "موجودی دفتر خزانه: " : "Treasury ledger balance: "}{Number(treasuryFunding.treasuryLedgerBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</small>
+                          <small>{fa ? "اختلاف حسابداری: " : "Accounting difference: "}{Number(treasuryFunding.accountingDifference).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</small>
+                          <strong style={{ color: treasuryFunding.accountingStatus === "MATCH" ? "#20c997" : "#ff6b6b" }}>
+                            {treasuryFunding.accountingStatus === "MATCH" ? (fa ? "وضعیت حسابداری: منطبق" : "Accounting: MATCH") : (fa ? "هشدار: اختلاف حسابداری" : "WARNING: ACCOUNTING MISMATCH")}
+                          </strong>
+                          <small>{fa ? "بلوک مبنای بررسی: " : "Snapshot block: "}{treasuryFunding.snapshotBlockNumber}</small>
                           <small>{fa ? "آخرین بررسی: " : "Last checked: "}{new Date(treasuryFunding.updatedAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>
                         </div>
                       ) : <small>{treasuryFundingLoading ? (fa ? "در حال دریافت موجودی از شبکه Polygon…" : "Loading balance from Polygon…") : treasuryFundingError ? (fa ? "دریافت موجودی ناموفق بود؛ اتصال RPC شبکه Polygon را بررسی کن." : "Could not load balance; check the Polygon RPC connection.") : "—"}</small>}
                       <button type="button" onClick={() => { setTreasuryFundingLoading(true); void getTreasuryPrizeFunding().then((snapshot) => { setTreasuryFunding(snapshot); setTreasuryFundingError(false); }).catch(() => setTreasuryFundingError(true)).finally(() => setTreasuryFundingLoading(false)); }} disabled={treasuryFundingLoading}>{fa ? "به‌روزرسانی موجودی" : "Refresh balance"}</button>
+                      <button className="cta-button" type="button" onClick={() => void handleTreasuryReconciliation()} disabled={treasuryReconciling || treasuryFundingLoading}>
+                        {treasuryReconciling ? (fa ? "در حال تطبیق…" : "Reconciling…") : (fa ? "تطبیق موجودی با دفتر خزانه" : "Reconcile chain balance with treasury ledger")}
+                      </button>
                     </div>
                   </div>
                   <button type="button" onClick={() => { void navigator.clipboard?.writeText(treasury.address); setNotice(fa ? "آدرس کپی شد." : "Address copied."); }}>{fa ? "کپی آدرس" : "Copy address"}</button>
