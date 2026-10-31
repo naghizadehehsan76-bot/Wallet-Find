@@ -164,10 +164,10 @@ export async function getPublicPrizePool(contestId: string) {
   return { pool: result.pool, awards: result.awards };
 }
 
-export async function testFundPrizePool(): Promise<never> {
+export async function testFundPrizePool(_contestId?: string, _rawAmount?: unknown, _actorUserId?: string): Promise<never> {
   throw new Error("TEST_FUNDING_REMOVED");
 }
 
-export async function settlePrizePool(): Promise<never> {
+export async function settlePrizePool(_contestId?: string, _actorUserId?: string): Promise<never> {
   throw new Error("REAL_PAYOUT_PROCESSING_NOT_CONFIGURED");
 }
