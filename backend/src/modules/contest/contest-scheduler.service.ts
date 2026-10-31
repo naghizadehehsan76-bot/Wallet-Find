@@ -1,11 +1,6 @@
 import prisma from "../../config/prisma.js";
 import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
 import { ensureMvpActiveContest, ensureScheduledMvpContest } from "./mvp-contest-seed.service.js";
-import {
-  ensureDailyGlobalPrizeFunding,
-  initializePrizePoolForRound,
-  settlePrizePool,
-} from "./prize-pool.service.js";
 
 /**
  * The scheduler manages round activation/expiry only. Clues are no longer
@@ -13,28 +8,6 @@ import {
  * as their previous answer is accepted as correct.
  */
 export async function runContestScheduler(now = new Date()) {
-  // Daily simulated sponsor/investor funding is idempotent and catches up
-  // any UTC days missed while the service was unavailable.
-  await ensureDailyGlobalPrizeFunding(now);
-
-  // Backfill any started rounds whose allocation was missed during a restart.
-  // Process in start-time order so later rounds don't consume the global pool first.
-  const roundsAwaitingAllocation = await prisma.contest.findMany({
-    where: {
-      status: "ACTIVE",
-      startsAt: { lte: now },
-    },
-    select: { id: true, startsAt: true },
-    orderBy: [{ startsAt: "asc" }, { id: "asc" }],
-  });
-  for (const round of roundsAwaitingAllocation) {
-    try {
-      await initializePrizePoolForRound(round.id, now);
-    } catch (error) {
-      console.error("Round's global prize allocation failed; scheduler will retry.", round.id, error);
-    }
-  }
-
   const scheduled = await prisma.contest.findMany({
     where: { status: "SCHEDULED" },
     select: { id: true, language: true, startsAt: true, endsAt: true },
@@ -89,11 +62,6 @@ export async function runContestScheduler(now = new Date()) {
       if (!contest.endsAt) {
         await prisma.contest.update({ where: { id: contest.id }, data: { endsAt } });
       }
-      try {
-        await initializePrizePoolForRound(contest.id, now);
-      } catch (error) {
-        console.error("Active round's global prize allocation failed; scheduler will retry.", contest.id, error);
-      }
       continue;
     }
 
@@ -108,27 +76,6 @@ export async function runContestScheduler(now = new Date()) {
     });
   }
 
-  // Retry any finished round whose prize ledger is still open or missing.
-  // Settlement is idempotent; settled pools are excluded from this query.
-  const awaitingSettlement = await prisma.contest.findMany({
-    where: {
-      status: "FINISHED",
-      endsAt: { lte: now },
-      OR: [
-        { prizePool: { is: null } },
-        { prizePool: { is: { status: "OPEN" } } },
-      ],
-    },
-    select: { id: true },
-  });
-  for (const contest of awaitingSettlement) {
-    try {
-      await settlePrizePool(contest.id);
-    } catch (error) {
-      console.error("Automatic prize settlement failed; it will be retried.", contest.id, error);
-    }
-  }
-
   const nextRound = await ensureScheduledMvpContest(now, "en");
   let persianActiveReady = false;
   try {
@@ -140,7 +87,6 @@ export async function runContestScheduler(now = new Date()) {
   const nextPersianRound = await ensureScheduledMvpContest(now, "fa");
   return {
     scheduledChecked: scheduled.length,
-    settlementsChecked: awaitingSettlement.length,
     nextRound,
     nextPersianRound,
     persianActiveReady,
