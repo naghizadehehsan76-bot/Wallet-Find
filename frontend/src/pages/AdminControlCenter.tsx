@@ -771,6 +771,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
           {([
             ["overview", copy.overview],
             ["users", copy.usersTab],
+            ["wallets", copy.wallets],
             ["finance", copy.finance],
             ["prizes", copy.prizes],
             ["ads", copy.ads],
