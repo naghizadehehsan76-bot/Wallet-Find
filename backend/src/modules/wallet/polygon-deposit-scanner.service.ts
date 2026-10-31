@@ -40,7 +40,7 @@ async function reconcileCursorReorg(
   const rewindFrom = candidateRewind > initialBlock ? candidateRewind : initialBlock;
   const affected = await prisma.walletDeposit.findMany({
     where: { chainId, blockNumber: { gte: rewindFrom, lte: cursor.lastBlockNumber }, status: { in: ["CONFIRMING", "CONFIRMED", "CREDITED"] } },
-    select: { id: true, blockNumber: true, blockHash: true, status: true, walletAccountId: true },
+    select: { id: true, userId: true, blockNumber: true, blockHash: true, status: true, walletAccountId: true, amountMicro: true },
   });
 
   // Treasury deposits need their own reconciliation because a confirmed
@@ -76,6 +76,22 @@ async function reconcileCursorReorg(
         data: { status: "REORGED" },
       });
       if (changed.count > 0 && deposit.status === "CREDITED") {
+        // Reverse the exact credited amount atomically and idempotently.
+        if (deposit.amountMicro !== null && deposit.amountMicro > 0n) {
+          await tx.walletTransaction.upsert({
+            where: { referenceKey: `polygon-usdt-deposit-reversal:${deposit.id}` },
+            create: {
+              userId: deposit.userId,
+              type: "DEPOSIT_REVERSAL",
+              status: "COMPLETED",
+              amountMicro: deposit.amountMicro,
+              currency: "USDT",
+              note: "Reversal of Polygon USDT0 deposit after canonical chain reorganization",
+              referenceKey: `polygon-usdt-deposit-reversal:${deposit.id}`,
+            },
+            update: {},
+          });
+        }
         await tx.walletAccount.update({
           where: { id: deposit.walletAccountId },
           data: { status: "SUSPENDED" },
@@ -199,13 +215,33 @@ export async function scanPolygonUsdtDepositsOnce() {
     };
   }
 
-  const asset = await prisma.chainAsset.findFirst({
-    where: { chainId, depositEnabled: true, canonicalStatus: "ONCHAIN_VERIFIED" },
+  const assets = await prisma.chainAsset.findMany({
+    where: {
+      chainId,
+      symbol: "USDT0",
+      contractAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f",
+      decimals: 6,
+      depositEnabled: true,
+      canonicalStatus: "ONCHAIN_VERIFIED",
+    },
+    take: 2,
   });
-  if (!asset || asset.decimals !== 6) return { skipped: "NO_VERIFIED_ENABLED_ASSET" };
+  if (assets.length !== 1) return { skipped: assets.length === 0 ? "NO_VERIFIED_ENABLED_USDT0_ASSET" : "AMBIGUOUS_POLYGON_USDT0_ASSET" };
+  const asset = assets[0];
 
   const wallets = await prisma.walletNetworkAccount.findMany({
-    where: { chainId, depositEnabled: true, walletAccount: { status: "ACTIVE" } },
+    where: {
+      chainId,
+      networkKey: "polygon",
+      depositEnabled: true,
+      walletAccount: {
+        status: "ACTIVE",
+        turnkeyOrganizationId: { not: null },
+        turnkeyWalletId: { not: null },
+        turnkeyApiPublicKey: { not: null },
+        turnkeyApiPrivateKeyEncrypted: { not: null },
+      },
+    },
     select: {
       id: true, walletAccountId: true,
       walletAccount: { select: { userId: true, address: true, status: true } },
