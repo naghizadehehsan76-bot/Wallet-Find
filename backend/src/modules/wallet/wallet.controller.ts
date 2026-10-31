@@ -67,6 +67,16 @@ export async function getAdminWalletsHandler(_req: AuthenticatedRequest, res: Re
 }
 
 
+export async function getPrizeTreasuryWalletHandler(_req: AuthenticatedRequest, res: Response) {
+  try {
+    const { getPrizeTreasuryWallet } = await import("./turnkey.service.js");
+    return res.json({ success: true, data: await getPrizeTreasuryWallet() });
+  } catch (error) {
+    console.error("Prize treasury lookup failed", error);
+    return res.status(500).json({ success: false, error: "INTERNAL_SERVER_ERROR" });
+  }
+}
+
 export async function provisionPrizeTreasuryWalletHandler(_req: AuthenticatedRequest, res: Response) {
   try {
     const { provisionPrizeTreasuryWallet } = await import("./turnkey.service.js");
