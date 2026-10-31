@@ -227,7 +227,7 @@ export async function scanPolygonUsdtDepositsOnce() {
     take: 2,
   });
   if (assets.length !== 1) return { skipped: assets.length === 0 ? "NO_VERIFIED_ENABLED_USDT0_ASSET" : "AMBIGUOUS_POLYGON_USDT0_ASSET" };
-  const asset = assets[0];
+  const asset = assets[0]!;
 
   // Explicit operator gate: enable only the verified Polygon USDT0 asset and
   // network accounts belonging to active users with independent Turnkey
