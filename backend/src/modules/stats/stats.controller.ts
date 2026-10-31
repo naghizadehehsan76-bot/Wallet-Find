@@ -33,8 +33,7 @@ export async function getPublicPrizePoolStatsHandler(
       select: { id: true },
     });
 
-    // Initialize the current round before calculating the site-wide total so
-    // the first response includes the newly allocated base pool as well.
+    // Reserve up to 1 USDT only from the verified real global fund.
     const currentPool = currentContest
       ? await getPublicPrizePool(currentContest.id)
       : null;
@@ -49,12 +48,9 @@ export async function getPublicPrizePoolStatsHandler(
       data: {
         totalPool: globalSnapshot.totalPool,
         currentRoundPool: currentPool?.pool.available ?? formatMicroUsdt(0n),
-        dailyContribution: globalSnapshot.dailyContribution,
-        totalDailyFunding: globalSnapshot.totalDailyFunding,
         totalRoundAllocations: globalSnapshot.totalRoundAllocations,
         totalPrizesAwarded: formatMicroUsdt(BigInt(awardedTotal._sum.amountMicro ?? 0n)),
         currency: "USDT",
-        simulatedOnly: true,
         updatedAt: now.toISOString(),
       },
     });
