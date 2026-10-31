@@ -20,7 +20,7 @@ import {
   activateContestHandler,
   finishContestHandler,
 } from "./contest-management.controller.js";
-import { getAdminWalletsHandler, getAdminWithdrawalRequestsHandler, reviewAdminWithdrawalHandler, provisionPrizeTreasuryWalletHandler, getPrizeTreasuryWalletHandler, getTreasuryPrizeFundingHandler, allocateTreasuryPrizeFundHandler, reconcileTreasuryAccountingHandler, getLatestTreasuryReconciliationHandler } from "../wallet/wallet.controller.js";
+import { getAdminWalletsHandler, getAdminWithdrawalRequestsHandler, reviewAdminWithdrawalHandler, provisionPrizeTreasuryWalletHandler, getPrizeTreasuryWalletHandler, getTreasuryPrizeFundingHandler, allocateTreasuryPrizeFundHandler, reconcileTreasuryAccountingHandler, getLatestTreasuryReconciliationHandler, executeAdminWalletWithdrawalHandler, reconcileAdminWalletWithdrawalHandler } from "../wallet/wallet.controller.js";
 import {
   getPrizePoolHandler,
 } from "../contest/prize-pool.controller.js";
@@ -51,6 +51,8 @@ router.post("/treasury-wallet/reconciliation", reconcileTreasuryAccountingHandle
 router.post("/treasury-wallet/allocate-prize-fund", allocateTreasuryPrizeFundHandler);
 router.get("/wallet-withdrawals", getAdminWithdrawalRequestsHandler);
 router.post("/wallet-withdrawals/:withdrawalId/review", reviewAdminWithdrawalHandler);
+router.post("/wallet-withdrawals/:withdrawalId/execute", executeAdminWalletWithdrawalHandler);
+router.post("/wallet-withdrawals/:withdrawalId/reconcile", reconcileAdminWalletWithdrawalHandler);
 router.get("/project-profit-pool", getProjectProfitPoolAdminHandler);
 router.get("/prize-pool/:contestId", getPrizePoolHandler);
 
