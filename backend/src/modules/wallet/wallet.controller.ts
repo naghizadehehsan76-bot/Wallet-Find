@@ -110,7 +110,7 @@ export async function getTreasuryPrizeFundingHandler(_req: AuthenticatedRequest,
     return res.json({ success: true, data: await getTreasuryPrizeFundingSnapshot() });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
-    const known = ["TREASURY_RPC_NOT_CONFIGURED", "TREASURY_NOT_READY", "TREASURY_ACCOUNTING_MISMATCH"];
+    const known = ["TREASURY_RPC_NOT_CONFIGURED", "TREASURY_NOT_READY"];
     return res.status(known.includes(message) ? 503 : 502).json({ success: false, error: known.includes(message) ? message : "TREASURY_BALANCE_UNAVAILABLE" });
   }
 }
@@ -123,7 +123,7 @@ export async function allocateTreasuryPrizeFundHandler(req: AuthenticatedRequest
     return res.json({ success: true, data: await allocateTreasuryToPrizeFund(req.body?.amount, adminUserId) });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
-    const known = ["INVALID_ALLOCATION_AMOUNT", "INSUFFICIENT_TREASURY_BALANCE", "INSUFFICIENT_UNALLOCATED_TREASURY_BALANCE", "TREASURY_RPC_NOT_CONFIGURED", "TREASURY_NOT_READY"];
+    const known = ["INVALID_ALLOCATION_AMOUNT", "INSUFFICIENT_TREASURY_BALANCE", "INSUFFICIENT_UNALLOCATED_TREASURY_BALANCE", "TREASURY_RPC_NOT_CONFIGURED", "TREASURY_NOT_READY", "TREASURY_ACCOUNTING_MISMATCH"];
     return res.status(message === "TREASURY_ACCOUNTING_MISMATCH" ? 409 : known.includes(message) ? 400 : 502).json({ success: false, error: known.includes(message) ? message : "TREASURY_ALLOCATION_FAILED" });
   }
 }
