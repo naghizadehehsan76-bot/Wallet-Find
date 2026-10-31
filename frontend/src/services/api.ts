@@ -41,12 +41,9 @@ export async function getPublicSiteStats(): Promise<PublicSiteStats> {
 export type PublicPrizePoolStats = {
   totalPool: string;
   currentRoundPool: string;
-  dailyContribution: string;
-  totalDailyFunding: string;
   totalRoundAllocations: string;
   totalPrizesAwarded: string;
   currency: "USDT";
-  simulatedOnly: true;
   updatedAt: string;
 };
 
@@ -446,37 +443,6 @@ export async function getPrizePool(contestId: string): Promise<PrizePoolResult> 
   );
 }
 
-export async function testFundPrizePool(
-  contestId: string,
-  amount: string,
-): Promise<{ pool: PrizePoolView }> {
-  return request<{ pool: PrizePoolView }>(
-    `/admin/prize-pool/${encodeURIComponent(contestId)}/test-fund`,
-    { method: "POST", body: JSON.stringify({ amount }) },
-    true,
-  );
-}
-
-export async function settlePrizePool(
-  contestId: string,
-): Promise<{
-  alreadySettled: boolean;
-  pool: PrizePoolView;
-  completedParticipants?: number;
-  awards: PrizePoolAward[];
-}> {
-  return request<{
-    alreadySettled: boolean;
-    pool: PrizePoolView;
-    completedParticipants?: number;
-    awards: PrizePoolAward[];
-  }>(
-    `/admin/prize-pool/${encodeURIComponent(contestId)}/settle`,
-    { method: "POST", body: JSON.stringify({}) },
-    true,
-  );
-}
-
 export async function getContestPrizePool(contestId: string): Promise<{
   pool: PrizePoolView;
   awards: PrizePoolAward[];
@@ -606,7 +572,6 @@ export type AdminProjectProfitPool = {
   balance: string;
   totalContributed: string;
   currency: "USDT";
-  simulatedOnly: true;
   updatedAt: string;
   ledger: Array<{
     id: string;
@@ -655,7 +620,6 @@ export type WalletTransaction = {
 
 export type WalletResult = {
   currency: string;
-  simulatedOnly: boolean;
   balance: string;
   availableBalance: string;
   transactions: WalletTransaction[];
