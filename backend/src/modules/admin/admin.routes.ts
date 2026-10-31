@@ -23,8 +23,6 @@ import {
 import { getAdminWalletsHandler } from "../wallet/wallet.controller.js";
 import {
   getPrizePoolHandler,
-  testFundPrizePoolHandler,
-  settlePrizePoolHandler,
 } from "../contest/prize-pool.controller.js";
 
 const router = Router();
@@ -47,7 +45,5 @@ router.get("/source-visit-report", getContestSourceVisitReportHandler);
 router.get("/wallets", getAdminWalletsHandler);
 router.get("/project-profit-pool", getProjectProfitPoolAdminHandler);
 router.get("/prize-pool/:contestId", getPrizePoolHandler);
-router.post("/prize-pool/:contestId/test-fund", testFundPrizePoolHandler);
-router.post("/prize-pool/:contestId/settle", settlePrizePoolHandler);
 
 export default router;
