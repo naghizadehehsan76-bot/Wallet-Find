@@ -457,7 +457,6 @@ model ContestSourceVisit {
 
 
 enum PrizeLedgerType {
-  TEST_FUNDING
   ROLLOVER_IN
   ROLLOVER_OUT
   AWARD
@@ -475,7 +474,7 @@ model PrizePool {
   awardedMicro BigInt @default(0)
   projectProfitMicro BigInt @default(0)
   returnedToGlobalMicro BigInt @default(0)
-  testOnly Boolean @default(true)
+  testOnly Boolean @default(false)
   status String @default("OPEN")
   settledAt DateTime?
   contest Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
