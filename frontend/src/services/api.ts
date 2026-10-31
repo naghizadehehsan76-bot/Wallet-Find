@@ -772,6 +772,28 @@ export async function getAdminTreasuryDeposits(): Promise<AdminTreasuryDepositsR
   return request<AdminTreasuryDepositsResult>("/admin/treasury-wallet/deposits", {}, true);
 }
 
+export type AdminTreasuryLedgerEntry = {
+  id: string;
+  type: "DEPOSIT_CREDIT" | "DEPOSIT_REVERSAL" | "WITHDRAWAL_DEBIT" | "WITHDRAWAL_REVERSAL" | "GAS_EXPENSE" | "MANUAL_ADJUSTMENT";
+  amount: string;
+  transactionHash: string | null;
+  referenceKey: string;
+  note: string;
+  effectiveAt: string;
+  createdAt: string;
+};
+
+export type AdminTreasuryLedgerHistoryResult = {
+  treasuryAddress: string;
+  chainId: number;
+  transactions: AdminTreasuryLedgerEntry[];
+  generatedAt: string;
+};
+
+export async function getAdminTreasuryLedgerHistory(): Promise<AdminTreasuryLedgerHistoryResult> {
+  return request<AdminTreasuryLedgerHistoryResult>("/admin/treasury-wallet/ledger-history", {}, true);
+}
+
 export async function getTreasuryPrizeFunding(): Promise<TreasuryPrizeFundingSnapshot> {
   return request<TreasuryPrizeFundingSnapshot>("/admin/treasury-wallet/prize-funding", {}, true);
 }
