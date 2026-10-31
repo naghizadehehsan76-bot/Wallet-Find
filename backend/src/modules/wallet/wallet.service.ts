@@ -616,6 +616,33 @@ export async function getAdminTreasuryDeposits() {
   };
 }
 
+export async function getAdminTreasuryLedgerHistory() {
+  const treasury = await prisma.treasuryWallet.findUnique({
+    where: { id: TREASURY_ID },
+    select: { id: true, address: true, status: true, chainId: true },
+  });
+  if (!treasury || treasury.status !== "ACTIVE" || !treasury.address) throw new Error("TREASURY_NOT_READY");
+  const rows = await prisma.treasuryLedger.findMany({
+    where: { treasuryWalletId: treasury.id, currency: "USDT0" },
+    orderBy: [{ effectiveAt: "desc" }, { createdAt: "desc" }],
+    take: 200,
+    select: {
+      id: true, type: true, amountMicro: true, transactionHash: true,
+      referenceKey: true, note: true, effectiveAt: true, createdAt: true,
+    },
+  });
+  return {
+    treasuryAddress: treasury.address,
+    chainId: treasury.chainId,
+    transactions: rows.map((row) => ({
+      id: row.id, type: row.type, amount: formatMicro(row.amountMicro),
+      transactionHash: row.transactionHash, referenceKey: row.referenceKey,
+      note: row.note, effectiveAt: row.effectiveAt.toISOString(), createdAt: row.createdAt.toISOString(),
+    })),
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 export async function allocateTreasuryToPrizeFund(rawAmount: unknown, adminUserId: string) {
   if (typeof rawAmount !== "string" && typeof rawAmount !== "number") throw new Error("INVALID_ALLOCATION_AMOUNT");
   const amountText = String(rawAmount).trim();
