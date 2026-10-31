@@ -412,17 +412,50 @@ const USDT0_ABI = parseAbi(["function balanceOf(address account) view returns (u
 async function readTreasuryChainSnapshot(address: string) {
   const rpc = process.env.POLYGON_RPC_URL?.trim();
   if (!rpc) throw new Error("TREASURY_RPC_NOT_CONFIGURED");
-  const client = createPublicClient({ chain: polygon, transport: http(rpc, { timeout: 20_000, retryCount: 2 }) });
-  const blockNumber = await client.getBlockNumber();
-  const block = await client.getBlock({ blockNumber });
-  const balance = await client.readContract({
-    address: USDT0_ADDRESS,
-    abi: USDT0_ABI,
-    functionName: "balanceOf",
-    args: [address as `0x${string}`],
-    blockNumber,
+  if (!isAddress(address)) throw new Error("TREASURY_ADDRESS_INVALID");
+
+  const client = createPublicClient({
+    chain: polygon,
+    transport: http(rpc, { timeout: 20_000, retryCount: 2 }),
   });
-  return { blockNumber, blockHash: block.hash, balanceMicro: BigInt(balance) };
+
+  // Public Polygon RPC nodes can briefly disagree about the newest block header.
+  // Read from a slightly confirmed head first, then move farther back only when
+  // the provider reports that a requested header is not available.
+  const latestBlock = await client.getBlockNumber();
+  const safeOffsets = [12n, 24n, 48n, 96n];
+  let lastError: unknown;
+
+  for (const offset of safeOffsets) {
+    if (latestBlock <= offset) continue;
+    const blockNumber = latestBlock - offset;
+    try {
+      const block = await client.getBlock({ blockNumber });
+      if (!block.hash) throw new Error("TREASURY_BLOCK_HASH_UNAVAILABLE");
+
+      const balance = await client.readContract({
+        address: USDT0_ADDRESS,
+        abi: USDT0_ABI,
+        functionName: "balanceOf",
+        args: [address],
+        blockNumber,
+      });
+
+      return { blockNumber, blockHash: block.hash, balanceMicro: BigInt(balance) };
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      const headerUnavailable = /header not found|block not found|unknown block|cannot query unfinalized data/i.test(message);
+      if (!headerUnavailable) throw error;
+    }
+  }
+
+  console.error("Treasury Polygon snapshot could not find a readable confirmed block", {
+    latestBlock: latestBlock.toString(),
+    offsets: safeOffsets.map(String),
+    error: lastError instanceof Error ? lastError.message : String(lastError),
+  });
+  throw new Error("TREASURY_RPC_CONFIRMED_BLOCK_UNAVAILABLE");
 }
 
 
