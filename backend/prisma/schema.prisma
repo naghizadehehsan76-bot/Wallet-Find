@@ -763,6 +763,7 @@ model TreasuryWallet {
   status          String   @default("CREATING")
   deposits        TreasuryDeposit[]
   ledgerEntries   TreasuryLedger[]
+  reconciliations TreasuryReconciliation[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   @@map("treasury_wallets")
@@ -838,4 +839,26 @@ model ChainScanCursor {
   lastBlockHash    String?
   updatedAt        DateTime @updatedAt
   @@map("chain_scan_cursors")
+}
+
+
+// Immutable snapshots comparing the Polygon USDT0 balance with the treasury ledger.
+model TreasuryReconciliation {
+  id                    String @id @default(cuid())
+  treasuryWalletId      String
+  chainId               Int
+  asset                 String @default("USDT0")
+  blockNumber           BigInt
+  blockHash             String
+  onChainBalanceMicro   BigInt
+  ledgerBalanceMicro    BigInt
+  differenceMicro      BigInt
+  status                String
+  createdAt             DateTime @default(now())
+
+  treasuryWallet TreasuryWallet @relation(fields: [treasuryWalletId], references: [id], onDelete: Restrict)
+
+  @@index([treasuryWalletId, createdAt])
+  @@index([status, createdAt])
+  @@map("treasury_reconciliations")
 }
