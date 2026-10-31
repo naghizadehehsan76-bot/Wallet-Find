@@ -76,7 +76,7 @@ export async function provisionTurnkeyWallet(userId: string) {
   // A transaction-scoped advisory lock prevents concurrent wallet-page requests
   // from provisioning more than one sub-organization for the same user.
   return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`wallet-provision:${userId}`}))`;
+    await tx.$queryRaw`SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext(${`wallet-provision:${userId}`}))) AS advisory_lock`;
 
     const user = await tx.user.findUnique({
       where: { id: userId },
