@@ -248,7 +248,7 @@ export async function reconcileBroadcastWalletWithdrawal(withdrawalId: string, a
 
 export async function getAdminWithdrawalRequests() {
   const rows = await prisma.walletWithdrawal.findMany({
-    where: { status: { in: ["REQUESTED", "APPROVED"] } },
+    where: { status: { in: ["REQUESTED", "APPROVED", "SIGNING", "BROADCAST", "CONFIRMED", "FAILED"] } },
     orderBy: { requestedAt: "asc" },
     take: 200,
     include: { user: { select: { username: true, email: true } } },
