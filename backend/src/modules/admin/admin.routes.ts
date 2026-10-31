@@ -20,7 +20,7 @@ import {
   activateContestHandler,
   finishContestHandler,
 } from "./contest-management.controller.js";
-import { getAdminWalletsHandler, getAdminWithdrawalRequestsHandler, reviewAdminWithdrawalHandler, provisionPrizeTreasuryWalletHandler, getPrizeTreasuryWalletHandler, getTreasuryPrizeFundingHandler, getAdminTreasuryDepositsHandler, allocateTreasuryPrizeFundHandler, reconcileTreasuryAccountingHandler, getLatestTreasuryReconciliationHandler, executeAdminWalletWithdrawalHandler, reconcileAdminWalletWithdrawalHandler } from "../wallet/wallet.controller.js";
+import { getAdminWalletsHandler, getAdminWithdrawalRequestsHandler, reviewAdminWithdrawalHandler, provisionPrizeTreasuryWalletHandler, getPrizeTreasuryWalletHandler, getTreasuryPrizeFundingHandler, getAdminTreasuryDepositsHandler, getAdminTreasuryLedgerHistoryHandler, allocateTreasuryPrizeFundHandler, reconcileTreasuryAccountingHandler, getLatestTreasuryReconciliationHandler, executeAdminWalletWithdrawalHandler, reconcileAdminWalletWithdrawalHandler } from "../wallet/wallet.controller.js";
 import {
   getPrizePoolHandler,
 } from "../contest/prize-pool.controller.js";
@@ -47,6 +47,7 @@ router.get("/treasury-wallet", getPrizeTreasuryWalletHandler);
 router.post("/treasury-wallet/provision", provisionPrizeTreasuryWalletHandler);
 router.get("/treasury-wallet/prize-funding", getTreasuryPrizeFundingHandler);
 router.get("/treasury-wallet/deposits", getAdminTreasuryDepositsHandler);
+router.get("/treasury-wallet/ledger-history", getAdminTreasuryLedgerHistoryHandler);
 router.get("/treasury-wallet/reconciliation", getLatestTreasuryReconciliationHandler);
 router.post("/treasury-wallet/reconciliation", reconcileTreasuryAccountingHandler);
 router.post("/treasury-wallet/allocate-prize-fund", allocateTreasuryPrizeFundHandler);
