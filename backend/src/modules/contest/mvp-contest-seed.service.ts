@@ -554,14 +554,22 @@ async function generateMvpRounds(
     GUTENBERG_BOOKS.filter((book) => configuredUrls.includes(book.textUrl)).map((book) => fetchGutenbergDocument(book)),
   ) : [];
   const knownUrls = new Set([wikiUrl, ...GUTENBERG_BOOKS.map((book) => book.textUrl)]);
-  const plannedDocuments = await Promise.all(scheduledAssignments.map(async (assignment) => ({
-    assignment,
-    source: await fetchConfiguredWebDocument(assignment.url),
-  })));
+  // Wikimedia and other public sources can rate-limit bursts of parallel
+  // requests (HTTP 429). Fetch configured pages sequentially so a single round
+  // generation does not hit the same host with several simultaneous requests.
+  const plannedDocuments: Array<{ assignment: ScheduledSourceAssignment; source: SourceDocument | null }> = [];
+  for (const assignment of scheduledAssignments) {
+    plannedDocuments.push({
+      assignment,
+      source: await fetchConfiguredWebDocument(assignment.url),
+    });
+  }
   const plannedSourceUrls = new Set(assignedUrls);
-  const customDocuments = await Promise.all(
-    configuredUrls.filter((url) => !knownUrls.has(url) && !plannedSourceUrls.has(url)).map(fetchConfiguredWebDocument),
-  );
+  const customDocuments: Array<SourceDocument | null> = [];
+  const customUrls = configuredUrls.filter((url) => !knownUrls.has(url) && !plannedSourceUrls.has(url));
+  for (const url of customUrls) {
+    customDocuments.push(await fetchConfiguredWebDocument(url));
+  }
   const sources = [
     ...gutenbergResults.filter((source): source is SourceDocument => source !== null),
     ...wikipediaDocuments,
