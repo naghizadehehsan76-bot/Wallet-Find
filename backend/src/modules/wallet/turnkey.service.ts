@@ -1,6 +1,6 @@
 import { Turnkey } from "@turnkey/sdk-server";
 import { createAccount } from "@turnkey/viem";
-import { createWalletClient, http, type Address } from "viem";
+import { createWalletClient, http } from "viem";
 import { bsc, polygon } from "viem/chains";
 import prisma from "../../config/prisma.js";
 
@@ -39,7 +39,7 @@ export async function provisionTurnkeyWallet(userId: string) {
   });
   if (existing) return existing;
 
-  const { client, organizationId } = turnkeyConfig();
+  const { client } = turnkeyConfig();
   const created = await client.createWallet({
     walletName: `wallet-find-user-${userId}`,
     accounts: [{
@@ -59,7 +59,6 @@ export async function provisionTurnkeyWallet(userId: string) {
     data: {
       userId,
       turnkeyWalletId: created.walletId,
-      turnkeyAccountId: created.addresses[0],
       address: address.toLowerCase(),
       derivationPath: "m/44'/60'/0'/0/0",
       networkAccounts: {
