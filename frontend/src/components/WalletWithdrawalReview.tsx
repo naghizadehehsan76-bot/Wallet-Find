@@ -38,6 +38,8 @@ export default function WalletWithdrawalReview({ fa }: Props) {
     finally { setLoading(false); }
   }, [copy.loadError]);
 
+  // Initial data fetch synchronizes this panel with the admin API.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load(); }, [load]);
 
   async function review(row: AdminWalletWithdrawal, decision: "APPROVE" | "REJECT") {
