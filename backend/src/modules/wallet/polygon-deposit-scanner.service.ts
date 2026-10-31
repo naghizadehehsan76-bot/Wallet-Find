@@ -43,8 +43,29 @@ async function reconcileCursorReorg(
     select: { id: true, blockNumber: true, blockHash: true, status: true, walletAccountId: true },
   });
 
+  // Treasury deposits need their own reconciliation because a confirmed
+  // deposit may already have increased the internal treasury ledger.
+  const affectedTreasury = await prisma.treasuryDeposit.findMany({
+    where: {
+      chainId,
+      blockNumber: { gte: rewindFrom, lte: cursor.lastBlockNumber },
+      status: { in: ["CONFIRMING", "CONFIRMED", "CREDITED"] },
+    },
+    select: {
+      id: true,
+      treasuryWalletId: true,
+      transactionHash: true,
+      amountMicro: true,
+      blockNumber: true,
+      blockHash: true,
+      status: true,
+    },
+  });
+
   let reorged = 0;
   let suspended = 0;
+  let treasuryReorged = 0;
+  let treasuryReversals = 0;
   for (const deposit of affected) {
     const canonicalBlock = await client.getBlock({ blockNumber: deposit.blockNumber });
     if (canonicalBlock.hash.toLowerCase() === deposit.blockHash.toLowerCase()) continue;
@@ -65,8 +86,46 @@ async function reconcileCursorReorg(
     if (deposit.status === "CREDITED") suspended++;
   }
 
-  // Move the cursor back to a canonical anchor. Any already-credited deposits
-  // found on the orphaned branch remain frozen for manual financial review.
+  for (const deposit of affectedTreasury) {
+    const canonicalBlock = await client.getBlock({ blockNumber: deposit.blockNumber });
+    if (canonicalBlock.hash.toLowerCase() === deposit.blockHash.toLowerCase()) continue;
+
+    const reversed = await prisma.$transaction(async (tx) => {
+      const changed = await tx.treasuryDeposit.updateMany({
+        where: {
+          id: deposit.id,
+          status: { in: ["CONFIRMING", "CONFIRMED", "CREDITED"] },
+        },
+        data: { status: "REORGED" },
+      });
+      if (changed.count !== 1) return false;
+
+      if (deposit.status === "CREDITED" && deposit.amountMicro !== null && deposit.amountMicro > 0n) {
+        await tx.treasuryLedger.upsert({
+          where: { referenceKey: `polygon-treasury-usdt0-reversal:${deposit.id}` },
+          create: {
+            treasuryWalletId: deposit.treasuryWalletId,
+            depositId: deposit.id,
+            type: "DEPOSIT_REVERSAL",
+            amountMicro: -deposit.amountMicro,
+            currency: "USDT0",
+            transactionHash: deposit.transactionHash,
+            referenceKey: `polygon-treasury-usdt0-reversal:${deposit.id}`,
+            note: "Reversal of previously credited Polygon USDT0 treasury deposit after chain reorganization",
+            effectiveAt: new Date(),
+          },
+          update: {},
+        });
+        return true;
+      }
+      return false;
+    });
+    treasuryReorged++;
+    if (reversed) treasuryReversals++;
+  }
+
+  // Move the cursor back to a canonical anchor. Credited user deposits remain
+  // frozen, and credited treasury deposits receive an auditable ledger reversal.
   const anchorBlock = rewindFrom > 0n ? rewindFrom - 1n : 0n;
   const anchor = await client.getBlock({ blockNumber: anchorBlock });
   await prisma.chainScanCursor.update({
@@ -78,8 +137,17 @@ async function reconcileCursorReorg(
     rewindFrom: rewindFrom.toString(),
     reorgedDeposits: reorged,
     suspendedWallets: suspended,
+    reorgedTreasuryDeposits: treasuryReorged,
+    treasuryLedgerReversals: treasuryReversals,
   });
-  return { reorgDetected: true, nextFromBlock: rewindFrom, reorgedDeposits: reorged, suspendedWallets: suspended };
+  return {
+    reorgDetected: true,
+    nextFromBlock: rewindFrom,
+    reorgedDeposits: reorged,
+    suspendedWallets: suspended,
+    reorgedTreasuryDeposits: treasuryReorged,
+    treasuryLedgerReversals: treasuryReversals,
+  };
 }
 
 /**
