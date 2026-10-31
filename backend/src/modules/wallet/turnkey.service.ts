@@ -82,3 +82,45 @@ export async function createTurnkeySigner(
 export function isTurnkeyConfigured(): boolean {
   return requiredEnv.every((key) => Boolean(process.env[key]?.trim()));
 }
+
+
+/**
+ * Creates the single Polygon prize treasury wallet once.
+ * This operation creates an address only: it does not move funds or enable payouts.
+ */
+export async function provisionPrizeTreasuryWallet() {
+  const key = "polygon-prize-treasury";
+  const existing = await prisma.treasuryWallet.findUnique({ where: { id: key } });
+  if (existing) {
+    if (existing.status === "ACTIVE" && existing.address && existing.turnkeyWalletId) {
+      return { walletId: existing.turnkeyWalletId, address: existing.address, chainId: 137, network: "Polygon PoS", status: existing.status, created: false };
+    }
+    throw new Error(existing.status === "CREATING" ? "TREASURY_CREATION_IN_PROGRESS" : "TREASURY_CREATION_REQUIRES_REVIEW");
+  }
+
+  await prisma.treasuryWallet.create({ data: { id: key, chainId: 137, networkKey: "polygon", status: "CREATING" } });
+  try {
+    const { client } = turnkeyConfig();
+    const created = await client.createWallet({
+      walletName: "Wallet-Find-Prize-Treasury",
+      accounts: [{
+        curve: "CURVE_SECP256K1",
+        pathFormat: "PATH_FORMAT_BIP32",
+        path: "m/44'/60'/0'/0/0",
+        addressFormat: "ADDRESS_FORMAT_ETHEREUM",
+      }],
+    });
+    const address = created.addresses[0];
+    if (!created.walletId || !address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+      throw new Error("TURNKEY_WALLET_CREATION_FAILED");
+    }
+    const saved = await prisma.treasuryWallet.update({
+      where: { id: key },
+      data: { turnkeyWalletId: created.walletId, address: address.toLowerCase(), status: "ACTIVE" },
+    });
+    return { walletId: saved.turnkeyWalletId, address: saved.address, chainId: 137, network: "Polygon PoS", status: saved.status, created: true };
+  } catch (error) {
+    await prisma.treasuryWallet.update({ where: { id: key }, data: { status: "FAILED" } }).catch(() => undefined);
+    throw error;
+  }
+}
