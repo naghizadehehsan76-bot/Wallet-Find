@@ -75,7 +75,6 @@ export default function WalletPage({ onNavigate }: Props) {
   const fmt = (value: string) => Number(value).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 });
   const address = wallet?.walletAddress ?? null;
   const polygonNetwork = wallet?.supportedNetworks?.find((item) => item.chainId === 137);
-  const depositEnabled = Boolean(polygonNetwork?.depositEnabled);
   const withdrawalEnabled = Boolean(polygonNetwork?.withdrawalEnabled);
 
   const copyAddress = async () => {
