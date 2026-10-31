@@ -294,7 +294,7 @@ export async function scanPolygonUsdtDepositsOnce() {
   const matureTreasuryDeposits = await prisma.treasuryDeposit.findMany({
     where: {
       chainId,
-      status: { in: ["CONFIRMING", "CONFIRMED"] },
+      status: "CONFIRMING",
       blockNumber: { lte: safeHead },
     },
     take: 250,
@@ -306,7 +306,7 @@ export async function scanPolygonUsdtDepositsOnce() {
     const canonicalBlock = await client.getBlock({ blockNumber: deposit.blockNumber });
     if (canonicalBlock.hash.toLowerCase() !== deposit.blockHash.toLowerCase()) {
       await prisma.treasuryDeposit.updateMany({
-        where: { id: deposit.id, status: { in: ["CONFIRMING", "CONFIRMED"] } },
+        where: { id: deposit.id, status: "CONFIRMING" },
         data: { status: "REORGED" },
       });
       continue;
@@ -319,8 +319,8 @@ export async function scanPolygonUsdtDepositsOnce() {
       // Conditional state transition prevents concurrent scanner instances from
       // creating more than one accounting credit for the same deposit.
       const claimed = await tx.treasuryDeposit.updateMany({
-        where: { id: deposit.id, status: { in: ["CONFIRMING", "CONFIRMED"] } },
-        data: { status: "CONFIRMED", confirmationCount: count, confirmedAt: new Date() },
+        where: { id: deposit.id, status: "CONFIRMING" },
+        data: { status: "CREDITED", confirmationCount: count, confirmedAt: new Date() },
       });
       if (claimed.count !== 1) return false;
 
@@ -342,7 +342,7 @@ export async function scanPolygonUsdtDepositsOnce() {
 
       await tx.treasuryDeposit.update({
         where: { id: deposit.id },
-        data: { status: "CREDITED", confirmationCount: count, creditedAt: new Date() },
+        data: { creditedAt: new Date() },
       });
       return true;
     });
