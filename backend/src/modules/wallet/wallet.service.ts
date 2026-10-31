@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { isAddress, parseUnits } from "viem";
 import prisma from "../../config/prisma.js";
 import { isTurnkeyConfigured, provisionTurnkeyWallet } from "./turnkey.service.js";
 const MICRO = 1_000_000n;
@@ -33,7 +35,73 @@ export async function getWallet(userId: string) {
   });
 }
 export async function requestWalletDeposit(_userId: string, _rawAmount: unknown): Promise<never> { throw new Error("REAL_DEPOSITS_NOT_CONFIGURED"); }
-export async function requestWalletWithdrawal(_userId: string, _rawAmount: unknown): Promise<never> { throw new Error("REAL_WITHDRAWALS_NOT_CONFIGURED"); }
+export async function requestWalletWithdrawal(userId: string, rawAmount: unknown, rawDestination: unknown) {
+  if (typeof rawAmount !== "string" && typeof rawAmount !== "number") throw new Error("INVALID_WALLET_AMOUNT");
+  const amountText = String(rawAmount).trim();
+  if (!/^\\d+(\\.\\d{1,6})?$/.test(amountText)) throw new Error("INVALID_WALLET_AMOUNT");
+  const amountMicro = parseUnits(amountText, 6);
+  if (amountMicro <= 0n) throw new Error("INVALID_WALLET_AMOUNT");
+  if (typeof rawDestination !== "string" || !isAddress(rawDestination.trim())) throw new Error("INVALID_DESTINATION_ADDRESS");
+
+  return prisma.$transaction(async (tx) => {
+    const wallet = await tx.walletAccount.findUnique({
+      where: { userId },
+      include: { networkAccounts: true },
+    });
+    if (!wallet || wallet.status !== "ACTIVE") throw new Error("WALLET_NOT_ACTIVE");
+    const network = wallet.networkAccounts.find((item) => item.chainId === 137 && item.networkKey === "polygon");
+    if (!network || !network.withdrawalEnabled) throw new Error("WITHDRAWALS_DISABLED");
+
+    const asset = await tx.chainAsset.findFirst({
+      where: {
+        chainId: 137,
+        symbol: "USDT0",
+        canonicalStatus: "ONCHAIN_VERIFIED",
+        withdrawalEnabled: true,
+        decimals: 6,
+      },
+    });
+    if (!asset) throw new Error("WITHDRAWALS_DISABLED");
+
+    const balances = await calculateBalances(tx, userId);
+    if (balances.availableBalance < amountMicro) throw new Error("INSUFFICIENT_WALLET_BALANCE");
+
+    const idempotencyKey = randomUUID();
+    const withdrawal = await tx.walletWithdrawal.create({
+      data: {
+        userId,
+        walletAccountId: wallet.id,
+        walletNetworkAccountId: network.id,
+        chainAssetId: asset.id,
+        chainId: 137,
+        destinationAddress: rawDestination.trim().toLowerCase(),
+        amountMicro,
+        status: "REQUESTED",
+        idempotencyKey,
+      },
+    });
+    await tx.walletTransaction.create({
+      data: {
+        userId,
+        type: "WITHDRAWAL_REQUEST",
+        status: "PENDING",
+        amountMicro,
+        currency: "USDT",
+        note: "Polygon USDT0 withdrawal request reserved pending admin review",
+        referenceKey: `withdrawal-request:${withdrawal.id}`,
+      },
+    });
+    return {
+      id: withdrawal.id,
+      status: withdrawal.status,
+      network: "Polygon PoS",
+      asset: "USDT0",
+      destinationAddress: withdrawal.destinationAddress,
+      amount: formatMicro(amountMicro),
+      requestedAt: withdrawal.requestedAt,
+    };
+  }, { isolationLevel: "Serializable" });
+}
 
 export async function getAdminWallets() {
   const users = await prisma.user.findMany({
