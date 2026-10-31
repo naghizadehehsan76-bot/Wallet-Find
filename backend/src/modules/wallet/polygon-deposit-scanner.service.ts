@@ -91,25 +91,31 @@ async function reconcileCursorReorg(
     if (canonicalBlock.hash.toLowerCase() === deposit.blockHash.toLowerCase()) continue;
 
     const reversed = await prisma.$transaction(async (tx) => {
+      const current = await tx.treasuryDeposit.findUnique({
+        where: { id: deposit.id },
+        select: { status: true, amountMicro: true, treasuryWalletId: true, transactionHash: true },
+      });
+      if (!current || !["CONFIRMING", "CONFIRMED", "CREDITED"].includes(current.status)) return false;
+
+      // Match the exact status we just read. If a concurrent scan credits this
+      // deposit between the read and update, this claim fails and the next scan
+      // will retry using the now-current CREDITED state.
       const changed = await tx.treasuryDeposit.updateMany({
-        where: {
-          id: deposit.id,
-          status: { in: ["CONFIRMING", "CONFIRMED", "CREDITED"] },
-        },
+        where: { id: deposit.id, status: current.status },
         data: { status: "REORGED" },
       });
       if (changed.count !== 1) return false;
 
-      if (deposit.status === "CREDITED" && deposit.amountMicro !== null && deposit.amountMicro > 0n) {
+      if (current.status === "CREDITED" && current.amountMicro !== null && current.amountMicro > 0n) {
         await tx.treasuryLedger.upsert({
           where: { referenceKey: `polygon-treasury-usdt0-reversal:${deposit.id}` },
           create: {
-            treasuryWalletId: deposit.treasuryWalletId,
+            treasuryWalletId: current.treasuryWalletId,
             depositId: deposit.id,
             type: "DEPOSIT_REVERSAL",
-            amountMicro: -deposit.amountMicro,
+            amountMicro: -current.amountMicro,
             currency: "USDT0",
-            transactionHash: deposit.transactionHash,
+            transactionHash: current.transactionHash,
             referenceKey: `polygon-treasury-usdt0-reversal:${deposit.id}`,
             note: "Reversal of previously credited Polygon USDT0 treasury deposit after chain reorganization",
             effectiveAt: new Date(),
