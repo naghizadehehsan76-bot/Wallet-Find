@@ -925,6 +925,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
             } as Record<string, string>)[section]}</p>
             <p className="admin-footnote">{copy.conceptBody}</p>
           </section>
+          {section === "finance" && <WalletWithdrawalReview fa={fa} />}
         )}
 
         {section === "support" && (
@@ -1062,7 +1063,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
               </div>
             )}
           </section>
-          <WalletWithdrawalReview fa={fa} />
           <section className="admin-panel">
             <h2>{copy.wallets}</h2>
             <p className="admin-footnote">{copy.walletNote}</p>
