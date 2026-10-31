@@ -222,7 +222,7 @@ async function readTreasuryChainSnapshot(address: string) {
     address: USDT0_ADDRESS,
     abi: USDT0_ABI,
     functionName: "balanceOf",
-    args: [address as \`0x\${string}\`],
+    args: [address as `0x${string}`],
     blockNumber,
   });
   return { blockNumber, blockHash: block.hash, balanceMicro: BigInt(balance) };
