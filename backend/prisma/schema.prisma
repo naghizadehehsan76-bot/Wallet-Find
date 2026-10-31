@@ -635,13 +635,18 @@ enum WalletWithdrawalStatus {
 }
 
 model WalletAccount {
-  id                String @id @default(cuid())
-  userId            String @unique
-  turnkeyWalletId   String?
-  turnkeyAccountId  String?
-  address           String @unique
-  derivationPath    String?
-  status            WalletAccountStatus @default(ACTIVE)
+  id                         String @id @default(cuid())
+  userId                     String @unique
+  turnkeyOrganizationId      String? @unique
+  turnkeyWalletId            String?
+  turnkeyAccountId           String?
+  turnkeyApiPublicKey        String?
+  turnkeyApiPrivateKeyEncrypted String? @db.Text
+  legacyTurnkeyWalletId      String?
+  legacyAddress              String?
+  address                    String @unique
+  derivationPath             String?
+  status                     WalletAccountStatus @default(ACTIVE)
   user              User @relation(fields: [userId], references: [id], onDelete: Cascade)
   networkAccounts   WalletNetworkAccount[]
   deposits          WalletDeposit[]
