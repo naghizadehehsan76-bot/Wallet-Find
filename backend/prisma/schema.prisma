@@ -95,6 +95,7 @@ model User {
   advertisementOrders AdvertisementOrder[]
   auditLogs           AuditLog[]
   walletTransactions  WalletTransaction[]
+  walletAccount       WalletAccount?
   contestSourceVisits ContestSourceVisit[]
 
   createdAt  DateTime @default(now())
@@ -604,4 +605,150 @@ model AuthChallenge {
   @@index([email, purpose, createdAt])
   @@index([expiresAt])
   @@map("auth_challenges")
+}
+
+
+enum WalletAccountStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum WalletDepositStatus {
+  DETECTED
+  CONFIRMING
+  CONFIRMED
+  CREDITED
+  REORGED
+  IGNORED
+}
+
+enum WalletWithdrawalStatus {
+  REQUESTED
+  RESERVED
+  APPROVED
+  SIGNING
+  BROADCAST
+  CONFIRMED
+  FAILED
+  CANCELLED
+}
+
+model WalletAccount {
+  id                String @id @default(cuid())
+  userId            String @unique
+  turnkeyWalletId   String?
+  turnkeyAccountId  String?
+  address           String @unique
+  derivationPath    String?
+  status            WalletAccountStatus @default(ACTIVE)
+  user              User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  networkAccounts   WalletNetworkAccount[]
+  deposits          WalletDeposit[]
+  withdrawals       WalletWithdrawal[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  @@map("wallet_accounts")
+}
+
+model WalletNetworkAccount {
+  id              String @id @default(cuid())
+  walletAccountId String
+  chainId         Int
+  networkKey      String
+  depositEnabled  Boolean @default(false)
+  withdrawalEnabled Boolean @default(false)
+  walletAccount   WalletAccount @relation(fields: [walletAccountId], references: [id], onDelete: Cascade)
+  deposits        WalletDeposit[]
+  withdrawals     WalletWithdrawal[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@unique([walletAccountId, chainId])
+  @@index([chainId, depositEnabled])
+  @@map("wallet_network_accounts")
+}
+
+model ChainAsset {
+  id                String @id @default(cuid())
+  chainId           Int
+  contractAddress   String
+  symbol            String
+  displayName       String
+  decimals          Int
+  issuerClassification String
+  canonicalStatus   String @default("PENDING_VERIFICATION")
+  depositEnabled    Boolean @default(false)
+  withdrawalEnabled Boolean @default(false)
+  deposits          WalletDeposit[]
+  withdrawals       WalletWithdrawal[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  @@unique([chainId, contractAddress])
+  @@index([chainId, depositEnabled])
+  @@map("chain_assets")
+}
+
+model WalletDeposit {
+  id                   String @id @default(cuid())
+  userId               String
+  walletAccountId      String
+  walletNetworkAccountId String
+  chainAssetId         String
+  chainId              Int
+  transactionHash      String
+  logIndex             Int
+  blockNumber          BigInt
+  blockHash            String
+  fromAddress          String
+  toAddress            String
+  rawAmount            String
+  amountMicro          BigInt?
+  status               WalletDepositStatus @default(DETECTED)
+  confirmationCount    Int @default(0)
+  creditedLedgerId     String? @unique
+  detectedAt           DateTime @default(now())
+  confirmedAt          DateTime?
+  creditedAt           DateTime?
+  updatedAt            DateTime @updatedAt
+  walletAccount        WalletAccount @relation(fields: [walletAccountId], references: [id], onDelete: Restrict)
+  networkAccount       WalletNetworkAccount @relation(fields: [walletNetworkAccountId], references: [id], onDelete: Restrict)
+  asset                ChainAsset @relation(fields: [chainAssetId], references: [id], onDelete: Restrict)
+  @@unique([chainId, transactionHash, logIndex])
+  @@index([userId, status, detectedAt])
+  @@index([chainId, blockNumber])
+  @@map("wallet_deposits")
+}
+
+model WalletWithdrawal {
+  id                    String @id @default(cuid())
+  userId                String
+  walletAccountId       String
+  walletNetworkAccountId String
+  chainAssetId          String
+  chainId               Int
+  destinationAddress    String
+  amountMicro           BigInt
+  feeMicro              BigInt @default(0)
+  status                WalletWithdrawalStatus @default(REQUESTED)
+  idempotencyKey        String @unique
+  turnkeyActivityId     String?
+  transactionHash       String? @unique
+  failureCode           String?
+  requestedAt           DateTime @default(now())
+  broadcastAt           DateTime?
+  confirmedAt           DateTime?
+  updatedAt             DateTime @updatedAt
+  walletAccount         WalletAccount @relation(fields: [walletAccountId], references: [id], onDelete: Restrict)
+  networkAccount        WalletNetworkAccount @relation(fields: [walletNetworkAccountId], references: [id], onDelete: Restrict)
+  asset                 ChainAsset @relation(fields: [chainAssetId], references: [id], onDelete: Restrict)
+  @@index([userId, status, requestedAt])
+  @@index([chainId, status])
+  @@map("wallet_withdrawals")
+}
+
+model ChainScanCursor {
+  chainId          Int @id
+  lastBlockNumber  BigInt @default(0)
+  lastBlockHash    String?
+  updatedAt        DateTime @updatedAt
+  @@map("chain_scan_cursors")
 }
