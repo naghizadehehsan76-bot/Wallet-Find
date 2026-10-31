@@ -913,19 +913,21 @@ export default function AdminControlCenter({ onNavigate }: Props) {
         )}
 
         {(["finance", "security"] as Section[]).includes(section) && (
-          <section className="admin-panel">
-            <h2>{({
-              finance: copy.finance,
-              security: copy.security,
-            } as Record<string, string>)[section]}</h2>
-            <p>{copy.conceptTitle}</p>
-            <p className="admin-footnote">{({
-              finance: copy.financeBody,
-              security: copy.securityBody,
-            } as Record<string, string>)[section]}</p>
-            <p className="admin-footnote">{copy.conceptBody}</p>
-          </section>
-          {section === "finance" && <WalletWithdrawalReview fa={fa} />}
+          <>
+            <section className="admin-panel">
+              <h2>{({
+                finance: copy.finance,
+                security: copy.security,
+              } as Record<string, string>)[section]}</h2>
+              <p>{copy.conceptTitle}</p>
+              <p className="admin-footnote">{({
+                finance: copy.financeBody,
+                security: copy.securityBody,
+              } as Record<string, string>)[section]}</p>
+              <p className="admin-footnote">{copy.conceptBody}</p>
+            </section>
+            {section === "finance" && <WalletWithdrawalReview fa={fa} />}
+          </>
         )}
 
         {section === "support" && (
