@@ -436,7 +436,18 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     setNotice("");
   }
 
-  async function refreshTreasuryFunding() {\n    try { setTreasuryFunding(await getTreasuryPrizeFunding()); } catch { setTreasuryFunding(null); }\n  }\n\n  async function handleAllocateTreasuryFunding() {\n    setTreasuryFundingLoading(true); setError(""); setNotice("");\n    try { const result = await allocateTreasuryPrizeFunding(treasuryFundingAmount); setTreasuryFunding(result); setNotice(fa ? "مبلغ به‌صورت داخلی به صندوق جوایز تخصیص یافت؛ انتقال بلاک‌چینی انجام نشد." : "Amount allocated internally; no blockchain transfer was made."); }\n    catch (cause) { const code = cause instanceof Error ? cause.message : ""; setError(code === "TREASURY_RPC_NOT_CONFIGURED" ? (fa ? "اتصال RPC شبکه Polygon روی سرور تنظیم نشده است." : "Polygon RPC is not configured on the server.") : code === "INSUFFICIENT_UNALLOCATED_TREASURY_BALANCE" || code === "INSUFFICIENT_TREASURY_BALANCE" ? (fa ? "موجودی آزاد خزانه برای این تخصیص کافی نیست." : "Insufficient unallocated treasury balance.") : (fa ? "تخصیص ناموفق بود؛ موجودی شبکه و گزارش سرور را بررسی کن." : "Allocation failed; check the chain balance and server logs.")); }\n    finally { setTreasuryFundingLoading(false); }\n  }\n\n  async function handleProvisionTreasury() {
+  async function refreshTreasuryFunding() {
+    try { setTreasuryFunding(await getTreasuryPrizeFunding()); } catch { setTreasuryFunding(null); }
+  }
+
+  async function handleAllocateTreasuryFunding() {
+    setTreasuryFundingLoading(true); setError(""); setNotice("");
+    try { const result = await allocateTreasuryPrizeFunding(treasuryFundingAmount); setTreasuryFunding(result); setNotice(fa ? "مبلغ به‌صورت داخلی به صندوق جوایز تخصیص یافت؛ انتقال بلاک‌چینی انجام نشد." : "Amount allocated internally; no blockchain transfer was made."); }
+    catch (cause) { const code = cause instanceof Error ? cause.message : ""; setError(code === "TREASURY_RPC_NOT_CONFIGURED" ? (fa ? "اتصال RPC شبکه Polygon روی سرور تنظیم نشده است." : "Polygon RPC is not configured on the server.") : code === "INSUFFICIENT_UNALLOCATED_TREASURY_BALANCE" || code === "INSUFFICIENT_TREASURY_BALANCE" ? (fa ? "موجودی آزاد خزانه برای این تخصیص کافی نیست." : "Insufficient unallocated treasury balance.") : (fa ? "تخصیص ناموفق بود؛ موجودی شبکه و گزارش سرور را بررسی کن." : "Allocation failed; check the chain balance and server logs.")); }
+    finally { setTreasuryFundingLoading(false); }
+  }
+
+  async function handleProvisionTreasury() {
     setTreasuryLoading(true);
     setError("");
     setNotice("");
@@ -655,7 +666,8 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       visit.externalVerificationProvider,
       visit.externalReferenceId,
     ]);
-    const csv = "\uFEFF" + [headers, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\r\n");
+    const csv = "\uFEFF" + [headers, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\r
+");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
