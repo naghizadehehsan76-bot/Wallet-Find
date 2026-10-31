@@ -5,7 +5,6 @@ import {
   getAdminAuditLogs,
   getAdminOverview,
   getAdminProjectProfitPool,
-  getAdminWallets,
   provisionPrizeTreasuryWallet,
   getPrizeTreasuryWallet,
   getTreasuryPrizeFunding,
@@ -22,7 +21,6 @@ import {
   type AdminAuditLog,
   type AdminOverview,
   type AdminProjectProfitPool,
-  type AdminWalletSummary,
   type AdminUserSummary,
   type AdminSourceVisitReport,
   type SystemSettingRecord,
@@ -130,7 +128,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [projectProfitPool, setProjectProfitPool] = useState<AdminProjectProfitPool | null>(null);
   const [settings, setSettings] = useState<SystemSettingRecord[]>([]);
-  const [wallets, setWallets] = useState<AdminWalletSummary[]>([]);
   const [treasury, setTreasury] = useState<PrizeTreasuryProvisionResult | null>(null);
   const [treasuryLoading, setTreasuryLoading] = useState(false);
   const [treasuryFunding, setTreasuryFunding] = useState<TreasuryPrizeFundingSnapshot | null>(null);
@@ -372,11 +369,10 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     setLoading(true);
     setError("");
     try {
-      const [stats, settingRows, auditRows, walletRows, userRows, profitPool] = await Promise.all([
+      const [stats, settingRows, auditRows, userRows, profitPool] = await Promise.all([
         getAdminOverview(),
         getSystemSettings(),
         getAdminAuditLogs(),
-        getAdminWallets(),
         getAdminUsers(),
         getAdminProjectProfitPool(),
       ]);
@@ -386,7 +382,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       setSourceUrlsFa(parseSourceUrls(settingRows.find((setting) => setting.key === "clue_sources_fa")?.value, DEFAULT_FA_SOURCES));
       setScheduledSources(parseScheduledSourceAssignments(settingRows.find((setting) => setting.key === "scheduled_clue_sources")?.value));
       setLogs(auditRows);
-      setWallets(walletRows);
       setUsers(userRows);
       setProjectProfitPool(profitPool);
     } catch {
