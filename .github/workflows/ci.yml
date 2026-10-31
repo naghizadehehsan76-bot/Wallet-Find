@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "feat/**"]
+    branches: [main, "feat/**", "feature/**"]
   pull_request:
     branches: [main]
 
@@ -19,6 +19,8 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: backend/package-lock.json
+      - name: Sync lockfile with package.json
+        run: npm install --package-lock-only --ignore-scripts
       - run: npm ci
       - run: DATABASE_URL="postgresql://ci:ci@localhost:5432/ci" npx prisma generate
       - run: npm run build
