@@ -18,6 +18,7 @@ async function calculateBalances(tx: any, userId: string) {
     const amount = BigInt(row.amountMicro);
     if (row.status === "COMPLETED") {
       if (row.type === "DEPOSIT") balance += amount;
+      if (row.type === "DEPOSIT_REVERSAL") balance -= amount;
       if (row.type === "WITHDRAWAL") balance -= amount;
     }
     if (row.type === "WITHDRAWAL_REQUEST" && row.status === "PENDING") pendingWithdrawals += amount;
@@ -37,7 +38,46 @@ export async function getWallet(userId: string) {
     return { currency: "USDT", simulatedOnly: false, turnkeyConfigured: isTurnkeyConfigured(), walletAddress: turnkeyWallet?.address ?? null, supportedNetworks: turnkeyWallet?.networkAccounts.map((network) => ({ chainId: network.chainId, networkKey: network.networkKey, depositEnabled: network.depositEnabled, withdrawalEnabled: network.withdrawalEnabled })) ?? [], balance: formatMicro(balances.balance), availableBalance: formatMicro(balances.availableBalance), transactions: transactions.map(serializeTransaction) };
   });
 }
-export async function requestWalletDeposit(_userId: string, _rawAmount: unknown): Promise<never> { throw new Error("REAL_DEPOSITS_NOT_CONFIGURED"); }
+export async function requestWalletDeposit(userId: string, _rawAmount: unknown) {
+  if (!isTurnkeyConfigured()) throw new Error("TURNKEY_NOT_CONFIGURED");
+  // Provisioning enforces verified email and creates/returns this user's own
+  // independent Turnkey sub-organization. Deposits are discovered from canonical
+  // Polygon Transfer logs; a client-supplied amount is never credited.
+  const wallet = await provisionTurnkeyWallet(userId);
+  if (!wallet || wallet.status !== "ACTIVE" || !wallet.turnkeyOrganizationId || !wallet.turnkeyWalletId) {
+    throw new Error("WALLET_NOT_ACTIVE");
+  }
+  const [network, asset] = await Promise.all([
+    prisma.walletNetworkAccount.findUnique({
+      where: { walletAccountId_chainId: { walletAccountId: wallet.id, chainId: 137 } },
+    }),
+    prisma.chainAsset.findMany({
+      where: {
+        chainId: 137,
+        symbol: "USDT0",
+        contractAddress: polygonUsdt0Contract,
+        decimals: 6,
+        canonicalStatus: "ONCHAIN_VERIFIED",
+        depositEnabled: true,
+      },
+      take: 2,
+    }),
+  ]);
+  if (!network || network.networkKey !== "polygon" || !network.depositEnabled || asset.length !== 1) {
+    throw new Error("DEPOSITS_DISABLED");
+  }
+  return {
+    network: "Polygon PoS",
+    chainId: 137,
+    asset: "USDT0",
+    contractAddress: polygonUsdt0Contract,
+    decimals: 6,
+    depositAddress: wallet.address,
+    confirmationsRequired: Math.max(32, Number.parseInt(process.env.POLYGON_USDT_CONFIRMATIONS ?? "128", 10) || 128),
+    status: "AWAITING_TRANSFER",
+    message: "Send only Polygon USDT0 to this address. The balance is credited automatically after canonical confirmations.",
+  };
+}
 export async function requestWalletWithdrawal(userId: string, rawAmount: unknown, rawDestination: unknown) {
   if (typeof rawAmount !== "string" && typeof rawAmount !== "number") throw new Error("INVALID_WALLET_AMOUNT");
   const amountText = String(rawAmount).trim();
