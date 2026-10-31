@@ -10,6 +10,15 @@ on:
       - "backend/prisma/**"
       - "backend/src/modules/wallet/**"
       - ".github/workflows/turnkey-backend-validation.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "backend/package.json"
+      - "backend/package-lock.json"
+      - "backend/prisma/**"
+      - "backend/src/modules/wallet/**"
+      - ".github/workflows/turnkey-backend-validation.yml"
   workflow_dispatch:
 
 permissions:
