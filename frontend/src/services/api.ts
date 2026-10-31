@@ -709,7 +709,7 @@ export type AdminWalletWithdrawal = {
   destinationAddress: string;
   amount: string;
   fee: string;
-  status: "REQUESTED" | "APPROVED";
+  status: "REQUESTED" | "APPROVED" | "SIGNING" | "BROADCAST" | "CONFIRMED" | "FAILED" | "CANCELLED";
   requestedAt: string;
   transactionHash: string | null;
 };
@@ -776,4 +776,32 @@ export async function reconcileTreasuryAccounting(): Promise<TreasuryReconciliat
   return request<TreasuryReconciliationResult>("/admin/treasury-wallet/reconciliation", {
     method: "POST",
   }, true);
+}
+
+export type AdminWalletWithdrawalExecution = {
+  id: string;
+  status: string;
+  transactionHash?: string;
+  chainId?: number;
+  asset?: string;
+  amount?: string;
+  estimatedGasCostPOLWei?: string;
+  confirmations?: number;
+  confirmationsRequired?: number;
+};
+
+export async function executeAdminWalletWithdrawal(withdrawalId: string): Promise<AdminWalletWithdrawalExecution> {
+  return request<AdminWalletWithdrawalExecution>(
+    `/admin/wallet-withdrawals/${encodeURIComponent(withdrawalId)}/execute`,
+    { method: "POST" },
+    true,
+  );
+}
+
+export async function reconcileAdminWalletWithdrawal(withdrawalId: string): Promise<AdminWalletWithdrawalExecution> {
+  return request<AdminWalletWithdrawalExecution>(
+    `/admin/wallet-withdrawals/${encodeURIComponent(withdrawalId)}/reconcile`,
+    { method: "POST" },
+    true,
+  );
 }
