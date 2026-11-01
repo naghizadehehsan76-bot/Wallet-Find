@@ -269,6 +269,7 @@ export async function updateAdminWalletNetworkHandler(req: AuthenticatedRequest,
       "WALLET_NETWORK_MUST_BE_ENABLED",
       "GENERIC_DEPOSITS_NOT_PRODUCTION_READY",
       "GENERIC_WITHDRAWALS_NOT_PRODUCTION_READY",
+      "WALLET_NETWORK_SCANNER_NOT_READY",
     ];
     const badRequest = [
       "INVALID_WALLET_NETWORK_ID",
@@ -310,6 +311,7 @@ export async function updateAdminWalletAssetHandler(req: AuthenticatedRequest, r
       "WALLET_ASSET_NOT_VERIFIED",
       "WALLET_NETWORK_DEPOSITS_DISABLED",
       "WALLET_NETWORK_WITHDRAWALS_DISABLED",
+      "WALLET_NETWORK_SCANNER_NOT_READY",
     ];
     const badRequest = [
       "INVALID_WALLET_ASSET_ID",
