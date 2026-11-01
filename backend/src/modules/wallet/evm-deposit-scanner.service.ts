@@ -457,7 +457,8 @@ async function scanNetwork(network: EvmNetworkConfig) {
       continue;
     }
     const count = Number(latestBlock - deposit.blockNumber + 1n);
-    if (count < requiredConfirmations || deposit.amountMicro === null || deposit.amountMicro <= 0n) continue;
+    const amount = deposit.amountMicro;
+    if (count < requiredConfirmations || amount === null || amount <= 0n) continue;
     const didCredit = await prisma.$transaction(async (tx) => {
       const claimed = await tx.walletDeposit.updateMany({
         where: { id: deposit.id, status: { in: ["CONFIRMING", "CONFIRMED"] } },
@@ -470,7 +471,7 @@ async function scanNetwork(network: EvmNetworkConfig) {
           userId: deposit.userId,
           type: "DEPOSIT",
           status: "COMPLETED",
-          amountMicro: deposit.amountMicro,
+          amountMicro: amount,
           currency: deposit.asset.symbol,
           chainId: deposit.chainId,
           chainAssetId: deposit.chainAssetId,
@@ -499,7 +500,8 @@ async function scanNetwork(network: EvmNetworkConfig) {
       continue;
     }
     const count = Number(latestBlock - deposit.blockNumber + 1n);
-    if (count < requiredConfirmations || deposit.amountMicro === null || deposit.amountMicro <= 0n) continue;
+    const amount = deposit.amountMicro;
+    if (count < requiredConfirmations || amount === null || amount <= 0n) continue;
     const didCredit = await prisma.$transaction(async (tx) => {
       const claimed = await tx.treasuryDeposit.updateMany({
         where: { id: deposit.id, status: { in: ["CONFIRMING", "CONFIRMED"] } },
@@ -512,7 +514,7 @@ async function scanNetwork(network: EvmNetworkConfig) {
           treasuryWalletId: deposit.treasuryWalletId,
           depositId: deposit.id,
           type: "DEPOSIT_CREDIT",
-          amountMicro: deposit.amountMicro,
+          amountMicro: amount,
           currency: deposit.asset.symbol,
           chainId: deposit.chainId,
           chainAssetId: deposit.chainAssetId,
