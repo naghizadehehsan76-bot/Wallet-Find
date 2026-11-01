@@ -333,7 +333,7 @@ export async function executeApprovedWalletWithdrawal(withdrawalId: string, admi
 }
 
 export async function reconcileBroadcastWalletWithdrawal(withdrawalId: string, adminUserId: string) {
-  const withdrawal = await prisma.walletWithdrawal.findUnique({ where: { id: withdrawalId }, include: { walletAccount: true } });
+  const withdrawal = await prisma.walletWithdrawal.findUnique({ where: { id: withdrawalId }, include: { walletAccount: true, asset: true } });
   if (!withdrawal) throw new Error("WITHDRAWAL_NOT_FOUND");
   if (withdrawal.status !== "BROADCAST" || !withdrawal.transactionHash) throw new Error("WITHDRAWAL_NOT_BROADCAST");
   const client = polygonRpcClient();
@@ -384,7 +384,8 @@ export async function reconcileBroadcastWalletWithdrawal(withdrawalId: string, a
     await tx.walletTransaction.create({
       data: {
         userId: withdrawal.userId, type: "WITHDRAWAL", status: "COMPLETED",
-        amountMicro: withdrawal.amountMicro, currency: "USDT",
+        amountMicro: withdrawal.amountMicro, currency: withdrawal.asset.symbol,
+        chainId: withdrawal.chainId, chainAssetId: withdrawal.chainAssetId,
         note: "Confirmed Polygon USDT0 withdrawal",
         referenceKey: "withdrawal-completed:" + withdrawal.id,
       },
