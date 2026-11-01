@@ -198,7 +198,7 @@ ALTER TABLE "wallet_journal_postings" ADD CONSTRAINT "wallet_journal_postings_jo
 -- least two positive postings and total debits equal total credits.
 CREATE FUNCTION "assert_wallet_journal_balanced"() RETURNS TRIGGER
 LANGUAGE plpgsql
-AS $
+AS $wallet_balance$
 DECLARE
   journal_key TEXT;
   posting_count BIGINT;
@@ -233,7 +233,7 @@ BEGIN
   END IF;
   RETURN NULL;
 END;
-$;
+$wallet_balance$;
 
 CREATE CONSTRAINT TRIGGER "wallet_journals_balance_check"
 AFTER INSERT OR UPDATE ON "wallet_journals"
@@ -249,12 +249,12 @@ FOR EACH ROW EXECUTE FUNCTION "assert_wallet_journal_balanced"();
 -- by adding a new reversal/adjustment journal rather than mutating history.
 CREATE FUNCTION "reject_wallet_journal_mutation"() RETURNS TRIGGER
 LANGUAGE plpgsql
-AS $
+AS $wallet_immutable$
 BEGIN
   RAISE EXCEPTION 'WALLET_JOURNAL_IS_IMMUTABLE'
     USING ERRCODE = '55000';
 END;
-$;
+$wallet_immutable$;
 
 CREATE TRIGGER "wallet_journals_immutable"
 BEFORE UPDATE OR DELETE ON "wallet_journals"
