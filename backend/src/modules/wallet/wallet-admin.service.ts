@@ -15,6 +15,14 @@ type AssetUpdate = {
   minDeposit?: string | null;
 };
 
+async function isWalletGloballyPaused(tx: any): Promise<boolean> {
+  const setting = await tx.systemSetting.findUnique({
+    where: { key: "wallet_global_emergency_pause" },
+    select: { value: true },
+  });
+  return setting?.value === "true";
+}
+
 function positiveIntegerEnv(name: string, fallback: number, min: number, max: number): number {
   const parsed = Number.parseInt(process.env[name] ?? "", 10);
   if (!Number.isFinite(parsed)) return fallback;
@@ -41,7 +49,7 @@ function requireBoundedInteger(value: unknown, min: number, max: number, code: s
 }
 
 export async function getWalletNetworkRegistryForAdmin() {
-  const [networks, provisioning] = await Promise.all([
+  const [networks, provisioning, pauseSetting] = await Promise.all([
     prisma.walletNetwork.findMany({
       orderBy: [{ family: "asc" }, { networkKey: "asc" }],
       include: {
@@ -54,9 +62,17 @@ export async function getWalletNetworkRegistryForAdmin() {
       by: ["status"],
       _count: { _all: true },
     }),
+    prisma.systemSetting.findUnique({
+      where: { key: "wallet_global_emergency_pause" },
+      select: { value: true, updatedAt: true },
+    }),
   ]);
 
   return {
+    globalEmergencyPause: {
+      active: pauseSetting?.value === "true",
+      updatedAt: pauseSetting?.updatedAt ?? null,
+    },
     networks: networks.map((network) => ({
       ...network,
       assets: network.assets.map((asset) => ({
@@ -130,6 +146,12 @@ export async function updateWalletNetworkByAdmin(
     );
     const existing = await tx.walletNetwork.findUnique({ where: { id: networkId }, include: { scanCursor: true } });
     if (!existing) throw new Error("WALLET_NETWORK_NOT_FOUND");
+    if (
+      (patch.depositEnabled === true || patch.withdrawalEnabled === true) &&
+      await isWalletGloballyPaused(tx)
+    ) {
+      throw new Error("WALLET_GLOBAL_EMERGENCY_PAUSE_ACTIVE");
+    }
 
     const next = {
       isEnabled: patch.isEnabled ?? existing.isEnabled,
@@ -228,6 +250,12 @@ export async function updateWalletAssetByAdmin(
       include: { network: { include: { scanCursor: true } } },
     });
     if (!existing) throw new Error("WALLET_ASSET_NOT_FOUND");
+    if (
+      (patch.depositEnabled === true || patch.withdrawalEnabled === true) &&
+      await isWalletGloballyPaused(tx)
+    ) {
+      throw new Error("WALLET_GLOBAL_EMERGENCY_PAUSE_ACTIVE");
+    }
 
     if (patch.depositEnabled === true) {
       if (existing.verificationStatus !== "VERIFIED") throw new Error("WALLET_ASSET_NOT_VERIFIED");
@@ -311,6 +339,12 @@ export async function emergencyPauseAllWalletOperations(
 ) {
   const reason = requireReason(rawReason);
   return prisma.$transaction(async (tx) => {
+    await tx.systemSetting.upsert({
+      where: { key: "wallet_global_emergency_pause" },
+      create: { key: "wallet_global_emergency_pause", value: "true" },
+      update: { value: "true" },
+    });
+
     const [networks, assets, legacyAssets, legacyAccounts] = await Promise.all([
       tx.walletNetwork.updateMany({
         where: {
@@ -363,6 +397,51 @@ export async function emergencyPauseAllWalletOperations(
       legacyAssetsChanged: legacyAssets.count,
       legacyAccountsChanged: legacyAccounts.count,
       note: "All wallet deposit and withdrawal switches were disabled. Already broadcast transactions still require reconciliation.",
+    };
+  }, { isolationLevel: "Serializable" });
+}
+
+
+/**
+ * Release only the global break-glass lock. All individual network and asset
+ * switches stay off; operators must re-enable them individually after checks.
+ */
+export async function resumeWalletOperationsByAdmin(
+  adminUserId: string,
+  rawReason: unknown,
+) {
+  const reason = requireReason(rawReason);
+  return prisma.$transaction(async (tx) => {
+    const current = await tx.systemSetting.findUnique({
+      where: { key: "wallet_global_emergency_pause" },
+      select: { value: true },
+    });
+    if (current?.value !== "true") {
+      throw new Error("WALLET_GLOBAL_EMERGENCY_PAUSE_NOT_ACTIVE");
+    }
+
+    await tx.systemSetting.update({
+      where: { key: "wallet_global_emergency_pause" },
+      data: { value: "false" },
+    });
+    await tx.auditLog.create({
+      data: {
+        userId: adminUserId,
+        action: "WALLET_GLOBAL_EMERGENCY_PAUSE_RELEASED",
+        entity: "WalletNetwork",
+        entityId: "GLOBAL",
+        metadata: {
+          reason,
+          releasedAt: new Date().toISOString(),
+          networkAndAssetSwitchesRemainDisabled: true,
+          reactivationRequiresPerNetworkReview: true,
+        },
+      },
+    });
+    return {
+      paused: false,
+      networkAndAssetSwitchesRemainDisabled: true,
+      note: "The global emergency lock is released, but every network and asset remains disabled until explicitly reviewed.",
     };
   }, { isolationLevel: "Serializable" });
 }
