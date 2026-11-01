@@ -26,8 +26,28 @@ function serializeTransaction(row: any) {
 }
 export async function getWallet(userId: string) {
   // Turnkey provisioning occurs only for a verified user who explicitly opens
-  // the wallet page. No private key material is returned to the API caller.
-  const turnkeyWallet = isTurnkeyConfigured() ? await provisionTurnkeyWallet(userId) : null;
+  // the wallet page. Existing partial legacy records are shown read-only and
+  // are never silently overwritten or duplicated.
+  let turnkeyWallet: (Awaited<ReturnType<typeof provisionTurnkeyWallet>> & {
+    networkAccounts: Array<{ chainId: number; networkKey: string; depositEnabled: boolean; withdrawalEnabled: boolean }>;
+  }) | null = null;
+  let walletProvisioningReviewRequired = false;
+
+  if (isTurnkeyConfigured()) {
+    try {
+      turnkeyWallet = await provisionTurnkeyWallet(userId);
+    } catch (error) {
+      if (error instanceof Error && error.message === "TURNKEY_WALLET_RECORD_REQUIRES_REVIEW") {
+        walletProvisioningReviewRequired = true;
+        turnkeyWallet = await prisma.walletAccount.findUnique({
+          where: { userId },
+          include: { networkAccounts: true },
+        });
+      } else {
+        throw error;
+      }
+    }
+  }
 
   return prisma.$transaction(async (tx) => {
     const legacyBalances = await calculateBalances(tx, userId);
@@ -37,7 +57,7 @@ export async function getWallet(userId: string) {
       take: 100,
     });
 
-    const [chainDeposits, chainWithdrawals] = await Promise.all([
+    const [chainDeposits, chainWithdrawals, legacyDeposits, legacyWithdrawals] = await Promise.all([
       tx.walletChainDeposit.findMany({
         where: { userId },
         include: {
@@ -54,6 +74,18 @@ export async function getWallet(userId: string) {
           asset: { select: { symbol: true, decimals: true } },
           feeAsset: { select: { symbol: true, decimals: true } },
         },
+        orderBy: { requestedAt: "desc" },
+        take: 100,
+      }),
+      tx.walletDeposit.findMany({
+        where: { userId },
+        include: { asset: { select: { symbol: true, decimals: true } } },
+        orderBy: { detectedAt: "desc" },
+        take: 100,
+      }),
+      tx.walletWithdrawal.findMany({
+        where: { userId },
+        include: { asset: { select: { symbol: true, decimals: true } } },
         orderBy: { requestedAt: "desc" },
         take: 100,
       }),
@@ -84,6 +116,26 @@ export async function getWallet(userId: string) {
       balanceMap.set(key, current);
     }
 
+    const legacyPolygonAsset = await tx.chainAsset.findFirst({
+      where: {
+        chainId: 137,
+        symbol: "USDT0",
+        contractAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f",
+        decimals: 6,
+        canonicalStatus: "ONCHAIN_VERIFIED",
+        depositEnabled: true,
+      },
+    });
+    const legacyPolygonAccount = turnkeyWallet?.networkAccounts.find(
+      (item) => item.chainId === 137 && item.networkKey === "polygon",
+    );
+    const legacyPolygonDepositReady = process.env.POLYGON_DEPOSIT_SCANNER_ENABLED === "true"
+      && process.env.POLYGON_DEPOSITS_ENABLED === "true"
+      && Boolean(legacyPolygonAsset)
+      && Boolean(legacyPolygonAccount?.depositEnabled)
+      && Boolean(turnkeyWallet?.status === "ACTIVE")
+      && Boolean(turnkeyWallet?.turnkeyOrganizationId && turnkeyWallet?.turnkeyWalletId);
+
     const networks = await tx.walletNetwork.findMany({
       orderBy: [{ family: "asc" }, { networkKey: "asc" }],
       include: {
@@ -105,6 +157,10 @@ export async function getWallet(userId: string) {
         const balance = balanceMap.get(key) ?? { available: 0n, reserved: 0n };
         const availableBalance = balance.available;
         const reservedBalance = balance.reserved;
+        const isLegacyPolygonUsdt0 = network.chainId === 137
+          && asset.symbol === "USDT0"
+          && asset.contractAddress?.toLowerCase() === "0xc2132d05d31c914a87c6611c10748aeb04b58e8f";
+        const legacyDepositEnabled = isLegacyPolygonUsdt0 && legacyPolygonDepositReady && Boolean(address);
         return {
           id: asset.id,
           symbol: asset.symbol,
@@ -119,9 +175,12 @@ export async function getWallet(userId: string) {
             ? null
             : formatAssetUnits(BigInt(asset.minDepositAtomic.toString()), asset.decimals),
           confirmationCount: asset.confirmationCount,
-          depositEnabled: process.env.WALLET_GENERIC_DEPOSIT_SCANNER_ENABLED === "true"
+          depositEnabled: (process.env.WALLET_GENERIC_DEPOSIT_SCANNER_ENABLED === "true"
             && process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY === "true"
-            && network.isEnabled && network.depositEnabled && asset.depositEnabled && asset.verificationStatus === "VERIFIED" && Boolean(address),
+            && network.isEnabled && network.depositEnabled && asset.depositEnabled
+            && asset.verificationStatus === "VERIFIED" && Boolean(address))
+            || legacyDepositEnabled,
+          legacyDepositMode: legacyDepositEnabled,
           withdrawalEnabled: process.env.WALLET_GENERIC_WITHDRAWALS_ENABLED === "true"
             && process.env.WALLET_GENERIC_WITHDRAWALS_PRODUCTION_READY === "true"
             && network.isEnabled && network.withdrawalEnabled && asset.withdrawalEnabled && asset.verificationStatus === "VERIFIED" && Boolean(address),
@@ -141,10 +200,12 @@ export async function getWallet(userId: string) {
         nativeAssetDecimals: network.nativeAssetDecimals,
         explorerTransactionUrlTemplate: network.explorerTransactionUrlTemplate,
         finalityDepth: network.finalityDepth,
-        isEnabled: network.isEnabled,
-        depositEnabled: process.env.WALLET_GENERIC_DEPOSIT_SCANNER_ENABLED === "true"
+        isEnabled: network.isEnabled || (network.chainId === 137 && legacyPolygonDepositReady && Boolean(address)),
+        legacyDepositMode: network.chainId === 137 && legacyPolygonDepositReady && Boolean(address),
+        depositEnabled: (process.env.WALLET_GENERIC_DEPOSIT_SCANNER_ENABLED === "true"
           && process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY === "true"
-          && network.isEnabled && network.depositEnabled && Boolean(address),
+          && network.isEnabled && network.depositEnabled && Boolean(address))
+          || (network.chainId === 137 && legacyPolygonDepositReady && Boolean(address)),
         withdrawalEnabled: process.env.WALLET_GENERIC_WITHDRAWALS_ENABLED === "true"
           && process.env.WALLET_GENERIC_WITHDRAWALS_PRODUCTION_READY === "true"
           && network.isEnabled && network.withdrawalEnabled && Boolean(address),
@@ -157,6 +218,7 @@ export async function getWallet(userId: string) {
       currency: "USDT",
       simulatedOnly: false,
       turnkeyConfigured: isTurnkeyConfigured(),
+      walletProvisioningReviewRequired,
       walletAddress: turnkeyWallet?.address ?? null,
       supportedNetworks: (turnkeyWallet?.networkAccounts ?? []).map((item) => ({
         chainId: item.chainId,
@@ -171,7 +233,30 @@ export async function getWallet(userId: string) {
       legacyBalance: formatMicro(legacyBalances.balance),
       legacyAvailableBalance: formatMicro(legacyBalances.availableBalance),
       networks: networkViews,
-      onChainDeposits: chainDeposits.map((deposit: any) => ({
+      onChainDeposits: [
+        ...legacyDeposits.map((deposit) => {
+          const network = networkViews.find((item) => item.chainId === deposit.chainId);
+          const amountAtomic = deposit.amountMicro === null
+            ? BigInt(deposit.rawAmount)
+            : BigInt(deposit.amountMicro.toString());
+          return {
+            id: deposit.id,
+            type: "DEPOSIT",
+            networkId: network?.id ?? "eip155:" + deposit.chainId,
+            network: network?.displayName ?? "Legacy EVM network",
+            asset: deposit.asset.symbol,
+            amount: formatAssetUnits(amountAtomic, deposit.asset.decimals),
+            status: deposit.status,
+            transactionHash: deposit.transactionHash,
+            explorerUrl: network?.explorerTransactionUrlTemplate?.replace("{txHash}", deposit.transactionHash) ?? null,
+            confirmationCount: deposit.confirmationCount,
+            detectedAt: deposit.detectedAt,
+            creditedAt: deposit.creditedAt,
+            reviewReason: null,
+            legacy: true,
+          };
+        }),
+        ...chainDeposits.map((deposit: any) => ({
         id: deposit.id,
         type: "DEPOSIT",
         networkId: deposit.networkId,
@@ -185,8 +270,33 @@ export async function getWallet(userId: string) {
         detectedAt: deposit.detectedAt,
         creditedAt: deposit.creditedAt,
         reviewReason: deposit.reviewReason,
+        legacy: false,
       })),
-      onChainWithdrawals: chainWithdrawals.map((withdrawal: any) => ({
+      ],
+      onChainWithdrawals: [
+        ...legacyWithdrawals.map((withdrawal) => {
+          const network = networkViews.find((item) => item.chainId === withdrawal.chainId);
+          return {
+            id: withdrawal.id,
+            type: "WITHDRAWAL",
+            networkId: network?.id ?? "eip155:" + withdrawal.chainId,
+            network: network?.displayName ?? "Legacy EVM network",
+            asset: withdrawal.asset.symbol,
+            amount: formatAssetUnits(BigInt(withdrawal.amountMicro.toString()), withdrawal.asset.decimals),
+            estimatedFee: formatAssetUnits(BigInt(withdrawal.feeMicro.toString()), withdrawal.asset.decimals),
+            actualFee: null,
+            feeAsset: withdrawal.asset.symbol,
+            status: withdrawal.status,
+            transactionHash: withdrawal.transactionHash,
+            explorerUrl: network?.explorerTransactionUrlTemplate?.replace("{txHash}", withdrawal.transactionHash ?? "") ?? null,
+            confirmationCount: 0,
+            requestedAt: withdrawal.requestedAt,
+            confirmedAt: withdrawal.confirmedAt,
+            failureCode: withdrawal.failureCode,
+            legacy: true,
+          };
+        }),
+        ...chainWithdrawals.map((withdrawal: any) => ({
         id: withdrawal.id,
         type: "WITHDRAWAL",
         networkId: withdrawal.networkId,
@@ -207,7 +317,9 @@ export async function getWallet(userId: string) {
         requestedAt: withdrawal.requestedAt,
         confirmedAt: withdrawal.confirmedAt,
         failureCode: withdrawal.failureCode,
+        legacy: false,
       })),
+      ],
       transactions: transactions.map(serializeTransaction),
     };
   });
