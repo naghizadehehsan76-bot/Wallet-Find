@@ -940,6 +940,13 @@ export async function executeAdminChainWalletWithdrawal(id: string): Promise<unk
   }, true);
 }
 
+export async function recoverAdminChainWalletWithdrawal(id: string, reason: string): Promise<unknown> {
+  return request("/admin/wallet-chain-withdrawals/" + encodeURIComponent(id) + "/recover", {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  }, true);
+}
+
 export async function reconcileAdminChainWalletWithdrawal(id: string): Promise<unknown> {
   return request("/admin/wallet-chain-withdrawals/" + encodeURIComponent(id) + "/reconcile", {
     method: "POST",
