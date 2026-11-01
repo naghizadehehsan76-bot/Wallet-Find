@@ -663,6 +663,7 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
     const hash = withdrawal.asset.assetType === "NATIVE"
       ? await walletClient.sendTransaction({
           account: walletClient.account!,
+          chain: null,
           to: destination,
           value: amount,
           gas: gasLimit,
@@ -671,6 +672,7 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
         })
       : await walletClient.writeContract({
           account: walletClient.account!,
+          chain: null,
           address: withdrawal.asset.contractAddress as Address,
           abi: TOKEN_TRANSFER_ABI,
           functionName: "transfer",
