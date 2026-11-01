@@ -100,10 +100,14 @@ export default function WalletPage({ onNavigate }: Props) {
   const [withdrawIdempotencyKey, setWithdrawIdempotencyKey] = useState(createIdempotencyKey);
   const [copied, setCopied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [usdPrices, setUsdPrices] = useState<Record<string, number>>({});
+  const [priceUpdatedAt, setPriceUpdatedAt] = useState<number | null>(null);
 
   const copy = useMemo(() => ({
     title: fa ? "کیف پول من" : "My wallet",
-    balance: fa ? "موجودی USDT0" : "USDT0 balance",
+    balance: fa ? "موجودی کل به دلار" : "Total balance in USD",
+    balanceNote: fa ? "ارزش تقریبی دارایی‌ها بر اساس قیمت بازار؛ قیمت‌ها هر ۶۰ ثانیه به‌روزرسانی می‌شوند." : "Estimated market value of assets; prices refresh every 60 seconds.",
+    partialPriceNote: fa ? "قیمت برخی دارایی‌ها در دسترس نیست؛ جمع بالا فقط دارایی‌های قیمت‌گذاری‌شده را شامل می‌شود." : "Some asset prices are unavailable; the total includes only priced assets.",
     available: fa ? "موجودی قابل استفاده" : "Available balance",
     deposit: fa ? "واریز" : "Deposit",
     withdraw: fa ? "برداشت" : "Withdraw",
@@ -176,6 +180,24 @@ export default function WalletPage({ onNavigate }: Props) {
     const timer = window.setTimeout(() => { void refresh(); }, 0);
     return () => window.clearTimeout(timer);
   }, [refresh]);
+
+  useEffect(() => {
+    const ids = ["polygon-ecosystem-token", "tether", "usd-coin", "ethereum", "bitcoin", "solana", "binancecoin", "tron", "ripple", "dogecoin", "cardano", "avalanche-2", "chainlink", "dai", "litecoin", "polkadot", "stellar", "wrapped-bitcoin"].join(",");
+    let cancelled = false;
+    const loadPrices = async () => {
+      try {
+        const response = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=" + ids + "&vs_currencies=usd", { headers: { accept: "application/json" } });
+        if (!response.ok) throw new Error("PRICE_FEED_UNAVAILABLE");
+        const data = await response.json() as Record<string, { usd?: number }>;
+        const next: Record<string, number> = {};
+        for (const [id, quote] of Object.entries(data)) { if (typeof quote.usd === "number" && Number.isFinite(quote.usd)) next[id] = quote.usd; }
+        if (!cancelled) { setUsdPrices(next); setPriceUpdatedAt(Date.now()); }
+      } catch { /* Keep last known prices if the provider is temporarily unavailable. */ }
+    };
+    void loadPrices();
+    const interval = window.setInterval(() => { void loadPrices(); }, 60_000);
+    return () => { cancelled = true; window.clearInterval(interval); };
+  }, []);
 
   const polygonNetwork = wallet?.networks.find((network) => network.chainId === 137) ?? null;
   const polygonAssets = polygonNetwork?.assets ?? [];
@@ -311,6 +333,11 @@ export default function WalletPage({ onNavigate }: Props) {
 
   const usdt0Balance = usdt0Asset?.balance ?? "0";
   const usdt0Available = usdt0Asset?.availableBalance ?? "0";
+  const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token", MATIC: "polygon-ecosystem-token", USDT: "tether", USDT0: "tether", USDC: "usd-coin", DAI: "dai", ETH: "ethereum", WETH: "ethereum", BTC: "bitcoin", WBTC: "wrapped-bitcoin", SOL: "solana", BNB: "binancecoin", TRX: "tron", XRP: "ripple", DOGE: "dogecoin", ADA: "cardano", AVAX: "avalanche-2", LINK: "chainlink", LTC: "litecoin", DOT: "polkadot", XLM: "stellar" };
+  const usdBalance = (wallet?.networks ?? []).reduce((sum, network) => sum + network.assets.reduce((assetSum, asset) => { const id = priceIdBySymbol[asset.symbol.toUpperCase()]; const price = id ? usdPrices[id] : undefined; const amount = Number(asset.balance); return price !== undefined && Number.isFinite(amount) ? assetSum + amount * price : assetSum; }, 0), 0);
+  const unpricedAssetCount = (wallet?.networks ?? []).reduce((count, network) => count + network.assets.filter((asset) => { const amount = Number(asset.balance); const id = priceIdBySymbol[asset.symbol.toUpperCase()]; return Number.isFinite(amount) && amount > 0 && (!id || usdPrices[id] === undefined); }).length, 0);
+  const usdFormatter = new Intl.NumberFormat(locale, { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 6 });
+
 
   return <div className="app-shell wallet-page">
     <header className="topbar">
@@ -334,8 +361,11 @@ export default function WalletPage({ onNavigate }: Props) {
             <span>{copy.balance}</span>
             <span className="wallet-safe-pill">● {depositAssets.length > 0 ? copy.active : copy.unavailable}</span>
           </div>
-          <div className="wallet-exchange-balance__value">{fmt(usdt0Balance, usdt0Asset?.decimals ?? 6)} <small>USDT0</small></div>
-          <div className="wallet-exchange-balance__available">{copy.available}: <strong>{fmt(usdt0Available, usdt0Asset?.decimals ?? 6)} USDT0</strong></div>
+          <div className="wallet-exchange-balance__value">{usdFormatter.format(usdBalance)}</div>
+          <div className="wallet-exchange-balance__available">{copy.balanceNote}</div>
+          {unpricedAssetCount > 0 && <div className="wallet-exchange-balance__available">{copy.partialPriceNote}</div>}
+          {priceUpdatedAt && <div className="wallet-exchange-balance__available">{fa ? "آخرین به‌روزرسانی قیمت: " : "Prices updated: "}{new Date(priceUpdatedAt).toLocaleTimeString(locale)}</div>}
+          <div className="wallet-exchange-balance__available">{fa ? "موجودی USDT0" : "USDT0 balance"}: <strong>{fmt(usdt0Balance, usdt0Asset?.decimals ?? 6)} USDT0</strong> · {copy.available}: <strong>{fmt(usdt0Available, usdt0Asset?.decimals ?? 6)} USDT0</strong></div>
           <div className="wallet-exchange-actions">
             <button type="button" className="wallet-action wallet-action--deposit" onClick={() => void openDeposit()}><span>↓</span>{copy.deposit}</button>
             <button type="button" className="wallet-action wallet-action--withdraw" onClick={() => openWithdraw()}><span>↑</span>{copy.withdraw}</button>
