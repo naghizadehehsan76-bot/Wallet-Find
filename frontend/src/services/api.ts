@@ -629,6 +629,7 @@ export type WalletAssetSummary = {
   symbol: string;
   displayName: string;
   decimals: number;
+  confirmationsRequired: number;
   contractAddress: string;
   isNative: boolean;
   balance: string;
