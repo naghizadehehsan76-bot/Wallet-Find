@@ -88,7 +88,7 @@ export async function postWalletJournalInTransaction(tx: any, input: PostWalletJ
   const { postings, reversalOfId } = validateJournalInput(input);
 
   await tx.$queryRawUnsafe(
-    "SELECT pg_advisory_xact_lock(hashtext($1))",
+    "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
     "wallet-journal:" + input.referenceKey,
   );
 
