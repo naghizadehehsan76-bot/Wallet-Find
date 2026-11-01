@@ -3,6 +3,7 @@ import {
   executeAdminChainWalletWithdrawal,
   getAdminChainWalletWithdrawals,
   reconcileAdminChainWalletWithdrawal,
+  recoverAdminChainWalletWithdrawal,
   reviewAdminChainWalletWithdrawal,
   type AdminChainWalletWithdrawal,
 } from "../services/api";
@@ -27,6 +28,8 @@ export default function WalletChainWithdrawalReview({ fa }: Props) {
     reject: fa ? "رد و آزادسازی رزرو" : "Reject & release reserve",
     execute: fa ? "ارسال تراکنش" : "Execute transaction",
     reconcile: fa ? "بررسی وضعیت بلاکچین" : "Reconcile chain status",
+    recover: fa ? "بازیابی امن درخواست مشخص‌شده" : "Recover this verified pre-broadcast request",
+    recoveryConfirm: fa ? "فقط در صورتی ادامه بده که تأیید می‌کنی همین درخواست ۴ POL بازیابی شود. پس از بازیابی، ارسال تراکنش یک اقدام جداگانه خواهد بود." : "Recover only this verified 4 POL request. Recovery does not send funds; execution will be a separate action.",
     status: fa ? "وضعیت" : "Status",
     user: fa ? "کاربر" : "User",
     amount: fa ? "مبلغ" : "Amount",
@@ -57,8 +60,8 @@ export default function WalletChainWithdrawalReview({ fa }: Props) {
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  const act = async (id: string, operation: "APPROVE" | "REJECT" | "EXECUTE" | "RECONCILE") => {
-    if ((operation === "APPROVE" || operation === "REJECT") && reason.trim().length < 8) {
+  const act = async (id: string, operation: "APPROVE" | "REJECT" | "EXECUTE" | "RECONCILE" | "RECOVER") => {
+    if ((operation === "APPROVE" || operation === "REJECT" || operation === "RECOVER") && reason.trim().length < 8) {
       setError(copy.noReason);
       return;
     }
@@ -68,6 +71,9 @@ export default function WalletChainWithdrawalReview({ fa }: Props) {
     try {
       if (operation === "APPROVE" || operation === "REJECT") {
         await reviewAdminChainWalletWithdrawal(id, operation, reason.trim());
+        setReason("");
+      } else if (operation === "RECOVER") {
+        await recoverAdminChainWalletWithdrawal(id, reason.trim());
         setReason("");
       } else if (operation === "EXECUTE") {
         await executeAdminChainWalletWithdrawal(id);
@@ -114,6 +120,14 @@ export default function WalletChainWithdrawalReview({ fa }: Props) {
               <button type="button" disabled={Boolean(busyId)} onClick={() => void act(row.id, "REJECT")}>{copy.reject}</button>
             </>}
             {row.status === "APPROVED" && <button type="button" disabled={Boolean(busyId)} onClick={() => void act(row.id, "EXECUTE")}>{busyId === row.id ? "…" : copy.execute}</button>}
+            {row.id === "ab79dd7e-fa69-4c16-8a5d-b7eb3ebee5a1" &&
+              row.status === "SIGNING" &&
+              row.failureCode === "SIGNING_OR_BROADCAST_OUTCOME_UNCERTAIN" &&
+              !row.transactionHash && !row.broadcastAt &&
+              <button type="button" disabled={Boolean(busyId) || reason.trim().length < 8}
+                onClick={() => {
+                  if (window.confirm(copy.recoveryConfirm)) void act(row.id, "RECOVER");
+                }}>{busyId === row.id ? "…" : copy.recover}</button>}
             {row.status === "BROADCAST" && <button type="button" disabled={Boolean(busyId)} onClick={() => void act(row.id, "RECONCILE")}>{busyId === row.id ? "…" : copy.reconcile}</button>}
           </div>
         </article>)}
