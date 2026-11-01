@@ -283,12 +283,22 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
       }
     }
 
-    const chunkSize = BigInt(positiveIntegerEnv(
+    const configuredChunkSize = positiveIntegerEnv(
       "WALLET_NETWORK_SCAN_BLOCK_CHUNK",
       Number(DEFAULT_CHUNK_SIZE),
       10,
       2_000,
-    ));
+    );
+    const nativeBatchLimit = positiveIntegerEnv(
+      "EVM_NATIVE_DEPOSIT_MAX_BLOCKS_PER_BATCH",
+      250,
+      1,
+      2_000,
+    );
+    const hasNativeAssets = network.assets.some((asset) => asset.assetType === "NATIVE");
+    const chunkSize = BigInt(
+      hasNativeAssets ? Math.min(configuredChunkSize, nativeBatchLimit) : configuredChunkSize,
+    );
     const custodyAddressSet = new Set(network.addresses.map((item) => item.address.toLowerCase()));
     const addressInputs: AdapterAddress[] = network.addresses.map((item) => ({
       id: item.id,
