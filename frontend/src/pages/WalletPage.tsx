@@ -46,6 +46,7 @@ export default function WalletPage({ onNavigate }: Props) {
   const [copied, setCopied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [submittingWithdrawal, setSubmittingWithdrawal] = useState(false);
+  const [withdrawalIdempotencyKey, setWithdrawalIdempotencyKey] = useState("");
   const [withdrawalFeedback, setWithdrawalFeedback] = useState("");
   const [withdrawalError, setWithdrawalError] = useState("");
 
@@ -173,14 +174,17 @@ export default function WalletPage({ onNavigate }: Props) {
     setWithdrawalError("");
     setWithdrawalFeedback("");
     try {
+      const idempotencyKey = withdrawalIdempotencyKey || crypto.randomUUID();
+      if (!withdrawalIdempotencyKey) setWithdrawalIdempotencyKey(idempotencyKey);
       const result = await requestWalletWithdrawal({
         networkId: selectedNetwork.id,
         assetId: selectedAsset.id,
         amount: withdrawAmount.trim(),
         destinationAddress: withdrawAddress.trim(),
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey,
       });
       setWithdrawalFeedback(copy.requestSent + " " + result.status);
+      setWithdrawalIdempotencyKey("");
       setWithdrawAmount("");
       await refresh();
     } catch {
