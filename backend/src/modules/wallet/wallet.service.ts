@@ -333,14 +333,90 @@ export async function requestWalletDeposit(
     throw new Error("INVALID_WALLET_ASSET_SELECTION");
   }
 
-  if (process.env.WALLET_GENERIC_DEPOSIT_SCANNER_ENABLED !== "true" ||
-      process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY !== "true") {
-    throw new Error("DEPOSITS_NOT_PRODUCTION_READY");
-  }
   const networkId = rawNetworkId.trim();
   const walletAssetId = rawWalletAssetId.trim();
   if (!networkId || !walletAssetId || networkId.length > 128 || walletAssetId.length > 256) {
     throw new Error("INVALID_WALLET_ASSET_SELECTION");
+  }
+
+  // Compatibility path: keep the already-active Polygon USDT0 deposit scanner
+  // working until the generic engine has independently passed production gates.
+  if (networkId === "eip155:137") {
+    const [wallet, network, asset, legacyAsset] = await Promise.all([
+      prisma.walletAccount.findUnique({
+        where: { userId },
+        include: {
+          networkAccounts: {
+            where: { chainId: 137, networkKey: "polygon" },
+          },
+        },
+      }),
+      prisma.walletNetwork.findUnique({ where: { id: networkId } }),
+      prisma.walletAsset.findUnique({ where: { id: walletAssetId } }),
+      prisma.chainAsset.findFirst({
+        where: {
+          chainId: 137,
+          symbol: "USDT0",
+          contractAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f",
+          decimals: 6,
+          canonicalStatus: "ONCHAIN_VERIFIED",
+          depositEnabled: true,
+        },
+      }),
+    ]);
+
+    const isCanonicalPolygonUsdt0 = Boolean(
+      network && network.chainId === 137 && asset &&
+      asset.networkId === networkId && asset.symbol === "USDT0" &&
+      asset.decimals === 6 && asset.verificationStatus === "VERIFIED" &&
+      asset.contractAddress?.toLowerCase() === "0xc2132d05d31c914a87c6611c10748aeb04b58e8f" &&
+      legacyAsset,
+    );
+
+    if (isCanonicalPolygonUsdt0) {
+      if (
+        process.env.POLYGON_DEPOSIT_SCANNER_ENABLED !== "true" ||
+        process.env.POLYGON_DEPOSITS_ENABLED !== "true" ||
+        !wallet || wallet.status !== "ACTIVE" ||
+        !wallet.turnkeyOrganizationId || !wallet.turnkeyWalletId ||
+        wallet.networkAccounts.length !== 1 ||
+        wallet.networkAccounts[0]?.depositEnabled !== true
+      ) {
+        throw new Error("DEPOSITS_DISABLED");
+      }
+
+      const address = wallet.address;
+      if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        throw new Error("WALLET_ADDRESS_NOT_READY");
+      }
+
+      return {
+        networkId,
+        network: network.displayName,
+        family: "EVM" as const,
+        chainId: 137,
+        assetId: asset.id,
+        asset: "USDT0",
+        displayName: "USDT0 on Polygon PoS",
+        assetType: "TOKEN" as const,
+        contractAddress: legacyAsset.contractAddress,
+        decimals: 6,
+        depositAddress: address,
+        minDeposit: null,
+        confirmationsRequired: Math.max(
+          32,
+          Number.parseInt(process.env.POLYGON_USDT_CONFIRMATIONS ?? "128", 10) || 128,
+        ),
+        status: "AWAITING_TRANSFER",
+        legacyDepositMode: true,
+        message: "Send only Polygon USDT0 to this address. The existing Polygon deposit scanner verifies and credits confirmed transfers.",
+      };
+    }
+  }
+
+  if (process.env.WALLET_GENERIC_DEPOSIT_SCANNER_ENABLED !== "true" ||
+      process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY !== "true") {
+    throw new Error("DEPOSITS_NOT_PRODUCTION_READY");
   }
   if (!isTurnkeyConfigured()) throw new Error("TURNKEY_NOT_CONFIGURED");
 
@@ -386,6 +462,7 @@ export async function requestWalletDeposit(
       : formatAssetUnits(BigInt(asset.minDepositAtomic.toString()), asset.decimals),
     confirmationsRequired: asset.confirmationCount,
     status: "AWAITING_TRANSFER",
+    legacyDepositMode: false,
     message: "Send only the selected asset on the selected network to this address. The balance is credited after canonical finality checks.",
   };
 }
