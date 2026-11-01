@@ -15,8 +15,6 @@ type Page = "home" | "auth" | "competition" | "key" | "leaderboard" | "profile" 
 type Props = { onNavigate: (page: Page) => void };
 type WalletView = "overview" | "deposit" | "withdraw";
 
-const POLYGON_NETWORK_ID = "eip155:137";
-
 function createIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
@@ -184,7 +182,6 @@ export default function WalletPage({ onNavigate }: Props) {
   const withdrawalAssets = polygonAssets.filter((asset) => asset.withdrawalEnabled);
   const usdt0Asset = polygonAssets.find((asset) => asset.symbol === "USDT0") ?? null;
   const polAsset = polygonAssets.find((asset) => asset.symbol === "POL") ?? null;
-  const selectedDepositAsset = depositAssets.find((asset) => asset.id === depositAssetId) ?? null;
   const selectedWithdrawAsset = withdrawalAssets.find((asset) => asset.id === withdrawAssetId) ?? null;
 
   const fmt = (value: string, decimals = 6) => formatAmount(value, decimals, locale);
