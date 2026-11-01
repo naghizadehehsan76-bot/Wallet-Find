@@ -330,7 +330,7 @@ export async function requestChainWalletWithdrawal(input: {
   const id = randomUUID();
   return prisma.$transaction(async (tx) => {
     await tx.$queryRawUnsafe(
-      "SELECT pg_advisory_xact_lock(hashtext($1))",
+      "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
       "wallet-withdrawal-idempotency:" + idempotencyKey,
     );
     const duplicate = await tx.walletChainWithdrawal.findUnique({
@@ -358,7 +358,7 @@ export async function requestChainWalletWithdrawal(input: {
       .sort()
       .map((key) => "wallet-user-asset:" + input.userId + ":" + networkId + ":" + key);
     for (const key of lockKeys) {
-      await tx.$queryRawUnsafe("SELECT pg_advisory_xact_lock(hashtext($1))", key);
+      await tx.$queryRawUnsafe("SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock", key);
     }
 
     const feeAndAmountSameAsset = asset.id === feeAsset.id;
@@ -495,7 +495,7 @@ export async function reviewChainWalletWithdrawal(
   const reason = requireReason(rawReason);
   return prisma.$transaction(async (tx) => {
     await tx.$queryRawUnsafe(
-      "SELECT pg_advisory_xact_lock(hashtext($1))",
+      "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
       "wallet-chain-withdrawal:" + withdrawalId,
     );
     const withdrawal = await tx.walletChainWithdrawal.findUnique({
@@ -570,7 +570,7 @@ async function refreshWithdrawalFeeReservation(input: {
 
   return prisma.$transaction(async (tx) => {
     await tx.$queryRawUnsafe(
-      "SELECT pg_advisory_xact_lock(hashtext($1))",
+      "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
       "wallet-user-asset:" + input.withdrawal.userId + ":" +
         input.withdrawal.networkId + ":" + feeAssetId,
     );
@@ -861,7 +861,7 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
   const finalStatus = success ? "CONFIRMED" : "FAILED";
   await prisma.$transaction(async (tx) => {
     await tx.$queryRawUnsafe(
-      "SELECT pg_advisory_xact_lock(hashtext($1))",
+      "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
       "wallet-chain-withdrawal:" + withdrawalId,
     );
     const current = await tx.walletChainWithdrawal.findUnique({ where: { id: withdrawalId } });
