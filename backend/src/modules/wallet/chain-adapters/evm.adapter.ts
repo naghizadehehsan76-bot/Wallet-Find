@@ -73,25 +73,68 @@ export function createEvmWalletChainAdapter(input: {
       fromPosition: string;
       toPosition: string;
     }): Promise<IncomingChainTransfer[]> {
-      if (args.asset.assetType !== "TOKEN" || !args.asset.contractAddress) {
-        // Native-coin deposits require chain-specific transaction/trace parsing.
-        // Never silently treat an ERC-20 event scanner as a native-asset scanner.
-        throw new Error("EVM_NATIVE_ASSET_SCANNING_NOT_IMPLEMENTED");
-      }
       if (args.asset.decimals < 0 || args.asset.decimals > 255 ||
           !Number.isInteger(args.asset.decimals)) {
         throw new Error("INVALID_ASSET_DECIMALS");
       }
 
-      const contract = args.asset.contractAddress as Address;
       const fromBlock = assertPosition(args.fromPosition);
       const toBlock = assertPosition(args.toPosition);
       if (fromBlock > toBlock) return [];
 
-      const recipients = Array.from(new Set(
-        args.addresses.map((item) => item.address.toLowerCase()),
-      )) as Address[];
+      const recipientSet = new Set(args.addresses.map((item) => item.address.toLowerCase()));
       const transfers: IncomingChainTransfer[] = [];
+
+      if (args.asset.assetType === "NATIVE") {
+        if (args.asset.contractAddress !== null) {
+          throw new Error("INVALID_NATIVE_ASSET_CONFIGURATION");
+        }
+
+        // Native EVM transfers are found in transaction values, not ERC-20
+        // Transfer logs. Keep this scan window bounded because full blocks
+        // contain transaction objects and are more expensive for RPC providers.
+        const maxNativeBlocks = BigInt(Number.parseInt(
+          process.env.EVM_NATIVE_DEPOSIT_MAX_BLOCKS_PER_BATCH ?? "250",
+          10,
+        ) || 250);
+        if (toBlock - fromBlock + 1n > maxNativeBlocks) {
+          throw new Error("EVM_NATIVE_DEPOSIT_SCAN_RANGE_TOO_LARGE");
+        }
+
+        for (let blockNumber = fromBlock; blockNumber <= toBlock; blockNumber++) {
+          const block = await client.getBlock({
+            blockNumber,
+            includeTransactions: true,
+          });
+          if (!block.hash) continue;
+
+          for (const transaction of block.transactions) {
+            if (typeof transaction === "string" || !transaction.to ||
+                transaction.value <= 0n ||
+                !recipientSet.has(transaction.to.toLowerCase())) continue;
+
+            transfers.push({
+              transactionReference: transaction.hash,
+              eventIndex: 0,
+              position: block.number.toString(),
+              blockHash: block.hash,
+              fromAddress: transaction.from.toLowerCase(),
+              toAddress: transaction.to.toLowerCase(),
+              rawAmount: transaction.value.toString(),
+              amountAtomic: transaction.value.toString(),
+            });
+          }
+        }
+
+        return transfers;
+      }
+
+      if (!args.asset.contractAddress) {
+        throw new Error("INVALID_TOKEN_ASSET_CONFIGURATION");
+      }
+
+      const contract = args.asset.contractAddress as Address;
+      const recipients = Array.from(recipientSet) as Address[];
 
       // Keep each topic filter small enough for common RPC provider limits.
       for (let offset = 0; offset < recipients.length; offset += 100) {
