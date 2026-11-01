@@ -97,4 +97,4 @@ BEGIN
   IF legacy_addresses_suspended > 1 THEN
     RAISE EXCEPTION 'Unexpected number of legacy Polygon addresses suspended: %', legacy_addresses_suspended;
   END IF;
-END $;
+END $$;
