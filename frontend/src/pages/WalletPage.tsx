@@ -306,7 +306,7 @@ export default function WalletPage({ onNavigate }: Props) {
                     </div>
                     <small>{new Date(item.detectedAt ?? item.requestedAt ?? 0).toLocaleString(locale)}</small>
                     <b>{fmt(item.amount)} {item.asset}</b>
-                    {item.transactionHash && <a href={item.transactionHash.startsWith("0x") ? undefined : item.transactionHash} target="_blank" rel="noreferrer">{item.transactionHash.slice(0, 12)}…</a>}
+                    {item.transactionHash && <a href={item.explorerUrl ?? undefined} target="_blank" rel="noreferrer">{item.transactionHash.slice(0, 12)}…</a>}
                   </article>)}
               </div>}
         </section>
