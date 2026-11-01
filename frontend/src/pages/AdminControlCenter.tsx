@@ -120,7 +120,7 @@ function formatAssetAmountForAdmin(value: string, locale: string): string {
   const [wholeText = "0", fractionText = ""] = unsigned.split(".");
   let localizedWhole = "0";
   try { localizedWhole = new Intl.NumberFormat(locale).format(BigInt(wholeText || "0")); } catch { /* keep the safe fallback */ }
-  const fraction = fractionText.slice(0, 8).replace(/0+$/, "");
+  const fraction = fractionText.slice(0, 18).replace(/0+$/, "");
   return (negative ? "-" : "") + localizedWhole + (fraction ? "." + fraction : "");
 }
 
