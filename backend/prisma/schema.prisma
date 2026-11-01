@@ -1070,6 +1070,8 @@ model WalletChainWithdrawal {
   reviewReason               String?
   estimatedGasLimit          Decimal? @db.Decimal(78, 0)
   maxFeePerGasAtomic         Decimal? @db.Decimal(78, 0)
+  maxPriorityFeePerGasAtomic Decimal? @db.Decimal(78, 0)
+  feeQuoteExpiresAt          DateTime?
   actualFeeAtomic            Decimal? @db.Decimal(78, 0)
   blockPosition              String?
   blockHash                  String?
