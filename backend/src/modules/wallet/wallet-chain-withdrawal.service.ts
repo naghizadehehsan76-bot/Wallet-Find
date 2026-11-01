@@ -189,18 +189,13 @@ async function quoteEvmFee(input: {
         value: input.amountAtomic,
       })
     : input.contractAddress
-      ? await client.estimateGas({
-          account: input.from,
-          to: input.contractAddress as Address,
-          data: undefined,
-          // viem's estimateContractGas is used below for a token transfer.
-        }).catch(async () => client.estimateContractGas({
+      ? await client.estimateContractGas({
           account: input.from,
           address: input.contractAddress as Address,
           abi: TOKEN_TRANSFER_ABI,
           functionName: "transfer",
           args: [input.to, input.amountAtomic],
-        }))
+        })
       : (() => { throw new Error("INVALID_TOKEN_ASSET_CONFIGURATION"); })();
 
   const fees = await client.estimateFeesPerGas();
@@ -246,26 +241,6 @@ export async function requestChainWalletWithdrawal(input: {
   }
   const destinationAddress = input.destinationAddress.trim().toLowerCase();
   const idempotencyKey = requireIdempotencyKey(input.idempotencyKey);
-
-  const existingRequest = await prisma.walletChainWithdrawal.findUnique({
-    where: { idempotencyKey },
-  });
-  if (existingRequest) {
-    if (
-      existingRequest.userId !== input.userId ||
-      existingRequest.networkId !== networkId ||
-      existingRequest.walletAssetId !== assetId ||
-      existingRequest.destinationAddress !== destinationAddress
-    ) {
-      throw new Error("WALLET_WITHDRAWAL_IDEMPOTENCY_CONFLICT");
-    }
-    return {
-      ...existingRequest,
-      amount: existingRequest.amountAtomic.toString(),
-      fee: existingRequest.feeAtomic?.toString() ?? null,
-      reused: true,
-    };
-  }
 
   const wallet = await provisionTurnkeyWallet(input.userId);
   if (!wallet || wallet.status !== "ACTIVE" || !wallet.turnkeyOrganizationId || !wallet.turnkeyWalletId) {
@@ -597,6 +572,10 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
     );
     const fromAddress = withdrawal.walletAddress.address as Address;
     const destination = withdrawal.destinationAddress as Address;
+    if (!walletClient.account ||
+        walletClient.account.address.toLowerCase() !== fromAddress.toLowerCase()) {
+      throw new Error("TURNKEY_SIGNER_ADDRESS_MISMATCH");
+    }
 
     if (withdrawal.asset.assetType === "NATIVE") {
       const nativeBalance = await client.getBalance({ address: fromAddress });
