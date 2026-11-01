@@ -143,22 +143,30 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
     },
   });
 
-  if (!network || !network.isEnabled) {
-    return { networkId, skipped: "NETWORK_DISABLED" };
-  }
-  if (network.id === "eip155:137" && process.env.POLYGON_DEPOSIT_SCANNER_ENABLED === "true") {
-    return { networkId, skipped: "LEGACY_POLYGON_SCANNER_ACTIVE" };
+  if (!network) {
+    return { networkId, skipped: "NETWORK_NOT_FOUND" };
   }
   if (network.family !== "EVM") {
     return { networkId, skipped: "NETWORK_ADAPTER_NOT_IMPLEMENTED" };
   }
+
+  // A disabled network with no cursor has never been scanned; do not connect
+  // to its RPC until it is intentionally enabled. A disabled network that
+  // already has a cursor must continue in cursor-only mode so transfers sent
+  // during the pause are never backfilled after the network is re-enabled.
+  let cursor = await prisma.walletNetworkScanCursor.findUnique({ where: { networkId } });
+  if (!network.isEnabled && !cursor) {
+    return { networkId, skipped: "NETWORK_DISABLED_NOT_YET_INITIALIZED" };
+  }
+
+  const legacyPolygonScannerActive = network.id === "eip155:137"
+    && process.env.POLYGON_DEPOSIT_SCANNER_ENABLED === "true";
   const adapter = makeAdapter(network);
   const latestPosition = await adapter.getLatestPosition();
   const safePosition = await adapter.getSafePosition(network.finalityDepth);
   const safeValue = numericPosition(safePosition);
   const latestValue = numericPosition(latestPosition);
 
-  let cursor = await prisma.walletNetworkScanCursor.findUnique({ where: { networkId } });
   if (!cursor) {
     const anchorHash = await adapter.getPositionHash(safePosition);
     if (!anchorHash) throw new Error("EVM_CANONICAL_CURSOR_HASH_UNAVAILABLE");
@@ -276,9 +284,9 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
     if (network.depositEnabled !== true ||
         process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY !== "true" ||
         network.assets.length === 0 || network.addresses.length === 0) {
-      // Advance the cursor while deposits are disabled or no eligible asset /
-      // receiving address exists. Transfers sent during a paused period are
-      // intentionally not credited when operations resume.
+      // Advance the cursor while the network/asset is disabled, the legacy
+      // Polygon scanner owns this network, or no receiving address exists.
+      // Transfers sent during a paused period are never backfilled later.
       if (cursorPosition < safeValue) {
         const safeHash = await adapter.getPositionHash(safePosition);
         if (!safeHash) throw new Error("EVM_CANONICAL_CURSOR_HASH_UNAVAILABLE");
@@ -539,15 +547,16 @@ export function startWalletChainDepositScanner() {
     if (running) return;
     running = true;
     try {
+      // Include networks that were disabled after they acquired a cursor.
+      // Their scanner continues in cursor-only mode until explicitly enabled
+      // again, preventing historical backfill across a pause.
       const networks = await prisma.walletNetwork.findMany({
-        where: {
-          family: "EVM",
-          isEnabled: true,
-        },
-        select: { id: true },
+        where: { family: "EVM" },
+        select: { id: true, isEnabled: true, scanCursor: { select: { networkId: true } } },
         orderBy: { id: "asc" },
       });
-      for (const network of networks) {
+      const scanTargets = networks.filter((network) => network.isEnabled || network.scanCursor !== null);
+      for (const network of scanTargets) {
         try {
           const result = await scanWalletNetworkDepositsOnce(network.id);
           console.log("Generic wallet network deposit scan completed", result);
