@@ -3,8 +3,7 @@ import { createPublicClient, http, isAddress, parseUnits, parseAbi, parseEventLo
 import { polygon } from "viem/chains";
 import prisma from "../../config/prisma.js";
 import { createTurnkeySigner, isTurnkeyConfigured, provisionTurnkeyWallet } from "./turnkey.service.js";
-const MICRO = 1_000_000n;
-const POL_WEI = 1_000_000_000_000_000_000n;
+import { EVM_NETWORKS } from "./evm-network.registry.js";
 function formatUnits(value: bigint, decimals: number): string {
   const negative = value < 0n;
   const absolute = negative ? -value : value;
@@ -13,46 +12,121 @@ function formatUnits(value: bigint, decimals: number): string {
   const fraction = (absolute % scale).toString().padStart(decimals, "0").replace(/0+$/, "");
   return (negative ? "-" : "") + whole.toString() + (fraction ? "." + fraction : "");
 }
+
 function formatMicro(value: bigint): string { return formatUnits(value, 6); }
-function formatCurrency(value: bigint, currency: string): string {
-  return formatUnits(value, currency === "POL" ? 18 : 6);
-}
+function formatAssetAmount(value: bigint, decimals: number): string { return formatUnits(value, decimals); }
+
+type AssetBalance = { balance: bigint; pendingWithdrawals: bigint };
+
 async function calculateBalances(tx: any, userId: string) {
-  const rows = await tx.walletTransaction.findMany({ where: { userId }, select: { type: true, status: true, amountMicro: true, currency: true } });
-  const totals = new Map<string, { balance: bigint; pendingWithdrawals: bigint }>();
+  const rows = await tx.walletTransaction.findMany({
+    where: { userId },
+    select: {
+      type: true, status: true, amountMicro: true, currency: true, chainId: true, chainAssetId: true,
+    },
+  });
+  const totals = new Map<string, AssetBalance>();
   for (const row of rows) {
-    const currency = row.currency || "USDT";
-    const current = totals.get(currency) ?? { balance: 0n, pendingWithdrawals: 0n };
+    const key = row.chainAssetId ?? "legacy:" + (row.currency || "USDT");
+    const current = totals.get(key) ?? { balance: 0n, pendingWithdrawals: 0n };
     const amount = BigInt(row.amountMicro);
     if (row.status === "COMPLETED") {
       if (row.type === "DEPOSIT") current.balance += amount;
       if (row.type === "DEPOSIT_REVERSAL" || row.type === "WITHDRAWAL") current.balance -= amount;
     }
     if (row.type === "WITHDRAWAL_REQUEST" && row.status === "PENDING") current.pendingWithdrawals += amount;
-    totals.set(currency, current);
+    totals.set(key, current);
   }
-  const usdt = totals.get("USDT") ?? totals.get("USDT0") ?? { balance: 0n, pendingWithdrawals: 0n };
-  const pol = totals.get("POL") ?? { balance: 0n, pendingWithdrawals: 0n };
+  const usdt = totals.get("asset-polygon-usdt0") ?? totals.get("legacy:USDT0") ?? totals.get("legacy:USDT") ?? { balance: 0n, pendingWithdrawals: 0n };
   return {
     balance: usdt.balance,
     availableBalance: usdt.balance - usdt.pendingWithdrawals,
-    assets: {
-      USDT0: { balance: formatCurrency(usdt.balance, "USDT0"), availableBalance: formatCurrency(usdt.balance - usdt.pendingWithdrawals, "USDT0") },
-      POL: { balance: formatCurrency(pol.balance, "POL"), availableBalance: formatCurrency(pol.balance - pol.pendingWithdrawals, "POL") },
-    },
+    byAsset: totals,
   };
 }
+
 function serializeTransaction(row: any) {
-  return { id: row.id, type: row.type, status: row.status, amount: formatCurrency(BigInt(row.amountMicro), row.currency || "USDT"), currency: row.currency, note: row.note, contestId: row.contestId, createdAt: row.createdAt };
+  const decimals = row.asset?.decimals ?? 6;
+  return {
+    id: row.id,
+    type: row.type,
+    status: row.status,
+    amount: formatAssetAmount(BigInt(row.amountMicro), decimals),
+    currency: row.asset?.symbol ?? row.currency ?? "USDT",
+    assetId: row.chainAssetId ?? null,
+    chainId: row.chainId ?? row.asset?.chainId ?? null,
+    networkKey: row.asset?.chainId ? EVM_NETWORKS.find((network) => network.chainId === row.asset.chainId)?.networkKey ?? null : null,
+    note: row.note,
+    contestId: row.contestId,
+    createdAt: row.createdAt,
+  };
 }
+
 export async function getWallet(userId: string) {
   // Provision an EVM address only after server-side Turnkey credentials are configured.
   // No private key material is returned to the API caller.
   const turnkeyWallet = isTurnkeyConfigured() ? await provisionTurnkeyWallet(userId) : null;
   return prisma.$transaction(async (tx) => {
+    const transactions = await tx.walletTransaction.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      include: { asset: { select: { id: true, chainId: true, symbol: true, displayName: true, decimals: true, contractAddress: true } } },
+    });
     const balances = await calculateBalances(tx, userId);
-    const transactions = await tx.walletTransaction.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 100 });
-    return { currency: "USDT", simulatedOnly: false, turnkeyConfigured: isTurnkeyConfigured(), walletAddress: turnkeyWallet?.address ?? null, supportedNetworks: turnkeyWallet?.networkAccounts.map((network) => ({ chainId: network.chainId, networkKey: network.networkKey, depositEnabled: network.depositEnabled, withdrawalEnabled: network.withdrawalEnabled })) ?? [], balance: formatMicro(balances.balance), availableBalance: formatMicro(balances.availableBalance), assets: balances.assets, transactions: transactions.map(serializeTransaction) };
+    const assetIds = Array.from(new Set(transactions.map((row: any) => row.chainAssetId).filter((id: string | null): id is string => Boolean(id))));
+    const assetWhere: any[] = [{ depositEnabled: true }, { withdrawalEnabled: true }];
+    if (assetIds.length) assetWhere.push({ id: { in: assetIds } });
+    const assetRecords = await tx.chainAsset.findMany({
+      where: { OR: assetWhere },
+      orderBy: [{ chainId: "asc" }, { symbol: "asc" }],
+    });
+    const networkAccounts = turnkeyWallet?.networkAccounts ?? [];
+    const networkByChain = new Map(networkAccounts.map((network: any) => [network.chainId, network]));
+    const assets = assetRecords.flatMap((asset: any) => {
+      const network: any = networkByChain.get(asset.chainId);
+      const totals = balances.byAsset.get(asset.id) ?? { balance: 0n, pendingWithdrawals: 0n };
+      const available = totals.balance - totals.pendingWithdrawals;
+      const depositEnabled = Boolean(asset.depositEnabled && network?.depositEnabled);
+      const withdrawalEnabled = Boolean(asset.withdrawalEnabled && network?.withdrawalEnabled);
+      if (!depositEnabled && !withdrawalEnabled && totals.balance === 0n && totals.pendingWithdrawals === 0n) return [];
+      const networkConfig = EVM_NETWORKS.find((item) => item.chainId === asset.chainId);
+      return [{
+        assetId: asset.id,
+        chainId: asset.chainId,
+        networkKey: network?.networkKey ?? networkConfig?.networkKey ?? null,
+        networkName: networkConfig?.displayName ?? network?.networkKey ?? "Unknown network",
+        symbol: asset.symbol,
+        displayName: asset.displayName,
+        decimals: asset.decimals,
+        contractAddress: asset.contractAddress,
+        isNative: asset.contractAddress.toLowerCase() === "native",
+        balance: formatAssetAmount(totals.balance, asset.decimals),
+        availableBalance: formatAssetAmount(available, asset.decimals),
+        depositEnabled,
+        withdrawalEnabled,
+      }];
+    });
+    const usdtAsset = assetRecords.find((asset: any) => asset.chainId === 137 && asset.symbol === "USDT0");
+    return {
+      currency: "USDT0",
+      simulatedOnly: false,
+      turnkeyConfigured: isTurnkeyConfigured(),
+      walletAddress: turnkeyWallet?.address ?? null,
+      supportedNetworks: networkAccounts.map((network: any) => ({
+        chainId: network.chainId,
+        networkKey: network.networkKey,
+        networkName: EVM_NETWORKS.find((item) => item.chainId === network.chainId)?.displayName ?? network.networkKey,
+        depositEnabled: network.depositEnabled,
+        withdrawalEnabled: network.withdrawalEnabled,
+      })),
+      // Legacy scalar fields are retained for clients that have not yet moved
+      // to the asset collection. They always represent Polygon USDT0 only.
+      balance: formatAssetAmount(balances.balance, usdtAsset?.decimals ?? 6),
+      availableBalance: formatAssetAmount(balances.availableBalance, usdtAsset?.decimals ?? 6),
+      assets,
+      transactions: transactions.map(serializeTransaction),
+    };
   });
 }
 export async function requestWalletDeposit(userId: string, _rawAmount: unknown) {
