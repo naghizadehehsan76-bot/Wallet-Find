@@ -46,6 +46,6 @@ INSERT INTO "chain_assets" (
   "issuerClassification", "canonicalStatus", "depositEnabled", "withdrawalEnabled", "updatedAt"
 ) VALUES (
   'asset-polygon-pol-native', 137, 'native', 'POL', 'Native POL on Polygon PoS', 18,
-  'POLYGON_NATIVE_ASSET', 'ONCHAIN_VERIFIED', false, false, CURRENT_TIMESTAMP
+  'POLYGON_NATIVE_ASSET', 'ONCHAIN_VERIFIED', true, false, CURRENT_TIMESTAMP
 )
 ON CONFLICT ("chainId", "contractAddress") DO NOTHING;
