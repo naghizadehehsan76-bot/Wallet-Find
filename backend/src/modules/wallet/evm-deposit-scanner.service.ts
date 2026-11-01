@@ -272,27 +272,31 @@ async function scanNetwork(network: EvmNetworkConfig) {
     return { network: network.networkKey, initialized: true, lastScannedBlock: safeHead.toString(), nextScanBlock: (safeHead + 1n).toString() };
   }
 
-  // Keep the old Polygon switch compatible. It enables the already-reviewed
-  // USDT0 asset and eligible Polygon network accounts only; new assets such as
-  // native POL remain disabled until explicitly enabled in ChainAsset.
-  if (process.env[network.depositsEnabledEnv] === "true") {
-    if (network.chainId === 137) {
-      await prisma.chainAsset.updateMany({
-        where: { chainId: 137, contractAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", symbol: "USDT0", decimals: 6, canonicalStatus: "ONCHAIN_VERIFIED" },
-        data: { depositEnabled: true, withdrawalEnabled: false },
-      });
-    }
+  // Polygon deposit and USDT0 withdrawal gates are independent. Native POL
+  // is deposit-only; it supplies the on-chain gas required for USDT0 transfers.
+  if (network.chainId === 137) {
+    const depositsEnabled = process.env[network.depositsEnabledEnv] === "true";
+    const withdrawalsEnabled = process.env.POLYGON_WITHDRAWALS_ENABLED === "true";
+    await prisma.chainAsset.updateMany({
+      where: { chainId: 137, contractAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", symbol: "USDT0", decimals: 6, canonicalStatus: "ONCHAIN_VERIFIED" },
+      data: { depositEnabled: depositsEnabled, withdrawalEnabled: withdrawalsEnabled },
+    });
+    await prisma.chainAsset.updateMany({
+      where: { chainId: 137, contractAddress: "native", symbol: "POL", decimals: 18, canonicalStatus: "ONCHAIN_VERIFIED" },
+      data: { depositEnabled: depositsEnabled, withdrawalEnabled: false },
+    });
     await prisma.walletNetworkAccount.updateMany({
       where: {
-        chainId: network.chainId,
-        networkKey: network.networkKey,
-        walletAccount: {
-          status: "ACTIVE",
-          turnkeyOrganizationId: { not: null },
-          turnkeyWalletId: { not: null },
-          turnkeyApiPublicKey: { not: null },
-          turnkeyApiPrivateKeyEncrypted: { not: null },
-        },
+        chainId: 137, networkKey: network.networkKey,
+        walletAccount: { status: "ACTIVE", turnkeyOrganizationId: { not: null }, turnkeyWalletId: { not: null }, turnkeyApiPublicKey: { not: null }, turnkeyApiPrivateKeyEncrypted: { not: null } },
+      },
+      data: { depositEnabled: depositsEnabled, withdrawalEnabled: withdrawalsEnabled },
+    });
+  } else if (process.env[network.depositsEnabledEnv] === "true") {
+    await prisma.walletNetworkAccount.updateMany({
+      where: {
+        chainId: network.chainId, networkKey: network.networkKey,
+        walletAccount: { status: "ACTIVE", turnkeyOrganizationId: { not: null }, turnkeyWalletId: { not: null }, turnkeyApiPublicKey: { not: null }, turnkeyApiPrivateKeyEncrypted: { not: null } },
       },
       data: { depositEnabled: true, withdrawalEnabled: false },
     });
