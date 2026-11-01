@@ -215,7 +215,7 @@ export default function WalletNetworkAdmin({ fa }: Props) {
           <button type="button" disabled={Boolean(saving) || (!network.isEnabled && !network.adapterReady)} onClick={() => void saveNetwork(network.id, { isEnabled: !network.isEnabled })}>
             {saving === network.id ? "…" : network.isEnabled ? copy.disableNetwork : copy.activation}
           </button>
-          <button type="button" disabled={Boolean(saving) || !network.isEnabled} onClick={() => void saveNetwork(network.id, { depositEnabled: !network.depositEnabled })}>
+          <button type="button" disabled={Boolean(saving) || !network.isEnabled || !network.adapterReady} onClick={() => void saveNetwork(network.id, { depositEnabled: !network.depositEnabled })}>
             {copy.depositToggle}
           </button>
           <button type="button" disabled={Boolean(saving) || !network.isEnabled || !network.withdrawalAdapterReady} onClick={() => void saveNetwork(network.id, { withdrawalEnabled: !network.withdrawalEnabled })}>
@@ -237,7 +237,7 @@ export default function WalletNetworkAdmin({ fa }: Props) {
             </div>
           </div>
           <div className="admin-wallet-network-actions">
-            <button type="button" disabled={Boolean(saving) || !network.isEnabled || !network.depositEnabled || asset.verificationStatus !== "VERIFIED"} onClick={() => void saveAsset(asset.id, { depositEnabled: !asset.depositEnabled })}>
+            <button type="button" disabled={Boolean(saving) || !network.isEnabled || !network.adapterReady || !network.depositEnabled || asset.verificationStatus !== "VERIFIED"} onClick={() => void saveAsset(asset.id, { depositEnabled: !asset.depositEnabled })}>
               {fa ? "تغییر واریز" : "Toggle deposit"}
             </button>
             <button type="button" disabled={Boolean(saving) || !network.isEnabled || !network.withdrawalAdapterReady || !network.withdrawalEnabled || asset.verificationStatus !== "VERIFIED"} onClick={() => void saveAsset(asset.id, { withdrawalEnabled: !asset.withdrawalEnabled })}>
