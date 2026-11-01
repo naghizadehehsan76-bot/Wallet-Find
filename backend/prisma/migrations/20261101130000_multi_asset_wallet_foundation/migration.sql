@@ -37,8 +37,13 @@ INSERT INTO "wallet_networks" (
   "nativeAssetSymbol", "nativeAssetDecimals", "explorerTransactionUrlTemplate",
   "finalityDepth", "isTestnet", "isEnabled", "depositEnabled", "withdrawalEnabled", "updatedAt"
 ) VALUES
+  ('eip155:1', 'EVM', 1, 'ethereum', 'Ethereum', 'ETH', 18, 'https://etherscan.io/tx/{txHash}', 64, false, false, false, false, CURRENT_TIMESTAMP),
+  ('eip155:10', 'EVM', 10, 'optimism', 'Optimism', 'ETH', 18, 'https://optimistic.etherscan.io/tx/{txHash}', 64, false, false, false, false, CURRENT_TIMESTAMP),
+  ('eip155:56', 'EVM', 56, 'bsc', 'BNB Smart Chain', 'BNB', 18, 'https://bscscan.com/tx/{txHash}', 32, false, false, false, false, CURRENT_TIMESTAMP),
   ('eip155:137', 'EVM', 137, 'polygon', 'Polygon PoS', 'POL', 18, 'https://polygonscan.com/tx/{txHash}', 128, false, false, false, false, CURRENT_TIMESTAMP),
-  ('eip155:56', 'EVM', 56, 'bsc', 'BNB Smart Chain', 'BNB', 18, 'https://bscscan.com/tx/{txHash}', 32, false, false, false, false, CURRENT_TIMESTAMP);
+  ('eip155:42161', 'EVM', 42161, 'arbitrum', 'Arbitrum One', 'ETH', 18, 'https://arbiscan.io/tx/{txHash}', 64, false, false, false, false, CURRENT_TIMESTAMP),
+  ('bip122:000000000019d6689c085ae165831e93', 'BITCOIN', NULL, 'bitcoin', 'Bitcoin', 'BTC', 8, 'https://mempool.space/tx/{txHash}', 6, false, false, false, false, CURRENT_TIMESTAMP),
+  ('solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', 'SOLANA', NULL, 'solana', 'Solana Mainnet-Beta', 'SOL', 9, 'https://solscan.io/tx/{txHash}', 32, false, false, false, false, CURRENT_TIMESTAMP);
 
 CREATE TABLE "wallet_assets" (
   "id" TEXT NOT NULL,
@@ -105,8 +110,13 @@ INSERT INTO "wallet_assets" (
   "symbol", "displayName", "decimals", "issuerClassification",
   "verificationStatus", "confirmationCount", "depositEnabled", "withdrawalEnabled", "updatedAt"
 ) VALUES
+  ('eip155:1/native', 'eip155:1', 'NATIVE', 'native', NULL, 'ETH', 'Ethereum native ETH', 18, 'NATIVE_NETWORK_ASSET', 'VERIFIED', 64, false, false, CURRENT_TIMESTAMP),
+  ('eip155:10/native', 'eip155:10', 'NATIVE', 'native', NULL, 'ETH', 'Optimism native ETH', 18, 'NATIVE_NETWORK_ASSET', 'VERIFIED', 64, false, false, CURRENT_TIMESTAMP),
+  ('eip155:56/native', 'eip155:56', 'NATIVE', 'native', NULL, 'BNB', 'BNB Smart Chain native BNB', 18, 'NATIVE_NETWORK_ASSET', 'VERIFIED', 32, false, false, CURRENT_TIMESTAMP),
   ('eip155:137/native', 'eip155:137', 'NATIVE', 'native', NULL, 'POL', 'Polygon native POL', 18, 'NATIVE_NETWORK_ASSET', 'VERIFIED', 128, false, false, CURRENT_TIMESTAMP),
-  ('eip155:56/native', 'eip155:56', 'NATIVE', 'native', NULL, 'BNB', 'BNB Smart Chain native BNB', 18, 'NATIVE_NETWORK_ASSET', 'VERIFIED', 32, false, false, CURRENT_TIMESTAMP)
+  ('eip155:42161/native', 'eip155:42161', 'NATIVE', 'native', NULL, 'ETH', 'Arbitrum One native ETH', 18, 'NATIVE_NETWORK_ASSET', 'VERIFIED', 64, false, false, CURRENT_TIMESTAMP),
+  ('bip122:000000000019d6689c085ae165831e93/native', 'bip122:000000000019d6689c085ae165831e93', 'NATIVE', 'native', NULL, 'BTC', 'Bitcoin native BTC', 8, 'NATIVE_NETWORK_ASSET', 'VERIFIED', 6, false, false, CURRENT_TIMESTAMP),
+  ('solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp/native', 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', 'NATIVE', 'native', NULL, 'SOL', 'Solana native SOL', 9, 'NATIVE_NETWORK_ASSET', 'VERIFIED', 32, false, false, CURRENT_TIMESTAMP)
 ON CONFLICT ("networkId", "assetReference") DO NOTHING;
 
 CREATE TABLE "wallet_addresses" (
