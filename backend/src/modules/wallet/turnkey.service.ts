@@ -3,6 +3,7 @@ import { Turnkey } from "@turnkey/sdk-server";
 import { createAccount } from "@turnkey/viem";
 import { createWalletClient, http, type WalletClient } from "viem";
 import { bsc, polygon } from "viem/chains";
+import { EVM_NETWORKS } from "./evm-network.registry.js";
 import prisma from "../../config/prisma.js";
 
 const requiredEnv = [
@@ -161,13 +162,13 @@ export async function provisionTurnkeyWallet(userId: string) {
           include: { networkAccounts: true },
         });
 
-    for (const network of [
-      { chainId: 56, networkKey: "bsc" },
-      { chainId: 137, networkKey: "polygon" },
-    ]) {
+    // EVM addresses are chain-agnostic. Prepare a disabled network account
+    // for each registered EVM chain so deposits can be enabled independently
+    // after RPC, asset, confirmation, and compliance checks are complete.
+    for (const network of EVM_NETWORKS) {
       await tx.walletNetworkAccount.upsert({
         where: { walletAccountId_chainId: { walletAccountId: wallet.id, chainId: network.chainId } },
-        create: { walletAccountId: wallet.id, ...network, depositEnabled: false, withdrawalEnabled: false },
+        create: { walletAccountId: wallet.id, chainId: network.chainId, networkKey: network.networkKey, depositEnabled: false, withdrawalEnabled: false },
         update: {},
       });
     }
