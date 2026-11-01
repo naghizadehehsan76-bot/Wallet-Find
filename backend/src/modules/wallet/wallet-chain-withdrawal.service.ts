@@ -521,6 +521,8 @@ async function refreshWithdrawalFeeReservation(input: {
   newQuote: Awaited<ReturnType<typeof quoteEvmFee>>;
 }): Promise<bigint> {
   if (!input.withdrawal.feeAssetId) throw new Error("WALLET_WITHDRAWAL_FEE_ASSET_MISSING");
+  const feeAssetId = input.withdrawal.feeAssetId;
+  if (!feeAssetId) throw new Error("WALLET_WITHDRAWAL_FEE_ASSET_MISSING");
   const currentReserved = atomic(input.withdrawal.feeAtomic);
   const nextQuote = input.newQuote.feeAtomic;
   const additional = nextQuote > currentReserved ? nextQuote - currentReserved : 0n;
@@ -529,7 +531,7 @@ async function refreshWithdrawalFeeReservation(input: {
     await tx.$queryRawUnsafe(
       "SELECT pg_advisory_xact_lock(hashtext($1))",
       "wallet-user-asset:" + input.withdrawal.userId + ":" +
-        input.withdrawal.networkId + ":" + input.withdrawal.feeAssetId,
+        input.withdrawal.networkId + ":" + feeAssetId,
     );
 
     if (additional > 0n) {
@@ -546,7 +548,7 @@ async function refreshWithdrawalFeeReservation(input: {
         id: input.withdrawal.id,
         userId: input.withdrawal.userId,
         networkId: input.withdrawal.networkId,
-        walletAssetId: input.withdrawal.feeAssetId,
+        walletAssetId: feeAssetId,
         amount: additional,
         suffix: "fee-reserve-topup:" + nextQuote.toString(),
         note: "Top up reserved native fee after refreshing the withdrawal fee quote",
