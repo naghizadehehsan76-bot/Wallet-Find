@@ -41,7 +41,7 @@ export async function getWallet(userId: string) {
       tx.walletChainDeposit.findMany({
         where: { userId },
         include: {
-          network: { select: { displayName: true } },
+          network: { select: { displayName: true, explorerTransactionUrlTemplate: true } },
           asset: { select: { symbol: true, decimals: true } },
         },
         orderBy: { detectedAt: "desc" },
@@ -50,7 +50,7 @@ export async function getWallet(userId: string) {
       tx.walletChainWithdrawal.findMany({
         where: { userId },
         include: {
-          network: { select: { displayName: true } },
+          network: { select: { displayName: true, explorerTransactionUrlTemplate: true } },
           asset: { select: { symbol: true, decimals: true } },
           feeAsset: { select: { symbol: true, decimals: true } },
         },
@@ -174,6 +174,7 @@ export async function getWallet(userId: string) {
         amount: formatAssetUnits(BigInt(deposit.amountAtomic.toString()), deposit.asset.decimals),
         status: deposit.status,
         transactionHash: deposit.transactionReference,
+        explorerUrl: deposit.network.explorerTransactionUrlTemplate?.replace("{txHash}", deposit.transactionReference) ?? null,
         confirmationCount: deposit.confirmationCount,
         detectedAt: deposit.detectedAt,
         creditedAt: deposit.creditedAt,
@@ -195,6 +196,7 @@ export async function getWallet(userId: string) {
         feeAsset: withdrawal.feeAsset?.symbol ?? null,
         status: withdrawal.status,
         transactionHash: withdrawal.transactionReference,
+        explorerUrl: withdrawal.network.explorerTransactionUrlTemplate?.replace("{txHash}", withdrawal.transactionReference ?? "") ?? null,
         confirmationCount: withdrawal.confirmationCount,
         requestedAt: withdrawal.requestedAt,
         confirmedAt: withdrawal.confirmedAt,
