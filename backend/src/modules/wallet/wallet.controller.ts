@@ -437,3 +437,41 @@ export async function reconcileAdminChainWithdrawalHandler(req: AuthenticatedReq
     return res.status(status).json({ success: false, error: known.includes(message) ? message : "WALLET_WITHDRAWAL_RECONCILIATION_FAILED" });
   }
 }
+
+
+export async function emergencyPauseWalletOperationsHandler(req: AuthenticatedRequest, res: Response) {
+  const adminUserId = req.user?.userId;
+  if (!adminUserId) return res.status(401).json({ success: false, error: "AUTHENTICATION_REQUIRED" });
+  try {
+    const { emergencyPauseAllWalletOperations } = await import("./wallet-admin.service.js");
+    const data = await emergencyPauseAllWalletOperations(adminUserId, req.body?.reason);
+    return res.json({ success: true, data });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+    if (message === "WALLET_ADMIN_CHANGE_REASON_REQUIRED") {
+      return res.status(400).json({ success: false, error: message });
+    }
+    console.error("Global wallet emergency pause failed", error);
+    return res.status(500).json({ success: false, error: "WALLET_EMERGENCY_PAUSE_FAILED" });
+  }
+}
+
+export async function resumeWalletOperationsHandler(req: AuthenticatedRequest, res: Response) {
+  const adminUserId = req.user?.userId;
+  if (!adminUserId) return res.status(401).json({ success: false, error: "AUTHENTICATION_REQUIRED" });
+  try {
+    const { resumeWalletOperationsByAdmin } = await import("./wallet-admin.service.js");
+    const data = await resumeWalletOperationsByAdmin(adminUserId, req.body?.reason);
+    return res.json({ success: true, data });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+    if (message === "WALLET_ADMIN_CHANGE_REASON_REQUIRED") {
+      return res.status(400).json({ success: false, error: message });
+    }
+    if (message === "WALLET_GLOBAL_EMERGENCY_PAUSE_NOT_ACTIVE") {
+      return res.status(409).json({ success: false, error: message });
+    }
+    console.error("Global wallet emergency pause release failed", error);
+    return res.status(500).json({ success: false, error: "WALLET_EMERGENCY_PAUSE_RELEASE_FAILED" });
+  }
+}
