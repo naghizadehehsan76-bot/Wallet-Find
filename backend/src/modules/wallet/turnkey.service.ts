@@ -142,7 +142,7 @@ export async function provisionTurnkeyWallet(userId: string) {
   if (!isTurnkeyConfigured()) throw new Error("TURNKEY_NOT_CONFIGURED");
 
   const preparation = await prisma.$transaction(async (tx) => {
-    await tx.$executeRawUnsafe(
+    await tx.$queryRawUnsafe(
       "SELECT pg_advisory_xact_lock(hashtext($1))",
       "wallet-provision:" + userId,
     );
@@ -273,7 +273,7 @@ export async function provisionTurnkeyWallet(userId: string) {
 
   try {
     const walletAccountId = await prisma.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe(
+      await tx.$queryRawUnsafe(
         "SELECT pg_advisory_xact_lock(hashtext($1))",
         "wallet-provision:" + userId,
       );
