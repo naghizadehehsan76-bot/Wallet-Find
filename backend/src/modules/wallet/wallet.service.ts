@@ -158,44 +158,78 @@ export async function getWallet(userId: string) {
     };
   });
 }
-export async function requestWalletDeposit(userId: string, _rawAmount: unknown) {
+export async function requestWalletDeposit(
+  userId: string,
+  rawNetworkId: unknown,
+  rawWalletAssetId: unknown,
+) {
+  if (typeof rawNetworkId !== "string" || typeof rawWalletAssetId !== "string") {
+    throw new Error("INVALID_WALLET_ASSET_SELECTION");
+  }
+
+  const networkId = rawNetworkId.trim();
+  const walletAssetId = rawWalletAssetId.trim();
+  if (!networkId || !walletAssetId || networkId.length > 128 || walletAssetId.length > 256) {
+    throw new Error("INVALID_WALLET_ASSET_SELECTION");
+  }
   if (!isTurnkeyConfigured()) throw new Error("TURNKEY_NOT_CONFIGURED");
-  // Provisioning enforces verified email and creates/returns this user's own
-  // independent Turnkey sub-organization. Deposits are discovered from canonical
-  // Polygon Transfer logs; a client-supplied amount is never credited.
+
   const wallet = await provisionTurnkeyWallet(userId);
   if (!wallet || wallet.status !== "ACTIVE" || !wallet.turnkeyOrganizationId || !wallet.turnkeyWalletId) {
     throw new Error("WALLET_NOT_ACTIVE");
   }
-  const [network, asset] = await Promise.all([
-    prisma.walletNetworkAccount.findUnique({
-      where: { walletAccountId_chainId: { walletAccountId: wallet.id, chainId: 137 } },
+
+  const [network, asset, address, legacyNetworkAccount] = await Promise.all([
+    prisma.walletNetwork.findUnique({ where: { id: networkId } }),
+    prisma.walletAsset.findUnique({ where: { id: walletAssetId } }),
+    prisma.walletAddress.findUnique({
+      where: { walletAccountId_networkId: { walletAccountId: wallet.id, networkId } },
     }),
-    prisma.chainAsset.findMany({
-      where: {
-        chainId: 137,
-        symbol: "USDT0",
-        contractAddress: polygonUsdt0Contract,
-        decimals: 6,
-        canonicalStatus: "ONCHAIN_VERIFIED",
-        depositEnabled: true,
-      },
-      take: 2,
-    }),
+    prisma.walletNetwork.findUnique({ where: { id: networkId }, select: { chainId: true } }),
   ]);
-  if (!network || network.networkKey !== "polygon" || !network.depositEnabled || asset.length !== 1) {
+  if (!network || !asset || asset.networkId !== networkId || !address || address.status !== "ACTIVE") {
+    throw new Error("WALLET_ASSET_NOT_AVAILABLE");
+  }
+
+  const networkAccount = legacyNetworkAccount?.chainId === null || legacyNetworkAccount?.chainId === undefined
+    ? null
+    : await prisma.walletNetworkAccount.findUnique({
+        where: {
+          walletAccountId_chainId: {
+            walletAccountId: wallet.id,
+            chainId: legacyNetworkAccount.chainId,
+          },
+        },
+      });
+
+  if (
+    !network.isEnabled ||
+    !network.depositEnabled ||
+    !asset.depositEnabled ||
+    asset.verificationStatus !== "VERIFIED" ||
+    (network.family === "EVM" && !networkAccount?.depositEnabled)
+  ) {
     throw new Error("DEPOSITS_DISABLED");
   }
+
   return {
-    network: "Polygon PoS",
-    chainId: 137,
-    asset: "USDT0",
-    contractAddress: polygonUsdt0Contract,
-    decimals: 6,
-    depositAddress: wallet.address,
-    confirmationsRequired: Math.max(32, Number.parseInt(process.env.POLYGON_USDT_CONFIRMATIONS ?? "128", 10) || 128),
+    networkId: network.id,
+    network: network.displayName,
+    family: network.family,
+    chainId: network.chainId,
+    assetId: asset.id,
+    asset: asset.symbol,
+    displayName: asset.displayName,
+    assetType: asset.assetType,
+    contractAddress: asset.contractAddress,
+    decimals: asset.decimals,
+    depositAddress: address.address,
+    minDeposit: asset.minDepositAtomic === null
+      ? null
+      : formatAssetUnits(BigInt(asset.minDepositAtomic.toString()), asset.decimals),
+    confirmationsRequired: asset.confirmationCount,
     status: "AWAITING_TRANSFER",
-    message: "Send only Polygon USDT0 to this address. The balance is credited automatically after canonical confirmations.",
+    message: "Send only the selected asset on the selected network to this address. The balance is credited after canonical finality checks.",
   };
 }
 export async function requestWalletWithdrawal(userId: string, rawAmount: unknown, rawDestination: unknown) {
