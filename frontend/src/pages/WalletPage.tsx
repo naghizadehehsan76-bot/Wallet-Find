@@ -201,7 +201,7 @@ export default function WalletPage({ onNavigate }: Props) {
           setPriceStatus("ready");
         }
       } catch {
-        if (!cancelled) setPriceStatus((previous) => Object.keys(usdPrices).length > 0 ? "ready" : "error");
+        if (!cancelled) setPriceStatus((previous) => previous === "ready" ? "ready" : "error");
       }
     };
     void loadPrices();
