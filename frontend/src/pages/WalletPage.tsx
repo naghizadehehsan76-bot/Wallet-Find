@@ -7,6 +7,7 @@ import LoadingIndicator from "../components/LoadingIndicator";
 type Page = "home" | "auth" | "competition" | "key" | "leaderboard" | "profile" | "wallet";
 type Props = { onNavigate: (page: Page) => void };
 type WalletView = "overview" | "deposit" | "withdraw";
+type WalletAsset = "USDT0" | "POL";
 
 const POLYGON_USDT0_CONTRACT = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f";
 
@@ -16,6 +17,7 @@ export default function WalletPage({ onNavigate }: Props) {
   const [wallet, setWallet] = useState<WalletResult | null>(null);
   const [error, setError] = useState("");
   const [view, setView] = useState<WalletView>("overview");
+  const [selectedAsset, setSelectedAsset] = useState<WalletAsset>("USDT0");
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawAddress, setWithdrawAddress] = useState("");
   const [copied, setCopied] = useState(false);
@@ -36,6 +38,9 @@ export default function WalletPage({ onNavigate }: Props) {
     asset: fa ? "دارایی" : "Asset",
     polygon: "Polygon PoS",
     token: "USDT0",
+    pol: "POL",
+    selectAsset: fa ? "انتخاب دارایی" : "Select asset",
+    polWarning: fa ? "واریز POL بومی شبکه Polygon است؛ توکن‌های دیگر را به این آدرس ارسال نکنید." : "This is native POL on Polygon PoS. Do not send other tokens to this address.",
     depositTitle: fa ? "واریز ارز دیجیتال" : "Crypto deposit",
     withdrawTitle: fa ? "برداشت ارز دیجیتال" : "Crypto withdrawal",
     depositIntro: fa ? "فقط دارایی و شبکهٔ نمایش‌داده‌شده را به آدرس خود ارسال کنید." : "Send only the asset on the network shown below to your wallet address.",
@@ -82,6 +87,9 @@ export default function WalletPage({ onNavigate }: Props) {
   const polygonNetwork = wallet?.supportedNetworks?.find((item) => item.chainId === 137);
   const depositEnabled = Boolean(polygonNetwork?.depositEnabled);
   const withdrawalEnabled = Boolean(polygonNetwork?.withdrawalEnabled);
+  const selectedBalance = selectedAsset === "POL" ? wallet?.assets?.POL : wallet?.assets?.USDT0;
+  const selectedBalanceText = selectedBalance?.balance ?? (selectedAsset === "POL" ? "0" : wallet?.balance ?? "0");
+  const selectedAvailableText = selectedBalance?.availableBalance ?? (selectedAsset === "POL" ? "0" : wallet?.availableBalance ?? "0");
 
   const copyAddress = async () => {
     if (!address) return;
@@ -106,8 +114,9 @@ export default function WalletPage({ onNavigate }: Props) {
       {wallet && view === "overview" && <>
         <section className="wallet-exchange-balance">
           <div className="wallet-exchange-balance__top"><span>{copy.balance}</span><span className="wallet-safe-pill">● {depositEnabled ? copy.active : copy.unavailable}</span></div>
-          <div className="wallet-exchange-balance__value">{fmt(wallet.balance)} <small>USDT</small></div>
-          <div className="wallet-exchange-balance__available">{copy.available}: <strong>{fmt(wallet.availableBalance)} USDT</strong></div>
+          <div className="wallet-form-field wallet-asset-picker"><label>{copy.selectAsset}</label><select value={selectedAsset} onChange={event => setSelectedAsset(event.target.value as WalletAsset)}><option value="USDT0">USDT0</option><option value="POL">POL</option></select></div>
+          <div className="wallet-exchange-balance__value">{fmt(selectedBalanceText)} <small>{selectedAsset}</small></div>
+          <div className="wallet-exchange-balance__available">{copy.available}: <strong>{fmt(selectedAvailableText)} {selectedAsset}</strong></div>
           <div className="wallet-exchange-actions">
             <button type="button" className="wallet-action wallet-action--deposit" onClick={() => setView("deposit")}><span>↓</span>{copy.deposit}</button>
             <button type="button" className="wallet-action wallet-action--withdraw" onClick={() => setView("withdraw")}><span>↑</span>{copy.withdraw}</button>
@@ -117,7 +126,7 @@ export default function WalletPage({ onNavigate }: Props) {
         <section className="wallet-network-card">
           <div className="wallet-card-heading"><h2>{fa ? "شبکه و دارایی" : "Network & asset"}</h2><span className={depositEnabled ? "wallet-network-status wallet-network-status--active" : "wallet-network-status"}>{depositEnabled ? copy.active : copy.unavailable}</span></div>
           <div className="wallet-network-row"><span>{copy.network}</span><strong><i className="wallet-network-dot" />{copy.polygon}</strong></div>
-          <div className="wallet-network-row"><span>{copy.asset}</span><strong>{copy.token}</strong></div>
+          <div className="wallet-network-row"><span>{copy.asset}</span><strong>{selectedAsset}</strong></div>
           <div className="wallet-network-row"><span>{copy.status}</span><strong className={depositEnabled ? "wallet-status-on" : "wallet-status-off"}>{depositEnabled ? copy.active : copy.unavailable}</strong></div>
           <div className="wallet-network-row"><span>{copy.withdraw}</span><strong className="wallet-status-off">{withdrawalEnabled ? copy.active : copy.safeWithdraw}</strong></div>
         </section>
@@ -140,7 +149,7 @@ export default function WalletPage({ onNavigate }: Props) {
         <div className="wallet-flow-icon wallet-flow-icon--deposit">↓</div>
         <h1>{copy.depositTitle}</h1><p className="wallet-flow-intro">{copy.depositIntro}</p>
         <div className="wallet-form-field"><label>{copy.network}</label><div className="wallet-select-static"><span className="wallet-network-dot" />{copy.polygon}</div></div>
-        <div className="wallet-form-field"><label>{copy.asset}</label><div className="wallet-select-static">USDT0 <span>Polygon PoS</span></div></div>
+        <div className="wallet-form-field"><label>{copy.asset}</label><select value={selectedAsset} onChange={event => setSelectedAsset(event.target.value as WalletAsset)}><option value="USDT0">USDT0</option><option value="POL">POL (native)</option></select></div>
         <div className="wallet-deposit-address">
           <label>{copy.receiveAddress}</label>
           {address ? <><code>{address}</code><button type="button" onClick={() => void copyAddress()} disabled={!depositEnabled || copied}>{copied ? "✓ " + copy.copied : copy.copyAddress}</button></> : <p>{copy.depositDisabled}</p>}
@@ -148,7 +157,7 @@ export default function WalletPage({ onNavigate }: Props) {
         {depositEnabled ? <>
           <div className="wallet-network-row"><span>{copy.confirmations}</span><strong>{copy.confirmations}</strong></div>
           <div className="wallet-deposit-address"><label>{copy.contract}</label><code>{POLYGON_USDT0_CONTRACT}</code></div>
-          <div className="wallet-warning"><strong>⚠ {fa ? "نکتهٔ مهم" : "Important"}</strong><p>{copy.depositWarning}</p></div>
+          <div className="wallet-warning"><strong>⚠ {fa ? "نکتهٔ مهم" : "Important"}</strong><p>{selectedAsset === "POL" ? copy.polWarning : copy.depositWarning}</p></div>
           <p className="wallet-deposit-minimum">{copy.noMinimum}</p>
         </> : <div className="wallet-warning"><strong>⚠ {copy.unavailable}</strong><p>{copy.depositDisabled}</p></div>}
         <button type="button" className="wallet-submit" disabled>{depositEnabled ? (fa ? "منتظر واریز شبکه" : "Awaiting on-chain deposit") : copy.unavailable}</button>
