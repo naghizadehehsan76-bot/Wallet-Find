@@ -20,7 +20,7 @@ function createClient(network: EvmNetworkConfig) {
 }
 
 function confirmationsFor(network: EvmNetworkConfig): number {
-  return positiveInteger(process.env[network.confirmationsEnv], network.defaultConfirmations, 1, 100_000);
+  return positiveInteger(process.env[network.confirmationsEnv], network.defaultConfirmations, 32, 100_000);
 }
 
 function formatAddress(value: string): string {
