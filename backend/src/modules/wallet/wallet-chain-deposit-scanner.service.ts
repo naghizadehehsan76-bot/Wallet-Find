@@ -273,7 +273,9 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
       userId: item.walletAccount.userId,
     }));
 
-    if (!network.depositEnabled || network.assets.length === 0 || network.addresses.length === 0) {
+    if (network.depositEnabled !== true ||
+        process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY !== "true" ||
+        network.assets.length === 0 || network.addresses.length === 0) {
       // Advance the cursor while deposits are disabled or no eligible asset /
       // receiving address exists. Transfers sent during a paused period are
       // intentionally not credited when operations resume.
