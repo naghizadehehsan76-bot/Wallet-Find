@@ -182,6 +182,76 @@ CREATE INDEX "wallet_journal_postings_journalId_account_idx" ON "wallet_journal_
 ALTER TABLE "wallet_journal_postings" ADD CONSTRAINT "wallet_journal_postings_journalId_fkey"
   FOREIGN KEY ("journalId") REFERENCES "wallet_journals"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
+-- Database-level journal integrity: no journal may commit unless it has at
+-- least two positive postings and total debits equal total credits.
+CREATE FUNCTION "assert_wallet_journal_balanced"() RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $
+DECLARE
+  journal_key TEXT;
+  posting_count BIGINT;
+  debit_total NUMERIC;
+  credit_total NUMERIC;
+BEGIN
+  IF TG_TABLE_NAME = 'wallet_journals' THEN
+    IF TG_OP = 'DELETE' THEN
+      journal_key := OLD."id";
+    ELSE
+      journal_key := NEW."id";
+    END IF;
+  ELSE
+    IF TG_OP = 'DELETE' THEN
+      journal_key := OLD."journalId";
+    ELSE
+      journal_key := NEW."journalId";
+    END IF;
+  END IF;
+
+  SELECT
+    COUNT(*),
+    COALESCE(SUM(CASE WHEN "direction" = 'DEBIT' THEN "amountAtomic" ELSE 0 END), 0),
+    COALESCE(SUM(CASE WHEN "direction" = 'CREDIT' THEN "amountAtomic" ELSE 0 END), 0)
+  INTO posting_count, debit_total, credit_total
+  FROM "wallet_journal_postings"
+  WHERE "journalId" = journal_key;
+
+  IF posting_count < 2 OR debit_total <> credit_total THEN
+    RAISE EXCEPTION 'WALLET_JOURNAL_NOT_BALANCED: %', journal_key
+      USING ERRCODE = '23514';
+  END IF;
+  RETURN NULL;
+END;
+$;
+
+CREATE CONSTRAINT TRIGGER "wallet_journals_balance_check"
+AFTER INSERT OR UPDATE ON "wallet_journals"
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION "assert_wallet_journal_balanced"();
+
+CREATE CONSTRAINT TRIGGER "wallet_journal_postings_balance_check"
+AFTER INSERT OR UPDATE OR DELETE ON "wallet_journal_postings"
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION "assert_wallet_journal_balanced"();
+
+-- Posted journal records and postings are append-only. Corrections are made
+-- by adding a new reversal/adjustment journal rather than mutating history.
+CREATE FUNCTION "reject_wallet_journal_mutation"() RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $
+BEGIN
+  RAISE EXCEPTION 'WALLET_JOURNAL_IS_IMMUTABLE'
+    USING ERRCODE = '55000';
+END;
+$;
+
+CREATE TRIGGER "wallet_journals_immutable"
+BEFORE UPDATE OR DELETE ON "wallet_journals"
+FOR EACH ROW EXECUTE FUNCTION "reject_wallet_journal_mutation"();
+
+CREATE TRIGGER "wallet_journal_postings_immutable"
+BEFORE UPDATE OR DELETE ON "wallet_journal_postings"
+FOR EACH ROW EXECUTE FUNCTION "reject_wallet_journal_mutation"();
+
 CREATE TABLE "wallet_chain_deposits" (
   "id" TEXT NOT NULL,
   "userId" TEXT NOT NULL,
