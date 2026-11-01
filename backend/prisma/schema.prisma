@@ -98,6 +98,9 @@ model User {
   walletAccount       WalletAccount?
   walletDeposits      WalletDeposit[]
   walletWithdrawals   WalletWithdrawal[]
+  walletChainDeposits WalletChainDeposit[]
+  walletChainWithdrawals WalletChainWithdrawal[]
+  walletJournals WalletJournal[]
   contestSourceVisits ContestSourceVisit[]
 
   createdAt  DateTime @default(now())
@@ -609,6 +612,56 @@ model AuthChallenge {
 }
 
 
+
+enum WalletNetworkFamily {
+  EVM
+  BITCOIN
+  SOLANA
+}
+
+enum WalletAssetType {
+  NATIVE
+  TOKEN
+}
+
+enum WalletAssetVerificationStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  REVIEW_REQUIRED
+  REJECTED
+}
+
+enum WalletAddressType {
+  EVM
+  BITCOIN
+  SOLANA
+}
+
+enum WalletLedgerEntryType {
+  DEPOSIT_CREDIT
+  DEPOSIT_REVERSAL
+  WITHDRAWAL_RESERVE
+  WITHDRAWAL_RELEASE
+  WITHDRAWAL_SETTLEMENT
+  NETWORK_FEE
+  INTERNAL_TRANSFER
+  MANUAL_ADJUSTMENT
+}
+
+enum WalletLedgerDirection {
+  DEBIT
+  CREDIT
+}
+
+enum WalletLedgerAccount {
+  USER_AVAILABLE
+  USER_RESERVED
+  CUSTODY_ASSET
+  EXTERNAL_COUNTERPARTY
+  NETWORK_FEE_EXPENSE
+  SYSTEM_CLEARING
+}
+
 enum WalletAccountStatus {
   ACTIVE
   SUSPENDED
@@ -649,6 +702,9 @@ model WalletAccount {
   status                     WalletAccountStatus @default(ACTIVE)
   user              User @relation(fields: [userId], references: [id], onDelete: Cascade)
   networkAccounts   WalletNetworkAccount[]
+  walletAddresses WalletAddress[]
+  chainDeposits WalletChainDeposit[]
+  chainWithdrawals WalletChainWithdrawal[]
   deposits          WalletDeposit[]
   withdrawals       WalletWithdrawal[]
   createdAt         DateTime @default(now())
@@ -861,4 +917,206 @@ model TreasuryReconciliation {
   @@index([treasuryWalletId, createdAt])
   @@index([status, createdAt])
   @@map("treasury_reconciliations")
+}
+
+
+/// Stable chain identity. EVM networks use CAIP-2 IDs such as eip155:137.
+/// Bitcoin and Solana use their own namespace rather than fake EVM chain IDs.
+model WalletNetwork {
+  id                         String @id
+  family                     WalletNetworkFamily
+  chainId                    Int? @unique
+  networkKey                 String @unique
+  displayName                String
+  nativeAssetSymbol          String
+  nativeAssetDecimals        Int
+  explorerTransactionUrlTemplate String?
+  finalityDepth              Int @default(1)
+  isTestnet                  Boolean @default(false)
+  isEnabled                  Boolean @default(false)
+  depositEnabled             Boolean @default(false)
+  withdrawalEnabled          Boolean @default(false)
+  assets                     WalletAsset[]
+  addresses                  WalletAddress[]
+  deposits                   WalletChainDeposit[]
+  withdrawals                WalletChainWithdrawal[]
+  journals                   WalletJournal[]
+  scanCursor                 WalletNetworkScanCursor?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  @@index([family, isEnabled])
+  @@map("wallet_networks")
+}
+
+/// An asset is scoped to exactly one network. assetReference is "native" for
+/// native currency or a normalized standard+contract/program identifier.
+model WalletAsset {
+  id                         String @id
+  networkId                  String
+  assetType                  WalletAssetType
+  assetReference             String
+  contractAddress            String?
+  symbol                     String
+  displayName                String
+  decimals                   Int
+  issuerClassification       String
+  verificationStatus         WalletAssetVerificationStatus @default(PENDING_VERIFICATION)
+  minDepositAtomic           Decimal? @db.Decimal(78, 0)
+  confirmationCount          Int @default(1)
+  depositEnabled             Boolean @default(false)
+  withdrawalEnabled          Boolean @default(false)
+  network                    WalletNetwork @relation(fields: [networkId], references: [id], onDelete: Restrict)
+  deposits                   WalletChainDeposit[]
+  withdrawals                WalletChainWithdrawal[] @relation("WithdrawalAsset")
+  feeForWithdrawals          WalletChainWithdrawal[] @relation("WithdrawalFeeAsset")
+  journals                   WalletJournal[]
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  @@unique([networkId, assetReference])
+  @@index([networkId, depositEnabled])
+  @@index([networkId, withdrawalEnabled])
+  @@map("wallet_assets")
+}
+
+/// Network-specific public receiving/spending addresses. One EVM address can
+/// be registered on compatible EVM networks; Bitcoin/Solana use their own type.
+model WalletAddress {
+  id                         String @id @default(cuid())
+  walletAccountId            String
+  networkId                  String
+  address                    String
+  addressType                WalletAddressType
+  curve                      String?
+  derivationPath             String?
+  providerAccountId          String?
+  isPrimary                  Boolean @default(true)
+  status                     String @default("ACTIVE")
+  walletAccount              WalletAccount @relation(fields: [walletAccountId], references: [id], onDelete: Restrict)
+  network                    WalletNetwork @relation(fields: [networkId], references: [id], onDelete: Restrict)
+  deposits                   WalletChainDeposit[]
+  withdrawals                WalletChainWithdrawal[]
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  @@unique([walletAccountId, networkId])
+  @@unique([networkId, address])
+  @@index([walletAccountId, status])
+  @@map("wallet_addresses")
+}
+
+/// Generic deposit record, independent of EVM block/log field assumptions.
+/// position can represent a block height, slot, or another chain-native position.
+model WalletChainDeposit {
+  id                         String @id @default(cuid())
+  userId                     String
+  walletAccountId            String
+  walletAddressId            String
+  networkId                  String
+  walletAssetId              String
+  transactionReference       String
+  eventIndex                 Int @default(0)
+  position                   String
+  blockHash                  String?
+  fromAddress                String?
+  toAddress                  String
+  rawAmount                  String
+  amountAtomic               Decimal @db.Decimal(78, 0)
+  status                     WalletDepositStatus @default(DETECTED)
+  confirmationCount          Int @default(0)
+  creditedJournalId          String? @unique
+  detectedAt                 DateTime @default(now())
+  confirmedAt                DateTime?
+  creditedAt                 DateTime?
+  updatedAt                  DateTime @updatedAt
+  user                       User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  walletAccount              WalletAccount @relation(fields: [walletAccountId], references: [id], onDelete: Restrict)
+  walletAddress              WalletAddress @relation(fields: [walletAddressId], references: [id], onDelete: Restrict)
+  network                    WalletNetwork @relation(fields: [networkId], references: [id], onDelete: Restrict)
+  asset                      WalletAsset @relation(fields: [walletAssetId], references: [id], onDelete: Restrict)
+  @@unique([networkId, transactionReference, eventIndex])
+  @@index([userId, status, detectedAt])
+  @@index([networkId, position])
+  @@map("wallet_chain_deposits")
+}
+
+/// Generic withdrawal record with an explicitly separate fee asset dimension.
+model WalletChainWithdrawal {
+  id                         String @id @default(cuid())
+  userId                     String
+  walletAccountId            String
+  walletAddressId            String
+  networkId                  String
+  walletAssetId              String
+  feeAssetId                 String?
+  destinationAddress         String
+  amountAtomic               Decimal @db.Decimal(78, 0)
+  feeAtomic                  Decimal? @db.Decimal(78, 0)
+  status                     WalletWithdrawalStatus @default(REQUESTED)
+  idempotencyKey             String @unique
+  signerActivityId           String?
+  transactionReference       String? @unique
+  failureCode                String?
+  requestedAt                DateTime @default(now())
+  broadcastAt                DateTime?
+  confirmedAt                DateTime?
+  updatedAt                  DateTime @updatedAt
+  user                       User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  walletAccount              WalletAccount @relation(fields: [walletAccountId], references: [id], onDelete: Restrict)
+  walletAddress              WalletAddress @relation(fields: [walletAddressId], references: [id], onDelete: Restrict)
+  network                    WalletNetwork @relation(fields: [networkId], references: [id], onDelete: Restrict)
+  asset                      WalletAsset @relation("WithdrawalAsset", fields: [walletAssetId], references: [id], onDelete: Restrict)
+  feeAsset                   WalletAsset? @relation("WithdrawalFeeAsset", fields: [feeAssetId], references: [id], onDelete: Restrict)
+  @@index([userId, status, requestedAt])
+  @@index([networkId, status])
+  @@map("wallet_chain_withdrawals")
+}
+
+/// Immutable journal header. Every posted journal must contain balanced debit
+/// and credit postings for its single network+asset dimension; the posting
+/// service must verify equality in one database transaction before commit.
+model WalletJournal {
+  id                         String @id @default(cuid())
+  userId                     String?
+  networkId                  String
+  walletAssetId              String
+  entryType                  WalletLedgerEntryType
+  referenceKey               String @unique
+  note                       String
+  reversalOfId               String? @unique
+  user                       User? @relation(fields: [userId], references: [id], onDelete: Restrict)
+  network                    WalletNetwork @relation(fields: [networkId], references: [id], onDelete: Restrict)
+  asset                      WalletAsset @relation(fields: [walletAssetId], references: [id], onDelete: Restrict)
+  postings                   WalletJournalPosting[]
+  reversalOf                 WalletJournal? @relation("WalletJournalReversals", fields: [reversalOfId], references: [id], onDelete: Restrict)
+  reversals                  WalletJournal[] @relation("WalletJournalReversals")
+  createdAt                  DateTime @default(now())
+  @@index([userId, createdAt])
+  @@index([networkId, walletAssetId, createdAt])
+  @@map("wallet_journals")
+}
+
+model WalletJournalPosting {
+  id                         String @id @default(cuid())
+  journalId                  String
+  account                    WalletLedgerAccount
+  direction                  WalletLedgerDirection
+  amountAtomic               Decimal @db.Decimal(78, 0)
+  accountReference           String?
+  journal                    WalletJournal @relation(fields: [journalId], references: [id], onDelete: Restrict)
+  createdAt                  DateTime @default(now())
+  @@index([journalId, account])
+  @@map("wallet_journal_postings")
+}
+
+/// One durable scanner cursor per network. Cursor values remain strings so
+/// slots/heights are not constrained to an EVM integer representation.
+model WalletNetworkScanCursor {
+  networkId                  String @id
+  cursorPosition             String @default("0")
+  cursorHash                 String?
+  leaseOwner                 String?
+  leaseExpiresAt             DateTime?
+  heartbeatAt                DateTime?
+  network                    WalletNetwork @relation(fields: [networkId], references: [id], onDelete: Restrict)
+  updatedAt                  DateTime @updatedAt
+  @@map("wallet_network_scan_cursors")
 }
