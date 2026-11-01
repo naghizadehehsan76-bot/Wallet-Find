@@ -82,7 +82,7 @@ async function reverseCreditedDeposit(
     const inverse = original.postings.map((posting) => ({
       account: posting.account,
       direction: posting.direction === "DEBIT" ? "CREDIT" as const : "DEBIT" as const,
-      amountAtomic: posting.amountAtomic.toString(),
+      amountAtomic: posting.amountAtomic.toFixed(0),
       accountReference: posting.accountReference,
     }));
     await postWalletJournal({
@@ -332,7 +332,7 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
 
           const minAmount = asset.minDepositAtomic === null
             ? 0n
-            : BigInt(asset.minDepositAtomic.toString());
+            : BigInt(asset.minDepositAtomic.toFixed(0));
           const belowMinimum = amount < minAmount;
 
           return [{
@@ -456,7 +456,7 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
         });
       }
 
-      const amountAtomic = deposit.amountAtomic.toString();
+      const amountAtomic = deposit.amountAtomic.toFixed(0);
       const journal = await postWalletJournal({
         userId: deposit.userId,
         networkId,
