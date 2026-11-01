@@ -191,6 +191,17 @@ export async function provisionTurnkeyWallet(userId: string) {
         throw new Error("TURNKEY_PROVISIONING_RECORD_INCONSISTENT");
       }
       if (priorIntent.status === "CREATING") {
+        const staleBefore = Date.now() - 5 * 60_000;
+        if (priorIntent.updatedAt.getTime() < staleBefore) {
+          await tx.walletProvisioningIntent.update({
+            where: { id: priorIntent.id },
+            data: {
+              status: "REQUIRES_REVIEW",
+              failureCode: "STALE_TURNKEY_REMOTE_OUTCOME_REQUIRES_RECONCILIATION",
+            },
+          });
+          return { kind: "REVIEW" as const };
+        }
         throw new Error("TURNKEY_PROVISIONING_IN_PROGRESS");
       }
       throw new Error("TURNKEY_PROVISIONING_REQUIRES_REVIEW");
@@ -219,6 +230,9 @@ export async function provisionTurnkeyWallet(userId: string) {
       where: { id: preparation.walletAccountId },
       include: { networkAccounts: true },
     });
+  }
+  if (preparation.kind === "REVIEW") {
+    throw new Error("TURNKEY_PROVISIONING_REQUIRES_REVIEW");
   }
 
   const { client: parentClient } = turnkeyConfig();
