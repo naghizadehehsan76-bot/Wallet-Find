@@ -218,3 +218,99 @@ export async function reconcileAdminWalletWithdrawalHandler(req: AuthenticatedRe
   }
 }
 
+
+
+
+export async function getAdminWalletNetworkRegistryHandler(_req: AuthenticatedRequest, res: Response) {
+  try {
+    const { getWalletNetworkRegistryForAdmin } = await import("./wallet-admin.service.js");
+    return res.json({ success: true, data: await getWalletNetworkRegistryForAdmin() });
+  } catch (error) {
+    console.error("Wallet network registry lookup failed", error);
+    return res.status(500).json({ success: false, error: "WALLET_NETWORK_REGISTRY_UNAVAILABLE" });
+  }
+}
+
+export async function updateAdminWalletNetworkHandler(req: AuthenticatedRequest, res: Response) {
+  const adminUserId = req.user?.userId;
+  if (!adminUserId) return res.status(401).json({ success: false, error: "AUTHENTICATION_REQUIRED" });
+  try {
+    const { updateWalletNetworkByAdmin } = await import("./wallet-admin.service.js");
+    const data = await updateWalletNetworkByAdmin(
+      adminUserId,
+      String(req.params.networkId),
+      req.body ?? {},
+      req.body?.reason,
+    );
+    return res.json({ success: true, data });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+    const conflict = [
+      "WALLET_NETWORK_MUST_BE_ENABLED",
+      "GENERIC_DEPOSITS_NOT_PRODUCTION_READY",
+      "GENERIC_WITHDRAWALS_NOT_PRODUCTION_READY",
+    ];
+    const badRequest = [
+      "INVALID_WALLET_NETWORK_ID",
+      "INVALID_NETWORK_ENABLED_FLAG",
+      "INVALID_NETWORK_DEPOSIT_FLAG",
+      "INVALID_NETWORK_WITHDRAWAL_FLAG",
+      "INVALID_NETWORK_FINALITY_DEPTH",
+      "EMPTY_WALLET_NETWORK_UPDATE",
+      "WALLET_ADMIN_CHANGE_REASON_REQUIRED",
+    ];
+    if (!conflict.includes(message) && !badRequest.includes(message) && message !== "WALLET_NETWORK_NOT_FOUND") {
+      console.error("Admin wallet network update failed", error);
+    }
+    return res.status(
+      message === "WALLET_NETWORK_NOT_FOUND" ? 404 :
+      conflict.includes(message) ? 409 :
+      badRequest.includes(message) ? 400 : 500,
+    ).json({ success: false, error: message });
+  }
+}
+
+export async function updateAdminWalletAssetHandler(req: AuthenticatedRequest, res: Response) {
+  const adminUserId = req.user?.userId;
+  if (!adminUserId) return res.status(401).json({ success: false, error: "AUTHENTICATION_REQUIRED" });
+  try {
+    const { updateWalletAssetByAdmin } = await import("./wallet-admin.service.js");
+    const data = await updateWalletAssetByAdmin(
+      adminUserId,
+      String(req.params.assetId),
+      req.body ?? {},
+      req.body?.reason,
+    );
+    return res.json({ success: true, data });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+    const conflict = [
+      "GENERIC_DEPOSITS_NOT_PRODUCTION_READY",
+      "GENERIC_WITHDRAWALS_NOT_PRODUCTION_READY",
+      "WALLET_ASSET_NOT_VERIFIED",
+      "WALLET_NETWORK_DEPOSITS_DISABLED",
+      "WALLET_NETWORK_WITHDRAWALS_DISABLED",
+    ];
+    const badRequest = [
+      "INVALID_WALLET_ASSET_ID",
+      "INVALID_ASSET_DEPOSIT_FLAG",
+      "INVALID_ASSET_WITHDRAWAL_FLAG",
+      "INVALID_ASSET_CONFIRMATION_COUNT",
+      "INVALID_ASSET_MINIMUM_DEPOSIT",
+      "ASSET_AMOUNT_PRECISION_EXCEEDED",
+      "ASSET_MINIMUM_DEPOSIT_EXCEEDS_STORAGE_RANGE",
+      "INVALID_ASSET_AMOUNT",
+      "EMPTY_WALLET_ASSET_UPDATE",
+      "WALLET_ADMIN_CHANGE_REASON_REQUIRED",
+      "INVALID_ASSET_DECIMALS",
+    ];
+    if (!conflict.includes(message) && !badRequest.includes(message) && message !== "WALLET_ASSET_NOT_FOUND") {
+      console.error("Admin wallet asset update failed", error);
+    }
+    return res.status(
+      message === "WALLET_ASSET_NOT_FOUND" ? 404 :
+      conflict.includes(message) ? 409 :
+      badRequest.includes(message) ? 400 : 500,
+    ).json({ success: false, error: message });
+  }
+}
