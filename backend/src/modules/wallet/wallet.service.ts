@@ -76,24 +76,13 @@ export async function getWallet(userId: string) {
       },
     });
 
-    const legacyNetworkAccounts = new Map(
-      (turnkeyWallet?.networkAccounts ?? []).map((item) => [item.chainId, item]),
-    );
-
     const networkViews = networks.map((network) => {
       const address = network.addresses[0] ?? null;
-      const legacyAccount = network.chainId === null
-        ? undefined
-        : legacyNetworkAccounts.get(network.chainId);
-
       const assets = network.assets.map((asset) => {
         const key = network.id + "|" + asset.id;
         const balance = balanceMap.get(key) ?? { available: 0n, reserved: 0n };
         const availableBalance = balance.available;
         const reservedBalance = balance.reserved;
-        const accountAllowsDeposits = network.family !== "EVM" || legacyAccount?.depositEnabled === true;
-        const accountAllowsWithdrawals = network.family !== "EVM" || legacyAccount?.withdrawalEnabled === true;
-
         return {
           id: asset.id,
           symbol: asset.symbol,
@@ -108,9 +97,9 @@ export async function getWallet(userId: string) {
             ? null
             : formatAssetUnits(BigInt(asset.minDepositAtomic.toString()), asset.decimals),
           confirmationCount: asset.confirmationCount,
-          depositEnabled: network.isEnabled && network.depositEnabled && accountAllowsDeposits
+          depositEnabled: network.isEnabled && network.depositEnabled
             && asset.depositEnabled && asset.verificationStatus === "VERIFIED" && Boolean(address),
-          withdrawalEnabled: network.isEnabled && network.withdrawalEnabled && accountAllowsWithdrawals
+          withdrawalEnabled: network.isEnabled && network.withdrawalEnabled
             && asset.withdrawalEnabled && asset.verificationStatus === "VERIFIED" && Boolean(address),
           balance: formatAssetUnits(availableBalance + reservedBalance, asset.decimals),
           availableBalance: formatAssetUnits(availableBalance, asset.decimals),
@@ -179,28 +168,16 @@ export async function requestWalletDeposit(
     throw new Error("WALLET_NOT_ACTIVE");
   }
 
-  const [network, asset, address, legacyNetworkAccount] = await Promise.all([
+  const [network, asset, address] = await Promise.all([
     prisma.walletNetwork.findUnique({ where: { id: networkId } }),
     prisma.walletAsset.findUnique({ where: { id: walletAssetId } }),
     prisma.walletAddress.findUnique({
       where: { walletAccountId_networkId: { walletAccountId: wallet.id, networkId } },
     }),
-    prisma.walletNetwork.findUnique({ where: { id: networkId }, select: { chainId: true } }),
   ]);
   if (!network || !asset || asset.networkId !== networkId || !address || address.status !== "ACTIVE") {
     throw new Error("WALLET_ASSET_NOT_AVAILABLE");
   }
-
-  const networkAccount = legacyNetworkAccount?.chainId === null || legacyNetworkAccount?.chainId === undefined
-    ? null
-    : await prisma.walletNetworkAccount.findUnique({
-        where: {
-          walletAccountId_chainId: {
-            walletAccountId: wallet.id,
-            chainId: legacyNetworkAccount.chainId,
-          },
-        },
-      });
 
   if (
     !network.isEnabled ||
