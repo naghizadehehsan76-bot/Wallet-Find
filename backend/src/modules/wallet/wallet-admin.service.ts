@@ -80,7 +80,7 @@ export async function getWalletNetworkRegistryForAdmin() {
       withdrawalAdapterReady: network.family === "EVM" && network.chainId !== null && isEvmWithdrawalFeeModelSupported(network.chainId),
       assets: network.assets.map((asset) => ({
         ...asset,
-        minDepositAtomic: asset.minDepositAtomic?.toString() ?? null,
+        minDepositAtomic: asset.minDepositAtomic?.toFixed(0) ?? null,
       })),
       scanner: network.scanCursor
         ? {
@@ -328,14 +328,14 @@ export async function updateWalletAssetByAdmin(
             depositEnabled: existing.depositEnabled,
             withdrawalEnabled: existing.withdrawalEnabled,
             confirmationCount: existing.confirmationCount,
-            minDepositAtomic: existing.minDepositAtomic?.toString() ?? null,
+            minDepositAtomic: existing.minDepositAtomic?.toFixed(0) ?? null,
             verificationStatus: existing.verificationStatus,
           },
           after: {
             depositEnabled: updated.depositEnabled,
             withdrawalEnabled: updated.withdrawalEnabled,
             confirmationCount: updated.confirmationCount,
-            minDepositAtomic: updated.minDepositAtomic?.toString() ?? null,
+            minDepositAtomic: updated.minDepositAtomic?.toFixed(0) ?? null,
             verificationStatus: updated.verificationStatus,
           },
         },
@@ -343,7 +343,7 @@ export async function updateWalletAssetByAdmin(
     });
     return {
       ...updated,
-      minDepositAtomic: updated.minDepositAtomic?.toString() ?? null,
+      minDepositAtomic: updated.minDepositAtomic?.toFixed(0) ?? null,
     };
   }, { isolationLevel: "Serializable" });
 }
