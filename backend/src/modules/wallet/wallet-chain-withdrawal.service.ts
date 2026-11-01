@@ -88,7 +88,7 @@ async function readAvailableBalance(
     select: { direction: true, amountAtomic: true },
   });
   return postings.reduce((total: bigint, posting: any) => {
-    const amount = BigInt(posting.amountAtomic.toString());
+    const amount = BigInt(posting.amountAtomic.toFixed(0));
     return total + (posting.direction === "CREDIT" ? amount : -amount);
   }, 0n);
 }
@@ -166,8 +166,8 @@ async function releaseReservation(
   });
 }
 
-function atomic(value: { toString(): string } | null | undefined): bigint {
-  return value ? BigInt(value.toString()) : 0n;
+function atomic(value: { toFixed(decimalPlaces?: number): string } | null | undefined): bigint {
+  return value ? BigInt(value.toFixed(0)) : 0n;
 }
 
 async function quoteEvmFee(input: {
@@ -266,14 +266,14 @@ export async function requestChainWalletWithdrawal(input: {
       priorRequest.networkId !== networkId ||
       priorRequest.walletAssetId !== assetId ||
       priorRequest.destinationAddress !== destinationAddress ||
-      priorRequest.amountAtomic.toString() !== retryAmount.toString()
+      priorRequest.amountAtomic.toFixed(0) !== retryAmount.toString()
     ) {
       throw new Error("WALLET_WITHDRAWAL_IDEMPOTENCY_CONFLICT");
     }
     return {
       ...priorRequest,
-      amount: priorRequest.amountAtomic.toString(),
-      fee: priorRequest.feeAtomic?.toString() ?? null,
+      amount: priorRequest.amountAtomic.toFixed(0),
+      fee: priorRequest.feeAtomic?.toFixed(0) ?? null,
       reused: true,
     };
   }
@@ -342,14 +342,14 @@ export async function requestChainWalletWithdrawal(input: {
         duplicate.networkId !== networkId ||
         duplicate.walletAssetId !== assetId ||
         duplicate.destinationAddress !== destinationAddress ||
-        duplicate.amountAtomic.toString() !== amount.toString()
+        duplicate.amountAtomic.toFixed(0) !== amount.toString()
       ) {
         throw new Error("WALLET_WITHDRAWAL_IDEMPOTENCY_CONFLICT");
       }
       return {
         ...duplicate,
-        amount: duplicate.amountAtomic.toString(),
-        fee: duplicate.feeAtomic?.toString() ?? null,
+        amount: duplicate.amountAtomic.toFixed(0),
+        fee: duplicate.feeAtomic?.toFixed(0) ?? null,
         reused: true,
       };
     }
@@ -434,8 +434,8 @@ export async function requestChainWalletWithdrawal(input: {
 
     return {
       ...withdrawal,
-      amount: withdrawal.amountAtomic.toString(),
-      fee: withdrawal.feeAtomic?.toString() ?? null,
+      amount: withdrawal.amountAtomic.toFixed(0),
+      fee: withdrawal.feeAtomic?.toFixed(0) ?? null,
       reused: false,
     };
   }, { isolationLevel: "Serializable" });
@@ -466,12 +466,12 @@ export async function getAdminChainWalletWithdrawals() {
     feeAsset: row.feeAsset?.symbol ?? null,
     feeDecimals: row.feeAsset?.decimals ?? null,
     destinationAddress: row.destinationAddress,
-    amount: formatAssetUnits(BigInt(row.amountAtomic.toString()), row.asset.decimals),
+    amount: formatAssetUnits(BigInt(row.amountAtomic.toFixed(0)), row.asset.decimals),
     estimatedFee: row.feeAtomic && row.feeAsset
-      ? formatAssetUnits(BigInt(row.feeAtomic.toString()), row.feeAsset.decimals)
+      ? formatAssetUnits(BigInt(row.feeAtomic.toFixed(0)), row.feeAsset.decimals)
       : null,
     actualFee: row.actualFeeAtomic && row.feeAsset
-      ? formatAssetUnits(BigInt(row.actualFeeAtomic.toString()), row.feeAsset.decimals)
+      ? formatAssetUnits(BigInt(row.actualFeeAtomic.toFixed(0)), row.feeAsset.decimals)
       : null,
     status: row.status,
     failureCode: row.failureCode,
@@ -879,13 +879,13 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
           {
             account: "USER_RESERVED",
             direction: "DEBIT",
-            amountAtomic: current.amountAtomic.toString(),
+            amountAtomic: current.amountAtomic.toFixed(0),
             accountReference: withdrawalId,
           },
           {
             account: "CUSTODY_ASSET",
             direction: "CREDIT",
-            amountAtomic: current.amountAtomic.toString(),
+            amountAtomic: current.amountAtomic.toFixed(0),
             accountReference: current.walletAccountId,
           },
         ],
