@@ -32,6 +32,22 @@ function formatExactAmount(value: string, locale: string): string {
   return sign + groupedWhole + (localizedFraction ? decimalSeparator + localizedFraction : "");
 }
 
+function addExactAmounts(left: string, right: string): string {
+  const parts = [left, right].map((value) => {
+    const [whole = "0", fraction = ""] = String(value ?? "0").split(".");
+    return { whole, fraction };
+  });
+  const scale = Math.max(...parts.map((part) => part.fraction.length));
+  const factor = 10n ** BigInt(scale);
+  const total = parts.reduce((sum, part) => {
+    const digits = BigInt((part.whole || "0") + part.fraction.padEnd(scale, "0"));
+    return sum + digits;
+  }, 0n);
+  const whole = total / factor;
+  const fraction = (total % factor).toString().padStart(scale, "0").replace(/0+$/, "");
+  return whole.toString() + (fraction ? "." + fraction : "");
+}
+
 export default function WalletPage({ onNavigate }: Props) {
   const { language } = useI18n();
   const fa = language === "fa";
@@ -53,7 +69,11 @@ export default function WalletPage({ onNavigate }: Props) {
 
   const copy = useMemo(() => ({
     title: fa ? "کیف پول من" : "My wallet",
-    balance: fa ? "موجودی دارایی‌ها" : "Asset balances",
+    balance: fa ? "موجودی کل دارایی‌ها" : "Total asset balances",
+    totalAvailable: fa ? "مجموع قابل استفاده" : "Total available",
+    totalReserved: fa ? "مجموع رزروشده" : "Total reserved",
+    perAssetTotal: fa ? "موجودی کل" : "Total balance",
+    separateAssets: fa ? "ارزهای متفاوت جداگانه نمایش داده می‌شوند و با هم جمع نمی‌شوند." : "Different currencies are shown separately and are not added together.",
     available: fa ? "قابل استفاده" : "Available",
     reserved: fa ? "رزروشده" : "Reserved",
     deposit: fa ? "واریز" : "Deposit",
@@ -155,6 +175,21 @@ export default function WalletPage({ onNavigate }: Props) {
     null;
   const depositEnabled = Boolean(selectedAsset?.depositEnabled);
   const withdrawalEnabled = Boolean(selectedAsset?.withdrawalEnabled);
+  const assetBalanceTotals = useMemo(() => {
+    const totals = new Map<string, { symbol: string; available: string; reserved: string }>();
+    for (const network of wallet?.networks ?? []) {
+      for (const asset of network.assets) {
+        const current = totals.get(asset.symbol) ?? { symbol: asset.symbol, available: "0", reserved: "0" };
+        current.available = addExactAmounts(current.available, asset.availableBalance);
+        current.reserved = addExactAmounts(current.reserved, asset.reservedBalance);
+        totals.set(asset.symbol, current);
+      }
+    }
+    return [...totals.values()].map((item) => ({
+      ...item,
+      total: addExactAmounts(item.available, item.reserved),
+    }));
+  }, [wallet]);
 
   const fmt = useCallback((value: string) => formatExactAmount(value, locale), [locale]);
 
@@ -237,7 +272,15 @@ export default function WalletPage({ onNavigate }: Props) {
             <span>{copy.balance}</span>
             <span className="wallet-safe-pill">{wallet.networks.length} {fa ? "شبکه" : "networks"}</span>
           </div>
-          <div className="wallet-exchange-balance__available">{copy.balanceNote}</div>
+          <div className="wallet-exchange-balance__available">{copy.separateAssets}</div>
+          <div className="wallet-total-assets" aria-label={copy.balance}>
+            {assetBalanceTotals.length === 0
+              ? <p>{copy.noAssets}</p>
+              : assetBalanceTotals.map((item) => <div className="wallet-total-assets__row" key={item.symbol}>
+                  <div><strong>{item.symbol}</strong><small>{copy.totalAvailable}: {fmt(item.available)} · {copy.totalReserved}: {fmt(item.reserved)}</small></div>
+                  <strong className="wallet-total-assets__amount">{fmt(item.total)} {item.symbol}</strong>
+                </div>)}
+          </div>
           <div className="wallet-exchange-actions">
             <button type="button" className="wallet-action wallet-action--deposit" onClick={() => setView("deposit")}>
               <span>↓</span>{copy.deposit}
