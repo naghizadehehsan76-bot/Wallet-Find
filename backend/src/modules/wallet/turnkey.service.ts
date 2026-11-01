@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, createECDH, randomBytes, randomUUID }
 import { Turnkey } from "@turnkey/sdk-server";
 import { createAccount } from "@turnkey/viem";
 import { createWalletClient, http, type WalletClient } from "viem";
-import { bsc, polygon } from "viem/chains";
+import { arbitrum, bsc, mainnet, optimism, polygon } from "viem/chains";
 import prisma from "../../config/prisma.js";
 
 const requiredEnv = [
@@ -53,6 +53,17 @@ function decryptApiPrivateKey(payload: string): string {
     ]).toString("utf8");
   } catch {
     throw new Error("TURNKEY_CREDENTIAL_DECRYPTION_FAILED");
+  }
+}
+
+function turnkeyEvmChain(chainId: number) {
+  switch (chainId) {
+    case 1: return { chain: mainnet, rpcEnv: "ETHEREUM_RPC_URL" };
+    case 10: return { chain: optimism, rpcEnv: "OPTIMISM_RPC_URL" };
+    case 56: return { chain: bsc, rpcEnv: "BSC_RPC_URL" };
+    case 137: return { chain: polygon, rpcEnv: "POLYGON_RPC_URL" };
+    case 42161: return { chain: arbitrum, rpcEnv: "ARBITRUM_RPC_URL" };
+    default: throw new Error("TURNKEY_EVM_CHAIN_NOT_SUPPORTED");
   }
 }
 
@@ -361,7 +372,7 @@ export async function provisionTurnkeyWallet(userId: string) {
 /** Builds a signer using the API credential stored for this user's own sub-org. */
 export async function createTurnkeySigner(
   address: string,
-  chainId: 56 | 137,
+  chainId: number,
 ): Promise<WalletClient> {
   const wallet = await prisma.walletAccount.findFirst({
     where: { address: address.toLowerCase() },
@@ -386,11 +397,11 @@ export async function createTurnkeySigner(
     organizationId: wallet.turnkeyOrganizationId,
     signWith: address,
   });
-  const chain = chainId === 56 ? bsc : polygon;
-  const rpcUrl = chainId === 56 ? process.env.BSC_RPC_URL : process.env.POLYGON_RPC_URL;
+  const chainConfig = turnkeyEvmChain(chainId);
+  const rpcUrl = process.env[chainConfig.rpcEnv];
   if (!rpcUrl?.trim()) throw new Error("CHAIN_RPC_NOT_CONFIGURED");
 
-  return createWalletClient({ account, chain, transport: http(rpcUrl.trim()) });
+  return createWalletClient({ account, chain: chainConfig.chain, transport: http(rpcUrl.trim()) });
 }
 
 /** Parent-org signer is intentionally separate and reserved for parent-owned treasury wallets. */
@@ -400,10 +411,10 @@ export async function createParentTurnkeySigner(
 ): Promise<WalletClient> {
   const { client, organizationId } = turnkeyConfig();
   const account = await createAccount({ client, organizationId, signWith: address });
-  const chain = chainId === 56 ? bsc : polygon;
-  const rpcUrl = chainId === 56 ? process.env.BSC_RPC_URL : process.env.POLYGON_RPC_URL;
+  const chainConfig = turnkeyEvmChain(chainId);
+  const rpcUrl = process.env[chainConfig.rpcEnv];
   if (!rpcUrl?.trim()) throw new Error("CHAIN_RPC_NOT_CONFIGURED");
-  return createWalletClient({ account, chain, transport: http(rpcUrl.trim()) });
+  return createWalletClient({ account, chain: chainConfig.chain, transport: http(rpcUrl.trim()) });
 }
 
 export function isTurnkeyConfigured(): boolean {
