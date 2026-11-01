@@ -648,6 +648,8 @@ export type WalletNetworkView = {
   nativeAssetDecimals: number;
   explorerTransactionUrlTemplate: string | null;
   finalityDepth: number;
+  adapterReady: boolean;
+  withdrawalAdapterReady: boolean;
   isEnabled: boolean;
   adapterReady: boolean;
   withdrawalAdapterReady: boolean;
