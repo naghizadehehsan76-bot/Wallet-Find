@@ -904,10 +904,10 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
             accountReference: withdrawalId,
           },
           {
-            account: "NETWORK_FEE_EXPENSE",
+            account: "CUSTODY_ASSET",
             direction: "CREDIT",
             amountAtomic: actualFee.toString(),
-            accountReference: withdrawal.networkId,
+            accountReference: current.walletAccountId,
           },
         ],
       });
