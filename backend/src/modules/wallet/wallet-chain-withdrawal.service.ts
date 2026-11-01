@@ -230,6 +230,13 @@ export async function requestChainWalletWithdrawal(input: {
   idempotencyKey: unknown;
 }) {
   requireWithdrawalReadiness();
+  const emergencyPause = await prisma.systemSetting.findUnique({
+    where: { key: "wallet_global_emergency_pause" },
+    select: { value: true },
+  });
+  if (emergencyPause?.value === "true") {
+    throw new Error("WALLET_GLOBAL_EMERGENCY_PAUSE_ACTIVE");
+  }
 
   if (typeof input.networkId !== "string" || typeof input.assetId !== "string") {
     throw new Error("INVALID_WALLET_ASSET_SELECTION");
@@ -607,6 +614,13 @@ async function refreshWithdrawalFeeReservation(input: {
 
 export async function executeChainWalletWithdrawal(withdrawalId: string, adminUserId: string) {
   requireWithdrawalReadiness();
+  const emergencyPause = await prisma.systemSetting.findUnique({
+    where: { key: "wallet_global_emergency_pause" },
+    select: { value: true },
+  });
+  if (emergencyPause?.value === "true") {
+    throw new Error("WALLET_GLOBAL_EMERGENCY_PAUSE_ACTIVE");
+  }
 
   const withdrawal = await prisma.walletChainWithdrawal.findUnique({
     where: { id: withdrawalId },
