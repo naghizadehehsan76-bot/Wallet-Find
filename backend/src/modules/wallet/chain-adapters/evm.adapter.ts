@@ -134,9 +134,18 @@ export function createEvmWalletChainAdapter(input: {
                 transaction.value <= 0n ||
                 !recipientSet.has(transaction.to.toLowerCase())) continue;
 
+            // A transaction included in a block can still have reverted.
+            // Credit native value only when its receipt succeeded and belongs
+            // to the same canonical block currently being scanned.
+            const receipt = await client.getTransactionReceipt({ hash: transaction.hash });
+            if (receipt.status !== "success" || !receipt.blockHash ||
+                receipt.blockHash.toLowerCase() !== block.hash.toLowerCase()) continue;
+
             transfers.push({
               transactionReference: transaction.hash,
-              eventIndex: 0,
+              // Negative index keeps native value distinct from ERC-20 log 0
+              // if one transaction also emits a token Transfer event.
+              eventIndex: -1,
               position: block.number.toString(),
               blockHash: block.hash,
               fromAddress: transaction.from.toLowerCase(),
