@@ -75,19 +75,11 @@ export default function WalletPage({ onNavigate }: Props) {
     return () => window.clearTimeout(timer);
   }, [refresh]);
 
-  useEffect(() => {
-    const assets = wallet?.assets ?? [];
-    if (assets.length > 0 && !assets.some((asset) => asset.assetId === selectedAssetId)) {
-      setSelectedAssetId(assets[0]!.assetId);
-    }
-  }, [wallet, selectedAssetId]);
-
   const fmt = (value: string) => {
     const [wholeText = "0", fractionText = ""] = String(value).split(".");
-    let whole = 0n;
-    try { whole = BigInt(wholeText || "0"); } catch { whole = 0n; }
-    const localizedWhole = new Intl.NumberFormat(fa ? "fa-IR" : "en-US").format(whole);
-    const fraction = fractionText.slice(0, 6).replace(/0+$/, "");
+    let localizedWhole = "0";
+    try { localizedWhole = new Intl.NumberFormat(fa ? "fa-IR" : "en-US").format(BigInt(wholeText || "0")); } catch { /* keep the safe fallback */ }
+    const fraction = fractionText.slice(0, 8).replace(/0+$/, "");
     return localizedWhole + (fraction ? (fa ? "٫" : ".") + fraction : "");
   };
 
