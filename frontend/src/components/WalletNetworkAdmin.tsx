@@ -7,6 +7,8 @@ import {
 } from "../services/api";
 
 type Props = { fa: boolean };
+type NetworkPatch = { isEnabled?: boolean; depositEnabled?: boolean; withdrawalEnabled?: boolean; finalityDepth?: number };
+type AssetPatch = { depositEnabled?: boolean; withdrawalEnabled?: boolean; confirmationCount?: number; minDeposit?: string | null };
 
 export default function WalletNetworkAdmin({ fa }: Props) {
   const [registry, setRegistry] = useState<AdminWalletNetworkRegistry | null>(null);
@@ -69,7 +71,7 @@ export default function WalletNetworkAdmin({ fa }: Props) {
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  const saveNetwork = async (networkId: string, patch: Record<string, boolean | number>) => {
+  const saveNetwork = async (networkId: string, patch: NetworkPatch) => {
     if (reason.trim().length < 8) {
       setError(copy.missingReason);
       return;
@@ -88,7 +90,7 @@ export default function WalletNetworkAdmin({ fa }: Props) {
     }
   };
 
-  const saveAsset = async (assetId: string, patch: Record<string, boolean | number | string | null>) => {
+  const saveAsset = async (assetId: string, patch: AssetPatch) => {
     if (reason.trim().length < 8) {
       setError(copy.missingReason);
       return;
