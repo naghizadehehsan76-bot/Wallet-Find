@@ -663,6 +663,7 @@ export type WalletChainActivity = {
   amount: string;
   status: string;
   transactionHash: string | null;
+  explorerUrl: string | null;
   confirmationCount: number;
   detectedAt?: string;
   requestedAt?: string;
