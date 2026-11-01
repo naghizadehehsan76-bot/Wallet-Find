@@ -68,7 +68,10 @@ export async function getWallet(userId: string) {
       const available = totals.balance - totals.pendingWithdrawals;
       const networkConfig = EVM_NETWORKS.find((item) => item.chainId === asset.chainId);
       const scannerEnabled = Boolean(networkConfig && process.env[networkConfig.scannerEnabledEnv] === "true");
-      const depositEnabled = Boolean(asset.depositEnabled && network?.depositEnabled && scannerEnabled);
+      const isNativeAsset = asset.contractAddress.toLowerCase() === "native";
+      const supportedPrecision = Number.isInteger(asset.decimals) && asset.decimals >= 0 && asset.decimals <= 36;
+      const supportedContract = isNativeAsset || isAddress(asset.contractAddress);
+      const depositEnabled = Boolean(asset.depositEnabled && network?.depositEnabled && scannerEnabled && supportedPrecision && supportedContract);
       const withdrawalEnabled = Boolean(asset.withdrawalEnabled && network?.withdrawalEnabled);
       if (!depositEnabled && !withdrawalEnabled && totals.balance === 0n && totals.pendingWithdrawals === 0n) return [];
       const configuredConfirmations = networkConfig
@@ -126,6 +129,9 @@ export async function requestWalletDeposit(userId: string, rawAssetId: unknown) 
   }
   const asset = await prisma.chainAsset.findUnique({ where: { id: rawAssetId } });
   if (!asset || asset.canonicalStatus !== "ONCHAIN_VERIFIED" || !asset.depositEnabled) throw new Error("DEPOSITS_DISABLED");
+  const nativeAsset = asset.contractAddress.toLowerCase() === "native";
+  const supportedPrecision = Number.isInteger(asset.decimals) && asset.decimals >= 0 && asset.decimals <= 36;
+  if (!supportedPrecision || (!nativeAsset && !isAddress(asset.contractAddress))) throw new Error("DEPOSITS_DISABLED");
   const network = await prisma.walletNetworkAccount.findUnique({
     where: { walletAccountId_chainId: { walletAccountId: wallet.id, chainId: asset.chainId } },
   });
@@ -141,7 +147,7 @@ export async function requestWalletDeposit(userId: string, rawAssetId: unknown) 
     32,
     Math.min(100_000, Number.isFinite(configuredConfirmations) ? configuredConfirmations : networkConfig.defaultConfirmations),
   );
-  const isNative = asset.contractAddress.toLowerCase() === "native";
+  const isNative = nativeAsset;
   return {
     network: networkConfig.displayName,
     networkKey: networkConfig.networkKey,
