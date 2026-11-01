@@ -31,6 +31,22 @@ function makeAdapter(network: {
   throw new Error("WALLET_NETWORK_ADAPTER_NOT_CONFIGURED");
 }
 
+export function requiresWalletScannerCursorOnlyMode(input: {
+  networkEnabled: boolean;
+  legacyPolygonScannerActive: boolean;
+  depositEnabled: boolean;
+  depositsProductionReady: boolean;
+  verifiedEnabledAssetCount: number;
+  activeAddressCount: number;
+}): boolean {
+  return !input.networkEnabled
+    || input.legacyPolygonScannerActive
+    || !input.depositEnabled
+    || !input.depositsProductionReady
+    || input.verifiedEnabledAssetCount === 0
+    || input.activeAddressCount === 0;
+}
+
 async function refreshLease(networkId: string, owner: string): Promise<void> {
   const now = new Date();
   const updated = await prisma.walletNetworkScanCursor.updateMany({
@@ -281,9 +297,14 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
       userId: item.walletAccount.userId,
     }));
 
-    if (network.depositEnabled !== true ||
-        process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY !== "true" ||
-        network.assets.length === 0 || network.addresses.length === 0) {
+    if (requiresWalletScannerCursorOnlyMode({
+      networkEnabled: network.isEnabled,
+      legacyPolygonScannerActive,
+      depositEnabled: network.depositEnabled,
+      depositsProductionReady: process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY === "true",
+      verifiedEnabledAssetCount: network.assets.length,
+      activeAddressCount: network.addresses.length,
+    })) {
       // Advance the cursor while the network/asset is disabled, the legacy
       // Polygon scanner owns this network, or no receiving address exists.
       // Transfers sent during a paused period are never backfilled later.
