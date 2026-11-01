@@ -118,9 +118,8 @@ function formatAssetAmountForAdmin(value: string, locale: string): string {
   const negative = value.startsWith("-");
   const unsigned = negative ? value.slice(1) : value;
   const [wholeText = "0", fractionText = ""] = unsigned.split(".");
-  let whole = 0n;
-  try { whole = BigInt(wholeText || "0"); } catch { whole = 0n; }
-  const localizedWhole = new Intl.NumberFormat(locale).format(whole);
+  let localizedWhole = "0";
+  try { localizedWhole = new Intl.NumberFormat(locale).format(BigInt(wholeText || "0")); } catch { /* keep the safe fallback */ }
   const fraction = fractionText.slice(0, 8).replace(/0+$/, "");
   return (negative ? "-" : "") + localizedWhole + (fraction ? "." + fraction : "");
 }
