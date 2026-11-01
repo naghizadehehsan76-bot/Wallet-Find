@@ -73,7 +73,7 @@ export async function getWallet(userId: string) {
       const configuredConfirmations = networkConfig
         ? Number.parseInt(process.env[networkConfig.confirmationsEnv] ?? String(networkConfig.defaultConfirmations), 10)
         : 32;
-      const confirmationsRequired = Math.max(32, Number.isFinite(configuredConfirmations) ? configuredConfirmations : (networkConfig?.defaultConfirmations ?? 32));
+      const confirmationsRequired = Math.max(32, Math.min(100_000, Number.isFinite(configuredConfirmations) ? configuredConfirmations : (networkConfig?.defaultConfirmations ?? 32)));
       return [{
         assetId: asset.id,
         chainId: asset.chainId,
@@ -132,10 +132,13 @@ export async function requestWalletDeposit(userId: string, rawAssetId: unknown) 
   if (!network || !network.depositEnabled || !networkConfig || process.env[networkConfig.scannerEnabledEnv] !== "true") {
     throw new Error("DEPOSITS_DISABLED");
   }
+  const configuredConfirmations = Number.parseInt(
+    process.env[networkConfig.confirmationsEnv] ?? String(networkConfig.defaultConfirmations),
+    10,
+  );
   const confirmationsRequired = Math.max(
-    1,
-    Number.parseInt(process.env[networkConfig.confirmationsEnv] ?? String(networkConfig.defaultConfirmations), 10)
-      || networkConfig.defaultConfirmations,
+    32,
+    Math.min(100_000, Number.isFinite(configuredConfirmations) ? configuredConfirmations : networkConfig.defaultConfirmations),
   );
   const isNative = asset.contractAddress.toLowerCase() === "native";
   return {
