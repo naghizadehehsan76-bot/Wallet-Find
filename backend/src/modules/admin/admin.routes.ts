@@ -20,7 +20,7 @@ import {
   activateContestHandler,
   finishContestHandler,
 } from "./contest-management.controller.js";
-import { getAdminWalletsHandler, getAdminWithdrawalRequestsHandler, reviewAdminWithdrawalHandler, provisionPrizeTreasuryWalletHandler, getPrizeTreasuryWalletHandler, getTreasuryPrizeFundingHandler, getAdminTreasuryDepositsHandler, getAdminTreasuryLedgerHistoryHandler, allocateTreasuryPrizeFundHandler, reconcileTreasuryAccountingHandler, getLatestTreasuryReconciliationHandler, executeAdminWalletWithdrawalHandler, reconcileAdminWalletWithdrawalHandler, getAdminWalletNetworkRegistryHandler, updateAdminWalletNetworkHandler, updateAdminWalletAssetHandler, getAdminChainWithdrawalRequestsHandler, reviewAdminChainWithdrawalHandler, executeAdminChainWithdrawalHandler, reconcileAdminChainWithdrawalHandler } from "../wallet/wallet.controller.js";
+import { getAdminWalletsHandler, getAdminWithdrawalRequestsHandler, reviewAdminWithdrawalHandler, provisionPrizeTreasuryWalletHandler, getPrizeTreasuryWalletHandler, getTreasuryPrizeFundingHandler, getAdminTreasuryDepositsHandler, getAdminTreasuryLedgerHistoryHandler, allocateTreasuryPrizeFundHandler, reconcileTreasuryAccountingHandler, getLatestTreasuryReconciliationHandler, executeAdminWalletWithdrawalHandler, reconcileAdminWalletWithdrawalHandler, getAdminWalletNetworkRegistryHandler, updateAdminWalletNetworkHandler, updateAdminWalletAssetHandler, getAdminChainWithdrawalRequestsHandler, reviewAdminChainWithdrawalHandler, executeAdminChainWithdrawalHandler, reconcileAdminChainWithdrawalHandler, emergencyPauseWalletOperationsHandler, resumeWalletOperationsHandler } from "../wallet/wallet.controller.js";
 import {
   getPrizePoolHandler,
 } from "../contest/prize-pool.controller.js";
@@ -44,6 +44,8 @@ router.get("/audit-logs", getAuditLogsHandler);
 router.get("/source-visit-report", getContestSourceVisitReportHandler);
 router.get("/wallets", getAdminWalletsHandler);
 router.get("/wallet-networks", getAdminWalletNetworkRegistryHandler);
+router.post("/wallet-emergency-pause", emergencyPauseWalletOperationsHandler);
+router.post("/wallet-emergency-resume", resumeWalletOperationsHandler);
 router.patch("/wallet-networks/:networkId", updateAdminWalletNetworkHandler);
 router.patch("/wallet-assets/:assetId", updateAdminWalletAssetHandler);
 router.get("/wallet-chain-withdrawals", getAdminChainWithdrawalRequestsHandler);
