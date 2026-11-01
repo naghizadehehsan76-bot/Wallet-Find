@@ -64,13 +64,31 @@ function samePayload(
   input: PostWalletJournalInput,
   postings: ReturnType<typeof validateBalancedWalletJournalPostings>,
 ): boolean {
-  const leftPostings = canonicalizeWalletJournalPostings(left.postings.map((posting) => ({
-    account: posting.account as WalletJournalPostingInput["account"],
-    direction: posting.direction as WalletJournalPostingInput["direction"],
+  const leftNormalized = left.postings.map((posting) => ({
+    account: posting.account,
+    direction: posting.direction,
     amountAtomic: posting.amountAtomic.toString(),
-    accountReference: posting.accountReference,
-  })));
-  const rightPostings = canonicalizeWalletJournalPostings(postings);
+    accountReference: posting.accountReference ?? null,
+  })).sort((a, b) => (a.account + "|" + a.direction + "|" + (a.accountReference ?? ""))
+    .localeCompare(b.account + "|" + b.direction + "|" + (b.accountReference ?? "")));
+  const rightNormalized = postings.map((posting) => ({
+    account: posting.account,
+    direction: posting.direction,
+    amountAtomic: posting.amountAtomic,
+    accountReference: posting.accountReference ?? null,
+  })).sort((a, b) => (a.account + "|" + a.direction + "|" + (a.accountReference ?? ""))
+    .localeCompare(b.account + "|" + b.direction + "|" + (b.accountReference ?? "")));
+  const postingChecks = leftNormalized.map((leftPosting, index) => {
+    const rightPosting = rightNormalized[index];
+    return {
+      account: Boolean(rightPosting && leftPosting.account === rightPosting.account),
+      direction: Boolean(rightPosting && leftPosting.direction === rightPosting.direction),
+      amount: Boolean(rightPosting && leftPosting.amountAtomic === rightPosting.amountAtomic),
+      accountReference: Boolean(rightPosting && leftPosting.accountReference === rightPosting.accountReference),
+    };
+  });
+  const postingsMatch = leftNormalized.length === rightNormalized.length
+    && postingChecks.every((item) => Object.values(item).every(Boolean));
   const checks = {
     user: left.userId === (input.userId ?? null),
     network: left.networkId === input.networkId,
@@ -78,11 +96,11 @@ function samePayload(
     entryType: left.entryType === input.entryType,
     reversal: left.reversalOfId === (input.reversalOfId ?? null),
     postingCount: left.postings.length === postings.length,
-    postings: JSON.stringify(leftPostings) === JSON.stringify(rightPostings),
+    postings: postingsMatch,
   };
   const matches = Object.values(checks).every(Boolean);
   if (!matches) {
-    console.warn("WALLET_JOURNAL_IDEMPOTENCY_PAYLOAD_MISMATCH", checks);
+    console.warn("WALLET_JOURNAL_IDEMPOTENCY_PAYLOAD_MISMATCH", { checks, postingChecks });
   }
   return matches;
 }
