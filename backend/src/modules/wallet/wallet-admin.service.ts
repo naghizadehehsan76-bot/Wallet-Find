@@ -296,3 +296,73 @@ export async function updateWalletAssetByAdmin(
     };
   }, { isolationLevel: "Serializable" });
 }
+
+
+
+/**
+ * Global break-glass pause. This is intentionally one-way: all network/asset
+ * switches are turned off and must be explicitly reviewed before reactivation.
+ * The generic scanner keeps running in cursor-only mode while networks remain
+ * enabled, so transfers sent during the pause are not later credited.
+ */
+export async function emergencyPauseAllWalletOperations(
+  adminUserId: string,
+  rawReason: unknown,
+) {
+  const reason = requireReason(rawReason);
+  return prisma.$transaction(async (tx) => {
+    const [networks, assets, legacyAssets, legacyAccounts] = await Promise.all([
+      tx.walletNetwork.updateMany({
+        where: {
+          OR: [{ depositEnabled: true }, { withdrawalEnabled: true }],
+        },
+        data: { depositEnabled: false, withdrawalEnabled: false },
+      }),
+      tx.walletAsset.updateMany({
+        where: {
+          OR: [{ depositEnabled: true }, { withdrawalEnabled: true }],
+        },
+        data: { depositEnabled: false, withdrawalEnabled: false },
+      }),
+      tx.chainAsset.updateMany({
+        where: {
+          OR: [{ depositEnabled: true }, { withdrawalEnabled: true }],
+        },
+        data: { depositEnabled: false, withdrawalEnabled: false },
+      }),
+      tx.walletNetworkAccount.updateMany({
+        where: {
+          OR: [{ depositEnabled: true }, { withdrawalEnabled: true }],
+        },
+        data: { depositEnabled: false, withdrawalEnabled: false },
+      }),
+    ]);
+
+    await tx.auditLog.create({
+      data: {
+        userId: adminUserId,
+        action: "WALLET_GLOBAL_EMERGENCY_PAUSE",
+        entity: "WalletNetwork",
+        entityId: "GLOBAL",
+        metadata: {
+          reason,
+          pausedAt: new Date().toISOString(),
+          networksChanged: networks.count,
+          assetsChanged: assets.count,
+          legacyAssetsChanged: legacyAssets.count,
+          legacyAccountsChanged: legacyAccounts.count,
+          reactivationRequiresExplicitAdminReview: true,
+        },
+      },
+    });
+
+    return {
+      paused: true,
+      networksChanged: networks.count,
+      assetsChanged: assets.count,
+      legacyAssetsChanged: legacyAssets.count,
+      legacyAccountsChanged: legacyAccounts.count,
+      note: "All wallet deposit and withdrawal switches were disabled. Already broadcast transactions still require reconciliation.",
+    };
+  }, { isolationLevel: "Serializable" });
+}
