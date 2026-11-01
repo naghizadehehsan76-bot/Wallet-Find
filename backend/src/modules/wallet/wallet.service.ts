@@ -714,11 +714,6 @@ export async function getAdminTreasuryDeposits() {
     where: { treasuryWalletId: treasury.id },
     orderBy: [{ detectedAt: "desc" }, { blockNumber: "desc" }],
     take: 100,
-    select: {
-      id: true, transactionHash: true, logIndex: true, blockNumber: true,
-      fromAddress: true, toAddress: true, amountMicro: true, status: true,
-      confirmationCount: true, detectedAt: true, confirmedAt: true, creditedAt: true,
-    },
     include: { asset: { select: { symbol: true, decimals: true, displayName: true, contractAddress: true } } },
   });
   return {
