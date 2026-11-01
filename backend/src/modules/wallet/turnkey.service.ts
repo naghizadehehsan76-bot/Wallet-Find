@@ -82,8 +82,11 @@ async function registerWalletEvmNetworks(
   address: string,
 ) {
   const networks = [
+    { chainId: 1, networkKey: "ethereum", networkId: "eip155:1" },
+    { chainId: 10, networkKey: "optimism", networkId: "eip155:10" },
     { chainId: 56, networkKey: "bsc", networkId: "eip155:56" },
     { chainId: 137, networkKey: "polygon", networkId: "eip155:137" },
+    { chainId: 42161, networkKey: "arbitrum", networkId: "eip155:42161" },
   ] as const;
 
   for (const item of networks) {
@@ -178,10 +181,10 @@ export async function provisionTurnkeyWallet(userId: string) {
     }
 
     const registries = await tx.walletNetwork.findMany({
-      where: { id: { in: ["eip155:56", "eip155:137"] }, family: "EVM" },
+      where: { id: { in: ["eip155:1", "eip155:10", "eip155:56", "eip155:137", "eip155:42161"] }, family: "EVM" },
       select: { id: true },
     });
-    if (registries.length !== 2) throw new Error("WALLET_NETWORK_REGISTRY_NOT_INITIALIZED");
+    if (registries.length !== 5) throw new Error("WALLET_NETWORK_REGISTRY_NOT_INITIALIZED");
 
     const priorIntent = await tx.walletProvisioningIntent.findUnique({
       where: { userId },
