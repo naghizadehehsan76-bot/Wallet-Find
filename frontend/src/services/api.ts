@@ -793,6 +793,7 @@ export type AdminWalletNetwork = {
     leaseOwner: string | null;
     leaseExpiresAt: string | null;
     heartbeatAt: string | null;
+    lastSuccessfulScanAt: string | null;
   } | null;
   counts: { addresses: number; deposits: number; withdrawals: number };
 };
