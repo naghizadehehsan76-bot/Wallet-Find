@@ -121,7 +121,7 @@ export async function updateWalletNetworkByAdmin(
       "SELECT pg_advisory_xact_lock(hashtext($1))",
       "wallet-network-admin:" + networkId,
     );
-    const existing = await tx.walletNetwork.findUnique({ where: { id: networkId } });
+    const existing = await tx.walletNetwork.findUnique({ where: { id: networkId }, include: { scanCursor: true } });
     if (!existing) throw new Error("WALLET_NETWORK_NOT_FOUND");
 
     const next = {
@@ -134,6 +134,14 @@ export async function updateWalletNetworkByAdmin(
     }
     if (patch.depositEnabled === true && patch.isEnabled !== true && !existing.isEnabled) {
       throw new Error("WALLET_NETWORK_MUST_BE_ENABLED");
+    }
+
+    if (patch.depositEnabled === true) {
+      const heartbeatAt = existing.scanCursor?.heartbeatAt;
+      const maxHeartbeatAgeMs = positiveIntegerEnv("WALLET_GENERIC_SCAN_INTERVAL_MS", 30_000, 15_000, 300_000) * 3;
+      if (!heartbeatAt || Date.now() - heartbeatAt.getTime() > maxHeartbeatAgeMs) {
+        throw new Error("WALLET_NETWORK_SCANNER_NOT_READY");
+      }
     }
 
     const updated = await tx.walletNetwork.update({
@@ -210,7 +218,7 @@ export async function updateWalletAssetByAdmin(
     );
     const existing = await tx.walletAsset.findUnique({
       where: { id: assetId },
-      include: { network: true },
+      include: { network: { include: { scanCursor: true } } },
     });
     if (!existing) throw new Error("WALLET_ASSET_NOT_FOUND");
 
@@ -218,6 +226,11 @@ export async function updateWalletAssetByAdmin(
       if (existing.verificationStatus !== "VERIFIED") throw new Error("WALLET_ASSET_NOT_VERIFIED");
       if (!existing.network.isEnabled || !existing.network.depositEnabled) {
         throw new Error("WALLET_NETWORK_DEPOSITS_DISABLED");
+      }
+      const heartbeatAt = existing.network.scanCursor?.heartbeatAt;
+      const maxHeartbeatAgeMs = positiveIntegerEnv("WALLET_GENERIC_SCAN_INTERVAL_MS", 30_000, 15_000, 300_000) * 3;
+      if (!heartbeatAt || Date.now() - heartbeatAt.getTime() > maxHeartbeatAgeMs) {
+        throw new Error("WALLET_NETWORK_SCANNER_NOT_READY");
       }
     }
     if (patch.withdrawalEnabled === true) {
