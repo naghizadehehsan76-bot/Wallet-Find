@@ -613,20 +613,40 @@ export type WalletTransaction = {
   status: string;
   amount: string;
   currency: string;
+  assetId?: string | null;
+  chainId?: number | null;
+  networkKey?: string | null;
   note: string;
   contestId: string | null;
   createdAt: string;
+};
+
+export type WalletAssetSummary = {
+  assetId: string;
+  chainId: number;
+  networkKey: string | null;
+  networkName: string;
+  symbol: string;
+  displayName: string;
+  decimals: number;
+  contractAddress: string;
+  isNative: boolean;
+  balance: string;
+  availableBalance: string;
+  depositEnabled: boolean;
+  withdrawalEnabled: boolean;
 };
 
 export type WalletResult = {
   currency: string;
   balance: string;
   availableBalance: string;
-  assets?: { USDT0: { balance: string; availableBalance: string }; POL: { balance: string; availableBalance: string } };
+  assets: WalletAssetSummary[];
   walletAddress?: string | null;
   supportedNetworks?: Array<{
     chainId: number;
     networkKey: string;
+    networkName: string;
     depositEnabled: boolean;
     withdrawalEnabled: boolean;
   }>;
@@ -637,8 +657,24 @@ export async function getWallet(): Promise<WalletResult> {
   return request<WalletResult>("/wallet/me", {}, true);
 }
 
-export async function requestWalletDeposit(amount: string): Promise<{ transaction: WalletTransaction; message: string }> {
-  return request<{ transaction: WalletTransaction; message: string }>("/wallet/deposit", { method: "POST", body: JSON.stringify({ amount }) }, true);
+export type WalletDepositDetails = {
+  network: string;
+  networkKey: string;
+  chainId: number;
+  assetId: string;
+  asset: string;
+  displayName: string;
+  assetType: "NATIVE" | "ERC20";
+  contractAddress: string | null;
+  decimals: number;
+  depositAddress: string;
+  confirmationsRequired: number;
+  status: string;
+  message: string;
+};
+
+export async function requestWalletDeposit(assetId: string): Promise<WalletDepositDetails> {
+  return request<WalletDepositDetails>("/wallet/deposit", { method: "POST", body: JSON.stringify({ assetId }) }, true);
 }
 
 export async function requestWalletWithdrawal(amount: string): Promise<{ transaction: WalletTransaction; message: string }> {
