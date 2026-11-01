@@ -42,11 +42,11 @@ type WithdrawalSnapshot = {
   walletAssetId: string;
   feeAssetId: string | null;
   destinationAddress: string;
-  amountAtomic: { toString(): string };
-  feeAtomic: { toString(): string } | null;
-  estimatedGasLimit: { toString(): string } | null;
-  maxFeePerGasAtomic: { toString(): string } | null;
-  maxPriorityFeePerGasAtomic: { toString(): string } | null;
+  amountAtomic: { toFixed(decimalPlaces?: number): string };
+  feeAtomic: { toFixed(decimalPlaces?: number): string } | null;
+  estimatedGasLimit: { toFixed(decimalPlaces?: number): string } | null;
+  maxFeePerGasAtomic: { toFixed(decimalPlaces?: number): string } | null;
+  maxPriorityFeePerGasAtomic: { toFixed(decimalPlaces?: number): string } | null;
   transactionReference: string | null;
   status: string;
 };
