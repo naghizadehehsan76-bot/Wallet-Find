@@ -366,6 +366,7 @@ CREATE TABLE "wallet_network_scan_cursors" (
   "leaseOwner" TEXT,
   "leaseExpiresAt" TIMESTAMP(3),
   "heartbeatAt" TIMESTAMP(3),
+  "lastSuccessfulScanAt" TIMESTAMP(3),
   "updatedAt" TIMESTAMP(3) NOT NULL,
   CONSTRAINT "wallet_network_scan_cursors_pkey" PRIMARY KEY ("networkId")
 );
