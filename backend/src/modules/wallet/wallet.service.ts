@@ -66,10 +66,11 @@ export async function getWallet(userId: string) {
       const network: any = networkByChain.get(asset.chainId);
       const totals = balances.byAsset.get(asset.id) ?? { balance: 0n, pendingWithdrawals: 0n };
       const available = totals.balance - totals.pendingWithdrawals;
-      const depositEnabled = Boolean(asset.depositEnabled && network?.depositEnabled);
+      const networkConfig = EVM_NETWORKS.find((item) => item.chainId === asset.chainId);
+      const scannerEnabled = Boolean(networkConfig && process.env[networkConfig.scannerEnabledEnv] === "true");
+      const depositEnabled = Boolean(asset.depositEnabled && network?.depositEnabled && scannerEnabled);
       const withdrawalEnabled = Boolean(asset.withdrawalEnabled && network?.withdrawalEnabled);
       if (!depositEnabled && !withdrawalEnabled && totals.balance === 0n && totals.pendingWithdrawals === 0n) return [];
-      const networkConfig = EVM_NETWORKS.find((item) => item.chainId === asset.chainId);
       const configuredConfirmations = networkConfig
         ? Number.parseInt(process.env[networkConfig.confirmationsEnv] ?? String(networkConfig.defaultConfirmations), 10)
         : 32;
