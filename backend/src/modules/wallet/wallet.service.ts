@@ -129,44 +129,45 @@ export async function getWallet(userId: string) {
     };
   });
 }
-export async function requestWalletDeposit(userId: string, _rawAmount: unknown) {
+export async function requestWalletDeposit(userId: string, rawAssetId: unknown) {
   if (!isTurnkeyConfigured()) throw new Error("TURNKEY_NOT_CONFIGURED");
-  // Provisioning enforces verified email and creates/returns this user's own
-  // independent Turnkey sub-organization. Deposits are discovered from canonical
-  // Polygon Transfer logs; a client-supplied amount is never credited.
+  if (typeof rawAssetId !== "string" || rawAssetId.length > 128) throw new Error("INVALID_WALLET_ASSET");
+  // Provisioning enforces verified email and creates/returns the user's own
+  // independent Turnkey sub-organization. The selected asset is resolved from
+  // the server-side registry; client-supplied amounts/contracts are never trusted.
   const wallet = await provisionTurnkeyWallet(userId);
   if (!wallet || wallet.status !== "ACTIVE" || !wallet.turnkeyOrganizationId || !wallet.turnkeyWalletId) {
     throw new Error("WALLET_NOT_ACTIVE");
   }
-  const [network, asset] = await Promise.all([
-    prisma.walletNetworkAccount.findUnique({
-      where: { walletAccountId_chainId: { walletAccountId: wallet.id, chainId: 137 } },
-    }),
-    prisma.chainAsset.findMany({
-      where: {
-        chainId: 137,
-        symbol: "USDT0",
-        contractAddress: polygonUsdt0Contract,
-        decimals: 6,
-        canonicalStatus: "ONCHAIN_VERIFIED",
-        depositEnabled: true,
-      },
-      take: 2,
-    }),
-  ]);
-  if (!network || network.networkKey !== "polygon" || !network.depositEnabled || asset.length !== 1) {
+  const asset = await prisma.chainAsset.findUnique({ where: { id: rawAssetId } });
+  if (!asset || asset.canonicalStatus !== "ONCHAIN_VERIFIED" || !asset.depositEnabled) throw new Error("DEPOSITS_DISABLED");
+  const network = await prisma.walletNetworkAccount.findUnique({
+    where: { walletAccountId_chainId: { walletAccountId: wallet.id, chainId: asset.chainId } },
+  });
+  const networkConfig = EVM_NETWORKS.find((item) => item.chainId === asset.chainId);
+  if (!network || !network.depositEnabled || !networkConfig || process.env[networkConfig.scannerEnabledEnv] !== "true") {
     throw new Error("DEPOSITS_DISABLED");
   }
+  const confirmationsRequired = Math.max(
+    1,
+    Number.parseInt(process.env[networkConfig.confirmationsEnv] ?? String(networkConfig.defaultConfirmations), 10)
+      || networkConfig.defaultConfirmations,
+  );
+  const isNative = asset.contractAddress.toLowerCase() === "native";
   return {
-    network: "Polygon PoS",
-    chainId: 137,
-    asset: "USDT0",
-    contractAddress: polygonUsdt0Contract,
-    decimals: 6,
+    network: networkConfig.displayName,
+    networkKey: networkConfig.networkKey,
+    chainId: asset.chainId,
+    assetId: asset.id,
+    asset: asset.symbol,
+    displayName: asset.displayName,
+    assetType: isNative ? "NATIVE" : "ERC20",
+    contractAddress: isNative ? null : asset.contractAddress,
+    decimals: asset.decimals,
     depositAddress: wallet.address,
-    confirmationsRequired: Math.max(32, Number.parseInt(process.env.POLYGON_USDT_CONFIRMATIONS ?? "128", 10) || 128),
+    confirmationsRequired,
     status: "AWAITING_TRANSFER",
-    message: "Send only Polygon USDT0 to this address. The balance is credited automatically after canonical confirmations.",
+    message: "Send only " + asset.symbol + " on " + networkConfig.displayName + " to this address. The balance is credited after canonical network confirmations.",
   };
 }
 export async function requestWalletWithdrawal(userId: string, rawAmount: unknown, rawDestination: unknown) {
@@ -198,7 +199,8 @@ export async function requestWalletWithdrawal(userId: string, rawAmount: unknown
     if (!asset) throw new Error("WITHDRAWALS_DISABLED");
 
     const balances = await calculateBalances(tx, userId);
-    if (balances.availableBalance < amountMicro) throw new Error("INSUFFICIENT_WALLET_BALANCE");
+    const assetBalance = balances.byAsset.get(asset.id) ?? { balance: 0n, pendingWithdrawals: 0n };
+    if (assetBalance.balance - assetBalance.pendingWithdrawals < amountMicro) throw new Error("INSUFFICIENT_WALLET_BALANCE");
 
     const idempotencyKey = randomUUID();
     const withdrawal = await tx.walletWithdrawal.create({
@@ -220,7 +222,9 @@ export async function requestWalletWithdrawal(userId: string, rawAmount: unknown
         type: "WITHDRAWAL_REQUEST",
         status: "PENDING",
         amountMicro,
-        currency: "USDT",
+        currency: asset.symbol,
+        chainId: asset.chainId,
+        chainAssetId: asset.id,
         note: "Polygon USDT0 withdrawal request reserved pending admin review",
         referenceKey: `withdrawal-request:${withdrawal.id}`,
       },
@@ -231,7 +235,7 @@ export async function requestWalletWithdrawal(userId: string, rawAmount: unknown
       network: "Polygon PoS",
       asset: "USDT0",
       destinationAddress: withdrawal.destinationAddress,
-      amount: formatMicro(amountMicro),
+      amount: formatAssetAmount(amountMicro, asset.decimals),
       requestedAt: withdrawal.requestedAt,
     };
   }, { isolationLevel: "Serializable" });
