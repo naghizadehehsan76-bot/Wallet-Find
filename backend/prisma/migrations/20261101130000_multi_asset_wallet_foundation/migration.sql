@@ -97,6 +97,18 @@ FROM "chain_assets" ca
 JOIN "wallet_networks" wn ON wn."chainId" = ca."chainId"
 ON CONFLICT ("networkId", "assetReference") DO NOTHING;
 
+-- Native gas assets are registered independently so fee accounting can be
+-- asset-scoped. They remain disabled until native deposit parsing and policies
+-- have been separately validated and intentionally enabled.
+INSERT INTO "wallet_assets" (
+  "id", "networkId", "assetType", "assetReference", "contractAddress",
+  "symbol", "displayName", "decimals", "issuerClassification",
+  "verificationStatus", "confirmationCount", "depositEnabled", "withdrawalEnabled", "updatedAt"
+) VALUES
+  ('eip155:137/native', 'eip155:137', 'NATIVE', 'native', NULL, 'POL', 'Polygon native POL', 18, 'NATIVE_NETWORK_ASSET', 'VERIFIED', 128, false, false, CURRENT_TIMESTAMP),
+  ('eip155:56/native', 'eip155:56', 'NATIVE', 'native', NULL, 'BNB', 'BNB Smart Chain native BNB', 18, 'NATIVE_NETWORK_ASSET', 'VERIFIED', 32, false, false, CURRENT_TIMESTAMP)
+ON CONFLICT ("networkId", "assetReference") DO NOTHING;
+
 CREATE TABLE "wallet_addresses" (
   "id" TEXT NOT NULL,
   "walletAccountId" TEXT NOT NULL,
