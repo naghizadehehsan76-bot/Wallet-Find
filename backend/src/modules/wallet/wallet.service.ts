@@ -37,6 +37,28 @@ export async function getWallet(userId: string) {
       take: 100,
     });
 
+    const [chainDeposits, chainWithdrawals] = await Promise.all([
+      tx.walletChainDeposit.findMany({
+        where: { userId },
+        include: {
+          network: { select: { displayName: true } },
+          asset: { select: { symbol: true, decimals: true } },
+        },
+        orderBy: { detectedAt: "desc" },
+        take: 100,
+      }),
+      tx.walletChainWithdrawal.findMany({
+        where: { userId },
+        include: {
+          network: { select: { displayName: true } },
+          asset: { select: { symbol: true, decimals: true } },
+          feeAsset: { select: { symbol: true, decimals: true } },
+        },
+        orderBy: { requestedAt: "desc" },
+        take: 100,
+      }),
+    ]);
+
     const journalPostings = await tx.walletJournalPosting.findMany({
       where: { journal: { userId } },
       select: {
@@ -143,6 +165,41 @@ export async function getWallet(userId: string) {
       legacyBalance: formatMicro(legacyBalances.balance),
       legacyAvailableBalance: formatMicro(legacyBalances.availableBalance),
       networks: networkViews,
+      onChainDeposits: chainDeposits.map((deposit: any) => ({
+        id: deposit.id,
+        type: "DEPOSIT",
+        networkId: deposit.networkId,
+        network: deposit.network.displayName,
+        asset: deposit.asset.symbol,
+        amount: formatAssetUnits(BigInt(deposit.amountAtomic.toString()), deposit.asset.decimals),
+        status: deposit.status,
+        transactionHash: deposit.transactionReference,
+        confirmationCount: deposit.confirmationCount,
+        detectedAt: deposit.detectedAt,
+        creditedAt: deposit.creditedAt,
+        reviewReason: deposit.reviewReason,
+      })),
+      onChainWithdrawals: chainWithdrawals.map((withdrawal: any) => ({
+        id: withdrawal.id,
+        type: "WITHDRAWAL",
+        networkId: withdrawal.networkId,
+        network: withdrawal.network.displayName,
+        asset: withdrawal.asset.symbol,
+        amount: formatAssetUnits(BigInt(withdrawal.amountAtomic.toString()), withdrawal.asset.decimals),
+        estimatedFee: withdrawal.feeAtomic && withdrawal.feeAsset
+          ? formatAssetUnits(BigInt(withdrawal.feeAtomic.toString()), withdrawal.feeAsset.decimals)
+          : null,
+        actualFee: withdrawal.actualFeeAtomic && withdrawal.feeAsset
+          ? formatAssetUnits(BigInt(withdrawal.actualFeeAtomic.toString()), withdrawal.feeAsset.decimals)
+          : null,
+        feeAsset: withdrawal.feeAsset?.symbol ?? null,
+        status: withdrawal.status,
+        transactionHash: withdrawal.transactionReference,
+        confirmationCount: withdrawal.confirmationCount,
+        requestedAt: withdrawal.requestedAt,
+        confirmedAt: withdrawal.confirmedAt,
+        failureCode: withdrawal.failureCode,
+      })),
       transactions: transactions.map(serializeTransaction),
     };
   });
