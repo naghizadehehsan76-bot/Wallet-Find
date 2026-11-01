@@ -3,6 +3,7 @@ import BottomNav from "../components/BottomNav";
 import { useI18n } from "../i18n";
 import {
   getWallet,
+  getMarketPrices,
   requestWalletDeposit,
   requestWalletWithdrawal,
   type WalletChainActivity,
@@ -102,12 +103,15 @@ export default function WalletPage({ onNavigate }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [usdPrices, setUsdPrices] = useState<Record<string, number>>({});
   const [priceUpdatedAt, setPriceUpdatedAt] = useState<number | null>(null);
+  const [priceStatus, setPriceStatus] = useState<"loading" | "ready" | "error">("loading");
 
   const copy = useMemo(() => ({
     title: fa ? "کیف پول من" : "My wallet",
     balance: fa ? "موجودی کل به دلار" : "Total balance in USD",
     balanceNote: fa ? "ارزش تقریبی دارایی‌ها بر اساس قیمت بازار؛ قیمت‌ها هر ۶۰ ثانیه به‌روزرسانی می‌شوند." : "Estimated market value of assets; prices refresh every 60 seconds.",
     partialPriceNote: fa ? "قیمت برخی دارایی‌ها در دسترس نیست؛ جمع بالا فقط دارایی‌های قیمت‌گذاری‌شده را شامل می‌شود." : "Some asset prices are unavailable; the total includes only priced assets.",
+    priceLoading: fa ? "در حال دریافت قیمت لحظه‌ای ارزها..." : "Loading live market prices...",
+    priceUnavailable: fa ? "در حال حاضر دریافت قیمت بازار ممکن نیست؛ موجودی دلاری موقتاً نمایش داده نمی‌شود." : "Market prices are temporarily unavailable; the USD total cannot be displayed.",
     available: fa ? "موجودی قابل استفاده" : "Available balance",
     deposit: fa ? "واریز" : "Deposit",
     withdraw: fa ? "برداشت" : "Withdraw",
@@ -182,22 +186,29 @@ export default function WalletPage({ onNavigate }: Props) {
   }, [refresh]);
 
   useEffect(() => {
-    const ids = ["polygon-ecosystem-token", "tether", "usd-coin", "ethereum", "bitcoin", "solana", "binancecoin", "tron", "ripple", "dogecoin", "cardano", "avalanche-2", "chainlink", "dai", "litecoin", "polkadot", "stellar", "wrapped-bitcoin"].join(",");
     let cancelled = false;
     const loadPrices = async () => {
       try {
-        const response = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=" + ids + "&vs_currencies=usd", { headers: { accept: "application/json" } });
-        if (!response.ok) throw new Error("PRICE_FEED_UNAVAILABLE");
-        const data = await response.json() as Record<string, { usd?: number }>;
-        const next: Record<string, number> = {};
-        for (const [id, quote] of Object.entries(data)) { if (typeof quote.usd === "number" && Number.isFinite(quote.usd)) next[id] = quote.usd; }
-        if (!cancelled) { setUsdPrices(next); setPriceUpdatedAt(Date.now()); }
-      } catch { /* Keep last known prices if the provider is temporarily unavailable. */ }
+        const result = await getMarketPrices();
+        const validPrices: Record<string, number> = {};
+        for (const [id, price] of Object.entries(result.prices ?? {})) {
+          if (typeof price === "number" && Number.isFinite(price) && price > 0) validPrices[id] = price;
+        }
+        if (Object.keys(validPrices).length === 0) throw new Error("PRICE_FEED_UNAVAILABLE");
+        if (!cancelled) {
+          setUsdPrices(validPrices);
+          setPriceUpdatedAt(result.updatedAt);
+          setPriceStatus("ready");
+        }
+      } catch {
+        if (!cancelled) setPriceStatus((previous) => previous === "ready" ? "ready" : "error");
+      }
     };
     void loadPrices();
     const interval = window.setInterval(() => { void loadPrices(); }, 60_000);
     return () => { cancelled = true; window.clearInterval(interval); };
   }, []);
+
 
   const polygonNetwork = wallet?.networks.find((network) => network.chainId === 137) ?? null;
   const polygonAssets = polygonNetwork?.assets ?? [];
@@ -361,8 +372,8 @@ export default function WalletPage({ onNavigate }: Props) {
             <span>{copy.balance}</span>
             <span className="wallet-safe-pill">● {depositAssets.length > 0 ? copy.active : copy.unavailable}</span>
           </div>
-          <div className="wallet-exchange-balance__value">{usdFormatter.format(usdBalance)}</div>
-          <div className="wallet-exchange-balance__available">{copy.balanceNote}</div>
+          <div className="wallet-exchange-balance__value">{priceStatus === "ready" ? usdFormatter.format(usdBalance) : "—"}</div>
+          <div className="wallet-exchange-balance__available">{priceStatus === "loading" ? copy.priceLoading : priceStatus === "error" ? copy.priceUnavailable : copy.balanceNote}</div>
           {unpricedAssetCount > 0 && <div className="wallet-exchange-balance__available">{copy.partialPriceNote}</div>}
           {priceUpdatedAt && <div className="wallet-exchange-balance__available">{fa ? "آخرین به‌روزرسانی قیمت: " : "Prices updated: "}{new Date(priceUpdatedAt).toLocaleTimeString(locale)}</div>}
           <div className="wallet-exchange-balance__available">{fa ? "موجودی USDT0" : "USDT0 balance"}: <strong>{fmt(usdt0Balance, usdt0Asset?.decimals ?? 6)} USDT0</strong> · {copy.available}: <strong>{fmt(usdt0Available, usdt0Asset?.decimals ?? 6)} USDT0</strong></div>

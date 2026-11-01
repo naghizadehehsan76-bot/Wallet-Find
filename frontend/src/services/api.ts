@@ -15,6 +15,17 @@ const SESSION_INVALIDATION_ERRORS = new Set([
   "AUTHENTICATION_REQUIRED",
 ]);
 
+
+export type MarketPricesResult = {
+  prices: Record<string, number>;
+  updatedAt: number;
+  stale?: boolean;
+};
+
+export async function getMarketPrices(): Promise<MarketPricesResult> {
+  return request<MarketPricesResult>("/market/prices");
+}
+
 export type AuthUser = {
   id: string;
   email: string;
