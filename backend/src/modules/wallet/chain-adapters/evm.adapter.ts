@@ -37,6 +37,15 @@ function getClient(chainId: number): PublicClient {
   });
 }
 
+export function getEvmPublicClient(chainId: number): PublicClient {
+  return getClient(chainId);
+}
+
+export function isEvmWithdrawalFeeModelSupported(chainId: number): boolean {
+  // Optimism and Arbitrum require additional L1 data-fee accounting.
+  return chainId === 1 || chainId === 56 || chainId === 137;
+}
+
 function assertPosition(position: string): bigint {
   if (!/^\d+$/.test(position)) throw new Error("INVALID_EVM_BLOCK_POSITION");
   return BigInt(position);
