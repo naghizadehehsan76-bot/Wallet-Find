@@ -270,6 +270,7 @@ export async function updateAdminWalletNetworkHandler(req: AuthenticatedRequest,
       "GENERIC_DEPOSITS_NOT_PRODUCTION_READY",
       "GENERIC_WITHDRAWALS_NOT_PRODUCTION_READY",
       "WALLET_NETWORK_SCANNER_NOT_READY",
+      "WALLET_GLOBAL_EMERGENCY_PAUSE_ACTIVE",
     ];
     const badRequest = [
       "INVALID_WALLET_NETWORK_ID",
