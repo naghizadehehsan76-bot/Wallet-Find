@@ -184,7 +184,8 @@ export async function updateWalletAssetByAdmin(
     if (rawPatch.minDeposit === null) {
       patch.minDeposit = null;
     } else if (typeof rawPatch.minDeposit === "string") {
-      patch.minDeposit = parseAssetUnits(rawPatch.minDeposit, 255).toString();
+      patch.minDeposit = rawPatch.minDeposit.trim();
+      if (!patch.minDeposit || patch.minDeposit.length > 512) throw new Error("INVALID_ASSET_MINIMUM_DEPOSIT");
     } else {
       throw new Error("INVALID_ASSET_MINIMUM_DEPOSIT");
     }
@@ -230,9 +231,13 @@ export async function updateWalletAssetByAdmin(
     if (Object.hasOwn(patch, "minDeposit")) {
       minDepositAtomic = patch.minDeposit === null
         ? null
-        : parseAssetUnits(patch.minDeposit as string, existing.decimals).toString();
+        : (() => {
+          const amount = parseAssetUnits(patch.minDeposit as string, existing.decimals);
+          if (amount.toString().length > 78) throw new Error("ASSET_MINIMUM_DEPOSIT_EXCEEDS_STORAGE_RANGE");
+          return amount.toString();
+        })();
     }
-    const data: Record<string, unknown> = { ...patch };
+    const data: any = { ...patch };
     delete data.minDeposit;
     if (Object.hasOwn(patch, "minDeposit")) data.minDepositAtomic = minDepositAtomic;
 
