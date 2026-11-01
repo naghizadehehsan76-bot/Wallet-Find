@@ -21,6 +21,18 @@ services:
         generateValue: true
       - key: CONTEST_SCHEDULER_INTERVAL_MS
         value: "30000"
+      - key: POLYGON_DEPOSIT_SCANNER_ENABLED
+        value: "false"
+      - key: POLYGON_DEPOSITS_ENABLED
+        value: "false"
+      - key: WALLET_GENERIC_DEPOSIT_SCANNER_ENABLED
+        value: "true"
+      - key: WALLET_GENERIC_DEPOSITS_PRODUCTION_READY
+        value: "true"
+      - key: WALLET_GENERIC_WITHDRAWALS_ENABLED
+        value: "true"
+      - key: WALLET_GENERIC_WITHDRAWALS_PRODUCTION_READY
+        value: "true"
 
 databases:
   - name: wallet-find-db
