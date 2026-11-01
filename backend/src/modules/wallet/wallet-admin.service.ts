@@ -15,6 +15,12 @@ type AssetUpdate = {
   minDeposit?: string | null;
 };
 
+function positiveIntegerEnv(name: string, fallback: number, min: number, max: number): number {
+  const parsed = Number.parseInt(process.env[name] ?? "", 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(min, Math.min(max, parsed));
+}
+
 function requireReason(reason: unknown): string {
   if (typeof reason !== "string" || reason.trim().length < 8 || reason.trim().length > 500) {
     throw new Error("WALLET_ADMIN_CHANGE_REASON_REQUIRED");
