@@ -177,20 +177,14 @@ export default function WalletPage({ onNavigate }: Props) {
     null;
   const depositEnabled = Boolean(selectedAsset?.depositEnabled);
   const withdrawalEnabled = Boolean(selectedAsset?.withdrawalEnabled);
-  const assetBalanceTotals = useMemo(() => {
-    const totals = new Map<string, { symbol: string; available: string; reserved: string }>();
+  const totalAssetBalance = useMemo(() => {
+    let total = "0";
     for (const network of wallet?.networks ?? []) {
       for (const asset of network.assets) {
-        const current = totals.get(asset.symbol) ?? { symbol: asset.symbol, available: "0", reserved: "0" };
-        current.available = addExactAmounts(current.available, asset.availableBalance);
-        current.reserved = addExactAmounts(current.reserved, asset.reservedBalance);
-        totals.set(asset.symbol, current);
+        total = addExactAmounts(total, asset.balance);
       }
     }
-    return [...totals.values()].map((item) => ({
-      ...item,
-      total: addExactAmounts(item.available, item.reserved),
-    }));
+    return total;
   }, [wallet]);
 
   const fmt = useCallback((value: string) => formatExactAmount(value, locale), [locale]);
@@ -257,7 +251,6 @@ export default function WalletPage({ onNavigate }: Props) {
       <div className="wallet-page-heading">
         <div>
           <div className="section-title">{copy.title}</div>
-          <p>{copy.balanceNote}</p>
         </div>
         <button type="button" className="wallet-refresh" onClick={() => void refresh()} disabled={refreshing}>
           {refreshing ? "…" : "↻"} {copy.refresh}
@@ -274,24 +267,13 @@ export default function WalletPage({ onNavigate }: Props) {
             <div>
               <span className="wf-eyebrow">{fa ? "نمای کلی دارایی‌ها" : "ASSET OVERVIEW"}</span>
               <h2>{fa ? "دارایی‌های من" : "My assets"}</h2>
-              <p>{copy.separateAssets}</p>
             </div>
             <span className="wf-network-count">{wallet.networks.length} {fa ? "شبکه" : "networks"}</span>
           </div>
-          <div className="wf-wallet-summary__totals">
-            <div className="wf-summary-stat">
-              <span>{copy.totalAvailable}</span>
-              <strong>{assetBalanceTotals.length ? assetBalanceTotals.map((item) => `${fmt(item.available)} ${item.symbol}`).join(" · ") : "—"}</strong>
-            </div>
-            <div className="wf-summary-stat">
-              <span>{copy.totalReserved}</span>
-              <strong>{assetBalanceTotals.length ? assetBalanceTotals.map((item) => `${fmt(item.reserved)} ${item.symbol}`).join(" · ") : "—"}</strong>
-            </div>
-            <div className="wf-summary-stat wf-summary-stat--highlight">
-              <span>{fa ? "موجودی کل به تفکیک ارز" : "Total balance by asset"}</span>
-              <div className="wf-summary-coins">
-                {assetBalanceTotals.length ? assetBalanceTotals.map((item) => <span key={item.symbol}><b>{item.symbol}</b><strong>{fmt(item.total)}</strong></span>) : <strong>—</strong>}
-              </div>
+          <div className="wf-wallet-summary__totals wf-wallet-summary__totals--single">
+            <div className="wf-summary-stat wf-summary-stat--single">
+              <span>{fa ? "موجودی کل" : "Total balance"}</span>
+              <strong>{fmt(totalAssetBalance)}</strong>
             </div>
           </div>
           <div className="wf-wallet-primary-actions">
