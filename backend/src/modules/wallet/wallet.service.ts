@@ -448,7 +448,10 @@ export async function requestWalletDeposit(
   }
 
   const [network, asset, address] = await Promise.all([
-    prisma.walletNetwork.findUnique({ where: { id: networkId } }),
+    prisma.walletNetwork.findUnique({
+      where: { id: networkId },
+      include: { scanCursor: { select: { lastSuccessfulScanAt: true } } },
+    }),
     prisma.walletAsset.findUnique({ where: { id: walletAssetId } }),
     prisma.walletAddress.findUnique({
       where: { walletAccountId_networkId: { walletAccountId: wallet.id, networkId } },
