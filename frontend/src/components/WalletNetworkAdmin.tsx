@@ -40,6 +40,7 @@ export default function WalletNetworkAdmin({ fa }: Props) {
     scanner: fa ? "وضعیت اسکنر" : "Scanner status",
     cursor: fa ? "آخرین موقعیت پردازش‌شده" : "Last processed position",
     noCursor: fa ? "هنوز راه‌اندازی نشده" : "Not initialized",
+    lastSuccessfulScan: fa ? "آخرین اسکن موفق" : "Last successful scan",
     addresses: fa ? "آدرس‌های ثبت‌شده" : "Registered addresses",
     depositsCount: fa ? "تعداد واریزها" : "Deposit records",
     withdrawalCount: fa ? "تعداد برداشت‌ها" : "Withdrawal records",
@@ -145,7 +146,7 @@ export default function WalletNetworkAdmin({ fa }: Props) {
         <small>{copy.confirmations}: {network.finalityDepth}</small>
         <small>{copy.addresses}: {network.counts.addresses} · {copy.depositsCount}: {network.counts.deposits} · {copy.withdrawalCount}: {network.counts.withdrawals}</small>
         <small>{copy.scanner}: {network.scanner ? copy.enabled : copy.noCursor}</small>
-        {network.scanner && <small>{copy.cursor}: {network.scanner.cursorPosition} · heartbeat: {network.scanner.heartbeatAt ? new Date(network.scanner.heartbeatAt).toLocaleString(fa ? "fa-IR" : "en-GB") : "—"}</small>}
+        {network.scanner && <small>{copy.cursor}: {network.scanner.cursorPosition} · {copy.lastSuccessfulScan}: {network.scanner.lastSuccessfulScanAt ? new Date(network.scanner.lastSuccessfulScanAt).toLocaleString(fa ? "fa-IR" : "en-GB") : copy.noCursor}</small>}
         <div className="admin-wallet-network-actions">
           <button type="button" disabled={Boolean(saving)} onClick={() => void saveNetwork(network.id, { isEnabled: !network.isEnabled })}>
             {saving === network.id ? "…" : network.isEnabled ? copy.disableNetwork : copy.activation}
