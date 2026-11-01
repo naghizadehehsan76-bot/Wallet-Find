@@ -557,11 +557,10 @@ async function refreshWithdrawalFeeReservation(input: {
     networkId: string;
     walletAssetId: string;
     feeAssetId: string | null;
-    feeAtomic: { toString(): string } | null;
+    feeAtomic: { toFixed(decimalPlaces?: number): string } | null;
   };
   newQuote: Awaited<ReturnType<typeof quoteEvmFee>>;
 }): Promise<bigint> {
-  if (!input.withdrawal.feeAssetId) throw new Error("WALLET_WITHDRAWAL_FEE_ASSET_MISSING");
   const feeAssetId = input.withdrawal.feeAssetId;
   if (!feeAssetId) throw new Error("WALLET_WITHDRAWAL_FEE_ASSET_MISSING");
   const currentReserved = atomic(input.withdrawal.feeAtomic);
