@@ -38,7 +38,7 @@ export function aggregateWalletLedger(rows: WalletLedgerRecord[]): Map<string, A
     const amount = BigInt(row.amountMicro);
     if (row.status === "COMPLETED") {
       if (row.type === "DEPOSIT") current.balance += amount;
-      if (row.type === "DEPOSIT_REVERSAL" || row.type === "WITHDRAWAL") current.balance -= amount;
+      if (row.type === "DEPOSIT_REVERSAL" || row.type === "WITHDRAWAL" || row.type === "NETWORK_FEE") current.balance -= amount;
     }
     if (row.type === "WITHDRAWAL_REQUEST" && row.status === "PENDING") {
       current.pendingWithdrawals += amount;
