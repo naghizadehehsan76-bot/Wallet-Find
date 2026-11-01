@@ -3447,3 +3447,46 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   .wallet-asset-chevron { transition:none; }
   .wallet-asset-details { animation:none; }
 }
+
+.wallet-total-assets {
+  display: grid;
+  gap: 8px;
+  margin-top: 13px;
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 211, 222, .16);
+  border-radius: 13px;
+  background: rgba(0, 12, 29, .38);
+}
+.wallet-total-assets__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+}
+.wallet-total-assets__row + .wallet-total-assets__row {
+  border-top: 1px solid rgba(142, 205, 226, .1);
+}
+.wallet-total-assets__row > div { display: grid; gap: 3px; min-width: 0; }
+.wallet-total-assets__row > div > strong {
+  color: #e6fbff;
+  font-size: 12px;
+  font-weight: 900;
+}
+.wallet-total-assets__row small {
+  color: #91b5c9;
+  font-size: 9px;
+  line-height: 1.6;
+}
+.wallet-total-assets__amount {
+  color: #66f4df;
+  font-size: 13px;
+  font-weight: 900;
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 380px) {
+  .wallet-total-assets { padding: 9px; }
+  .wallet-total-assets__row { gap: 7px; }
+  .wallet-total-assets__amount { font-size: 11px; }
+}
