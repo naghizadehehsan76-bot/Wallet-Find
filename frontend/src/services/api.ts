@@ -799,11 +799,37 @@ export type AdminWalletNetwork = {
 };
 
 export type AdminWalletNetworkRegistry = {
+  globalEmergencyPause: { active: boolean; updatedAt: string | null };
   networks: AdminWalletNetwork[];
   provisioning: Array<{ status: string; count: number }>;
   generatedAt: string;
   activationGates: { depositsReady: boolean; withdrawalsReady: boolean };
 };
+
+export async function emergencyPauseAllWalletOperations(reason: string): Promise<{
+  paused: boolean;
+  networksChanged: number;
+  assetsChanged: number;
+  legacyAssetsChanged: number;
+  legacyAccountsChanged: number;
+  note: string;
+}> {
+  return request("/admin/wallet-emergency-pause", {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  }, true);
+}
+
+export async function resumeWalletOperations(reason: string): Promise<{
+  paused: boolean;
+  networkAndAssetSwitchesRemainDisabled: boolean;
+  note: string;
+}> {
+  return request("/admin/wallet-emergency-resume", {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  }, true);
+}
 
 export async function getAdminWalletNetworkRegistry(): Promise<AdminWalletNetworkRegistry> {
   return request<AdminWalletNetworkRegistry>("/admin/wallet-networks", {}, true);
