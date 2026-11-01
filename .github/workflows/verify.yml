@@ -10,6 +10,20 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: wallet_find
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d wallet_find"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     defaults:
       run:
         working-directory: backend
@@ -23,6 +37,8 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm ci --include=dev
+      - name: Apply all Prisma migrations to the disposable PostgreSQL 18 database
+        run: npx prisma migrate deploy
       - run: npx prisma generate
       - run: npm test
       - run: npm run build
