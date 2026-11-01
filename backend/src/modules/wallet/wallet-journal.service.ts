@@ -67,7 +67,7 @@ function samePayload(
   const leftNormalized = left.postings.map((posting) => ({
     account: posting.account,
     direction: posting.direction,
-    amountAtomic: posting.amountAtomic.toString(),
+    amountAtomic: posting.amountAtomic.toFixed(0),
     accountReference: posting.accountReference ?? null,
   })).sort((a, b) => (a.account + "|" + a.direction + "|" + (a.accountReference ?? ""))
     .localeCompare(b.account + "|" + b.direction + "|" + (b.accountReference ?? "")));
@@ -151,7 +151,7 @@ export async function postWalletJournalInTransaction(tx: any, input: PostWalletJ
     const inverse = original.postings.map((posting: any) => ({
       account: posting.account,
       direction: posting.direction === "DEBIT" ? "CREDIT" as const : "DEBIT" as const,
-      amountAtomic: posting.amountAtomic.toString(),
+      amountAtomic: posting.amountAtomic.toFixed(0),
       accountReference: posting.accountReference,
     }));
     const expected = canonicalizeWalletJournalPostings(validateBalancedWalletJournalPostings(inverse));
