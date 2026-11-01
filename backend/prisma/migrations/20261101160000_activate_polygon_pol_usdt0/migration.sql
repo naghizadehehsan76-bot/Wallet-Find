@@ -6,6 +6,7 @@ DECLARE
   network_rows INTEGER;
   pol_rows INTEGER;
   usdt0_rows INTEGER;
+  legacy_addresses_suspended INTEGER;
 BEGIN
   IF EXISTS (
     SELECT 1
@@ -76,4 +77,24 @@ BEGIN
   IF usdt0_rows <> 1 THEN
     RAISE EXCEPTION 'Expected exactly one verified Polygon USDT0 asset; found %', usdt0_rows;
   END IF;
-END $$;
+
+  -- Do not accept deposits to a legacy address whose old parent-organization
+  -- wallet has no per-user signing credentials. Such an account must be
+  -- reconciled before it can receive new deposits; no funds are moved here.
+  UPDATE "wallet_addresses" AS address
+  SET "status" = 'SUSPENDED', "updatedAt" = CURRENT_TIMESTAMP
+  FROM "wallet_accounts" AS account
+  WHERE address."walletAccountId" = account."id"
+    AND address."networkId" = 'eip155:137'
+    AND address."status" = 'ACTIVE'
+    AND (
+      account."turnkeyOrganizationId" IS NULL
+      OR account."turnkeyWalletId" IS NULL
+      OR account."turnkeyApiPublicKey" IS NULL
+      OR account."turnkeyApiPrivateKeyEncrypted" IS NULL
+    );
+  GET DIAGNOSTICS legacy_addresses_suspended = ROW_COUNT;
+  IF legacy_addresses_suspended > 1 THEN
+    RAISE EXCEPTION 'Unexpected number of legacy Polygon addresses suspended: %', legacy_addresses_suspended;
+  END IF;
+END $;
