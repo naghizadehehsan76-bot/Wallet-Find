@@ -79,12 +79,14 @@ export default function WalletPage({ onNavigate }: Props) {
     const [wholeText = "0", fractionText = ""] = String(value).split(".");
     let localizedWhole = "0";
     try { localizedWhole = new Intl.NumberFormat(fa ? "fa-IR" : "en-US").format(BigInt(wholeText || "0")); } catch { /* keep the safe fallback */ }
-    const fraction = fractionText.slice(0, 8).replace(/0+$/, "");
+    const fraction = fractionText.slice(0, 18).replace(/0+$/, "");
     return localizedWhole + (fraction ? (fa ? "٫" : ".") + fraction : "");
   };
 
   const assets = wallet?.assets ?? [];
-  const selectedAsset: WalletAssetSummary | undefined = assets.find((asset) => asset.assetId === selectedAssetId) ?? assets[0];
+  const selectedAsset: WalletAssetSummary | undefined = assets.find((asset) => asset.assetId === selectedAssetId)
+    ?? assets.find((asset) => asset.depositEnabled || asset.withdrawalEnabled)
+    ?? assets[0];
   const selectedNetwork = selectedAsset
     ? wallet?.supportedNetworks?.find((network) => network.chainId === selectedAsset.chainId)
     : undefined;
@@ -167,7 +169,7 @@ export default function WalletPage({ onNavigate }: Props) {
             {address ? <><code>{address}</code><button type="button" onClick={() => void copyAddress()} disabled={!depositEnabled || copied}>{copied ? "✓ " + copy.copied : copy.copyAddress}</button></> : <p>{copy.depositDisabled}</p>}
           </div>
           {depositEnabled ? <>
-            <div className="wallet-network-row"><span>{copy.confirmations}</span><strong>{selectedAsset.networkName}</strong></div>
+            <div className="wallet-network-row"><span>{copy.confirmations}</span><strong>{selectedAsset.confirmationsRequired.toLocaleString(fa ? "fa-IR" : "en-US")}</strong></div>
             <div className="wallet-deposit-address"><label>{copy.tokenContract}</label><code>{selectedAsset.isNative ? copy.nativeAsset : selectedAsset.contractAddress}</code></div>
             <div className="wallet-warning"><strong>⚠ {fa ? "نکتهٔ مهم" : "Important"}</strong><p>{copy.depositReady} {selectedAsset.isNative ? copy.nativeAsset : ""}</p></div>
           </> : <div className="wallet-warning"><strong>⚠ {copy.unavailable}</strong><p>{copy.depositDisabled}</p></div>}
