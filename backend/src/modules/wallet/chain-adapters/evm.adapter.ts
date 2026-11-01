@@ -41,6 +41,16 @@ export function getEvmPublicClient(chainId: number): PublicClient {
   return getClient(chainId);
 }
 
+export async function assertEvmRpcChainIdentity(
+  client: PublicClient,
+  expectedChainId: number,
+): Promise<void> {
+  const actualChainId = await client.getChainId();
+  if (actualChainId !== expectedChainId) {
+    throw new Error("EVM_RPC_CHAIN_ID_MISMATCH");
+  }
+}
+
 export function isEvmWithdrawalFeeModelSupported(chainId: number): boolean {
   // Optimism and Arbitrum require additional L1 data-fee accounting.
   return chainId === 1 || chainId === 56 || chainId === 137;
@@ -62,6 +72,7 @@ export function createEvmWalletChainAdapter(input: {
     family: "EVM",
 
     async getLatestPosition() {
+      await assertEvmRpcChainIdentity(client, input.chainId);
       return (await client.getBlockNumber()).toString();
     },
 
