@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import type { AuthenticatedRequest } from "../../middleware/auth.middleware.js";
-import { getWallet, requestWalletDeposit, requestWalletWithdrawal } from "./wallet.service.js";
+import { getWallet, requestWalletDeposit } from "./wallet.service.js";
 function getUserId(req: AuthenticatedRequest, res: Response): string | null {
   if (!req.user?.userId) { res.status(401).json({ success: false, error: "AUTHENTICATION_REQUIRED" }); return null; }
   return req.user.userId;
@@ -20,7 +20,7 @@ function sendError(res: Response, error: unknown) {
     "ONCHAIN_NATIVE_BALANCE_INSUFFICIENT", "ONCHAIN_TOKEN_BALANCE_INSUFFICIENT",
     "ONCHAIN_NATIVE_FEE_BALANCE_INSUFFICIENT", "TURNKEY_SIGNER_ADDRESS_MISMATCH",
     "WALLET_WITHDRAWAL_REQUIRES_MANUAL_RECONCILIATION", "WALLET_WITHDRAWAL_FEE_QUOTE_EXPIRED",
-    "INSUFFICIENT_NATIVE_FEE_BALANCE_FOR_UPDATED_QUOTE";
+    "INSUFFICIENT_NATIVE_FEE_BALANCE_FOR_UPDATED_QUOTE",
   ]);
   if (!known.has(message)) console.error("Wallet request failed", error);
   const status =
