@@ -25,13 +25,137 @@ function serializeTransaction(row: any) {
   return { id: row.id, type: row.type, status: row.status, amount: formatMicro(BigInt(row.amountMicro)), currency: row.currency, note: row.note, contestId: row.contestId, createdAt: row.createdAt };
 }
 export async function getWallet(userId: string) {
-  // Provision an EVM address only after server-side Turnkey credentials are configured.
-  // No private key material is returned to the API caller.
+  // Turnkey provisioning occurs only for a verified user who explicitly opens
+  // the wallet page. No private key material is returned to the API caller.
   const turnkeyWallet = isTurnkeyConfigured() ? await provisionTurnkeyWallet(userId) : null;
+
   return prisma.$transaction(async (tx) => {
-    const balances = await calculateBalances(tx, userId);
-    const transactions = await tx.walletTransaction.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 100 });
-    return { currency: "USDT", simulatedOnly: false, turnkeyConfigured: isTurnkeyConfigured(), walletAddress: turnkeyWallet?.address ?? null, supportedNetworks: turnkeyWallet?.networkAccounts.map((network) => ({ chainId: network.chainId, networkKey: network.networkKey, depositEnabled: network.depositEnabled, withdrawalEnabled: network.withdrawalEnabled })) ?? [], balance: formatMicro(balances.balance), availableBalance: formatMicro(balances.availableBalance), transactions: transactions.map(serializeTransaction) };
+    const legacyBalances = await calculateBalances(tx, userId);
+    const transactions = await tx.walletTransaction.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+
+    const journalPostings = await tx.walletJournalPosting.findMany({
+      where: { journal: { userId } },
+      select: {
+        account: true,
+        direction: true,
+        amountAtomic: true,
+        journal: {
+          select: { networkId: true, walletAssetId: true },
+        },
+      },
+    });
+
+    const balanceMap = new Map<string, { available: bigint; reserved: bigint }>();
+    for (const posting of journalPostings) {
+      const key = posting.journal.networkId + "|" + posting.journal.walletAssetId;
+      const current = balanceMap.get(key) ?? { available: 0n, reserved: 0n };
+      const signed = posting.direction === "CREDIT"
+        ? BigInt(posting.amountAtomic.toString())
+        : -BigInt(posting.amountAtomic.toString());
+
+      if (posting.account === "USER_AVAILABLE") current.available += signed;
+      if (posting.account === "USER_RESERVED") current.reserved += signed;
+      balanceMap.set(key, current);
+    }
+
+    const networks = await tx.walletNetwork.findMany({
+      orderBy: [{ family: "asc" }, { networkKey: "asc" }],
+      include: {
+        assets: { orderBy: [{ symbol: "asc" }, { id: "asc" }] },
+        addresses: {
+          where: {
+            walletAccountId: turnkeyWallet?.id ?? "__no_wallet_account__",
+            status: "ACTIVE",
+            isPrimary: true,
+          },
+        },
+      },
+    });
+
+    const legacyNetworkAccounts = new Map(
+      (turnkeyWallet?.networkAccounts ?? []).map((item) => [item.chainId, item]),
+    );
+
+    const networkViews = networks.map((network) => {
+      const address = network.addresses[0] ?? null;
+      const legacyAccount = network.chainId === null
+        ? undefined
+        : legacyNetworkAccounts.get(network.chainId);
+
+      const assets = network.assets.map((asset) => {
+        const key = network.id + "|" + asset.id;
+        const balance = balanceMap.get(key) ?? { available: 0n, reserved: 0n };
+        const availableBalance = balance.available;
+        const reservedBalance = balance.reserved;
+        const accountAllowsDeposits = network.family !== "EVM" || legacyAccount?.depositEnabled === true;
+        const accountAllowsWithdrawals = network.family !== "EVM" || legacyAccount?.withdrawalEnabled === true;
+
+        return {
+          id: asset.id,
+          symbol: asset.symbol,
+          displayName: asset.displayName,
+          assetType: asset.assetType,
+          assetReference: asset.assetReference,
+          contractAddress: asset.contractAddress,
+          decimals: asset.decimals,
+          issuerClassification: asset.issuerClassification,
+          verificationStatus: asset.verificationStatus,
+          minDeposit: asset.minDepositAtomic === null
+            ? null
+            : formatAssetUnits(BigInt(asset.minDepositAtomic.toString()), asset.decimals),
+          confirmationCount: asset.confirmationCount,
+          depositEnabled: network.isEnabled && network.depositEnabled && accountAllowsDeposits
+            && asset.depositEnabled && asset.verificationStatus === "VERIFIED" && Boolean(address),
+          withdrawalEnabled: network.isEnabled && network.withdrawalEnabled && accountAllowsWithdrawals
+            && asset.withdrawalEnabled && asset.verificationStatus === "VERIFIED" && Boolean(address),
+          balance: formatAssetUnits(availableBalance + reservedBalance, asset.decimals),
+          availableBalance: formatAssetUnits(availableBalance, asset.decimals),
+          reservedBalance: formatAssetUnits(reservedBalance, asset.decimals),
+        };
+      });
+
+      return {
+        id: network.id,
+        family: network.family,
+        chainId: network.chainId,
+        networkKey: network.networkKey,
+        displayName: network.displayName,
+        nativeAssetSymbol: network.nativeAssetSymbol,
+        nativeAssetDecimals: network.nativeAssetDecimals,
+        explorerTransactionUrlTemplate: network.explorerTransactionUrlTemplate,
+        finalityDepth: network.finalityDepth,
+        isEnabled: network.isEnabled,
+        depositEnabled: network.isEnabled && network.depositEnabled && Boolean(address),
+        withdrawalEnabled: network.isEnabled && network.withdrawalEnabled && Boolean(address),
+        address: address?.address ?? null,
+        assets,
+      };
+    });
+
+    return {
+      currency: "USDT",
+      simulatedOnly: false,
+      turnkeyConfigured: isTurnkeyConfigured(),
+      walletAddress: turnkeyWallet?.address ?? null,
+      supportedNetworks: (turnkeyWallet?.networkAccounts ?? []).map((item) => ({
+        chainId: item.chainId,
+        networkKey: item.networkKey,
+        depositEnabled: item.depositEnabled,
+        withdrawalEnabled: item.withdrawalEnabled,
+      })),
+      // Legacy rows remain visible and are deliberately not added to the
+      // on-chain multi-asset balances above.
+      balance: formatMicro(legacyBalances.balance),
+      availableBalance: formatMicro(legacyBalances.availableBalance),
+      legacyBalance: formatMicro(legacyBalances.balance),
+      legacyAvailableBalance: formatMicro(legacyBalances.availableBalance),
+      networks: networkViews,
+      transactions: transactions.map(serializeTransaction),
+    };
   });
 }
 export async function requestWalletDeposit(userId: string, _rawAmount: unknown) {
