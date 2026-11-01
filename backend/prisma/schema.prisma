@@ -516,17 +516,22 @@ model WalletTransaction {
   userId       String
   type         String
   status       String   @default("COMPLETED")
+  // Stores the asset's smallest indivisible unit (legacy field name retained).
   amountMicro  BigInt
   currency     String   @default("USDT")
+  chainId      Int?
+  chainAssetId String?
   note         String
   referenceKey String?  @unique
   contestId    String?
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset        ChainAsset? @relation(fields: [chainAssetId], references: [id], onDelete: Restrict)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   @@index([userId, createdAt])
   @@index([userId, status, type])
+  @@index([chainAssetId, createdAt])
   @@map("wallet_transactions")
 }
 
@@ -687,6 +692,8 @@ model ChainAsset {
   deposits          WalletDeposit[]
   withdrawals       WalletWithdrawal[]
   treasuryDeposits  TreasuryDeposit[]
+  walletTransactions WalletTransaction[]
+  treasuryLedgerEntries TreasuryLedger[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   @@unique([chainId, contractAddress])
@@ -816,8 +823,11 @@ model TreasuryLedger {
   treasuryWalletId String
   depositId        String?
   type             TreasuryLedgerType
+  // Stores signed smallest-unit amounts for the specific asset below.
   amountMicro      BigInt
   currency         String @default("USDT0")
+  chainId          Int?
+  chainAssetId     String?
   transactionHash  String?
   referenceKey     String @unique
   note             String
@@ -826,10 +836,12 @@ model TreasuryLedger {
 
   treasuryWallet TreasuryWallet  @relation(fields: [treasuryWalletId], references: [id], onDelete: Restrict)
   deposit        TreasuryDeposit? @relation(fields: [depositId], references: [id], onDelete: Restrict)
+  asset          ChainAsset? @relation(fields: [chainAssetId], references: [id], onDelete: Restrict)
 
   @@index([treasuryWalletId, effectiveAt])
   @@index([type, effectiveAt])
   @@index([depositId])
+  @@index([chainAssetId, effectiveAt])
   @@map("treasury_ledger")
 }
 
