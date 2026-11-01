@@ -114,6 +114,17 @@ function parseSourceUrls(value: string | undefined, fallback: string[]): string[
   } catch { return [...fallback]; }
 }
 
+function formatAssetAmountForAdmin(value: string, locale: string): string {
+  const negative = value.startsWith("-");
+  const unsigned = negative ? value.slice(1) : value;
+  const [wholeText = "0", fractionText = ""] = unsigned.split(".");
+  let whole = 0n;
+  try { whole = BigInt(wholeText || "0"); } catch { whole = 0n; }
+  const localizedWhole = new Intl.NumberFormat(locale).format(whole);
+  const fraction = fractionText.slice(0, 8).replace(/0+$/, "");
+  return (negative ? "-" : "") + localizedWhole + (fraction ? "." + fraction : "");
+}
+
 function formatDuration(milliseconds: number, fa: boolean): string {
   const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
   const hours = Math.floor(totalSeconds / 3600);
@@ -188,7 +199,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     treasuryLedgerEmpty: fa ? "هنوز تراکنشی در دفتر خزانه ثبت نشده است." : "No treasury ledger transactions recorded yet.",
     treasuryLedgerError: fa ? "دریافت تاریخچه تراکنش‌های خزانه ناموفق بود." : "Could not load treasury transaction history.",
     treasuryLedgerRefresh: fa ? "به‌روزرسانی تاریخچه" : "Refresh history",
-    treasuryDepositHelp: fa ? "واریزها به‌صورت خودکار از بلاک‌چین شناسایی می‌شوند. پس از ۱۲۸ تأیید شبکه، دفتر حسابداری خزانه به‌روزرسانی می‌شود." : "Deposits are detected automatically from Polygon. Treasury accounting is credited after 128 network confirmations.",
+    treasuryDepositHelp: fa ? "واریز دارایی‌های فعال‌شده در فهرست دارایی‌ها به‌صورت خودکار شناسایی و پس از تأییدهای شبکه در دفتر همان دارایی ثبت می‌شوند. فقط USDT0 برای صندوق جوایز قابل تخصیص است." : "Enabled assets are detected automatically and credited to their own asset ledger after network confirmations. Only USDT0 can be allocated to the prize fund.",
     treasuryNoDeposits: fa ? "هنوز واریزی برای خزانه شناسایی نشده است." : "No treasury deposits detected yet.",
     treasuryDepositRefresh: fa ? "به‌روزرسانی واریزها" : "Refresh deposits",
     treasuryDepositAmount: fa ? "مبلغ" : "Amount",
@@ -1180,10 +1191,11 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                     <article className="admin-setting-row admin-wallet-row admin-treasury-deposit-card" key={deposit.id}>
                       <div className="admin-treasury-deposit-card__content">
                         <div className="admin-treasury-deposit-row__top">
-                          <strong>{deposit.amount ?? "—"} USDT0</strong>
+                          <strong>{deposit.amount ?? "—"} {deposit.asset}</strong>
                           <span className={deposit.status === "CREDITED" ? "wallet-network-status wallet-network-status--active" : "wallet-network-status"}>{deposit.status}</span>
                         </div>
-                        <small>{copy.treasuryDepositConfirmations}: {deposit.confirmationCount.toLocaleString(fa ? "fa-IR" : "en-US")} / 128</small>
+                        <small>{deposit.displayName}</small>
+                        <small>{copy.treasuryDepositConfirmations}: {deposit.confirmationCount.toLocaleString(fa ? "fa-IR" : "en-US")}</small>
                         <small>{copy.treasuryDepositDate}: {new Date(deposit.detectedAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>
                         <code>{deposit.transactionHash}</code>
                       </div>
@@ -1215,7 +1227,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                     return (
                       <article className="admin-setting-row admin-wallet-row admin-treasury-deposit-card" key={entry.id}>
                         <div className="admin-treasury-deposit-card__content">
-                          <div className="admin-treasury-deposit-row__top"><strong style={{ color: positive ? "#20c997" : "#ff8b8b" }}>{positive ? "+" : ""}{Number(entry.amount).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong><span className="wallet-network-status">{typeLabels[entry.type]}</span></div>
+                          <div className="admin-treasury-deposit-row__top"><strong style={{ color: positive ? "#20c997" : "#ff8b8b" }}>{positive ? "+" : ""}{formatAssetAmountForAdmin(entry.amount, fa ? "fa-IR" : "en-US")} {entry.currency}</strong><span className="wallet-network-status">{typeLabels[entry.type]}</span></div>
                           <small>{fa ? "زمان ثبت: " : "Recorded: "}{new Date(entry.effectiveAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small><small>{entry.note}</small>
                           {entry.transactionHash && <><code>{entry.transactionHash}</code><a href={"https://polygonscan.com/tx/" + entry.transactionHash} target="_blank" rel="noreferrer">{fa ? "مشاهده در PolygonScan" : "View on PolygonScan"}</a></>}
                         </div>
