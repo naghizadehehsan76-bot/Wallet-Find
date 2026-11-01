@@ -99,6 +99,10 @@ export default function WalletPage({ onNavigate }: Props) {
     reviewRequired: fa ? "نیازمند بررسی" : "Review required",
     balanceNote: fa ? "موجودی هر ارز و شبکه جداگانه نگهداری می‌شود؛ مبالغ ارزهای مختلف با هم جمع نمی‌شوند." : "Balances are maintained separately for each asset and network; different currencies are not added together.",
     family: fa ? "نوع شبکه" : "Network type",
+    depositAdapter: fa ? "آمادگی فنی واریز" : "Deposit adapter",
+    withdrawalAdapter: fa ? "آمادگی فنی برداشت" : "Withdrawal adapter",
+    adapterReady: fa ? "پیاده‌سازی شده" : "Implemented",
+    adapterNotReady: fa ? "هنوز آماده نیست" : "Not implemented",
     native: fa ? "دارایی بومی" : "Native asset",
     token: fa ? "توکن" : "Token",
     addressUnavailable: fa ? "آدرس تا زمان فعال شدن واریز نمایش داده نمی‌شود." : "The address is hidden until deposits are enabled.",
@@ -253,6 +257,12 @@ export default function WalletPage({ onNavigate }: Props) {
           </div>
           <div className="wallet-network-row">
             <span>{copy.network}</span><strong>{network.networkKey}{network.chainId !== null ? " · " + network.chainId : ""}</strong>
+          </div>
+          <div className="wallet-network-row">
+            <span>{copy.depositAdapter}</span><strong>{network.adapterReady ? copy.adapterReady : copy.adapterNotReady}</strong>
+          </div>
+          <div className="wallet-network-row">
+            <span>{copy.withdrawalAdapter}</span><strong>{network.withdrawalAdapterReady ? copy.adapterReady : copy.adapterNotReady}</strong>
           </div>
           <div className="wallet-network-row">
             <span>{copy.status}</span>
