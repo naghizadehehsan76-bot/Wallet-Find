@@ -161,6 +161,7 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
   let cursor = await prisma.walletNetworkScanCursor.findUnique({ where: { networkId } });
   if (!cursor) {
     const anchorHash = await adapter.getPositionHash(safePosition);
+    if (!anchorHash) throw new Error("EVM_CANONICAL_CURSOR_HASH_UNAVAILABLE");
     await prisma.walletNetworkScanCursor.createMany({
       data: [{ networkId, cursorPosition: safePosition, cursorHash: anchorHash }],
       skipDuplicates: true,
@@ -240,7 +241,10 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
 
         for (const deposit of affected) {
           const canonicalDepositHash = await adapter.getPositionHash(deposit.position);
-          if (canonicalDepositHash && deposit.blockHash &&
+          if (!canonicalDepositHash) {
+            throw new Error("EVM_CANONICAL_DEPOSIT_HASH_UNAVAILABLE");
+          }
+          if (deposit.blockHash &&
               canonicalDepositHash.toLowerCase() === deposit.blockHash.toLowerCase()) continue;
 
           await reverseCreditedDeposit(deposit);
@@ -285,7 +289,7 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
       const end = start + chunkSize - 1n > safeValue ? safeValue : start + chunkSize - 1n;
 
       for (const asset of network.assets) {
-        if (!asset.contractAddress) continue;
+        if (asset.assetType === "TOKEN" && !asset.contractAddress) continue;
 
         const assetInput: AdapterAsset = {
           id: asset.id,
@@ -361,6 +365,7 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
       }
 
       const endHash = await adapter.getPositionHash(end.toString());
+      if (!endHash) throw new Error("EVM_CANONICAL_CURSOR_HASH_UNAVAILABLE");
       await updateCursor(networkId, owner, end.toString(), endHash);
       cursorPosition = end;
       scannedBlocks += end - start + 1n;
