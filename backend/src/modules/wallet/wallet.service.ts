@@ -70,6 +70,10 @@ export async function getWallet(userId: string) {
       const withdrawalEnabled = Boolean(asset.withdrawalEnabled && network?.withdrawalEnabled);
       if (!depositEnabled && !withdrawalEnabled && totals.balance === 0n && totals.pendingWithdrawals === 0n) return [];
       const networkConfig = EVM_NETWORKS.find((item) => item.chainId === asset.chainId);
+      const configuredConfirmations = networkConfig
+        ? Number.parseInt(process.env[networkConfig.confirmationsEnv] ?? String(networkConfig.defaultConfirmations), 10)
+        : 32;
+      const confirmationsRequired = Math.max(32, Number.isFinite(configuredConfirmations) ? configuredConfirmations : (networkConfig?.defaultConfirmations ?? 32));
       return [{
         assetId: asset.id,
         chainId: asset.chainId,
@@ -78,6 +82,7 @@ export async function getWallet(userId: string) {
         symbol: asset.symbol,
         displayName: asset.displayName,
         decimals: asset.decimals,
+        confirmationsRequired,
         contractAddress: asset.contractAddress,
         isNative: asset.contractAddress.toLowerCase() === "native",
         balance: formatAssetAmount(totals.balance, asset.decimals),
