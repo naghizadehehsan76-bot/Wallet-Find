@@ -1,0 +1,185 @@
+import { useCallback, useEffect, useState } from "react";
+import {
+  getAdminWalletNetworkRegistry,
+  updateAdminWalletAsset,
+  updateAdminWalletNetwork,
+  type AdminWalletNetworkRegistry,
+} from "../services/api";
+
+type Props = { fa: boolean };
+
+export default function WalletNetworkAdmin({ fa }: Props) {
+  const [registry, setRegistry] = useState<AdminWalletNetworkRegistry | null>(null);
+  const [reason, setReason] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState("");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const copy = {
+    title: fa ? "مدیریت شبکه‌ها و دارایی‌های کیف پول" : "Wallet networks and assets",
+    help: fa ? "فعال‌سازی واریز و برداشت تنها پس از عبور از دروازه‌های آمادگی عملیاتی مجاز است. همهٔ تغییرات مدیریتی ثبت می‌شوند." : "Deposits and withdrawals can only be enabled after production-readiness gates are satisfied. All changes are audited.",
+    refresh: fa ? "به‌روزرسانی" : "Refresh",
+    reason: fa ? "دلیل تغییر مدیریتی (حداقل ۸ نویسه)" : "Reason for admin change (at least 8 characters)",
+    enabled: fa ? "فعال" : "Enabled",
+    disabled: fa ? "غیرفعال" : "Disabled",
+    network: fa ? "شبکه" : "Network",
+    deposits: fa ? "واریز شبکه" : "Network deposits",
+    withdrawals: fa ? "برداشت شبکه" : "Network withdrawals",
+    activation: fa ? "فعال‌سازی شبکه" : "Enable network",
+    disableNetwork: fa ? "غیرفعال‌سازی شبکه" : "Disable network",
+    depositToggle: fa ? "تغییر وضعیت واریز" : "Toggle deposits",
+    withdrawalToggle: fa ? "تغییر وضعیت برداشت" : "Toggle withdrawals",
+    assets: fa ? "دارایی‌ها" : "Assets",
+    confirmations: fa ? "تأییدهای لازم" : "Confirmations required",
+    address: fa ? "قرارداد" : "Contract",
+    minDeposit: fa ? "حداقل واریز (Atomic)" : "Minimum deposit (atomic)",
+    verification: fa ? "اعتبارسنجی" : "Verification",
+    scanner: fa ? "وضعیت اسکنر" : "Scanner status",
+    cursor: fa ? "آخرین موقعیت پردازش‌شده" : "Last processed position",
+    noCursor: fa ? "هنوز راه‌اندازی نشده" : "Not initialized",
+    addresses: fa ? "آدرس‌های ثبت‌شده" : "Registered addresses",
+    depositsCount: fa ? "تعداد واریزها" : "Deposit records",
+    withdrawalCount: fa ? "تعداد برداشت‌ها" : "Withdrawal records",
+    depositsGate: fa ? "آمادگی اسکن واریز" : "Deposit scanner ready",
+    withdrawalsGate: fa ? "آمادگی برداشت" : "Withdrawal engine ready",
+    save: fa ? "ثبت تغییر" : "Save change",
+    missingReason: fa ? "ابتدا دلیل تغییر را وارد کن." : "Enter a reason before changing a setting.",
+    updated: fa ? "تنظیمات ذخیره شد." : "Settings updated.",
+    errorText: fa ? "ذخیره یا دریافت تنظیمات ناموفق بود." : "Could not load or save wallet settings.",
+    pending: fa ? "در انتظار اعتبارسنجی" : "Pending verification",
+    review: fa ? "نیازمند بررسی" : "Review required",
+    verified: fa ? "تأیید شده" : "Verified",
+  };
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setRegistry(await getAdminWalletNetworkRegistry());
+      setError("");
+    } catch {
+      setError(copy.errorText);
+    } finally {
+      setLoading(false);
+    }
+  }, [copy.errorText]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
+
+  const saveNetwork = async (networkId: string, patch: Record<string, boolean | number>) => {
+    if (reason.trim().length < 8) {
+      setError(copy.missingReason);
+      return;
+    }
+    setSaving(networkId);
+    try {
+      await updateAdminWalletNetwork(networkId, { ...patch, reason: reason.trim() });
+      setReason("");
+      setNotice(copy.updated);
+      setError("");
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : copy.errorText);
+    } finally {
+      setSaving("");
+    }
+  };
+
+  const saveAsset = async (assetId: string, patch: Record<string, boolean | number | string | null>) => {
+    if (reason.trim().length < 8) {
+      setError(copy.missingReason);
+      return;
+    }
+    setSaving(assetId);
+    try {
+      await updateAdminWalletAsset(assetId, { ...patch, reason: reason.trim() });
+      setReason("");
+      setNotice(copy.updated);
+      setError("");
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : copy.errorText);
+    } finally {
+      setSaving("");
+    }
+  };
+
+  const gate = (value: boolean) => value ? copy.enabled : copy.disabled;
+  const statusClass = (value: boolean) => value ? "wallet-network-status wallet-network-status--active" : "wallet-network-status";
+
+  return <section className="admin-panel admin-wallet-network-admin">
+    <div className="admin-treasury-deposits__heading">
+      <div><h2>{copy.title}</h2><p className="admin-footnote">{copy.help}</p></div>
+      <button type="button" onClick={() => void load()} disabled={loading}>{loading ? "…" : copy.refresh}</button>
+    </div>
+
+    <label className="wallet-form-field">
+      <span>{copy.reason}</span>
+      <input value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} />
+    </label>
+    {error && <p className="admin-message admin-message--error" role="alert">{error}</p>}
+    {notice && <p className="admin-message" role="status">{notice}</p>}
+
+    {registry && <div className="wallet-network-gates">
+      <span className={statusClass(registry.activationGates.depositsReady)}>{copy.depositsGate}: {gate(registry.activationGates.depositsReady)}</span>
+      <span className={statusClass(registry.activationGates.withdrawalsReady)}>{copy.withdrawalsGate}: {gate(registry.activationGates.withdrawalsReady)}</span>
+    </div>}
+
+    {loading && !registry && <p>{fa ? "در حال دریافت..." : "Loading..."}</p>}
+    {registry?.networks.map((network) => <article className="admin-setting-row admin-wallet-network-card" key={network.id}>
+      <div className="admin-wallet-network-card__content">
+        <div className="admin-treasury-deposit-row__top">
+          <strong>{network.displayName} ({network.networkKey})</strong>
+          <span className={statusClass(network.isEnabled)}>{gate(network.isEnabled)}</span>
+        </div>
+        <small>{network.id} · {network.family}{network.chainId !== null ? " · chain " + network.chainId : ""}</small>
+        <div className="wallet-network-gates">
+          <span className={statusClass(network.depositEnabled)}>{copy.deposits}: {gate(network.depositEnabled)}</span>
+          <span className={statusClass(network.withdrawalEnabled)}>{copy.withdrawals}: {gate(network.withdrawalEnabled)}</span>
+        </div>
+        <small>{copy.confirmations}: {network.finalityDepth}</small>
+        <small>{copy.addresses}: {network.counts.addresses} · {copy.depositsCount}: {network.counts.deposits} · {copy.withdrawalCount}: {network.counts.withdrawals}</small>
+        <small>{copy.scanner}: {network.scanner ? copy.enabled : copy.noCursor}</small>
+        {network.scanner && <small>{copy.cursor}: {network.scanner.cursorPosition} · heartbeat: {network.scanner.heartbeatAt ? new Date(network.scanner.heartbeatAt).toLocaleString(fa ? "fa-IR" : "en-GB") : "—"}</small>}
+        <div className="admin-wallet-network-actions">
+          <button type="button" disabled={Boolean(saving)} onClick={() => void saveNetwork(network.id, { isEnabled: !network.isEnabled })}>
+            {saving === network.id ? "…" : network.isEnabled ? copy.disableNetwork : copy.activation}
+          </button>
+          <button type="button" disabled={Boolean(saving) || !network.isEnabled} onClick={() => void saveNetwork(network.id, { depositEnabled: !network.depositEnabled })}>
+            {copy.depositToggle}
+          </button>
+          <button type="button" disabled={Boolean(saving) || !network.isEnabled} onClick={() => void saveNetwork(network.id, { withdrawalEnabled: !network.withdrawalEnabled })}>
+            {copy.withdrawalToggle}
+          </button>
+        </div>
+
+        <h4>{copy.assets}</h4>
+        {network.assets.map((asset) => <div className="wallet-admin-asset-row" key={asset.id}>
+          <div>
+            <strong>{asset.displayName} ({asset.symbol})</strong>
+            <small>{asset.assetType} · {asset.decimals} decimals · {asset.issuerClassification}</small>
+            {asset.contractAddress && <code>{asset.contractAddress}</code>}
+            <small>{copy.verification}: {asset.verificationStatus === "VERIFIED" ? copy.verified : asset.verificationStatus === "REVIEW_REQUIRED" ? copy.review : copy.pending}</small>
+            <small>{copy.confirmations}: {asset.confirmationCount} · {copy.minDeposit}: {asset.minDepositAtomic ?? "—"}</small>
+            <div className="wallet-network-gates">
+              <span className={statusClass(asset.depositEnabled)}>{copy.deposits}: {gate(asset.depositEnabled)}</span>
+              <span className={statusClass(asset.withdrawalEnabled)}>{copy.withdrawals}: {gate(asset.withdrawalEnabled)}</span>
+            </div>
+          </div>
+          <div className="admin-wallet-network-actions">
+            <button type="button" disabled={Boolean(saving) || !network.isEnabled || !network.depositEnabled || asset.verificationStatus !== "VERIFIED"} onClick={() => void saveAsset(asset.id, { depositEnabled: !asset.depositEnabled })}>
+              {fa ? "تغییر واریز" : "Toggle deposit"}
+            </button>
+            <button type="button" disabled={Boolean(saving) || !network.isEnabled || !network.withdrawalEnabled || asset.verificationStatus !== "VERIFIED"} onClick={() => void saveAsset(asset.id, { withdrawalEnabled: !asset.withdrawalEnabled })}>
+              {fa ? "تغییر برداشت" : "Toggle withdrawal"}
+            </button>
+          </div>
+        </div>)}
+      </div>
+    </article>)}
+    {registry && <p className="admin-footnote">{fa ? "آخرین بروزرسانی: " : "Updated: "}{new Date(registry.generatedAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</p>}
+  </section>;
+}
