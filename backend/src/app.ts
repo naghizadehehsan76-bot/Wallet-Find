@@ -59,6 +59,66 @@ const answerLimiter = rateLimit({
   message: { success: false, error: "TOO_MANY_REQUESTS" },
 });
 
+
+const marketPriceIds = [
+  "polygon-ecosystem-token", "tether", "usd-coin", "ethereum", "bitcoin",
+  "solana", "binancecoin", "tron", "ripple", "dogecoin", "cardano",
+  "avalanche-2", "chainlink", "dai", "litecoin", "polkadot", "stellar",
+  "wrapped-bitcoin",
+];
+let cachedMarketPrices: Record<string, number> | null = null;
+let marketPricesUpdatedAt: number | null = null;
+let marketPricesCacheExpiresAt = 0;
+
+const marketPriceLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { success: false, error: "TOO_MANY_REQUESTS" },
+});
+
+app.get("/api/market/prices", marketPriceLimiter, async (_req, res) => {
+  const now = Date.now();
+  if (cachedMarketPrices && now < marketPricesCacheExpiresAt) {
+    return res.json({ success: true, data: { prices: cachedMarketPrices, updatedAt: marketPricesUpdatedAt } });
+  }
+
+  try {
+    const upstream = await fetch(
+      "https://api.coingecko.com/api/v3/simple/price?ids=" +
+        marketPriceIds.join(",") + "&vs_currencies=usd",
+      { headers: { accept: "application/json" }, signal: AbortSignal.timeout(8000) },
+    );
+    if (!upstream.ok) throw new Error("PRICE_PROVIDER_UNAVAILABLE");
+
+    const payload: unknown = await upstream.json();
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      throw new Error("INVALID_PRICE_PROVIDER_RESPONSE");
+    }
+
+    const prices: Record<string, number> = {};
+    for (const id of marketPriceIds) {
+      const quote = (payload as Record<string, unknown>)[id];
+      if (quote && typeof quote === "object" && !Array.isArray(quote)) {
+        const usd = (quote as Record<string, unknown>).usd;
+        if (typeof usd === "number" && Number.isFinite(usd) && usd > 0) prices[id] = usd;
+      }
+    }
+    if (Object.keys(prices).length === 0) throw new Error("EMPTY_PRICE_PROVIDER_RESPONSE");
+
+    cachedMarketPrices = prices;
+    marketPricesUpdatedAt = Date.now();
+    marketPricesCacheExpiresAt = marketPricesUpdatedAt + 60_000;
+    return res.json({ success: true, data: { prices, updatedAt: marketPricesUpdatedAt } });
+  } catch {
+    if (cachedMarketPrices && marketPricesUpdatedAt !== null) {
+      return res.json({ success: true, data: { prices: cachedMarketPrices, updatedAt: marketPricesUpdatedAt, stale: true } });
+    }
+    return res.status(503).json({ success: false, error: "PRICE_FEED_UNAVAILABLE" });
+  }
+});
+
 app.get("/health", (_req, res) => {
   res.json({
     success: true,
