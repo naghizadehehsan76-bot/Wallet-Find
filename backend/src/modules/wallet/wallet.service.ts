@@ -719,6 +719,7 @@ export async function getAdminTreasuryDeposits() {
       fromAddress: true, toAddress: true, amountMicro: true, status: true,
       confirmationCount: true, detectedAt: true, confirmedAt: true, creditedAt: true,
     },
+    include: { asset: { select: { symbol: true, decimals: true, displayName: true, contractAddress: true } } },
   });
   return {
     treasuryAddress: treasury.address,
@@ -730,7 +731,10 @@ export async function getAdminTreasuryDeposits() {
       blockNumber: row.blockNumber.toString(),
       fromAddress: row.fromAddress,
       toAddress: row.toAddress,
-      amount: row.amountMicro === null ? null : formatMicro(row.amountMicro),
+      amount: row.amountMicro === null ? null : formatAssetAmount(row.amountMicro, row.asset.decimals),
+      asset: row.asset.symbol,
+      displayName: row.asset.displayName,
+      isNative: row.asset.contractAddress.toLowerCase() === "native",
       status: row.status,
       confirmationCount: row.confirmationCount,
       detectedAt: row.detectedAt.toISOString(),
@@ -748,19 +752,21 @@ export async function getAdminTreasuryLedgerHistory() {
   });
   if (!treasury || treasury.status !== "ACTIVE" || !treasury.address) throw new Error("TREASURY_NOT_READY");
   const rows = await prisma.treasuryLedger.findMany({
-    where: { treasuryWalletId: treasury.id, currency: "USDT0" },
+    where: { treasuryWalletId: treasury.id },
     orderBy: [{ effectiveAt: "desc" }, { createdAt: "desc" }],
     take: 200,
-    select: {
-      id: true, type: true, amountMicro: true, transactionHash: true,
-      referenceKey: true, note: true, effectiveAt: true, createdAt: true,
-    },
+    include: { asset: { select: { symbol: true, decimals: true, chainId: true, displayName: true } } },
   });
   return {
     treasuryAddress: treasury.address,
     chainId: treasury.chainId,
     transactions: rows.map((row) => ({
-      id: row.id, type: row.type, amount: formatMicro(row.amountMicro),
+      id: row.id, type: row.type,
+      amount: formatAssetAmount(row.amountMicro, row.asset?.decimals ?? 6),
+      currency: row.asset?.symbol ?? row.currency,
+      chainId: row.chainId ?? row.asset?.chainId ?? treasury.chainId,
+      networkName: EVM_NETWORKS.find((network) => network.chainId === (row.chainId ?? row.asset?.chainId ?? treasury.chainId))?.displayName ?? "Unknown network",
+      displayName: row.asset?.displayName ?? row.currency,
       transactionHash: row.transactionHash, referenceKey: row.referenceKey,
       note: row.note, effectiveAt: row.effectiveAt.toISOString(), createdAt: row.createdAt.toISOString(),
     })),
