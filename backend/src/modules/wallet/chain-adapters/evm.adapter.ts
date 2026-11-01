@@ -114,10 +114,13 @@ export function createEvmWalletChainAdapter(input: {
         // Native EVM transfers are found in transaction values, not ERC-20
         // Transfer logs. Keep this scan window bounded because full blocks
         // contain transaction objects and are more expensive for RPC providers.
-        const maxNativeBlocks = BigInt(Number.parseInt(
+        const configuredMaxNativeBlocks = Number.parseInt(
           process.env.EVM_NATIVE_DEPOSIT_MAX_BLOCKS_PER_BATCH ?? "250",
           10,
-        ) || 250);
+        );
+        const maxNativeBlocks = BigInt(Number.isFinite(configuredMaxNativeBlocks)
+          ? Math.max(1, Math.min(2_000, configuredMaxNativeBlocks))
+          : 250);
         if (toBlock - fromBlock + 1n > maxNativeBlocks) {
           throw new Error("EVM_NATIVE_DEPOSIT_SCAN_RANGE_TOO_LARGE");
         }
@@ -134,9 +137,18 @@ export function createEvmWalletChainAdapter(input: {
                 transaction.value <= 0n ||
                 !recipientSet.has(transaction.to.toLowerCase())) continue;
 
+            // A transaction included in a block can still have reverted.
+            // Credit native value only when its receipt succeeded and belongs
+            // to the same canonical block currently being scanned.
+            const receipt = await client.getTransactionReceipt({ hash: transaction.hash });
+            if (receipt.status !== "success" || !receipt.blockHash ||
+                receipt.blockHash.toLowerCase() !== block.hash.toLowerCase()) continue;
+
             transfers.push({
               transactionReference: transaction.hash,
-              eventIndex: 0,
+              // Negative index keeps native value distinct from ERC-20 log 0
+              // if one transaction also emits a token Transfer event.
+              eventIndex: -1,
               position: block.number.toString(),
               blockHash: block.hash,
               fromAddress: transaction.from.toLowerCase(),

@@ -23,6 +23,7 @@ function makeClient(overrides: Record<string, unknown> = {}): PublicClient {
       transactions: [],
     }),
     getLogs: async () => [],
+    getTransactionReceipt: async () => ({ status: "success", blockHash: BLOCK_HASH }),
     ...overrides,
   } as unknown as PublicClient;
 }
@@ -150,10 +151,31 @@ test("extracts direct native-coin transfers from EVM blocks", async () => {
 
   assert.equal(transfers.length, 1);
   assert.equal(transfers[0]?.amountAtomic, "1234567890123456789");
-  assert.equal(transfers[0]?.eventIndex, 0);
+  assert.equal(transfers[0]?.eventIndex, -1);
   assert.equal(transfers[0]?.blockHash, BLOCK_HASH);
 });
 
+test("does not credit a reverted direct native transfer", async () => {
+  const adapter = createEvmWalletChainAdapter({
+    networkId: "eip155:137",
+    chainId: 137,
+    client: makeClient({
+      getBlock: async () => ({
+        number: 100n,
+        hash: BLOCK_HASH,
+        transactions: [{ hash: TX_HASH, from: FROM, to: TO, value: 1_000_000_000_000_000_000n }],
+      }),
+      getTransactionReceipt: async () => ({ status: "reverted", blockHash: BLOCK_HASH }),
+    }),
+  });
+  const transfers = await adapter.getIncomingTransfers({
+    asset: { id: "polygon:native", assetType: "NATIVE", contractAddress: null, decimals: 18 },
+    addresses: [{ id: "address-1", address: TO, walletAccountId: "wallet-1", userId: "user-1" }],
+    fromPosition: "100",
+    toPosition: "100",
+  });
+  assert.equal(transfers.length, 0);
+});
 test("rejects native-asset configurations with a token contract", async () => {
   const adapter = createEvmWalletChainAdapter({
     networkId: "eip155:56",

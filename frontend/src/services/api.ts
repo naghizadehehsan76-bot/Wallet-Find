@@ -737,6 +737,8 @@ export type WalletWithdrawalRequestResult = {
   status: string;
   amount: string;
   fee: string | null;
+  feeAsset: string | null;
+  feeDecimals: number;
   reused: boolean;
   idempotencyKey: string;
   transactionReference?: string | null;
