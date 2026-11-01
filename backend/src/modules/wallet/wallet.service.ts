@@ -187,6 +187,7 @@ export async function requestWalletWithdrawal(userId: string, rawAmount: unknown
   const amountMicro = parseUnits(amountText, 6);
   if (amountMicro <= 0n) throw new Error("INVALID_WALLET_AMOUNT");
   if (typeof rawDestination !== "string" || !isAddress(rawDestination.trim())) throw new Error("INVALID_DESTINATION_ADDRESS");
+  if (process.env.POLYGON_WITHDRAWALS_ENABLED !== "true") throw new Error("WITHDRAWALS_DISABLED");
 
   return prisma.$transaction(async (tx) => {
     const wallet = await tx.walletAccount.findUnique({
@@ -342,6 +343,33 @@ export async function executeApprovedWalletWithdrawal(withdrawalId: string, admi
   }
 }
 
+async function recordPolygonWithdrawalGasFee(tx: any, withdrawal: any, feeWei: bigint) {
+  if (feeWei <= 0n) return;
+  const polAsset = await tx.chainAsset.findUnique({
+    where: { id: "asset-polygon-pol-native" },
+    select: { id: true },
+  });
+  if (!polAsset) throw new Error("POLYGON_POL_ASSET_NOT_REGISTERED");
+  await tx.walletTransaction.upsert({
+    where: { referenceKey: "withdrawal-network-fee:" + withdrawal.id },
+    create: {
+      userId: withdrawal.userId,
+      type: "NETWORK_FEE",
+      status: "COMPLETED",
+      amountMicro: feeWei,
+      currency: "POL",
+      chainId: 137,
+      chainAssetId: polAsset.id,
+      note: "Actual Polygon POL gas fee paid for USDT0 withdrawal",
+      referenceKey: "withdrawal-network-fee:" + withdrawal.id,
+    },
+    update: {},
+  });
+  await tx.walletWithdrawal.update({
+    where: { id: withdrawal.id },
+    data: { feeMicro: feeWei },
+  });
+}
 export async function reconcileBroadcastWalletWithdrawal(withdrawalId: string, adminUserId: string) {
   const withdrawal = await prisma.walletWithdrawal.findUnique({ where: { id: withdrawalId }, include: { walletAccount: true, asset: true } });
   if (!withdrawal) throw new Error("WITHDRAWAL_NOT_FOUND");
@@ -352,6 +380,9 @@ export async function reconcileBroadcastWalletWithdrawal(withdrawalId: string, a
   const canonicalBlock = await client.getBlock({ blockNumber: receipt.blockNumber });
   if (canonicalBlock.hash.toLowerCase() !== receipt.blockHash.toLowerCase()) throw new Error("WITHDRAWAL_RECEIPT_NOT_CANONICAL");
   const confirmations = Number(latestBlock - receipt.blockNumber + 1n);
+  const transaction = await client.getTransaction({ hash: withdrawal.transactionHash as `0x${string}` });
+  const actualGasPrice = receipt.effectiveGasPrice ?? transaction.gasPrice;
+  const actualGasCost = receipt.gasUsed * actualGasPrice;
   if (confirmations < polygonWithdrawalConfirmations) {
     return { id: withdrawal.id, status: "BROADCAST", transactionHash: withdrawal.transactionHash, confirmations, confirmationsRequired: polygonWithdrawalConfirmations };
   }
@@ -375,8 +406,9 @@ export async function reconcileBroadcastWalletWithdrawal(withdrawalId: string, a
         where: { userId: withdrawal.userId, referenceKey: "withdrawal-request:" + withdrawal.id, status: "PENDING" },
         data: { status: "CANCELLED", note: "Withdrawal transaction reverted on Polygon; reserved USDT0 balance released" },
       });
+      await recordPolygonWithdrawalGasFee(tx, withdrawal, actualGasCost);
       await tx.auditLog.create({
-        data: { userId: adminUserId, action: "WALLET_WITHDRAWAL_REVERTED", entity: "WalletWithdrawal", entityId: withdrawal.id, metadata: { transactionHash: withdrawal.transactionHash, confirmations } },
+        data: { userId: adminUserId, action: "WALLET_WITHDRAWAL_REVERTED", entity: "WalletWithdrawal", entityId: withdrawal.id, metadata: { transactionHash: withdrawal.transactionHash, confirmations, actualGasCostPOLWei: actualGasCost.toString() } },
       });
     });
     return { id: withdrawal.id, status: "FAILED", transactionHash: withdrawal.transactionHash, confirmations };
@@ -400,8 +432,9 @@ export async function reconcileBroadcastWalletWithdrawal(withdrawalId: string, a
         referenceKey: "withdrawal-completed:" + withdrawal.id,
       },
     });
+    await recordPolygonWithdrawalGasFee(tx, withdrawal, actualGasCost);
     await tx.auditLog.create({
-      data: { userId: adminUserId, action: "WALLET_WITHDRAWAL_CONFIRMED", entity: "WalletWithdrawal", entityId: withdrawal.id, metadata: { transactionHash: withdrawal.transactionHash, confirmations, receiptBlock: receipt.blockNumber.toString() } },
+      data: { userId: adminUserId, action: "WALLET_WITHDRAWAL_CONFIRMED", entity: "WalletWithdrawal", entityId: withdrawal.id, metadata: { transactionHash: withdrawal.transactionHash, confirmations, receiptBlock: receipt.blockNumber.toString(), actualGasCostPOLWei: actualGasCost.toString() } },
     });
   });
   return { id: withdrawal.id, status: "CONFIRMED", transactionHash: withdrawal.transactionHash, confirmations };
@@ -425,7 +458,8 @@ export async function getAdminWithdrawalRequests() {
     displayName: row.asset.displayName,
     destinationAddress: row.destinationAddress,
     amount: formatAssetAmount(BigInt(row.amountMicro), row.asset.decimals),
-    fee: formatAssetAmount(BigInt(row.feeMicro), row.asset.decimals),
+    fee: formatAssetAmount(BigInt(row.feeMicro), 18),
+    feeCurrency: "POL",
     status: row.status,
     requestedAt: row.requestedAt,
     transactionHash: row.transactionHash,
@@ -507,7 +541,7 @@ export async function getAdminWallets() {
       const amount = BigInt(row.amountMicro);
       if (row.status === "COMPLETED") {
         if (row.type === "DEPOSIT") current.balance += amount;
-        if (row.type === "DEPOSIT_REVERSAL" || row.type === "WITHDRAWAL") current.balance -= amount;
+        if (row.type === "DEPOSIT_REVERSAL" || row.type === "WITHDRAWAL" || row.type === "NETWORK_FEE") current.balance -= amount;
       }
       if (row.type === "WITHDRAWAL_REQUEST" && row.status === "PENDING") current.pendingWithdrawals += amount;
       if (row.type === "DEPOSIT_REQUEST" && row.status === "PENDING") pendingDeposits++;
