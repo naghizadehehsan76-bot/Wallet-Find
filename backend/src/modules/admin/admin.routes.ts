@@ -20,7 +20,7 @@ import {
   activateContestHandler,
   finishContestHandler,
 } from "./contest-management.controller.js";
-import { getAdminWalletsHandler, getAdminWithdrawalRequestsHandler, reviewAdminWithdrawalHandler, provisionPrizeTreasuryWalletHandler, getPrizeTreasuryWalletHandler, getTreasuryPrizeFundingHandler, getAdminTreasuryDepositsHandler, getAdminTreasuryLedgerHistoryHandler, allocateTreasuryPrizeFundHandler, reconcileTreasuryAccountingHandler, getLatestTreasuryReconciliationHandler, executeAdminWalletWithdrawalHandler, reconcileAdminWalletWithdrawalHandler, getAdminWalletNetworkRegistryHandler, updateAdminWalletNetworkHandler, updateAdminWalletAssetHandler, getAdminChainWithdrawalRequestsHandler, reviewAdminChainWithdrawalHandler, executeAdminChainWithdrawalHandler, reconcileAdminChainWithdrawalHandler, emergencyPauseWalletOperationsHandler, resumeWalletOperationsHandler } from "../wallet/wallet.controller.js";
+import { getAdminWalletsHandler, getAdminWithdrawalRequestsHandler, reviewAdminWithdrawalHandler, provisionPrizeTreasuryWalletHandler, getPrizeTreasuryWalletHandler, getTreasuryPrizeFundingHandler, getAdminTreasuryDepositsHandler, getAdminTreasuryLedgerHistoryHandler, allocateTreasuryPrizeFundHandler, reconcileTreasuryAccountingHandler, getLatestTreasuryReconciliationHandler, executeAdminWalletWithdrawalHandler, reconcileAdminWalletWithdrawalHandler, getAdminWalletNetworkRegistryHandler, updateAdminWalletNetworkHandler, updateAdminWalletAssetHandler, getAdminChainWithdrawalRequestsHandler, reviewAdminChainWithdrawalHandler, executeAdminChainWithdrawalHandler, recoverAdminChainWithdrawalHandler, reconcileAdminChainWithdrawalHandler, emergencyPauseWalletOperationsHandler, resumeWalletOperationsHandler } from "../wallet/wallet.controller.js";
 import {
   getPrizePoolHandler,
 } from "../contest/prize-pool.controller.js";
@@ -51,6 +51,7 @@ router.patch("/wallet-assets/:assetId", updateAdminWalletAssetHandler);
 router.get("/wallet-chain-withdrawals", getAdminChainWithdrawalRequestsHandler);
 router.post("/wallet-chain-withdrawals/:withdrawalId/review", reviewAdminChainWithdrawalHandler);
 router.post("/wallet-chain-withdrawals/:withdrawalId/execute", executeAdminChainWithdrawalHandler);
+router.post("/wallet-chain-withdrawals/:withdrawalId/recover", recoverAdminChainWithdrawalHandler);
 router.post("/wallet-chain-withdrawals/:withdrawalId/reconcile", reconcileAdminChainWithdrawalHandler);
 router.get("/treasury-wallet", getPrizeTreasuryWalletHandler);
 router.post("/treasury-wallet/provision", provisionPrizeTreasuryWalletHandler);
