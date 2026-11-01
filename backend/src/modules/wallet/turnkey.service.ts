@@ -1,7 +1,7 @@
 import { createCipheriv, createDecipheriv, createECDH, randomBytes, randomUUID } from "node:crypto";
 import { Turnkey } from "@turnkey/sdk-server";
 import { createAccount } from "@turnkey/viem";
-import { createWalletClient, http, type WalletClient } from "viem";
+import { createWalletClient, getAddress, http, type WalletClient } from "viem";
 import { arbitrum, bsc, mainnet, optimism, polygon } from "viem/chains";
 import prisma from "../../config/prisma.js";
 
@@ -412,7 +412,7 @@ export async function createTurnkeySigner(
   const account = await createAccount({
     client,
     organizationId: wallet.turnkeyOrganizationId,
-    signWith: address,
+    signWith: getAddress(address),
   });
   const chainConfig = turnkeyEvmChain(chainId);
   const rpcUrl = process.env[chainConfig.rpcEnv];
