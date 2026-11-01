@@ -822,7 +822,7 @@ export async function recoverKnownPreBroadcastTurnkeyFailure(
       withdrawal.asset.assetType !== "NATIVE" ||
       withdrawal.asset.symbol !== "POL" ||
       withdrawal.amountAtomic.toFixed(0) !== "4000000000000000000" ||
-      withdrawal.destinationAddress.toLowerCase() !== "0xad2d384361fcdc90eafbf9255ebd38179e43216b8" ||
+      withdrawal.destinationAddress.toLowerCase() !== "0xad2d384361fcdc90eafbf9255ebd38179e43216b" ||
       withdrawal.walletAddress.address.toLowerCase() !== "0x0e1a39734f21baa1f6d9f5205bc90f42fdce89d7"
     ) {
       throw new Error("WITHDRAWAL_RECOVERY_PRECONDITIONS_FAILED");
