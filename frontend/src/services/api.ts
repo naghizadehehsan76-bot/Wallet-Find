@@ -654,6 +654,27 @@ export type WalletNetworkView = {
   assets: WalletAssetView[];
 };
 
+export type WalletChainActivity = {
+  id: string;
+  type: "DEPOSIT" | "WITHDRAWAL";
+  networkId: string;
+  network: string;
+  asset: string;
+  amount: string;
+  status: string;
+  transactionHash: string | null;
+  confirmationCount: number;
+  detectedAt?: string;
+  requestedAt?: string;
+  creditedAt?: string | null;
+  confirmedAt?: string | null;
+  estimatedFee?: string | null;
+  actualFee?: string | null;
+  feeAsset?: string | null;
+  reviewReason?: string | null;
+  failureCode?: string | null;
+};
+
 export type WalletResult = {
   currency: string;
   balance: string;
@@ -669,6 +690,8 @@ export type WalletResult = {
     withdrawalEnabled: boolean;
   }>;
   networks: WalletNetworkView[];
+  onChainDeposits: WalletChainActivity[];
+  onChainWithdrawals: WalletChainActivity[];
   transactions: WalletTransaction[];
 };
 
@@ -701,8 +724,27 @@ export async function requestWalletDeposit(networkId: string, assetId: string): 
   }, true);
 }
 
-export async function requestWalletWithdrawal(amount: string): Promise<{ transaction: WalletTransaction; message: string }> {
-  return request<{ transaction: WalletTransaction; message: string }>("/wallet/withdraw", { method: "POST", body: JSON.stringify({ amount }) }, true);
+export type WalletWithdrawalRequestResult = {
+  id: string;
+  status: string;
+  amount: string;
+  fee: string | null;
+  reused: boolean;
+  idempotencyKey: string;
+  transactionReference?: string | null;
+};
+
+export async function requestWalletWithdrawal(input: {
+  networkId: string;
+  assetId: string;
+  amount: string;
+  destinationAddress: string;
+  idempotencyKey: string;
+}): Promise<WalletWithdrawalRequestResult> {
+  return request<WalletWithdrawalRequestResult>("/wallet/withdraw", {
+    method: "POST",
+    body: JSON.stringify(input),
+  }, true);
 }
 
 
