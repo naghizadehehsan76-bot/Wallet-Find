@@ -1,5 +1,6 @@
 import prisma from "../../config/prisma.js";
 import { parseAssetUnits } from "./asset-amount.js";
+import { isEvmWithdrawalFeeModelSupported, isSupportedEvmChainId } from "./chain-adapters/evm.adapter.js";
 
 type NetworkUpdate = {
   isEnabled?: boolean;
@@ -75,6 +76,8 @@ export async function getWalletNetworkRegistryForAdmin() {
     },
     networks: networks.map((network) => ({
       ...network,
+      adapterReady: network.family === "EVM" && network.chainId !== null && isSupportedEvmChainId(network.chainId),
+      withdrawalAdapterReady: network.family === "EVM" && network.chainId !== null && isEvmWithdrawalFeeModelSupported(network.chainId),
       assets: network.assets.map((asset) => ({
         ...asset,
         minDepositAtomic: asset.minDepositAtomic?.toString() ?? null,
@@ -146,6 +149,16 @@ export async function updateWalletNetworkByAdmin(
     );
     const existing = await tx.walletNetwork.findUnique({ where: { id: networkId }, include: { scanCursor: true } });
     if (!existing) throw new Error("WALLET_NETWORK_NOT_FOUND");
+    const depositAdapterReady = existing.family === "EVM"
+      && existing.chainId !== null && isSupportedEvmChainId(existing.chainId);
+    const withdrawalAdapterReady = existing.family === "EVM"
+      && existing.chainId !== null && isEvmWithdrawalFeeModelSupported(existing.chainId);
+    if ((patch.isEnabled === true || patch.depositEnabled === true) && !depositAdapterReady) {
+      throw new Error("WALLET_NETWORK_ADAPTER_NOT_IMPLEMENTED");
+    }
+    if (patch.withdrawalEnabled === true && !withdrawalAdapterReady) {
+      throw new Error("WALLET_NETWORK_WITHDRAWAL_ADAPTER_NOT_IMPLEMENTED");
+    }
     if (
       (patch.depositEnabled === true || patch.withdrawalEnabled === true) &&
       await isWalletGloballyPaused(tx)
@@ -250,6 +263,16 @@ export async function updateWalletAssetByAdmin(
       include: { network: { include: { scanCursor: true } } },
     });
     if (!existing) throw new Error("WALLET_ASSET_NOT_FOUND");
+    const depositAdapterReady = existing.network.family === "EVM"
+      && existing.network.chainId !== null && isSupportedEvmChainId(existing.network.chainId);
+    const withdrawalAdapterReady = existing.network.family === "EVM"
+      && existing.network.chainId !== null && isEvmWithdrawalFeeModelSupported(existing.network.chainId);
+    if (patch.depositEnabled === true && !depositAdapterReady) {
+      throw new Error("WALLET_NETWORK_ADAPTER_NOT_IMPLEMENTED");
+    }
+    if (patch.withdrawalEnabled === true && !withdrawalAdapterReady) {
+      throw new Error("WALLET_NETWORK_WITHDRAWAL_ADAPTER_NOT_IMPLEMENTED");
+    }
     if (
       (patch.depositEnabled === true || patch.withdrawalEnabled === true) &&
       await isWalletGloballyPaused(tx)
