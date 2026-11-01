@@ -8,7 +8,7 @@ function getUserId(req: AuthenticatedRequest, res: Response): string | null {
 function sendError(res: Response, error: unknown) {
   const message = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
   const known = new Set([
-    "INVALID_WALLET_AMOUNT", "INSUFFICIENT_WALLET_BALANCE", "INVALID_DESTINATION_ADDRESS", "INVALID_WALLET_ASSET_SELECTION", "WALLET_ASSET_NOT_AVAILABLE", "DEPOSITS_DISABLED",
+    "INVALID_WALLET_AMOUNT", "INSUFFICIENT_WALLET_BALANCE", "INVALID_DESTINATION_ADDRESS", "INVALID_WALLET_ASSET_SELECTION", "WALLET_ASSET_NOT_AVAILABLE", "DEPOSITS_DISABLED", "DEPOSITS_NOT_PRODUCTION_READY", "WALLET_ADDRESS_NOT_READY",
     "WITHDRAWALS_DISABLED", "WALLET_NOT_ACTIVE", "EMAIL_NOT_VERIFIED",
     "TURNKEY_NOT_CONFIGURED", "TURNKEY_ENCRYPTION_KEY_NOT_CONFIGURED",
     "USER_NOT_FOUND", "TURNKEY_SUB_ORGANIZATION_CREATION_REQUIRES_REVIEW", "TURNKEY_PROVISIONING_IN_PROGRESS", "TURNKEY_PROVISIONING_REQUIRES_REVIEW",
@@ -25,7 +25,7 @@ function sendError(res: Response, error: unknown) {
   if (!known.has(message)) console.error("Wallet request failed", error);
   const status =
     message.includes("INSUFFICIENT_") || message.includes("IDEMPOTENCY_CONFLICT") || message === "TURNKEY_SUB_ORGANIZATION_CREATION_REQUIRES_REVIEW" ? 409 :
-    message.includes("NOT_PRODUCTION_READY") || message === "WITHDRAWALS_DISABLED" || message === "TURNKEY_NOT_CONFIGURED" || message === "TURNKEY_ENCRYPTION_KEY_NOT_CONFIGURED" ? 503 :
+    message.includes("NOT_PRODUCTION_READY") || message === "DEPOSITS_DISABLED" || message === "WITHDRAWALS_DISABLED" || message === "TURNKEY_NOT_CONFIGURED" || message === "TURNKEY_ENCRYPTION_KEY_NOT_CONFIGURED" ? 503 :
     message === "WALLET_NOT_ACTIVE" || message === "EMAIL_NOT_VERIFIED" ? 403 :
     message === "USER_NOT_FOUND" ? 404 :
     known.has(message) ? 400 : 500;
