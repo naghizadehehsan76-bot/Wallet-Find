@@ -4,19 +4,9 @@ import { polygon } from "viem/chains";
 import prisma from "../../config/prisma.js";
 import { createTurnkeySigner, isTurnkeyConfigured, provisionTurnkeyWallet } from "./turnkey.service.js";
 import { EVM_NETWORKS } from "./evm-network.registry.js";
-function formatUnits(value: bigint, decimals: number): string {
-  const negative = value < 0n;
-  const absolute = negative ? -value : value;
-  const scale = 10n ** BigInt(decimals);
-  const whole = absolute / scale;
-  const fraction = (absolute % scale).toString().padStart(decimals, "0").replace(/0+$/, "");
-  return (negative ? "-" : "") + whole.toString() + (fraction ? "." + fraction : "");
-}
-
-function formatMicro(value: bigint): string { return formatUnits(value, 6); }
-function formatAssetAmount(value: bigint, decimals: number): string { return formatUnits(value, decimals); }
-
-type AssetBalance = { balance: bigint; pendingWithdrawals: bigint };
+import { aggregateWalletLedger, formatAssetUnits } from "./asset-amount.utils.js";
+const formatAssetAmount = formatAssetUnits;
+function formatMicro(value: bigint): string { return formatAssetUnits(value, 6); }
 
 async function calculateBalances(tx: any, userId: string) {
   const rows = await tx.walletTransaction.findMany({
@@ -25,18 +15,7 @@ async function calculateBalances(tx: any, userId: string) {
       type: true, status: true, amountMicro: true, currency: true, chainId: true, chainAssetId: true,
     },
   });
-  const totals = new Map<string, AssetBalance>();
-  for (const row of rows) {
-    const key = row.chainAssetId ?? "legacy:" + (row.currency || "USDT");
-    const current = totals.get(key) ?? { balance: 0n, pendingWithdrawals: 0n };
-    const amount = BigInt(row.amountMicro);
-    if (row.status === "COMPLETED") {
-      if (row.type === "DEPOSIT") current.balance += amount;
-      if (row.type === "DEPOSIT_REVERSAL" || row.type === "WITHDRAWAL") current.balance -= amount;
-    }
-    if (row.type === "WITHDRAWAL_REQUEST" && row.status === "PENDING") current.pendingWithdrawals += amount;
-    totals.set(key, current);
-  }
+  const totals = aggregateWalletLedger(rows);
   const usdt = totals.get("asset-polygon-usdt0") ?? totals.get("legacy:USDT0") ?? totals.get("legacy:USDT") ?? { balance: 0n, pendingWithdrawals: 0n };
   return {
     balance: usdt.balance,
