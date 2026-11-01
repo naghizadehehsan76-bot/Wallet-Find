@@ -101,6 +101,7 @@ model User {
   walletChainDeposits WalletChainDeposit[]
   walletChainWithdrawals WalletChainWithdrawal[]
   walletJournals WalletJournal[]
+  walletProvisioningIntent WalletProvisioningIntent?
   contestSourceVisits ContestSourceVisit[]
 
   createdAt  DateTime @default(now())
@@ -613,6 +614,13 @@ model AuthChallenge {
 
 
 
+enum WalletProvisioningStatus {
+  CREATING
+  COMPLETED
+  REQUIRES_REVIEW
+  FAILED
+}
+
 enum WalletNetworkFamily {
   EVM
   BITCOIN
@@ -1121,4 +1129,27 @@ model WalletNetworkScanCursor {
   network                    WalletNetwork @relation(fields: [networkId], references: [id], onDelete: Restrict)
   updatedAt                  DateTime @updatedAt
   @@map("wallet_network_scan_cursors")
+}
+
+
+/// Durable intent prevents duplicate external Turnkey Sub-Organization creation
+/// when a remote request or database commit has an uncertain outcome.
+model WalletProvisioningIntent {
+  id                         String @id @default(cuid())
+  userId                     String @unique
+  idempotencyKey             String @unique
+  status                     WalletProvisioningStatus @default(CREATING)
+  turnkeyApiPublicKey        String
+  turnkeyApiPrivateKeyEncrypted String @db.Text
+  turnkeyOrganizationId      String? @unique
+  turnkeyWalletId            String? @unique
+  address                    String?
+  failureCode                String?
+  attemptCount               Int @default(1)
+  completedAt                DateTime?
+  user                       User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  @@index([status, createdAt])
+  @@map("wallet_provisioning_intents")
 }
