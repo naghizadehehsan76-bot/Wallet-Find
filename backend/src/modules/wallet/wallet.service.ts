@@ -591,7 +591,7 @@ export async function reconcileTreasuryAccounting(adminUserId: string) {
   const [chain, ledger] = await Promise.all([
     readTreasuryChainSnapshot(treasury.address),
     prisma.treasuryLedger.aggregate({
-      where: { treasuryWalletId: treasury.id, currency: "USDT0" },
+      where: { treasuryWalletId: treasury.id, chainAssetId: "asset-polygon-usdt0" },
       _sum: { amountMicro: true },
     }),
   ]);
@@ -683,7 +683,7 @@ export async function getTreasuryPrizeFundingSnapshot() {
     prisma.globalPrizeFund.findUnique({ where: { id: "global" } }),
     prisma.globalPrizeLedger.aggregate({ where: { type: "TREASURY_FUNDING" }, _sum: { amountMicro: true } }),
     prisma.treasuryLedger.aggregate({
-      where: { treasuryWalletId: treasury.id, currency: "USDT0" },
+      where: { treasuryWalletId: treasury.id, chainAssetId: "asset-polygon-usdt0" },
       _sum: { amountMicro: true },
     }),
   ]);
