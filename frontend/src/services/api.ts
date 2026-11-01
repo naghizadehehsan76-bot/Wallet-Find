@@ -618,26 +618,87 @@ export type WalletTransaction = {
   createdAt: string;
 };
 
+export type WalletAssetView = {
+  id: string;
+  symbol: string;
+  displayName: string;
+  assetType: "NATIVE" | "TOKEN";
+  assetReference: string;
+  contractAddress: string | null;
+  decimals: number;
+  issuerClassification: string;
+  verificationStatus: "PENDING_VERIFICATION" | "VERIFIED" | "REVIEW_REQUIRED" | "REJECTED";
+  minDeposit: string | null;
+  confirmationCount: number;
+  depositEnabled: boolean;
+  withdrawalEnabled: boolean;
+  balance: string;
+  availableBalance: string;
+  reservedBalance: string;
+};
+
+export type WalletNetworkView = {
+  id: string;
+  family: "EVM" | "BITCOIN" | "SOLANA";
+  chainId: number | null;
+  networkKey: string;
+  displayName: string;
+  nativeAssetSymbol: string;
+  nativeAssetDecimals: number;
+  explorerTransactionUrlTemplate: string | null;
+  finalityDepth: number;
+  isEnabled: boolean;
+  depositEnabled: boolean;
+  withdrawalEnabled: boolean;
+  address: string | null;
+  assets: WalletAssetView[];
+};
+
 export type WalletResult = {
   currency: string;
   balance: string;
   availableBalance: string;
+  legacyBalance: string;
+  legacyAvailableBalance: string;
   walletAddress?: string | null;
+  turnkeyConfigured?: boolean;
   supportedNetworks?: Array<{
     chainId: number;
     networkKey: string;
     depositEnabled: boolean;
     withdrawalEnabled: boolean;
   }>;
+  networks: WalletNetworkView[];
   transactions: WalletTransaction[];
+};
+
+export type WalletDepositDetails = {
+  networkId: string;
+  network: string;
+  family: "EVM" | "BITCOIN" | "SOLANA";
+  chainId: number | null;
+  assetId: string;
+  asset: string;
+  displayName: string;
+  assetType: "NATIVE" | "TOKEN";
+  contractAddress: string | null;
+  decimals: number;
+  depositAddress: string;
+  minDeposit: string | null;
+  confirmationsRequired: number;
+  status: string;
+  message: string;
 };
 
 export async function getWallet(): Promise<WalletResult> {
   return request<WalletResult>("/wallet/me", {}, true);
 }
 
-export async function requestWalletDeposit(amount: string): Promise<{ transaction: WalletTransaction; message: string }> {
-  return request<{ transaction: WalletTransaction; message: string }>("/wallet/deposit", { method: "POST", body: JSON.stringify({ amount }) }, true);
+export async function requestWalletDeposit(networkId: string, assetId: string): Promise<WalletDepositDetails> {
+  return request<WalletDepositDetails>("/wallet/deposit", {
+    method: "POST",
+    body: JSON.stringify({ networkId, assetId }),
+  }, true);
 }
 
 export async function requestWalletWithdrawal(amount: string): Promise<{ transaction: WalletTransaction; message: string }> {
