@@ -75,7 +75,7 @@ export async function getWallet(userId: string) {
     });
     const balances = await calculateBalances(tx, userId);
     const assetIds = Array.from(new Set(transactions.map((row: any) => row.chainAssetId).filter((id: string | null): id is string => Boolean(id))));
-    const assetWhere: any[] = [{ depositEnabled: true }, { withdrawalEnabled: true }];
+    const assetWhere: any[] = [{ canonicalStatus: "ONCHAIN_VERIFIED" }];
     if (assetIds.length) assetWhere.push({ id: { in: assetIds } });
     const assetRecords = await tx.chainAsset.findMany({
       where: { OR: assetWhere },
