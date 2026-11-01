@@ -649,6 +649,8 @@ export type WalletNetworkView = {
   explorerTransactionUrlTemplate: string | null;
   finalityDepth: number;
   isEnabled: boolean;
+  adapterReady: boolean;
+  withdrawalAdapterReady: boolean;
   depositEnabled: boolean;
   withdrawalEnabled: boolean;
   address: string | null;
