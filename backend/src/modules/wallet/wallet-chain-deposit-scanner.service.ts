@@ -266,6 +266,7 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
       10,
       2_000,
     ));
+    const custodyAddressSet = new Set(network.addresses.map((item) => item.address.toLowerCase()));
     const addressInputs: AdapterAddress[] = network.addresses.map((item) => ({
       id: item.id,
       address: item.address,
@@ -300,6 +301,9 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
         const rows = transfers.flatMap((transfer) => {
           const recipient = addressByLower.get(transfer.toAddress.toLowerCase());
           if (!recipient) return [];
+          // Wallet-Find-to-Wallet-Find movements are not external deposits.
+          if (transfer.fromAddress &&
+              custodyAddressSet.has(transfer.fromAddress.toLowerCase())) return [];
 
           if (!/^[1-9]\d{0,77}$/.test(transfer.amountAtomic)) {
             console.error("Wallet scanner ignored an invalid token amount", {
@@ -366,7 +370,7 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
       },
       include: {
         walletAccount: { select: { status: true } },
-        asset: { select: { decimals: true, symbol: true } },
+        asset: { select: { decimals: true, symbol: true, confirmationCount: true } },
       },
       orderBy: [{ positionValue: "asc" }, { detectedAt: "asc" }],
       take: MAX_BATCH_DEPOSITS,
@@ -394,7 +398,8 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
       }
 
       const confirmations = Number(numericPosition(currentLatest) - position + 1n);
-      if (confirmations < network.finalityDepth) continue;
+      const requiredConfirmations = Math.max(network.finalityDepth, deposit.asset.confirmationCount);
+      if (confirmations < requiredConfirmations) continue;
       if (deposit.walletAccount.status !== "ACTIVE") continue;
 
       if (deposit.status === "CONFIRMING") {
