@@ -365,7 +365,9 @@ async function scanNetwork(network: EvmNetworkConfig) {
   // block range. A token scan failure or native-block RPC failure therefore
   // cannot silently skip that range for another asset. Existing pending
   // deposits are matured below even when new discovery is temporarily disabled.
-  if (scannableAssets.length > 0 && addresses.length > 0) {
+  // Never advance a shared chain cursor while an enabled asset is malformed:
+  // doing so would permanently skip deposits for that asset.
+  if (scannableAssets.length > 0 && addresses.length > 0 && ignoredAssets.length === 0) {
   for (let start = fromBlock; start <= safeHead; start += BigInt(chunkSize)) {
     const end = start + BigInt(chunkSize) - 1n > safeHead ? safeHead : start + BigInt(chunkSize) - 1n;
 
