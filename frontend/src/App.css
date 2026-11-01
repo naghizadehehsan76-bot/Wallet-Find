@@ -3431,6 +3431,10 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 .wallet-asset-row__identity small,.wallet-asset-row__balance small { color:var(--muted); font-size:10px; line-height:1.5; overflow-wrap:anywhere; }
 .wallet-asset-row__meta { display:flex; flex-direction:column; gap:5px; align-items:flex-end; font-size:10px; white-space:nowrap; }
 .wallet-asset-deposit-button { grid-column:1 / -1; justify-self:end; padding:6px 12px; border:1px solid var(--line-cyan); border-radius:8px; background:rgba(66,232,212,.08); color:var(--verdigris); font-size:11px; font-weight:800; cursor:pointer; }
+.wallet-asset-row__actions { grid-column:1 / -1; display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
+.wallet-asset-row__actions .wallet-asset-deposit-button { grid-column:auto; }
+.wallet-asset-deposit-button[aria-pressed="true"] { background:rgba(66,232,212,.2); border-color:var(--verdigris); }
+
 .wallet-asset-empty { padding:12px 14px; margin:0; color:var(--muted); font-size:11px; }
 @media (max-width: 380px) {
   .wallet-asset-row { grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:9px; }
