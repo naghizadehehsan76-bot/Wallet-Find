@@ -327,6 +327,8 @@ CREATE TABLE "wallet_chain_withdrawals" (
   "reviewReason" TEXT,
   "estimatedGasLimit" DECIMAL(78,0),
   "maxFeePerGasAtomic" DECIMAL(78,0),
+  "maxPriorityFeePerGasAtomic" DECIMAL(78,0),
+  "feeQuoteExpiresAt" TIMESTAMP(3),
   "actualFeeAtomic" DECIMAL(78,0),
   "blockPosition" TEXT,
   "blockHash" TEXT,
