@@ -225,7 +225,7 @@ export async function scanPolygonUsdtDepositsOnce() {
   // network accounts belonging to active users with independent Turnkey
   // sub-organizations. BSC and withdrawal flags are never touched here.
   // The persisted emergency pause always overrides environment flags.
-  if (!globallyPaused && process.env.POLYGON_DEPOSITS_ENABLED === "true") {
+  if (!emergencyPause && process.env.POLYGON_DEPOSITS_ENABLED === "true") {
     await prisma.chainAsset.updateMany({
       where: {
         chainId,
