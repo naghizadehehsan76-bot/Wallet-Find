@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import BottomNav from "../components/BottomNav";
 import { useI18n } from "../i18n";
-import { getWallet, type WalletNetworkView, type WalletAssetView, type WalletResult } from "../services/api";
+import { getWallet, requestWalletWithdrawal, type WalletNetworkView, type WalletAssetView, type WalletResult } from "../services/api";
 import LoadingIndicator from "../components/LoadingIndicator";
 
 type Page = "home" | "auth" | "competition" | "key" | "leaderboard" | "profile" | "wallet";
@@ -45,6 +45,9 @@ export default function WalletPage({ onNavigate }: Props) {
   const [withdrawAddress, setWithdrawAddress] = useState("");
   const [copied, setCopied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [submittingWithdrawal, setSubmittingWithdrawal] = useState(false);
+  const [withdrawalFeedback, setWithdrawalFeedback] = useState("");
+  const [withdrawalError, setWithdrawalError] = useState("");
 
   const copy = useMemo(() => ({
     title: fa ? "کیف پول من" : "My wallet",
@@ -99,6 +102,15 @@ export default function WalletPage({ onNavigate }: Props) {
     native: fa ? "دارایی بومی" : "Native asset",
     token: fa ? "توکن" : "Token",
     addressUnavailable: fa ? "آدرس تا زمان فعال شدن واریز نمایش داده نمی‌شود." : "The address is hidden until deposits are enabled.",
+    chainHistory: fa ? "تاریخچهٔ تراکنش‌های بلاکچینی" : "On-chain activity",
+    noChainActivity: fa ? "هنوز واریز یا برداشت بلاکچینی ثبت نشده است." : "No on-chain deposits or withdrawals yet.",
+    requestSent: fa ? "درخواست برداشت ثبت شد و برای بررسی مدیر در صف قرار گرفت." : "Withdrawal request recorded and queued for admin review.",
+    submitWithdrawal: fa ? "ثبت درخواست برداشت" : "Submit withdrawal request",
+    withdrawalPending: fa ? "درخواست در انتظار بررسی مدیر است." : "The request is awaiting admin review.",
+    invalidWithdrawalAmount: fa ? "مقدار را به‌صورت عدد اعشاری معتبر وارد کنید." : "Enter a valid decimal amount.",
+    invalidWithdrawalAddress: fa ? "آدرس مقصد را وارد کنید." : "Enter the destination address.",
+    requestFailed: fa ? "ثبت درخواست برداشت ناموفق بود. دوباره بررسی کنید." : "Could not submit the withdrawal request. Please review the details.",
+    estimatedFee: fa ? "کارمزد تخمینی" : "Estimated fee",
   }), [fa]);
 
   const refresh = useCallback(async () => {
@@ -136,6 +148,40 @@ export default function WalletPage({ onNavigate }: Props) {
   const withdrawalEnabled = Boolean(selectedAsset?.withdrawalEnabled);
 
   const fmt = useCallback((value: string) => formatExactAmount(value, locale), [locale]);
+
+  const submitWithdrawal = async () => {
+    if (!selectedNetwork || !selectedAsset || !withdrawalEnabled || submittingWithdrawal) return;
+    if (!/^\\d+(?:\\.\\d+)?$/.test(withdrawAmount.trim())) {
+      setWithdrawalError(copy.invalidWithdrawalAmount);
+      setWithdrawalFeedback("");
+      return;
+    }
+    if (!withdrawAddress.trim()) {
+      setWithdrawalError(copy.invalidWithdrawalAddress);
+      setWithdrawalFeedback("");
+      return;
+    }
+
+    setSubmittingWithdrawal(true);
+    setWithdrawalError("");
+    setWithdrawalFeedback("");
+    try {
+      const result = await requestWalletWithdrawal({
+        networkId: selectedNetwork.id,
+        assetId: selectedAsset.id,
+        amount: withdrawAmount.trim(),
+        destinationAddress: withdrawAddress.trim(),
+        idempotencyKey: crypto.randomUUID(),
+      });
+      setWithdrawalFeedback(copy.requestSent + " " + result.status);
+      setWithdrawAmount("");
+      await refresh();
+    } catch {
+      setWithdrawalError(copy.requestFailed);
+    } finally {
+      setSubmittingWithdrawal(false);
+    }
+  };
 
   const copyAddress = async () => {
     const address = selectedNetwork?.address;
@@ -244,6 +290,25 @@ export default function WalletPage({ onNavigate }: Props) {
             <strong>{fmt(wallet.legacyBalance)} {wallet.currency}</strong>
           </div>
           <p className="wallet-deposit-minimum">{copy.legacyNotice}</p>
+        </section>
+
+        <section className="wallet-history wallet-exchange-history">
+          <div className="wallet-card-heading"><h2>{copy.chainHistory}</h2></div>
+          {wallet.onChainDeposits.length === 0 && wallet.onChainWithdrawals.length === 0
+            ? <div className="wallet-empty"><p>{copy.noChainActivity}</p></div>
+            : <div className="wallet-table">
+                {[...wallet.onChainDeposits, ...wallet.onChainWithdrawals]
+                  .sort((a, b) => new Date(b.detectedAt ?? b.requestedAt ?? 0).getTime() - new Date(a.detectedAt ?? a.requestedAt ?? 0).getTime())
+                  .map((item) => <article className="wallet-transaction" key={item.id}>
+                    <div>
+                      <strong>{item.type} · {item.asset}</strong>
+                      <small>{item.network} · {item.status}</small>
+                    </div>
+                    <small>{new Date(item.detectedAt ?? item.requestedAt ?? 0).toLocaleString(locale)}</small>
+                    <b>{fmt(item.amount)} {item.asset}</b>
+                    {item.transactionHash && <a href={item.transactionHash.startsWith("0x") ? undefined : item.transactionHash} target="_blank" rel="noreferrer">{item.transactionHash.slice(0, 12)}…</a>}
+                  </article>)}
+              </div>}
         </section>
 
         <section className="wallet-history wallet-exchange-history">
@@ -360,11 +425,23 @@ export default function WalletPage({ onNavigate }: Props) {
         </div>
         <div className="wallet-fee-row"><span>{copy.fee}</span><strong>—</strong></div>
         <div className="wallet-fee-row"><span>{copy.youReceive}</span><strong>{withdrawAmount || "0"} {selectedAsset?.symbol ?? ""}</strong></div>
-        <div className="wallet-warning">
+        {withdrawalEnabled ? <div className="wallet-warning">
+          <strong>{copy.estimatedFee}</strong>
+          <p>{copy.withdrawalPending}</p>
+        </div> : <div className="wallet-warning">
           <strong>⚠ {copy.unavailable}</strong>
-          <p>{withdrawalEnabled ? copy.withdrawDisabled : copy.withdrawDisabled}</p>
-        </div>
-        <button type="button" className="wallet-submit" disabled>{copy.continue}</button>
+          <p>{copy.withdrawDisabled}</p>
+        </div>}
+        {withdrawalError && <p className="inline-feedback wallet-error" role="alert">{withdrawalError}</p>}
+        {withdrawalFeedback && <p className="inline-feedback" role="status">{withdrawalFeedback}</p>}
+        <button
+          type="button"
+          className="wallet-submit"
+          disabled={!withdrawalEnabled || submittingWithdrawal || !withdrawAmount.trim() || !withdrawAddress.trim()}
+          onClick={() => void submitWithdrawal()}
+        >
+          {submittingWithdrawal ? "…" : copy.submitWithdrawal}
+        </button>
       </section>}
     </main>
     <BottomNav activePage="wallet" onNavigate={onNavigate} />
