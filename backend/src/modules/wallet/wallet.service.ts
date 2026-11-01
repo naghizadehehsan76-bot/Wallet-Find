@@ -475,24 +475,51 @@ export async function getAdminWallets() {
   const users = await prisma.user.findMany({
     select: {
       id: true, username: true, email: true,
-      walletTransactions: { select: { type: true, status: true, amountMicro: true } },
+      walletTransactions: {
+        select: {
+          type: true, status: true, amountMicro: true, currency: true,
+          chainId: true, chainAssetId: true,
+          asset: { select: { id: true, chainId: true, symbol: true, decimals: true, displayName: true } },
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
   return users.map((user) => {
-    let balance = 0n, pendingWithdrawals = 0n, pendingDeposits = 0;
+    const totals = new Map<string, { balance: bigint; pendingWithdrawals: bigint; asset: any }>();
+    let pendingDeposits = 0;
     for (const row of user.walletTransactions) {
+      const key = row.chainAssetId ?? "legacy:" + (row.currency || "USDT");
+      const current = totals.get(key) ?? { balance: 0n, pendingWithdrawals: 0n, asset: row.asset };
       const amount = BigInt(row.amountMicro);
       if (row.status === "COMPLETED") {
-        if (row.type === "DEPOSIT") balance += amount;
-        if (row.type === "WITHDRAWAL") balance -= amount;
+        if (row.type === "DEPOSIT") current.balance += amount;
+        if (row.type === "DEPOSIT_REVERSAL" || row.type === "WITHDRAWAL") current.balance -= amount;
       }
-      if (row.type === "WITHDRAWAL_REQUEST" && row.status === "PENDING") pendingWithdrawals += amount;
+      if (row.type === "WITHDRAWAL_REQUEST" && row.status === "PENDING") current.pendingWithdrawals += amount;
       if (row.type === "DEPOSIT_REQUEST" && row.status === "PENDING") pendingDeposits++;
+      totals.set(key, current);
     }
+    const assets = Array.from(totals.entries()).map(([assetId, value]) => {
+      const decimals = value.asset?.decimals ?? 6;
+      return {
+        assetId: value.asset?.id ?? null,
+        chainId: value.asset?.chainId ?? null,
+        symbol: value.asset?.symbol ?? "USDT",
+        displayName: value.asset?.displayName ?? value.asset?.symbol ?? "Legacy balance",
+        decimals,
+        balance: formatAssetAmount(value.balance, decimals),
+        availableBalance: formatAssetAmount(value.balance - value.pendingWithdrawals, decimals),
+      };
+    });
+    const usdt = assets.find((asset) => asset.assetId === "asset-polygon-usdt0" || (asset.chainId === 137 && asset.symbol === "USDT0"));
     return {
-      userId: user.id, username: user.username, email: user.email,
-      balance: formatMicro(balance), availableBalance: formatMicro(balance - pendingWithdrawals),
+      userId: user.id,
+      username: user.username,
+      email: user.email,
+      balance: usdt?.balance ?? "0",
+      availableBalance: usdt?.availableBalance ?? "0",
+      assets,
       pendingDepositRequests: pendingDeposits,
       pendingWithdrawalRequests: user.walletTransactions.filter((row) => row.type === "WITHDRAWAL_REQUEST" && row.status === "PENDING").length,
     };
