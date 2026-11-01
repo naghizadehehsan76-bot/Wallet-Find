@@ -28,11 +28,11 @@ services:
       - key: WALLET_GENERIC_DEPOSIT_SCANNER_ENABLED
         value: "true"
       - key: WALLET_GENERIC_DEPOSITS_PRODUCTION_READY
-        value: "true"
+        value: "false"
       - key: WALLET_GENERIC_WITHDRAWALS_ENABLED
-        value: "true"
+        value: "false"
       - key: WALLET_GENERIC_WITHDRAWALS_PRODUCTION_READY
-        value: "true"
+        value: "false"
 
 databases:
   - name: wallet-find-db
