@@ -810,7 +810,13 @@ export async function getAdminWalletNetworkRegistry(): Promise<AdminWalletNetwor
 
 export async function updateAdminWalletNetwork(
   networkId: string,
-  patch: Record<string, boolean | number> & { reason: string },
+  patch: {
+    isEnabled?: boolean;
+    depositEnabled?: boolean;
+    withdrawalEnabled?: boolean;
+    finalityDepth?: number;
+    reason: string;
+  },
 ): Promise<AdminWalletNetwork> {
   return request<AdminWalletNetwork>("/admin/wallet-networks/" + encodeURIComponent(networkId), {
     method: "PATCH",
@@ -820,7 +826,13 @@ export async function updateAdminWalletNetwork(
 
 export async function updateAdminWalletAsset(
   assetId: string,
-  patch: Record<string, boolean | number | string | null> & { reason: string },
+  patch: {
+    depositEnabled?: boolean;
+    withdrawalEnabled?: boolean;
+    confirmationCount?: number;
+    minDeposit?: string | null;
+    reason: string;
+  },
 ): Promise<AdminWalletAsset> {
   return request<AdminWalletAsset>("/admin/wallet-assets/" + encodeURIComponent(assetId), {
     method: "PATCH",
