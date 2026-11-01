@@ -423,6 +423,34 @@ export async function executeAdminChainWithdrawalHandler(req: AuthenticatedReque
   }
 }
 
+export async function recoverAdminChainWithdrawalHandler(req: AuthenticatedRequest, res: Response) {
+  const adminUserId = req.user?.userId;
+  if (!adminUserId) return res.status(401).json({ success: false, error: "AUTHENTICATION_REQUIRED" });
+  try {
+    const { recoverKnownPreBroadcastTurnkeyFailure } = await import("./wallet-chain-withdrawal.service.js");
+    const data = await recoverKnownPreBroadcastTurnkeyFailure(
+      String(req.params.withdrawalId),
+      adminUserId,
+      req.body?.reason,
+    );
+    return res.json({ success: true, data });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+    const known = [
+      "WALLET_WITHDRAWAL_NOT_FOUND",
+      "WITHDRAWAL_RECOVERY_NOT_ALLOWED",
+      "WITHDRAWAL_RECOVERY_PRECONDITIONS_FAILED",
+      "WITHDRAWAL_RECOVERY_STATE_CHANGED",
+      "WALLET_WITHDRAWAL_REVIEW_REASON_REQUIRED",
+    ];
+    const status = message === "WALLET_WITHDRAWAL_NOT_FOUND" ? 404 :
+      message === "WITHDRAWAL_RECOVERY_NOT_ALLOWED" || message === "WITHDRAWAL_RECOVERY_PRECONDITIONS_FAILED" || message === "WITHDRAWAL_RECOVERY_STATE_CHANGED" ? 409 :
+      message === "WALLET_WITHDRAWAL_REVIEW_REASON_REQUIRED" ? 400 : 500;
+    if (!known.includes(message)) console.error("Admin withdrawal recovery failed", error);
+    return res.status(status).json({ success: false, error: known.includes(message) ? message : "WALLET_WITHDRAWAL_RECOVERY_FAILED" });
+  }
+}
+
 export async function reconcileAdminChainWithdrawalHandler(req: AuthenticatedRequest, res: Response) {
   const adminUserId = req.user?.userId;
   if (!adminUserId) return res.status(401).json({ success: false, error: "AUTHENTICATION_REQUIRED" });
