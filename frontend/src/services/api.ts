@@ -682,12 +682,23 @@ export async function requestWalletWithdrawal(amount: string): Promise<{ transac
 }
 
 
+export type AdminWalletAssetSummary = {
+  assetId: string | null;
+  chainId: number | null;
+  symbol: string;
+  displayName: string;
+  decimals: number;
+  balance: string;
+  availableBalance: string;
+};
+
 export type AdminWalletSummary = {
   userId: string;
   username: string;
   email: string;
   balance: string;
   availableBalance: string;
+  assets: AdminWalletAssetSummary[];
   pendingDepositRequests: number;
   pendingWithdrawalRequests: number;
 };
@@ -791,6 +802,9 @@ export type AdminTreasuryDeposit = {
   fromAddress: string;
   toAddress: string;
   amount: string | null;
+  asset: string;
+  displayName: string;
+  isNative: boolean;
   status: "DETECTED" | "CONFIRMING" | "CONFIRMED" | "CREDITED" | "REORGED" | "IGNORED";
   confirmationCount: number;
   detectedAt: string;
@@ -813,6 +827,10 @@ export type AdminTreasuryLedgerEntry = {
   id: string;
   type: "DEPOSIT_CREDIT" | "DEPOSIT_REVERSAL" | "WITHDRAWAL_DEBIT" | "WITHDRAWAL_REVERSAL" | "GAS_EXPENSE" | "MANUAL_ADJUSTMENT";
   amount: string;
+  currency: string;
+  chainId: number;
+  networkName: string;
+  displayName: string;
   transactionHash: string | null;
   referenceKey: string;
   note: string;
