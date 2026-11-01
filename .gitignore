@@ -31,3 +31,9 @@ backend/.agents/
 backend/.claude/
 backend/.windsurf/
 backend/skills-lock.json
+
+# TypeScript compiler artifacts generated under backend/src
+/backend/src/**/*.js
+/backend/src/**/*.js.map
+/backend/src/**/*.d.ts
+/backend/src/**/*.d.ts.map
