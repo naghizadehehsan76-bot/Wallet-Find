@@ -71,7 +71,13 @@ export async function getWallet(userId: string) {
       const isNativeAsset = asset.contractAddress.toLowerCase() === "native";
       const supportedPrecision = Number.isInteger(asset.decimals) && asset.decimals >= 0 && asset.decimals <= 36;
       const supportedContract = isNativeAsset || isAddress(asset.contractAddress);
-      const depositEnabled = Boolean(asset.depositEnabled && network?.depositEnabled && scannerEnabled && supportedPrecision && supportedContract);
+      const chainHasUnsupportedAsset = assetRecords.some((candidate: any) => {
+        if (candidate.chainId !== asset.chainId || !candidate.depositEnabled) return false;
+        const candidateIsNative = candidate.contractAddress.toLowerCase() === "native";
+        const candidatePrecisionIsSupported = Number.isInteger(candidate.decimals) && candidate.decimals >= 0 && candidate.decimals <= 36;
+        return !candidatePrecisionIsSupported || (!candidateIsNative && !isAddress(candidate.contractAddress));
+      });
+      const depositEnabled = Boolean(asset.depositEnabled && network?.depositEnabled && scannerEnabled && supportedPrecision && supportedContract && !chainHasUnsupportedAsset);
       const withdrawalEnabled = Boolean(asset.withdrawalEnabled && network?.withdrawalEnabled);
       if (!depositEnabled && !withdrawalEnabled && totals.balance === 0n && totals.pendingWithdrawals === 0n) return [];
       const configuredConfirmations = networkConfig
@@ -132,6 +138,16 @@ export async function requestWalletDeposit(userId: string, rawAssetId: unknown) 
   const nativeAsset = asset.contractAddress.toLowerCase() === "native";
   const supportedPrecision = Number.isInteger(asset.decimals) && asset.decimals >= 0 && asset.decimals <= 36;
   if (!supportedPrecision || (!nativeAsset && !isAddress(asset.contractAddress))) throw new Error("DEPOSITS_DISABLED");
+  const enabledAssets = await prisma.chainAsset.findMany({
+    where: { chainId: asset.chainId, canonicalStatus: "ONCHAIN_VERIFIED", depositEnabled: true },
+    select: { contractAddress: true, decimals: true },
+  });
+  const chainHasUnsupportedAsset = enabledAssets.some((candidate) => {
+    const candidateIsNative = candidate.contractAddress.toLowerCase() === "native";
+    const candidatePrecisionIsSupported = Number.isInteger(candidate.decimals) && candidate.decimals >= 0 && candidate.decimals <= 36;
+    return !candidatePrecisionIsSupported || (!candidateIsNative && !isAddress(candidate.contractAddress));
+  });
+  if (chainHasUnsupportedAsset) throw new Error("DEPOSITS_DISABLED");
   const network = await prisma.walletNetworkAccount.findUnique({
     where: { walletAccountId_chainId: { walletAccountId: wallet.id, chainId: asset.chainId } },
   });
