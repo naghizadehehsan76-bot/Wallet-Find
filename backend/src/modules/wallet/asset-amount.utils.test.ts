@@ -41,6 +41,15 @@ test("reversals reduce only the matching asset and pending withdrawals reduce av
   assert.equal(totals.get("asset-another-chain-usdt")?.balance, 7_000_000n);
 });
 
+test("native network fees reduce only the matching POL asset balance", () => {
+  const totals = aggregateWalletLedger([
+    { type: "DEPOSIT", status: "COMPLETED", amountMicro: 1_000_000_000_000_000_000n, currency: "POL", chainAssetId: "asset-polygon-pol-native" },
+    { type: "NETWORK_FEE", status: "COMPLETED", amountMicro: 500_000_000_000_000n, currency: "POL", chainAssetId: "asset-polygon-pol-native" },
+    { type: "DEPOSIT", status: "COMPLETED", amountMicro: 25_000_000n, currency: "USDT0", chainAssetId: "asset-polygon-usdt0" },
+  ]);
+  assert.equal(totals.get("asset-polygon-pol-native")?.balance, 999_500_000_000_000_000n);
+  assert.equal(totals.get("asset-polygon-usdt0")?.balance, 25_000_000n);
+});
 test("legacy currency rows stay isolated when no ChainAsset ID is available", () => {
   const totals = aggregateWalletLedger([
     { type: "DEPOSIT", status: "COMPLETED", amountMicro: 1_000_000n, currency: "USDT" },
