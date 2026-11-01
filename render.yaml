@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     region: frankfurt
-    buildCommand: cd backend && npm ci --include=dev && npx prisma generate && npm run build && cd ../frontend && npm ci --include=dev && npm run build
+    buildCommand: cd backend && npm audit fix --package-lock-only --ignore-scripts && npm audit --audit-level=high && npm ci --include=dev && npx prisma generate && npm run build && cd ../frontend && npm audit fix --package-lock-only --ignore-scripts && npm audit --audit-level=high && npm ci --include=dev && npm run build
     startCommand: cd backend && npx prisma migrate deploy && npm start
     healthCheckPath: /health
     autoDeployTrigger: commit
