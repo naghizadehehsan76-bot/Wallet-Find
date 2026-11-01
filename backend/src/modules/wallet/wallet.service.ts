@@ -344,7 +344,9 @@ export async function requestWalletDeposit(
 
   // Compatibility path: keep the already-active Polygon USDT0 deposit scanner
   // working until the generic engine has independently passed production gates.
-  if (networkId === "eip155:137") {
+  if (networkId === "eip155:137" &&
+      process.env.POLYGON_DEPOSIT_SCANNER_ENABLED === "true" &&
+      process.env.POLYGON_DEPOSITS_ENABLED === "true") {
     const [wallet, network, asset, legacyAsset] = await Promise.all([
       prisma.walletAccount.findUnique({
         where: { userId },
