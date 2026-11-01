@@ -57,7 +57,7 @@ function samePayload(
     postings: readonly {
       account: string;
       direction: string;
-      amountAtomic: { toString(): string };
+      amountAtomic: { toFixed(decimalPlaces?: number): string };
       accountReference: string | null;
     }[];
   },
