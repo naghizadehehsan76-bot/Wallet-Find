@@ -157,7 +157,7 @@ export async function provisionTurnkeyWallet(userId: string) {
 
   const preparation = await prisma.$transaction(async (tx) => {
     await tx.$queryRawUnsafe(
-      "SELECT pg_advisory_xact_lock(hashtext($1))",
+      "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
       "wallet-provision:" + userId,
     );
 
@@ -302,7 +302,7 @@ export async function provisionTurnkeyWallet(userId: string) {
   try {
     const walletAccountId = await prisma.$transaction(async (tx) => {
       await tx.$queryRawUnsafe(
-        "SELECT pg_advisory_xact_lock(hashtext($1))",
+        "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
         "wallet-provision:" + userId,
       );
 
