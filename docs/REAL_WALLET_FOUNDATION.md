@@ -76,3 +76,51 @@ These branch changes are additive and do not activate deposits/withdrawals or mi
 6. Run security, integration, migration, backup/recovery, monitoring, and production-readiness checks.
 
 No production deposit, withdrawal, sweep, or prize-payout activation is implied by this document.
+
+
+---
+
+## Final multi-chain implementation review — 2026-11-01
+
+Development is being carried out in `feature/multi-asset-wallet-foundation`. The production branch is not modified by these development commits.
+
+### New additive database foundation
+
+Two new migrations are prepared:
+
+- `20261101130000_multi_asset_wallet_foundation`
+- `20261101140000_recoverable_turnkey_provisioning`
+
+They add the network/asset registry, network-specific public addresses, generic chain deposit and withdrawal records, a `NUMERIC(78,0)` journal, scan cursors, and durable Turnkey provisioning intents. They seed disabled metadata for Ethereum, Optimism, BNB Smart Chain, Polygon, Arbitrum, Bitcoin mainnet, and Solana mainnet. Native asset metadata is added for each network.
+
+The new migrations contain no `DELETE`, `TRUNCATE`, `DROP TABLE`, or updates to legacy prize/wallet financial tables. The only backfill reads existing chain-asset and EVM address records into newly created registry/address tables. Existing legacy rows remain intact.
+
+Production database inspection (read-only) showed the applied migration history ending at `20261101110000_one_active_polygon_withdrawal_per_wallet`; the two migrations above were still pending at the time of inspection. The old destructive `20261031120000_custodial_wallet_foundation` migration had already been applied before this implementation. At inspection, the affected prize-award and prize-credit row counts were already zero; the current prize ledger contained 11 `GLOBAL_ALLOCATION` rows and no `AWARD` rows. Do not replay or edit the historical migration.
+
+### Implementation boundaries
+
+- Exact atomic-unit conversion and the multi-asset API use decimal strings and `BigInt`; PostgreSQL `NUMERIC(78,0)` values are read through `Decimal.toFixed(0)` to avoid scientific notation.
+- The journal uses balanced debit/credit postings, idempotent reference keys, exact inverse reversals, database-level balance triggers, and append-only triggers.
+- The EVM adapter supports token Transfer logs and direct native transfers and verifies the RPC chain ID. Deposit scanning uses independent network cursors/leases, finality, duplicate detection, and reorg reversal.
+- The generic scanner is opt-in and the new network/asset flags remain disabled. The existing Polygon USDT0 scanner remains a separate compatibility path; it is not silently replaced by the generic engine.
+- Turnkey provisioning records a durable intent before the remote request. Ambiguous results are quarantined for review rather than blindly creating another Sub-Organization. Sub-Organizations remain provisioned only when a verified user opens the wallet page.
+- The generic EVM withdrawal workflow includes reservations, fee-asset accounting, admin review, Turnkey signing, broadcast tracking, and receipt reconciliation. It is still feature-gated and has not been proven with live on-chain withdrawal tests. Ambiguous signing/broadcast outcomes require manual reconciliation.
+- Ethereum, BNB Smart Chain, and Polygon have a configured EVM withdrawal fee model. Optimism and Arbitrum are intentionally blocked for withdrawals until L1 data-fee accounting is implemented.
+- Bitcoin and Solana are registry placeholders only. Their address derivation, network-specific custody, scanning, and transaction workflows are not implemented; they cannot be activated through the admin controls.
+- A persisted emergency pause disables old and new deposit/withdrawal flags and is enforced by both scanner paths and generic withdrawals. Releasing the global pause leaves all network and asset switches off.
+
+### CI and dependency security controls
+
+The CI pipeline now provisions a disposable PostgreSQL 18 service (matching the current production database major version), applies the full Prisma migration chain, generates Prisma Client, builds the backend, and runs backend tests. Frontend CI runs its build and lint checks.
+
+A PostgreSQL-backed integration test covers large atomic amounts, replay idempotency, conflicting replays, exact reversal, database rejection of unbalanced journals, and database rejection of mutation of posted journals. A separate EVM adapter test covers 18-decimal token transfers, native coin transfers, chain-ID mismatch, finality position, and unsupported configuration.
+
+The build process runs non-breaking `npm audit fix --package-lock-only` before installation and fails if High or Critical advisories remain. The latest completed security audit found zero backend advisories; frontend tooling still reports Moderate-only advisories in development dependencies. No `--force` or automatic major dependency downgrade is used.
+
+### Production deployment boundary
+
+At the time of this review, the two new migrations had not yet been applied to Production. The live Polygon path was active and must remain separate during migration. Generic deposits and withdrawals, BSC token deposits, and Bitcoin/Solana operations remain disabled. Do not enable them solely because their registry rows or adapters exist.
+
+Render's current Free Postgres instance was reported to expire on 2026-11-17 and the Free plan does not include managed backups/PITR. A verified external backup or paid database plan is strongly recommended before relying on it beyond that date. No production backup was created by this implementation.
+
+A successful CI build and successful deployment do not, by themselves, constitute a live deposit/withdrawal security certification.
