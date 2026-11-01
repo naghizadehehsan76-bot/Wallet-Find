@@ -102,6 +102,9 @@ export default function WalletPage({ onNavigate }: Props) {
     native: fa ? "دارایی بومی" : "Native asset",
     token: fa ? "توکن" : "Token",
     addressUnavailable: fa ? "آدرس تا زمان فعال شدن واریز نمایش داده نمی‌شود." : "The address is hidden until deposits are enabled.",
+    provisioningReview: fa ? "وضعیت کیف پول قبلی نیازمند بررسی مدیریتی است. برای جلوگیری از ساخت کیف پول یا آدرس تکراری، عملیات جدید این حساب محدود شده است." : "This account has an incomplete legacy custody record that requires admin review. New wallet provisioning is restricted to avoid duplicate custody identities or addresses.",
+    legacyDepositMode: fa ? "این واریز از مسیر قدیمی و فعال Polygon USDT0 انجام می‌شود؛ موتور عمومی چندشبکه‌ای برای این دارایی هنوز فعال نشده است." : "This deposit uses the existing Polygon USDT0 compatibility scanner. The new generic multi-chain engine is not enabled for this asset.",
+    legacyTag: fa ? "مسیر قدیمی Polygon" : "Legacy Polygon path",
     chainHistory: fa ? "تاریخچهٔ تراکنش‌های بلاکچینی" : "On-chain activity",
     noChainActivity: fa ? "هنوز واریز یا برداشت بلاکچینی ثبت نشده است." : "No on-chain deposits or withdrawals yet.",
     requestSent: fa ? "درخواست برداشت ثبت شد و برای بررسی مدیر در صف قرار گرفت." : "Withdrawal request recorded and queued for admin review.",
@@ -217,6 +220,7 @@ export default function WalletPage({ onNavigate }: Props) {
 
       {!wallet && !error && <div className="inline-feedback"><LoadingIndicator label={copy.loading} /></div>}
       {error && <p className="inline-feedback wallet-error" role="alert">{error}</p>}
+      {wallet?.walletProvisioningReviewRequired && <div className="wallet-warning" role="status"><strong>⚠ {copy.reviewRequired}</strong><p>{copy.provisioningReview}</p></div>}
 
       {wallet && view === "overview" && <>
         <section className="wallet-exchange-balance">
@@ -239,7 +243,7 @@ export default function WalletPage({ onNavigate }: Props) {
 
         {wallet.networks.map((network) => <section className="wallet-network-card" key={network.id}>
           <div className="wallet-card-heading">
-            <h2>{network.displayName}</h2>
+            <h2>{network.displayName}{network.legacyDepositMode ? ` · ${copy.legacyTag}` : ""}</h2>
             <span className={network.isEnabled ? "wallet-network-status wallet-network-status--active" : "wallet-network-status"}>
               {networkStatus(network.isEnabled)}
             </span>
@@ -260,7 +264,7 @@ export default function WalletPage({ onNavigate }: Props) {
           {network.assets.length === 0 && <p className="wallet-deposit-minimum">{copy.noAssets}</p>}
           {network.assets.map((asset) => <div className="wallet-network-card" key={asset.id}>
             <div className="wallet-card-heading">
-              <h2>{asset.displayName} ({asset.symbol})</h2>
+              <h2>{asset.displayName} ({asset.symbol}){asset.legacyDepositMode ? ` · ${copy.legacyTag}` : ""}</h2>
               <span className={asset.verificationStatus === "VERIFIED" ? "wallet-network-status wallet-network-status--active" : "wallet-network-status"}>
                 {asset.verificationStatus === "VERIFIED" ? copy.enabled : copy.reviewRequired}
               </span>
@@ -361,6 +365,7 @@ export default function WalletPage({ onNavigate }: Props) {
               {copied ? "✓ " + copy.copied : copy.copyAddress}
             </button>
           </div>
+          {selectedNetwork.legacyDepositMode || selectedAsset?.legacyDepositMode ? <div className="wallet-warning"><strong>{copy.legacyTag}</strong><p>{copy.legacyDepositMode}</p></div> : null}
           <div className="wallet-network-row">
             <span>{copy.confirmations}</span><strong>{selectedAsset?.confirmationCount ?? selectedNetwork.finalityDepth}</strong>
           </div>
