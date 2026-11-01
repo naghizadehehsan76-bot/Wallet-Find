@@ -71,13 +71,20 @@ function samePayload(
     accountReference: posting.accountReference,
   })));
   const rightPostings = canonicalizeWalletJournalPostings(postings);
-  return left.userId === (input.userId ?? null)
-    && left.networkId === input.networkId
-    && left.walletAssetId === input.walletAssetId
-    && left.entryType === input.entryType
-    && left.note === input.note
-    && left.reversalOfId === (input.reversalOfId ?? null)
-    && JSON.stringify(leftPostings) === JSON.stringify(rightPostings);
+  const checks = {
+    user: left.userId === (input.userId ?? null),
+    network: left.networkId === input.networkId,
+    asset: left.walletAssetId === input.walletAssetId,
+    entryType: left.entryType === input.entryType,
+    reversal: left.reversalOfId === (input.reversalOfId ?? null),
+    postingCount: left.postings.length === postings.length,
+    postings: JSON.stringify(leftPostings) === JSON.stringify(rightPostings),
+  };
+  const matches = Object.values(checks).every(Boolean);
+  if (!matches) {
+    console.warn("WALLET_JOURNAL_IDEMPOTENCY_PAYLOAD_MISMATCH", checks);
+  }
+  return matches;
 }
 
 /**
