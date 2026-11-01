@@ -135,16 +135,6 @@ export default function WalletPage({ onNavigate }: Props) {
   const depositEnabled = Boolean(selectedAsset?.depositEnabled);
   const withdrawalEnabled = Boolean(selectedAsset?.withdrawalEnabled);
 
-  useEffect(() => {
-    if (!selectedNetwork) {
-      setSelectedAssetId("");
-      return;
-    }
-    if (!selectedNetwork.assets.some((asset) => asset.id === selectedAssetId)) {
-      setSelectedAssetId(selectedNetwork.assets[0]?.id ?? "");
-    }
-  }, [selectedNetwork, selectedAssetId]);
-
   const fmt = useCallback((value: string) => formatExactAmount(value, locale), [locale]);
 
   const copyAddress = async () => {
@@ -279,6 +269,7 @@ export default function WalletPage({ onNavigate }: Props) {
           <label>{copy.network}</label>
           <select className="wallet-select-static" value={selectedNetwork?.id ?? ""} onChange={(event) => {
             setSelectedNetworkId(event.target.value);
+            setSelectedAssetId("");
             setCopied(false);
           }}>
             {wallet.networks.map((network) => <option value={network.id} key={network.id}>{network.displayName}</option>)}
