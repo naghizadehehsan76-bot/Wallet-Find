@@ -792,6 +792,8 @@ export type AdminWalletNetwork = {
   nativeAssetSymbol: string;
   nativeAssetDecimals: number;
   isEnabled: boolean;
+  adapterReady: boolean;
+  withdrawalAdapterReady: boolean;
   depositEnabled: boolean;
   withdrawalEnabled: boolean;
   finalityDepth: number;
