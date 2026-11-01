@@ -366,12 +366,16 @@ export async function requestWalletDeposit(
     ]);
 
     if (
-      network && network.chainId === 137 && asset &&
-      asset.networkId === networkId && asset.symbol === "USDT0" &&
-      asset.decimals === 6 && asset.verificationStatus === "VERIFIED" &&
-      asset.contractAddress?.toLowerCase() === "0xc2132d05d31c914a87c6611c10748aeb04b58e8f" &&
-      legacyAsset
+      !network || network.chainId !== 137 || !asset || asset.networkId !== networkId ||
+      asset.symbol !== "USDT0" || asset.decimals !== 6 ||
+      asset.verificationStatus !== "VERIFIED" ||
+      asset.contractAddress?.toLowerCase() !== "0xc2132d05d31c914a87c6611c10748aeb04b58e8f" ||
+      !legacyAsset
     ) {
+      throw new Error("WALLET_ASSET_NOT_AVAILABLE");
+    }
+
+    {
       if (
         process.env.POLYGON_DEPOSIT_SCANNER_ENABLED !== "true" ||
         process.env.POLYGON_DEPOSITS_ENABLED !== "true" ||
