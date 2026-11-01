@@ -268,6 +268,7 @@ CREATE TABLE "wallet_chain_deposits" (
   "toAddress" TEXT NOT NULL,
   "rawAmount" TEXT NOT NULL,
   "amountAtomic" DECIMAL(78,0) NOT NULL,
+  "reviewReason" TEXT,
   "status" "WalletDepositStatus" NOT NULL DEFAULT 'DETECTED',
   "confirmationCount" INTEGER NOT NULL DEFAULT 0,
   "creditedJournalId" TEXT,
