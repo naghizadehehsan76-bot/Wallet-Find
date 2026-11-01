@@ -1138,6 +1138,7 @@ model WalletNetworkScanCursor {
   leaseOwner                 String?
   leaseExpiresAt             DateTime?
   heartbeatAt                DateTime?
+  lastSuccessfulScanAt       DateTime?
   network                    WalletNetwork @relation(fields: [networkId], references: [id], onDelete: Restrict)
   updatedAt                  DateTime @updatedAt
   @@map("wallet_network_scan_cursors")
