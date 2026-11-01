@@ -759,6 +759,133 @@ export type AdminWalletSummary = {
   pendingWithdrawalRequests: number;
 };
 
+export type AdminWalletAsset = {
+  id: string;
+  symbol: string;
+  displayName: string;
+  assetType: "NATIVE" | "TOKEN";
+  contractAddress: string | null;
+  decimals: number;
+  issuerClassification: string;
+  verificationStatus: string;
+  minDepositAtomic: string | null;
+  confirmationCount: number;
+  depositEnabled: boolean;
+  withdrawalEnabled: boolean;
+};
+
+export type AdminWalletNetwork = {
+  id: string;
+  family: "EVM" | "BITCOIN" | "SOLANA";
+  chainId: number | null;
+  networkKey: string;
+  displayName: string;
+  nativeAssetSymbol: string;
+  nativeAssetDecimals: number;
+  isEnabled: boolean;
+  depositEnabled: boolean;
+  withdrawalEnabled: boolean;
+  finalityDepth: number;
+  assets: AdminWalletAsset[];
+  scanner: {
+    cursorPosition: string;
+    cursorHash: string | null;
+    leaseOwner: string | null;
+    leaseExpiresAt: string | null;
+    heartbeatAt: string | null;
+  } | null;
+  counts: { addresses: number; deposits: number; withdrawals: number };
+};
+
+export type AdminWalletNetworkRegistry = {
+  networks: AdminWalletNetwork[];
+  provisioning: Array<{ status: string; count: number }>;
+  generatedAt: string;
+  activationGates: { depositsReady: boolean; withdrawalsReady: boolean };
+};
+
+export async function getAdminWalletNetworkRegistry(): Promise<AdminWalletNetworkRegistry> {
+  return request<AdminWalletNetworkRegistry>("/admin/wallet-networks", {}, true);
+}
+
+export async function updateAdminWalletNetwork(
+  networkId: string,
+  patch: Record<string, boolean | number> & { reason: string },
+): Promise<AdminWalletNetwork> {
+  return request<AdminWalletNetwork>("/admin/wallet-networks/" + encodeURIComponent(networkId), {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  }, true);
+}
+
+export async function updateAdminWalletAsset(
+  assetId: string,
+  patch: Record<string, boolean | number | string | null> & { reason: string },
+): Promise<AdminWalletAsset> {
+  return request<AdminWalletAsset>("/admin/wallet-assets/" + encodeURIComponent(assetId), {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  }, true);
+}
+
+export type AdminChainWalletWithdrawal = {
+  id: string;
+  userId: string;
+  username: string;
+  email: string;
+  networkId: string;
+  network: string;
+  chainId: number | null;
+  assetId: string;
+  asset: string;
+  decimals: number;
+  feeAsset: string | null;
+  feeDecimals: number | null;
+  destinationAddress: string;
+  amount: string;
+  estimatedFee: string | null;
+  actualFee: string | null;
+  status: string;
+  failureCode: string | null;
+  reviewReason: string | null;
+  transactionHash: string | null;
+  confirmationCount: number;
+  requestedAt: string;
+  reviewedAt: string | null;
+  broadcastAt: string | null;
+  confirmedAt: string | null;
+  lastCheckedAt: string | null;
+};
+
+export async function getAdminChainWalletWithdrawals(): Promise<AdminChainWalletWithdrawal[]> {
+  return request<AdminChainWalletWithdrawal[]>("/admin/wallet-chain-withdrawals", {}, true);
+}
+
+export async function reviewAdminChainWalletWithdrawal(
+  id: string,
+  decision: "APPROVE" | "REJECT",
+  reason: string,
+): Promise<unknown> {
+  return request("/admin/wallet-chain-withdrawals/" + encodeURIComponent(id) + "/review", {
+    method: "POST",
+    body: JSON.stringify({ decision, reason }),
+  }, true);
+}
+
+export async function executeAdminChainWalletWithdrawal(id: string): Promise<unknown> {
+  return request("/admin/wallet-chain-withdrawals/" + encodeURIComponent(id) + "/execute", {
+    method: "POST",
+    body: JSON.stringify({}),
+  }, true);
+}
+
+export async function reconcileAdminChainWalletWithdrawal(id: string): Promise<unknown> {
+  return request("/admin/wallet-chain-withdrawals/" + encodeURIComponent(id) + "/reconcile", {
+    method: "POST",
+    body: JSON.stringify({}),
+  }, true);
+}
+
 export async function getAdminWallets(): Promise<AdminWalletSummary[]> {
   return request<AdminWalletSummary[]>("/admin/wallets", {}, true);
 }
