@@ -22,12 +22,13 @@ function createIdempotencyKey(): string {
 
 function formatAmount(value: string, decimals: number, locale: string, maxDecimals = 6): string {
   const [wholePart, fractionPart = ""] = value.split(".");
-  let whole = "0";
-  try {
-    whole = BigInt(wholePart || "0").toLocaleString(locale);
-  } catch {
-    whole = wholePart || "0";
-  }
+  const whole = (() => {
+    try {
+      return BigInt(wholePart || "0").toLocaleString(locale);
+    } catch {
+      return wholePart || "0";
+    }
+  })();
   const fraction = fractionPart
     .slice(0, Math.min(Math.max(0, decimals), maxDecimals))
     .replace(/0+$/, "");
