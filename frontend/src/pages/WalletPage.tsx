@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import BottomNav from "../components/BottomNav";
 import { useI18n } from "../i18n";
 import {
@@ -90,6 +90,7 @@ export default function WalletPage({ onNavigate }: Props) {
   const [depositAssetId, setDepositAssetId] = useState("");
   const [depositDetails, setDepositDetails] = useState<Awaited<ReturnType<typeof requestWalletDeposit>> | null>(null);
   const [depositLoading, setDepositLoading] = useState(false);
+  const depositRequestSequence = useRef(0);
   const [depositError, setDepositError] = useState("");
   const [withdrawAssetId, setWithdrawAssetId] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
@@ -198,26 +199,31 @@ export default function WalletPage({ onNavigate }: Props) {
   };
 
   const openDeposit = async (assetId?: string) => {
+    const requestSequence = ++depositRequestSequence.current;
     const asset = depositAssets.find((item) => item.id === assetId)
       ?? depositAssets.find((item) => item.symbol === "USDT0")
       ?? depositAssets[0];
     setView("deposit");
     setDepositDetails(null);
     setDepositError("");
+    setCopied(false);
     if (!asset || !polygonNetwork) {
       setDepositAssetId("");
       setDepositError(copy.depositDisabled);
+      setDepositLoading(false);
       return;
     }
     setDepositAssetId(asset.id);
     setDepositLoading(true);
     try {
       const details = await requestWalletDeposit(polygonNetwork.id, asset.id);
-      setDepositDetails(details);
+      if (requestSequence === depositRequestSequence.current) setDepositDetails(details);
     } catch (requestError) {
-      setDepositError(errorMessage(requestError, apiErrorCopy));
+      if (requestSequence === depositRequestSequence.current) {
+        setDepositError(errorMessage(requestError, apiErrorCopy));
+      }
     } finally {
-      setDepositLoading(false);
+      if (requestSequence === depositRequestSequence.current) setDepositLoading(false);
     }
   };
 
