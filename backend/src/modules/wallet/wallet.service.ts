@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createPublicClient, http, isAddress, parseAbi, parseEventLogs } from "viem";
 import { formatAssetUnits, parseAssetUnits } from "./asset-amount.js";
+import { isEvmWithdrawalFeeModelSupported, isSupportedEvmChainId } from "./chain-adapters/evm.adapter.js";
 import { polygon } from "viem/chains";
 import prisma from "../../config/prisma.js";
 import { createTurnkeySigner, isTurnkeyConfigured, provisionTurnkeyWallet } from "./turnkey.service.js";
@@ -200,6 +201,8 @@ export async function getWallet(userId: string) {
         nativeAssetDecimals: network.nativeAssetDecimals,
         explorerTransactionUrlTemplate: network.explorerTransactionUrlTemplate,
         finalityDepth: network.finalityDepth,
+        adapterReady: network.family === "EVM" && network.chainId !== null && isSupportedEvmChainId(network.chainId),
+        withdrawalAdapterReady: network.family === "EVM" && network.chainId !== null && isEvmWithdrawalFeeModelSupported(network.chainId),
         isEnabled: network.isEnabled || (network.chainId === 137 && legacyPolygonDepositReady && Boolean(address)),
         legacyDepositMode: network.chainId === 137 && legacyPolygonDepositReady && Boolean(address),
         depositEnabled: (process.env.WALLET_GENERIC_DEPOSIT_SCANNER_ENABLED === "true"
