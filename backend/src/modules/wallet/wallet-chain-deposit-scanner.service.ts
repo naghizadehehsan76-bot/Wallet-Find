@@ -375,6 +375,23 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
       }
     }
 
+    const emergencyPause = await prisma.systemSetting.findUnique({
+      where: { key: "wallet_global_emergency_pause" },
+      select: { value: true },
+    });
+    if (emergencyPause?.value === "true") {
+      await refreshLease(networkId, owner);
+      return {
+        networkId,
+        paused: true,
+        scannedBlocks: scannedBlocks.toString(),
+        detected,
+        ignoredBelowMinimum,
+        reorged,
+        credited: 0,
+      };
+    }
+
     // Deposits are credited only after canonicality and configured finality are
     // rechecked. The journal's idempotency reference makes crash recovery safe.
     const mature = await prisma.walletChainDeposit.findMany({
