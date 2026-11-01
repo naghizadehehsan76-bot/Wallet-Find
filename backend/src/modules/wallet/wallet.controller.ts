@@ -8,10 +8,10 @@ function getUserId(req: AuthenticatedRequest, res: Response): string | null {
 function sendError(res: Response, error: unknown) {
   const message = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
   const known = new Set([
-    "INVALID_WALLET_AMOUNT", "INSUFFICIENT_WALLET_BALANCE", "INVALID_DESTINATION_ADDRESS",
+    "INVALID_WALLET_AMOUNT", "INSUFFICIENT_WALLET_BALANCE", "INVALID_DESTINATION_ADDRESS", "INVALID_WALLET_ASSET_SELECTION", "WALLET_ASSET_NOT_AVAILABLE", "DEPOSITS_DISABLED",
     "WITHDRAWALS_DISABLED", "WALLET_NOT_ACTIVE", "EMAIL_NOT_VERIFIED",
     "TURNKEY_NOT_CONFIGURED", "TURNKEY_ENCRYPTION_KEY_NOT_CONFIGURED",
-    "USER_NOT_FOUND", "TURNKEY_SUB_ORGANIZATION_CREATION_REQUIRES_REVIEW",
+    "USER_NOT_FOUND", "TURNKEY_SUB_ORGANIZATION_CREATION_REQUIRES_REVIEW", "TURNKEY_PROVISIONING_IN_PROGRESS", "TURNKEY_PROVISIONING_REQUIRES_REVIEW",
   ]);
   if (!known.has(message)) console.error("Wallet request failed", error);
   const status =
@@ -28,7 +28,7 @@ export async function getWalletHandler(req: AuthenticatedRequest, res: Response)
 }
 export async function requestDepositHandler(req: AuthenticatedRequest, res: Response) {
   const id = getUserId(req, res); if (!id) return;
-  try { return res.status(201).json({ success: true, data: await requestWalletDeposit(id, req.body?.amount) }); } catch (error) { return sendError(res, error); }
+  try { return res.status(200).json({ success: true, data: await requestWalletDeposit(id, req.body?.networkId, req.body?.assetId) }); } catch (error) { return sendError(res, error); }
 }
 export async function requestWithdrawalHandler(req: AuthenticatedRequest, res: Response) {
   const id = getUserId(req, res); if (!id) return;
