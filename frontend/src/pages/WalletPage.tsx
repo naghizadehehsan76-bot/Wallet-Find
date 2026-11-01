@@ -114,12 +114,37 @@ export default function WalletPage({ onNavigate }: Props) {
           </div>
         </section>
 
-        <section className="wallet-network-card">
-          <div className="wallet-card-heading"><h2>{fa ? "شبکه و دارایی" : "Network & asset"}</h2><span className={depositEnabled ? "wallet-network-status wallet-network-status--active" : "wallet-network-status"}>{depositEnabled ? copy.active : copy.unavailable}</span></div>
-          <div className="wallet-network-row"><span>{copy.network}</span><strong><i className="wallet-network-dot" />{copy.polygon}</strong></div>
-          <div className="wallet-network-row"><span>{copy.asset}</span><strong>{copy.token}</strong></div>
-          <div className="wallet-network-row"><span>{copy.status}</span><strong className={depositEnabled ? "wallet-status-on" : "wallet-status-off"}>{depositEnabled ? copy.active : copy.unavailable}</strong></div>
-          <div className="wallet-network-row"><span>{copy.withdraw}</span><strong className="wallet-status-off">{withdrawalEnabled ? copy.active : copy.safeWithdraw}</strong></div>
+        <section className="wallet-network-card wallet-assets-directory">
+          <div className="wallet-card-heading"><h2>{fa ? "دارایی‌ها و شبکه‌ها" : "Assets & networks"}</h2><span>{wallet.networks.reduce((count, network) => count + network.assets.length, 0)}</span></div>
+          <p className="wallet-assets-note">{fa ? "دارایی‌ها بر اساس شبکه نمایش داده می‌شوند. تا زمان فعال‌سازی رسمی، برای واریز یا برداشت به هیچ‌یک از آدرس‌ها پول ارسال نکنید." : "Assets are grouped by network. Do not send funds until deposits or withdrawals are officially enabled."}</p>
+          {wallet.networks.map((network) => (
+            <div className="wallet-network-group" key={network.id}>
+              <div className="wallet-network-group__heading">
+                <span className="wallet-network-dot" />
+                <div><strong>{network.displayName}</strong><small>{network.family === "EVM" ? (fa ? "شبکه سازگار با EVM" : "EVM-compatible network") : network.family === "BITCOIN" ? "Bitcoin" : "Solana"}</small></div>
+                <span className={network.depositEnabled ? "wallet-network-status wallet-network-status--active" : "wallet-network-status"}>{network.depositEnabled ? copy.active : copy.unavailable}</span>
+              </div>
+              {network.assets.length === 0 ? <p className="wallet-asset-empty">{fa ? "دارایی ثبت‌شده‌ای برای این شبکه وجود ندارد." : "No registered assets on this network."}</p> :
+                network.assets.map((asset) => {
+                  const canUseLegacyDeposit = network.chainId === 137 && asset.symbol === "USDT0" && Boolean(asset.legacyDepositMode);
+                  return <div className="wallet-asset-row" key={asset.id}>
+                    <div className="wallet-asset-row__identity">
+                      <span className="wallet-asset-symbol">{asset.symbol.slice(0, 4)}</span>
+                      <div><strong>{asset.symbol}</strong><small>{asset.displayName}</small></div>
+                    </div>
+                    <div className="wallet-asset-row__balance">
+                      <strong>{fmt(asset.balance)} {asset.symbol}</strong>
+                      <small>{fa ? "قابل برداشت" : "Available"}: {fmt(asset.availableBalance)} {asset.symbol}</small>
+                    </div>
+                    <div className="wallet-asset-row__meta">
+                      <span className={asset.depositEnabled ? "wallet-status-on" : "wallet-status-off"}>{asset.depositEnabled ? copy.active : copy.unavailable}</span>
+                      <span className={asset.withdrawalEnabled ? "wallet-status-on" : "wallet-status-off"}>{asset.withdrawalEnabled ? copy.active : copy.safeWithdraw}</span>
+                    </div>
+                    {canUseLegacyDeposit && <button type="button" className="wallet-asset-deposit-button" onClick={() => setView("deposit")}>{copy.deposit}</button>}
+                  </div>;
+                })}
+            </div>
+          ))}
         </section>
 
         <section className="wallet-history wallet-exchange-history">
