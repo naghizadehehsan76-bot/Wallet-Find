@@ -262,6 +262,7 @@ CREATE TABLE "wallet_chain_deposits" (
   "transactionReference" TEXT NOT NULL,
   "eventIndex" INTEGER NOT NULL DEFAULT 0,
   "position" TEXT NOT NULL,
+  "positionValue" DECIMAL(78,0) NOT NULL,
   "blockHash" TEXT,
   "fromAddress" TEXT,
   "toAddress" TEXT NOT NULL,
@@ -280,7 +281,7 @@ CREATE TABLE "wallet_chain_deposits" (
 CREATE UNIQUE INDEX "wallet_chain_deposits_networkId_transactionReference_eventIndex_key" ON "wallet_chain_deposits"("networkId", "transactionReference", "eventIndex");
 CREATE UNIQUE INDEX "wallet_chain_deposits_creditedJournalId_key" ON "wallet_chain_deposits"("creditedJournalId");
 CREATE INDEX "wallet_chain_deposits_userId_status_detectedAt_idx" ON "wallet_chain_deposits"("userId", "status", "detectedAt");
-CREATE INDEX "wallet_chain_deposits_networkId_position_idx" ON "wallet_chain_deposits"("networkId", "position");
+CREATE INDEX "wallet_chain_deposits_networkId_positionValue_idx" ON "wallet_chain_deposits"("networkId", "positionValue");
 ALTER TABLE "wallet_chain_deposits" ADD CONSTRAINT "wallet_chain_deposits_userId_fkey"
   FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "wallet_chain_deposits" ADD CONSTRAINT "wallet_chain_deposits_walletAccountId_fkey"
