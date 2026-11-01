@@ -255,7 +255,10 @@ export async function requestChainWalletWithdrawal(input: {
   // quote. This prevents a repeated HTTP request from creating side effects.
   const priorRequest = await prisma.walletChainWithdrawal.findUnique({
     where: { idempotencyKey },
-    include: { asset: { select: { decimals: true } } },
+    include: {
+      asset: { select: { decimals: true } },
+      feeAsset: { select: { symbol: true, decimals: true } },
+    },
   });
   if (priorRequest) {
     const retryAmount = typeof input.amount === "string"
@@ -274,6 +277,8 @@ export async function requestChainWalletWithdrawal(input: {
       ...priorRequest,
       amount: priorRequest.amountAtomic.toFixed(0),
       fee: priorRequest.feeAtomic?.toFixed(0) ?? null,
+      feeAsset: priorRequest.feeAsset?.symbol ?? null,
+      feeDecimals: priorRequest.feeAsset?.decimals ?? 18,
       reused: true,
     };
   }
@@ -436,6 +441,8 @@ export async function requestChainWalletWithdrawal(input: {
       ...withdrawal,
       amount: withdrawal.amountAtomic.toFixed(0),
       fee: withdrawal.feeAtomic?.toFixed(0) ?? null,
+      feeAsset: feeAsset.symbol,
+      feeDecimals: feeAsset.decimals,
       reused: false,
     };
   }, { isolationLevel: "Serializable" });
