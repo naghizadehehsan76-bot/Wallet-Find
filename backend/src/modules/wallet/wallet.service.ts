@@ -1,15 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { createPublicClient, http, isAddress, parseUnits, parseAbi, parseEventLogs } from "viem";
+import { createPublicClient, http, isAddress, parseAbi, parseEventLogs } from "viem";
+import { formatAssetUnits, parseAssetUnits } from "./asset-amount.js";
 import { polygon } from "viem/chains";
 import prisma from "../../config/prisma.js";
 import { createTurnkeySigner, isTurnkeyConfigured, provisionTurnkeyWallet } from "./turnkey.service.js";
-const MICRO = 1_000_000n;
 function formatMicro(value: bigint): string {
-  const negative = value < 0n;
-  const absolute = negative ? -value : value;
-  const whole = absolute / MICRO;
-  const fraction = (absolute % MICRO).toString().padStart(6, "0");
-  return (negative ? "-" : "") + whole.toString() + "." + fraction;
+  return formatAssetUnits(value, 6);
 }
 async function calculateBalances(tx: any, userId: string) {
   const rows = await tx.walletTransaction.findMany({ where: { userId }, select: { type: true, status: true, amountMicro: true } });
@@ -79,10 +75,13 @@ export async function requestWalletDeposit(userId: string, _rawAmount: unknown) 
   };
 }
 export async function requestWalletWithdrawal(userId: string, rawAmount: unknown, rawDestination: unknown) {
-  if (typeof rawAmount !== "string" && typeof rawAmount !== "number") throw new Error("INVALID_WALLET_AMOUNT");
-  const amountText = String(rawAmount).trim();
-  if (!/^\d+(\.\d{1,6})?$/.test(amountText)) throw new Error("INVALID_WALLET_AMOUNT");
-  const amountMicro = parseUnits(amountText, 6);
+  if (typeof rawAmount !== "string") throw new Error("INVALID_WALLET_AMOUNT");
+  let amountMicro: bigint;
+  try {
+    amountMicro = parseAssetUnits(rawAmount, 6);
+  } catch {
+    throw new Error("INVALID_WALLET_AMOUNT");
+  }
   if (amountMicro <= 0n) throw new Error("INVALID_WALLET_AMOUNT");
   if (typeof rawDestination !== "string" || !isAddress(rawDestination.trim())) throw new Error("INVALID_DESTINATION_ADDRESS");
 
@@ -644,14 +643,17 @@ export async function getAdminTreasuryLedgerHistory() {
 }
 
 export async function allocateTreasuryToPrizeFund(rawAmount: unknown, adminUserId: string) {
-  if (typeof rawAmount !== "string" && typeof rawAmount !== "number") throw new Error("INVALID_ALLOCATION_AMOUNT");
-  const amountText = String(rawAmount).trim();
-  if (!/^\d+(\.\d{1,6})?$/.test(amountText)) throw new Error("INVALID_ALLOCATION_AMOUNT");
-  const amount = parseUnits(amountText, 6);
+  if (typeof rawAmount !== "string") throw new Error("INVALID_ALLOCATION_AMOUNT");
+  let amount: bigint;
+  try {
+    amount = parseAssetUnits(rawAmount, 6);
+  } catch {
+    throw new Error("INVALID_ALLOCATION_AMOUNT");
+  }
   if (amount <= 0n) throw new Error("INVALID_ALLOCATION_AMOUNT");
   const snapshot = await getTreasuryPrizeFundingSnapshot();
   if (snapshot.accountingStatus !== "MATCH") throw new Error("TREASURY_ACCOUNTING_MISMATCH");
-  const liveBalance = parseUnits(snapshot.onChainBalance, 6);
+  const liveBalance = parseAssetUnits(snapshot.onChainBalance, 6);
   if (amount > liveBalance) throw new Error("INSUFFICIENT_TREASURY_BALANCE");
   return prisma.$transaction(async (tx) => {
     await tx.globalPrizeFund.upsert({ where: { id: "global" }, update: {}, create: { id: "global" } });
