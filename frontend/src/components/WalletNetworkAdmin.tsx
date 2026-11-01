@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   getAdminWalletNetworkRegistry,
+  emergencyPauseAllWalletOperations,
+  resumeWalletOperations,
   updateAdminWalletAsset,
   updateAdminWalletNetwork,
   type AdminWalletNetworkRegistry,
@@ -17,6 +19,7 @@ export default function WalletNetworkAdmin({ fa }: Props) {
   const [saving, setSaving] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [pauseBusy, setPauseBusy] = useState(false);
 
   const copy = {
     title: fa ? "مدیریت شبکه‌ها و دارایی‌های کیف پول" : "Wallet networks and assets",
@@ -53,6 +56,16 @@ export default function WalletNetworkAdmin({ fa }: Props) {
     pending: fa ? "در انتظار اعتبارسنجی" : "Pending verification",
     review: fa ? "نیازمند بررسی" : "Review required",
     verified: fa ? "تأیید شده" : "Verified",
+    emergencyTitle: fa ? "توقف اضطراری کل کیف پول" : "Global wallet emergency pause",
+    emergencyHelp: fa ? "واریز و برداشت شبکه‌های قدیمی و جدید را فوراً متوقف می‌کند. تراکنش‌های ارسال‌شده لغو نمی‌شوند و باید جداگانه تطبیق داده شوند." : "Immediately stops legacy and generic wallet deposits and withdrawals. Already broadcast transactions are not cancelled and must be reconciled separately.",
+    pause: fa ? "توقف اضطراری" : "Emergency pause",
+    resume: fa ? "رفع قفل اضطراری" : "Release emergency lock",
+    paused: fa ? "توقف اضطراری فعال است" : "Emergency pause is active",
+    notPaused: fa ? "توقف اضطراری فعال نیست" : "Emergency pause is not active",
+    confirmPause: fa ? "تمام واریزها و برداشت‌های کیف پول متوقف شوند؟ این عملیات نیازمند بازبینی دستی برای فعال‌سازی مجدد است." : "Stop all wallet deposits and withdrawals? Manual review is required before reactivation.",
+    confirmResume: fa ? "قفل اضطراری آزاد شود؟ تمام شبکه‌ها و دارایی‌ها همچنان غیرفعال باقی می‌مانند." : "Release the emergency lock? All networks and assets will remain disabled.",
+    pausedDone: fa ? "توقف اضطراری ثبت شد." : "Emergency pause recorded.",
+    resumedDone: fa ? "قفل اضطراری آزاد شد؛ شبکه‌ها همچنان خاموش هستند." : "Emergency lock released; all network and asset switches remain off.",
   };
 
   const load = useCallback(async () => {
@@ -110,6 +123,33 @@ export default function WalletNetworkAdmin({ fa }: Props) {
     }
   };
 
+  const emergencyAction = async (operation: "PAUSE" | "RESUME") => {
+    if (reason.trim().length < 8 || pauseBusy) {
+      setError(copy.missingReason);
+      return;
+    }
+    const confirmed = window.confirm(operation === "PAUSE" ? copy.confirmPause : copy.confirmResume);
+    if (!confirmed) return;
+    setPauseBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      if (operation === "PAUSE") {
+        await emergencyPauseAllWalletOperations(reason.trim());
+        setNotice(copy.pausedDone);
+      } else {
+        await resumeWalletOperations(reason.trim());
+        setNotice(copy.resumedDone);
+      }
+      setReason("");
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : copy.errorText);
+    } finally {
+      setPauseBusy(false);
+    }
+  };
+
   const gate = (value: boolean) => value ? copy.enabled : copy.disabled;
   const statusClass = (value: boolean) => value ? "wallet-network-status wallet-network-status--active" : "wallet-network-status";
 
@@ -125,6 +165,25 @@ export default function WalletNetworkAdmin({ fa }: Props) {
     </label>
     {error && <p className="admin-message admin-message--error" role="alert">{error}</p>}
     {notice && <p className="admin-message" role="status">{notice}</p>}
+
+    {registry && <article className="admin-setting-row admin-wallet-emergency-panel">
+      <div>
+        <strong>{copy.emergencyTitle}</strong>
+        <p className="admin-footnote">{copy.emergencyHelp}</p>
+        <span className={registry.globalEmergencyPause.active ? "wallet-network-status" : "wallet-network-status wallet-network-status--active"}>
+          {registry.globalEmergencyPause.active ? copy.paused : copy.notPaused}
+        </span>
+      </div>
+      <div className="admin-wallet-network-actions">
+        {!registry.globalEmergencyPause.active
+          ? <button type="button" className="wallet-danger-button" disabled={pauseBusy || Boolean(saving)} onClick={() => void emergencyAction("PAUSE")}>
+              {pauseBusy ? "…" : copy.pause}
+            </button>
+          : <button type="button" disabled={pauseBusy || Boolean(saving)} onClick={() => void emergencyAction("RESUME")}>
+              {pauseBusy ? "…" : copy.resume}
+            </button>}
+      </div>
+    </article>}
 
     {registry && <div className="wallet-network-gates">
       <span className={statusClass(registry.activationGates.depositsReady)}>{copy.depositsGate}: {gate(registry.activationGates.depositsReady)}</span>
