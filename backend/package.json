@@ -8,7 +8,7 @@
     "dev": "tsx src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "tsx --test src/modules/contest/contest.logic.test.ts src/modules/wallet/asset-amount.test.ts src/modules/wallet/wallet-journal.validation.test.ts src/modules/wallet/chain-adapters/evm.adapter.test.ts"
+    "test": "tsx --test src/modules/contest/contest.logic.test.ts src/modules/wallet/asset-amount.test.ts src/modules/wallet/wallet-journal.validation.test.ts src/modules/wallet/chain-adapters/evm.adapter.test.ts src/modules/wallet/wallet-journal.integration.test.ts"
   },
   "keywords": [],
   "author": "",
