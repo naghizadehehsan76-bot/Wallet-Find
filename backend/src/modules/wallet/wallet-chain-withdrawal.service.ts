@@ -355,6 +355,8 @@ export async function requestChainWalletWithdrawal(input: {
         ...duplicate,
         amount: duplicate.amountAtomic.toFixed(0),
         fee: duplicate.feeAtomic?.toFixed(0) ?? null,
+        feeAsset: feeAsset.symbol,
+        feeDecimals: feeAsset.decimals,
         reused: true,
       };
     }
