@@ -297,14 +297,16 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
       userId: item.walletAccount.userId,
     }));
 
-    if (requiresWalletScannerCursorOnlyMode({
+    const cursorOnlyMode = requiresWalletScannerCursorOnlyMode({
       networkEnabled: network.isEnabled,
       legacyPolygonScannerActive,
       depositEnabled: network.depositEnabled,
       depositsProductionReady: process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY === "true",
       verifiedEnabledAssetCount: network.assets.length,
       activeAddressCount: network.addresses.length,
-    })) {
+    });
+
+    if (cursorOnlyMode) {
       // Advance the cursor while the network/asset is disabled, the legacy
       // Polygon scanner owns this network, or no receiving address exists.
       // Transfers sent during a paused period are never backfilled later.
@@ -416,6 +418,19 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
         scannedBlocks: scannedBlocks.toString(),
         detected,
         ignoredBelowMinimum,
+        reorged,
+        credited: 0,
+      };
+    }
+
+    if (cursorOnlyMode) {
+      await refreshLease(networkId, owner);
+      return {
+        networkId,
+        paused: true,
+        scannedBlocks: scannedBlocks.toString(),
+        detected: 0,
+        ignoredBelowMinimum: 0,
         reorged,
         credited: 0,
       };
