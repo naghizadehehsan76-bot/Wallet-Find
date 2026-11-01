@@ -119,10 +119,12 @@ export async function getWallet(userId: string) {
             ? null
             : formatAssetUnits(BigInt(asset.minDepositAtomic.toString()), asset.decimals),
           confirmationCount: asset.confirmationCount,
-          depositEnabled: network.isEnabled && network.depositEnabled
-            && asset.depositEnabled && asset.verificationStatus === "VERIFIED" && Boolean(address),
-          withdrawalEnabled: network.isEnabled && network.withdrawalEnabled
-            && asset.withdrawalEnabled && asset.verificationStatus === "VERIFIED" && Boolean(address),
+          depositEnabled: process.env.WALLET_GENERIC_DEPOSIT_SCANNER_ENABLED === "true"
+            && process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY === "true"
+            && network.isEnabled && network.depositEnabled && asset.depositEnabled && asset.verificationStatus === "VERIFIED" && Boolean(address),
+          withdrawalEnabled: process.env.WALLET_GENERIC_WITHDRAWALS_ENABLED === "true"
+            && process.env.WALLET_GENERIC_WITHDRAWALS_PRODUCTION_READY === "true"
+            && network.isEnabled && network.withdrawalEnabled && asset.withdrawalEnabled && asset.verificationStatus === "VERIFIED" && Boolean(address),
           balance: formatAssetUnits(availableBalance + reservedBalance, asset.decimals),
           availableBalance: formatAssetUnits(availableBalance, asset.decimals),
           reservedBalance: formatAssetUnits(reservedBalance, asset.decimals),
@@ -140,8 +142,12 @@ export async function getWallet(userId: string) {
         explorerTransactionUrlTemplate: network.explorerTransactionUrlTemplate,
         finalityDepth: network.finalityDepth,
         isEnabled: network.isEnabled,
-        depositEnabled: network.isEnabled && network.depositEnabled && Boolean(address),
-        withdrawalEnabled: network.isEnabled && network.withdrawalEnabled && Boolean(address),
+        depositEnabled: process.env.WALLET_GENERIC_DEPOSIT_SCANNER_ENABLED === "true"
+          && process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY === "true"
+          && network.isEnabled && network.depositEnabled && Boolean(address),
+        withdrawalEnabled: process.env.WALLET_GENERIC_WITHDRAWALS_ENABLED === "true"
+          && process.env.WALLET_GENERIC_WITHDRAWALS_PRODUCTION_READY === "true"
+          && network.isEnabled && network.withdrawalEnabled && Boolean(address),
         address: address?.address ?? null,
         assets,
       };
@@ -215,6 +221,10 @@ export async function requestWalletDeposit(
     throw new Error("INVALID_WALLET_ASSET_SELECTION");
   }
 
+  if (process.env.WALLET_GENERIC_DEPOSIT_SCANNER_ENABLED !== "true" ||
+      process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY !== "true") {
+    throw new Error("DEPOSITS_NOT_PRODUCTION_READY");
+  }
   const networkId = rawNetworkId.trim();
   const walletAssetId = rawWalletAssetId.trim();
   if (!networkId || !walletAssetId || networkId.length > 128 || walletAssetId.length > 256) {
