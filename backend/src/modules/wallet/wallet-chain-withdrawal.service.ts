@@ -509,6 +509,66 @@ export async function reviewChainWalletWithdrawal(
   }, { isolationLevel: "Serializable" });
 }
 
+async function refreshWithdrawalFeeReservation(input: {
+  withdrawal: {
+    id: string;
+    userId: string;
+    networkId: string;
+    walletAssetId: string;
+    feeAssetId: string | null;
+    feeAtomic: { toString(): string } | null;
+  };
+  newQuote: Awaited<ReturnType<typeof quoteEvmFee>>;
+}): Promise<bigint> {
+  if (!input.withdrawal.feeAssetId) throw new Error("WALLET_WITHDRAWAL_FEE_ASSET_MISSING");
+  const currentReserved = atomic(input.withdrawal.feeAtomic);
+  const nextQuote = input.newQuote.feeAtomic;
+  const additional = nextQuote > currentReserved ? nextQuote - currentReserved : 0n;
+
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRawUnsafe(
+      "SELECT pg_advisory_xact_lock(hashtext($1))",
+      "wallet-user-asset:" + input.withdrawal.userId + ":" +
+        input.withdrawal.networkId + ":" + input.withdrawal.feeAssetId,
+    );
+
+    if (additional > 0n) {
+      const available = await readAvailableBalance(
+        tx,
+        input.withdrawal.userId,
+        input.withdrawal.networkId,
+        input.withdrawal.feeAssetId,
+      );
+      if (available < additional) {
+        throw new Error("INSUFFICIENT_NATIVE_FEE_BALANCE_FOR_UPDATED_QUOTE");
+      }
+      await postReservation(tx, {
+        id: input.withdrawal.id,
+        userId: input.withdrawal.userId,
+        networkId: input.withdrawal.networkId,
+        walletAssetId: input.withdrawal.feeAssetId,
+        amount: additional,
+        suffix: "fee-reserve-topup:" + nextQuote.toString(),
+        note: "Top up reserved native fee after refreshing the withdrawal fee quote",
+      });
+    }
+
+    const totalReserved = currentReserved + additional;
+    await tx.walletChainWithdrawal.update({
+      where: { id: input.withdrawal.id },
+      data: {
+        feeAtomic: totalReserved.toString(),
+        estimatedGasLimit: input.newQuote.gasLimit.toString(),
+        maxFeePerGasAtomic: input.newQuote.maxFeePerGas.toString(),
+        maxPriorityFeePerGasAtomic: input.newQuote.maxPriorityFeePerGas?.toString() ?? null,
+        feeQuoteExpiresAt: input.newQuote.feeQuoteExpiresAt,
+        failureCode: null,
+      },
+    });
+    return totalReserved;
+  }, { isolationLevel: "Serializable" });
+}
+
 export async function executeChainWalletWithdrawal(withdrawalId: string, adminUserId: string) {
   requireWithdrawalReadiness();
 
@@ -537,23 +597,26 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
   }
 
   const amount = atomic(withdrawal.amountAtomic);
-  const reservedFee = atomic(withdrawal.feeAtomic);
-  const gasLimit = atomic(withdrawal.estimatedGasLimit);
-  const maxFeePerGas = atomic(withdrawal.maxFeePerGasAtomic);
-  const maxPriorityFeePerGas = atomic(withdrawal.maxPriorityFeePerGasAtomic);
-  if (amount <= 0n || reservedFee <= 0n || gasLimit <= 0n || maxFeePerGas <= 0n) {
+  if (amount <= 0n || !withdrawal.feeAssetId) {
     throw new Error("WALLET_WITHDRAWAL_FEE_QUOTE_MISSING");
-  }
-  if (withdrawal.feeQuoteExpiresAt && withdrawal.feeQuoteExpiresAt.getTime() < Date.now()) {
-    throw new Error("WALLET_WITHDRAWAL_FEE_QUOTE_EXPIRED");
   }
 
   const client = getEvmPublicClient(withdrawal.network.chainId);
-  const latestFees = await client.estimateFeesPerGas();
-  const currentMaxFee = latestFees.maxFeePerGas ?? latestFees.gasPrice ?? 0n;
-  if (currentMaxFee > maxFeePerGas) {
-    throw new Error("WALLET_WITHDRAWAL_FEE_QUOTE_EXPIRED");
-  }
+  const freshQuote = await quoteEvmFee({
+    chainId: withdrawal.network.chainId,
+    from: withdrawal.walletAddress.address as Address,
+    to: withdrawal.destinationAddress as Address,
+    assetType: withdrawal.asset.assetType,
+    contractAddress: withdrawal.asset.contractAddress,
+    amountAtomic: amount,
+  });
+  const reservedFee = await refreshWithdrawalFeeReservation({
+    withdrawal,
+    newQuote: freshQuote,
+  });
+  const gasLimit = freshQuote.gasLimit;
+  const maxFeePerGas = freshQuote.maxFeePerGas;
+  const maxPriorityFeePerGas = freshQuote.maxPriorityFeePerGas ?? 0n;
 
   const updated = await prisma.walletChainWithdrawal.updateMany({
     where: { id: withdrawalId, status: "APPROVED" },
