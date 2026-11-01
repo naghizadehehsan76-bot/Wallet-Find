@@ -1065,6 +1065,16 @@ model WalletChainWithdrawal {
   signerActivityId           String?
   transactionReference       String? @unique
   failureCode                String?
+  reviewedByUserId           String?
+  reviewedAt                 DateTime?
+  reviewReason               String?
+  estimatedGasLimit          Decimal? @db.Decimal(78, 0)
+  maxFeePerGasAtomic         Decimal? @db.Decimal(78, 0)
+  actualFeeAtomic            Decimal? @db.Decimal(78, 0)
+  blockPosition              String?
+  blockHash                  String?
+  confirmationCount          Int @default(0)
+  lastCheckedAt              DateTime?
   requestedAt                DateTime @default(now())
   broadcastAt                DateTime?
   confirmedAt                DateTime?
