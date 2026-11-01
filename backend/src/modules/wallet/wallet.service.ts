@@ -183,8 +183,7 @@ export async function requestWalletDeposit(
     !network.isEnabled ||
     !network.depositEnabled ||
     !asset.depositEnabled ||
-    asset.verificationStatus !== "VERIFIED" ||
-    (network.family === "EVM" && !networkAccount?.depositEnabled)
+    asset.verificationStatus !== "VERIFIED"
   ) {
     throw new Error("DEPOSITS_DISABLED");
   }
