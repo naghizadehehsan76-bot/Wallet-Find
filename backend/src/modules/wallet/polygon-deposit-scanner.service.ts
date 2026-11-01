@@ -215,10 +215,17 @@ export async function scanPolygonUsdtDepositsOnce() {
     };
   }
 
+  const emergencyPause = await prisma.systemSetting.findUnique({
+    where: { key: "wallet_global_emergency_pause" },
+    select: { value: true },
+  });
+  const globallyPaused = emergencyPause?.value === "true";
+
   // Explicit operator gate: enable only the verified Polygon USDT0 asset and
   // network accounts belonging to active users with independent Turnkey
   // sub-organizations. BSC and withdrawal flags are never touched here.
-  if (process.env.POLYGON_DEPOSITS_ENABLED === "true") {
+  // The persisted emergency pause always overrides environment flags.
+  if (!globallyPaused && process.env.POLYGON_DEPOSITS_ENABLED === "true") {
     await prisma.chainAsset.updateMany({
       where: {
         chainId,
@@ -282,7 +289,7 @@ export async function scanPolygonUsdtDepositsOnce() {
     where: { chainId, networkKey: "polygon", status: "ACTIVE", address: { not: null } },
     select: { id: true, address: true },
   });
-  if (!wallets.length && !treasury?.address) {
+  if (!wallets.length && !treasury?.address && !globallyPaused) {
     return { skipped: "NO_ENABLED_USER_OR_ACTIVE_TREASURY_ADDRESSES" };
   }
 
@@ -305,6 +312,26 @@ export async function scanPolygonUsdtDepositsOnce() {
   }
   const fromBlock = cursor ? cursor.lastBlockNumber + 1n : initialBlock;
   const hasNewBlocks = fromBlock <= safeHead;
+
+  if (globallyPaused) {
+    // Keep the legacy scanner's cursor moving while the emergency pause is
+    // active. Transfers sent during the pause are intentionally not detected
+    // or credited after resume; already detected deposits remain pending.
+    const pauseAnchor = await client.getBlock({ blockNumber: safeHead });
+    await prisma.chainScanCursor.upsert({
+      where: { chainId },
+      create: { chainId, lastBlockNumber: safeHead, lastBlockHash: pauseAnchor.hash },
+      update: { lastBlockNumber: safeHead, lastBlockHash: pauseAnchor.hash },
+    });
+    return {
+      paused: true,
+      scanned: hasNewBlocks ? Number(safeHead - fromBlock + 1n) : 0,
+      latestBlock: latestBlock.toString(),
+      safeHead: safeHead.toString(),
+      ...reorgResult,
+    };
+  }
+
   const recipients = new Map(wallets.map((wallet) => [wallet.walletAccount.address.toLowerCase(), wallet]));
   const treasuryAddress = treasury?.address?.toLowerCase() ?? null;
   if (treasuryAddress && recipients.has(treasuryAddress)) {
