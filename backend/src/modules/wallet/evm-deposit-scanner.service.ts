@@ -314,10 +314,6 @@ async function scanNetwork(network: EvmNetworkConfig) {
   });
   const scannableAssets = assets.filter(assetIsScannable);
   const ignoredAssets = assets.filter((asset) => !assetIsScannable(asset)).map((asset) => asset.id);
-  if (scannableAssets.length === 0) {
-    return { network: network.networkKey, scanned: 0, skipped: "NO_VERIFIED_ENABLED_ASSETS", ignoredAssets };
-  }
-
   const wallets = await prisma.walletNetworkAccount.findMany({
     where: {
       chainId: network.chainId,
@@ -341,10 +337,6 @@ async function scanNetwork(network: EvmNetworkConfig) {
     where: { chainId: network.chainId, networkKey: network.networkKey, status: "ACTIVE", address: { not: null } },
     select: { id: true, address: true },
   });
-  if (wallets.length === 0 && !treasury?.address) {
-    return { network: network.networkKey, scanned: 0, skipped: "NO_ENABLED_DESTINATIONS" };
-  }
-
   const recipients = new Map<string, DepositDestination>();
   for (const wallet of wallets) {
     recipients.set(formatAddress(wallet.walletAccount.address), {
@@ -371,7 +363,9 @@ async function scanNetwork(network: EvmNetworkConfig) {
 
   // The cursor advances only after every enabled asset has completed the same
   // block range. A token scan failure or native-block RPC failure therefore
-  // cannot silently skip that range for another asset.
+  // cannot silently skip that range for another asset. Existing pending
+  // deposits are matured below even when new discovery is temporarily disabled.
+  if (scannableAssets.length > 0 && addresses.length > 0) {
   for (let start = fromBlock; start <= safeHead; start += BigInt(chunkSize)) {
     const end = start + BigInt(chunkSize) - 1n > safeHead ? safeHead : start + BigInt(chunkSize) - 1n;
 
@@ -441,6 +435,7 @@ async function scanNetwork(network: EvmNetworkConfig) {
       update: { lastBlockNumber: end, lastBlockHash: anchor.hash },
     });
     scannedThrough = end;
+  }
   }
 
   const mature = await prisma.walletDeposit.findMany({
