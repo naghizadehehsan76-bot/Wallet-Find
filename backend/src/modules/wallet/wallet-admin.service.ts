@@ -144,7 +144,7 @@ export async function updateWalletNetworkByAdmin(
 
   return prisma.$transaction(async (tx) => {
     await tx.$queryRawUnsafe(
-      "SELECT pg_advisory_xact_lock(hashtext($1))",
+      "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
       "wallet-network-admin:" + networkId,
     );
     const existing = await tx.walletNetwork.findUnique({ where: { id: networkId }, include: { scanCursor: true } });
@@ -255,7 +255,7 @@ export async function updateWalletAssetByAdmin(
 
   return prisma.$transaction(async (tx) => {
     await tx.$queryRawUnsafe(
-      "SELECT pg_advisory_xact_lock(hashtext($1))",
+      "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
       "wallet-asset-admin:" + assetId,
     );
     const existing = await tx.walletAsset.findUnique({
