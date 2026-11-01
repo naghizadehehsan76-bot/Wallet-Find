@@ -70,6 +70,7 @@ export async function getWalletNetworkRegistryForAdmin() {
             leaseOwner: network.scanCursor.leaseOwner,
             leaseExpiresAt: network.scanCursor.leaseExpiresAt,
             heartbeatAt: network.scanCursor.heartbeatAt,
+            lastSuccessfulScanAt: network.scanCursor.lastSuccessfulScanAt,
           }
         : null,
       counts: network._count,
@@ -143,7 +144,7 @@ export async function updateWalletNetworkByAdmin(
     }
 
     if (patch.depositEnabled === true) {
-      const heartbeatAt = existing.scanCursor?.heartbeatAt;
+      const heartbeatAt = existing.scanCursor?.lastSuccessfulScanAt;
       const maxHeartbeatAgeMs = positiveIntegerEnv("WALLET_GENERIC_SCAN_INTERVAL_MS", 30_000, 15_000, 300_000) * 3;
       if (!heartbeatAt || Date.now() - heartbeatAt.getTime() > maxHeartbeatAgeMs) {
         throw new Error("WALLET_NETWORK_SCANNER_NOT_READY");
@@ -233,7 +234,7 @@ export async function updateWalletAssetByAdmin(
       if (!existing.network.isEnabled || !existing.network.depositEnabled) {
         throw new Error("WALLET_NETWORK_DEPOSITS_DISABLED");
       }
-      const heartbeatAt = existing.network.scanCursor?.heartbeatAt;
+      const heartbeatAt = existing.network.scanCursor?.lastSuccessfulScanAt;
       const maxHeartbeatAgeMs = positiveIntegerEnv("WALLET_GENERIC_SCAN_INTERVAL_MS", 30_000, 15_000, 300_000) * 3;
       if (!heartbeatAt || Date.now() - heartbeatAt.getTime() > maxHeartbeatAgeMs) {
         throw new Error("WALLET_NETWORK_SCANNER_NOT_READY");
