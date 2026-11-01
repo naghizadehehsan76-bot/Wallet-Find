@@ -3606,3 +3606,12 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 @media (prefers-reduced-motion:reduce) {
   .wf-wallet-primary-actions button,.wf-asset-row { transition:none; }
 }
+
+
+/* Single consolidated wallet balance summary. */
+.wf-wallet-summary__totals--single { grid-template-columns: minmax(0, 1fr); }
+.wf-summary-stat--single { min-height: 94px; align-content: center; gap: 9px; }
+.wf-summary-stat--single > strong { color: #66f4df; font-size: clamp(24px, 4vw, 34px); font-weight: 900; line-height: 1.25; }
+@media (max-width: 760px) {
+  .wf-summary-stat--single { min-height: 82px; }
+}
