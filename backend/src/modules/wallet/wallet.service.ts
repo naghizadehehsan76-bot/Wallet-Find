@@ -8,6 +8,15 @@ import { createTurnkeySigner, isTurnkeyConfigured, provisionTurnkeyWallet } from
 function formatMicro(value: bigint): string {
   return formatAssetUnits(value, 6);
 }
+
+function isWalletNetworkScannerReady(lastSuccessfulScanAt: Date | null | undefined): boolean {
+  if (!lastSuccessfulScanAt) return false;
+  const configuredInterval = Number.parseInt(process.env.WALLET_GENERIC_SCAN_INTERVAL_MS ?? "30000", 10);
+  const intervalMs = Number.isFinite(configuredInterval)
+    ? Math.max(15_000, Math.min(300_000, configuredInterval))
+    : 30_000;
+  return Date.now() - lastSuccessfulScanAt.getTime() <= intervalMs * 3;
+}
 async function calculateBalances(tx: any, userId: string) {
   const rows = await tx.walletTransaction.findMany({ where: { userId }, select: { type: true, status: true, amountMicro: true } });
   let balance = 0n, pendingWithdrawals = 0n;
@@ -141,6 +150,7 @@ export async function getWallet(userId: string) {
       orderBy: [{ family: "asc" }, { networkKey: "asc" }],
       include: {
         assets: { orderBy: [{ symbol: "asc" }, { id: "asc" }] },
+        scanCursor: { select: { lastSuccessfulScanAt: true } },
         addresses: {
           where: {
             walletAccountId: turnkeyWallet?.id ?? "__no_wallet_account__",
@@ -179,7 +189,8 @@ export async function getWallet(userId: string) {
           depositEnabled: (process.env.WALLET_GENERIC_DEPOSIT_SCANNER_ENABLED === "true"
             && process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY === "true"
             && network.isEnabled && network.depositEnabled && asset.depositEnabled
-            && asset.verificationStatus === "VERIFIED" && Boolean(address))
+            && asset.verificationStatus === "VERIFIED" && Boolean(address)
+            && isWalletNetworkScannerReady(network.scanCursor?.lastSuccessfulScanAt))
             || legacyDepositEnabled,
           legacyDepositMode: legacyDepositEnabled,
           withdrawalEnabled: process.env.WALLET_GENERIC_WITHDRAWALS_ENABLED === "true"
@@ -207,7 +218,8 @@ export async function getWallet(userId: string) {
         legacyDepositMode: network.chainId === 137 && legacyPolygonDepositReady && Boolean(address),
         depositEnabled: (process.env.WALLET_GENERIC_DEPOSIT_SCANNER_ENABLED === "true"
           && process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY === "true"
-          && network.isEnabled && network.depositEnabled && Boolean(address))
+          && network.isEnabled && network.depositEnabled && Boolean(address)
+          && isWalletNetworkScannerReady(network.scanCursor?.lastSuccessfulScanAt))
           || (network.chainId === 137 && legacyPolygonDepositReady && Boolean(address)),
         withdrawalEnabled: process.env.WALLET_GENERIC_WITHDRAWALS_ENABLED === "true"
           && process.env.WALLET_GENERIC_WITHDRAWALS_PRODUCTION_READY === "true"
@@ -356,7 +368,10 @@ export async function requestWalletDeposit(
           },
         },
       }),
-      prisma.walletNetwork.findUnique({ where: { id: networkId } }),
+      prisma.walletNetwork.findUnique({
+        where: { id: networkId },
+        include: { scanCursor: { select: { lastSuccessfulScanAt: true } } },
+      }),
       prisma.walletAsset.findUnique({ where: { id: walletAssetId } }),
       prisma.chainAsset.findFirst({
         where: {
@@ -450,6 +465,9 @@ export async function requestWalletDeposit(
     asset.verificationStatus !== "VERIFIED"
   ) {
     throw new Error("DEPOSITS_DISABLED");
+  }
+  if (!isWalletNetworkScannerReady(network.scanCursor?.lastSuccessfulScanAt)) {
+    throw new Error("WALLET_NETWORK_SCANNER_NOT_READY");
   }
 
   return {
