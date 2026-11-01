@@ -234,7 +234,7 @@ export async function getWallet(userId: string) {
       simulatedOnly: false,
       turnkeyConfigured: isTurnkeyConfigured(),
       walletProvisioningReviewRequired,
-      walletAddress: turnkeyWallet?.address ?? null,
+      walletAddress: walletProvisioningReviewRequired ? null : turnkeyWallet?.address ?? null,
       supportedNetworks: (turnkeyWallet?.networkAccounts ?? []).map((item) => ({
         chainId: item.chainId,
         networkKey: item.networkKey,
