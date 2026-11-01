@@ -248,7 +248,7 @@ export default function WalletPage({ onNavigate }: Props) {
           </div>
         </section>
 
-        {wallet.networks.length === 0 && <section classNa        {wallet.networks.length === 0 && <section className="wallet-network-card"><p>{copy.noNetworks}</p></section>}
+        {wallet.networks.length === 0 && <section className="wallet-network-card"><p>{copy.noNetworks}</p></section>}
 
         <section className="wallet-assets-list" aria-label={fa ? "دارایی‌های کیف پول" : "Wallet assets"}>
           {wallet.networks.map((network) => <div className="wallet-assets-network" key={network.id}>
@@ -325,10 +325,7 @@ export default function WalletPage({ onNavigate }: Props) {
                 </article>;
               })}
           </div>)}
-        </section>ng>
-            </div>
-          </div>)}
-        </section>)}
+        </section>
 
         <section className="wallet-network-card">
           <div className="wallet-card-heading"><h2>{fa ? "سوابق قدیمی" : "Legacy records"}</h2></div>
