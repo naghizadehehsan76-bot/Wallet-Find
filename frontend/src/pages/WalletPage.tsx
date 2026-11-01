@@ -41,6 +41,7 @@ export default function WalletPage({ onNavigate }: Props) {
   const [view, setView] = useState<WalletView>("overview");
   const [selectedNetworkId, setSelectedNetworkId] = useState("");
   const [selectedAssetId, setSelectedAssetId] = useState("");
+  const [expandedAssetId, setExpandedAssetId] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawAddress, setWithdrawAddress] = useState("");
   const [copied, setCopied] = useState(false);
@@ -247,56 +248,84 @@ export default function WalletPage({ onNavigate }: Props) {
           </div>
         </section>
 
-        {wallet.networks.length === 0 && <section className="wallet-network-card"><p>{copy.noNetworks}</p></section>}
+        {wallet.networks.length === 0 && <section classNa        {wallet.networks.length === 0 && <section className="wallet-network-card"><p>{copy.noNetworks}</p></section>}
 
-        {wallet.networks.map((network) => <section className="wallet-network-card" key={network.id}>
-          <div className="wallet-card-heading">
-            <h2>{network.displayName}{network.legacyDepositMode ? ` · ${copy.legacyTag}` : ""}</h2>
-            <span className={network.isEnabled ? "wallet-network-status wallet-network-status--active" : "wallet-network-status"}>
-              {networkStatus(network.isEnabled)}
-            </span>
-          </div>
-          <div className="wallet-network-row">
-            <span>{copy.family}</span><strong>{network.family}</strong>
-          </div>
-          <div className="wallet-network-row">
-            <span>{copy.network}</span><strong>{network.networkKey}{network.chainId !== null ? " · " + network.chainId : ""}</strong>
-          </div>
-          <div className="wallet-network-row">
-            <span>{copy.depositAdapter}</span><strong>{network.adapterReady ? copy.adapterReady : copy.adapterNotReady}</strong>
-          </div>
-          <div className="wallet-network-row">
-            <span>{copy.withdrawalAdapter}</span><strong>{network.withdrawalAdapterReady ? copy.adapterReady : copy.adapterNotReady}</strong>
-          </div>
-          <div className="wallet-network-row">
-            <span>{copy.status}</span>
-            <strong className={network.depositEnabled ? "wallet-status-on" : "wallet-status-off"}>
-              {networkStatus(network.depositEnabled)}
-            </strong>
-          </div>
-          {!network.address && <p className="wallet-deposit-minimum">{copy.noAddress}</p>}
-          {network.assets.length === 0 && <p className="wallet-deposit-minimum">{copy.noAssets}</p>}
-          {network.assets.map((asset) => <div className="wallet-network-card" key={asset.id}>
-            <div className="wallet-card-heading">
-              <h2>{asset.displayName} ({asset.symbol}){asset.legacyDepositMode ? ` · ${copy.legacyTag}` : ""}</h2>
-              <span className={asset.verificationStatus === "VERIFIED" ? "wallet-network-status wallet-network-status--active" : "wallet-network-status"}>
-                {asset.verificationStatus === "VERIFIED" ? copy.enabled : copy.reviewRequired}
-              </span>
+        <section className="wallet-assets-list" aria-label={fa ? "دارایی‌های کیف پول" : "Wallet assets"}>
+          {wallet.networks.map((network) => <div className="wallet-assets-network" key={network.id}>
+            <div className="wallet-assets-network__heading">
+              <h2>{network.displayName}</h2>
+              <span>{network.assets.length} {fa ? "دارایی" : "assets"}</span>
             </div>
-            <div className="wallet-network-row">
-              <span>{copy.asset}</span><strong>{asset.assetType === "NATIVE" ? copy.native : copy.token}</strong>
-            </div>
-            <div className="wallet-network-row">
-              <span>{copy.available}</span><strong>{fmt(asset.availableBalance)} {asset.symbol}</strong>
-            </div>
-            <div className="wallet-network-row">
-              <span>{copy.reserved}</span><strong>{fmt(asset.reservedBalance)} {asset.symbol}</strong>
-            </div>
-            <div className="wallet-network-row">
-              <span>{copy.deposit}</span><strong className={asset.depositEnabled ? "wallet-status-on" : "wallet-status-off"}>{networkStatus(asset.depositEnabled)}</strong>
-            </div>
-            <div className="wallet-network-row">
-              <span>{copy.withdraw}</span><strong className={asset.withdrawalEnabled ? "wallet-status-on" : "wallet-status-off"}>{networkStatus(asset.withdrawalEnabled)}</strong>
+            {network.assets.length === 0
+              ? <p className="wallet-deposit-minimum">{copy.noAssets}</p>
+              : network.assets.map((asset) => {
+                const expanded = expandedAssetId === asset.id;
+                const assetStatus = asset.verificationStatus === "VERIFIED";
+                return <article className={expanded ? "wallet-asset-item is-expanded" : "wallet-asset-item"} key={asset.id}>
+                  <button
+                    type="button"
+                    className="wallet-asset-summary"
+                    aria-expanded={expanded}
+                    aria-controls={`wallet-asset-details-${asset.id}`}
+                    onClick={() => setExpandedAssetId((current) => current === asset.id ? "" : asset.id)}
+                  >
+                    <span className="wallet-asset-symbol">{asset.symbol.slice(0, 4)}</span>
+                    <span className="wallet-asset-main">
+                      <strong>{asset.displayName}</strong>
+                      <small>{asset.symbol} · {network.displayName}</small>
+                    </span>
+                    <span className="wallet-asset-balance">
+                      <strong>{fmt(asset.availableBalance)}</strong>
+                      <small>{fa ? "قابل استفاده" : "Available"}</small>
+                    </span>
+                    <span className={expanded ? "wallet-asset-chevron is-open" : "wallet-asset-chevron"} aria-hidden="true">⌄</span>
+                  </button>
+                  {expanded && <div className="wallet-asset-details" id={`wallet-asset-details-${asset.id}`}>
+                    <div className="wallet-asset-detail-row">
+                      <span>{copy.available}</span><strong>{fmt(asset.availableBalance)} {asset.symbol}</strong>
+                    </div>
+                    <div className="wallet-asset-detail-row">
+                      <span>{copy.reserved}</span><strong>{fmt(asset.reservedBalance)} {asset.symbol}</strong>
+                    </div>
+                    <div className="wallet-asset-detail-row">
+                      <span>{copy.network}</span><strong>{network.displayName}</strong>
+                    </div>
+                    <div className="wallet-asset-detail-row">
+                      <span>{copy.status}</span>
+                      <strong className={assetStatus ? "wallet-status-on" : "wallet-status-off"}>
+                        {assetStatus ? copy.enabled : copy.reviewRequired}
+                      </strong>
+                    </div>
+                    <div className="wallet-asset-detail-row">
+                      <span>{copy.deposit}</span>
+                      <strong className={asset.depositEnabled ? "wallet-status-on" : "wallet-status-off"}>{networkStatus(asset.depositEnabled)}</strong>
+                    </div>
+                    <div className="wallet-asset-detail-row">
+                      <span>{copy.withdraw}</span>
+                      <strong className={asset.withdrawalEnabled ? "wallet-status-on" : "wallet-status-off"}>{networkStatus(asset.withdrawalEnabled)}</strong>
+                    </div>
+                    {asset.contractAddress && <div className="wallet-asset-detail-row wallet-asset-detail-row--contract">
+                      <span>{copy.contract}</span><code>{asset.contractAddress}</code>
+                    </div>}
+                    {asset.legacyDepositMode && <p className="wallet-deposit-minimum">{copy.legacyDepositMode}</p>}
+                    <div className="wallet-asset-actions">
+                      <button type="button" className="wallet-action wallet-action--deposit" disabled={!asset.depositEnabled || !network.address} onClick={() => {
+                        setSelectedNetworkId(network.id);
+                        setSelectedAssetId(asset.id);
+                        setView("deposit");
+                      }}><span>↓</span>{copy.deposit}</button>
+                      <button type="button" className="wallet-action wallet-action--withdraw" disabled={!asset.withdrawalEnabled} onClick={() => {
+                        setSelectedNetworkId(network.id);
+                        setSelectedAssetId(asset.id);
+                        setView("withdraw");
+                      }}><span>↑</span>{copy.withdraw}</button>
+                    </div>
+                    {!network.address && <p className="wallet-deposit-minimum">{copy.noAddress}</p>}
+                  </div>}
+                </article>;
+              })}
+          </div>)}
+        </section>ng>
             </div>
           </div>)}
         </section>)}
