@@ -3,6 +3,7 @@ import { isAddress, type Address } from "viem";
 import prisma from "../../config/prisma.js";
 import { formatAssetUnits, parseAssetUnits } from "./asset-amount.js";
 import {
+  assertEvmRpcChainIdentity,
   getEvmPublicClient,
   isEvmWithdrawalFeeModelSupported,
 } from "./chain-adapters/evm.adapter.js";
@@ -182,6 +183,7 @@ async function quoteEvmFee(input: {
   }
 
   const client = getEvmPublicClient(input.chainId);
+  await assertEvmRpcChainIdentity(client, input.chainId);
   const gasEstimate = input.assetType === "NATIVE"
     ? await client.estimateGas({
         account: input.from,
@@ -779,6 +781,7 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
   }
 
   const client = getEvmPublicClient(withdrawal.network.chainId);
+  await assertEvmRpcChainIdentity(client, withdrawal.network.chainId);
   let receipt;
   try {
     receipt = await client.getTransactionReceipt({
