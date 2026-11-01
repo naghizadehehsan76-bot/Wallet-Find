@@ -64,8 +64,9 @@ function assertPosition(position: string): bigint {
 export function createEvmWalletChainAdapter(input: {
   networkId: string;
   chainId: number;
+  client?: PublicClient;
 }): WalletChainAdapter {
-  const client = getClient(input.chainId);
+  const client = input.client ?? getClient(input.chainId);
 
   return {
     networkId: input.networkId,
