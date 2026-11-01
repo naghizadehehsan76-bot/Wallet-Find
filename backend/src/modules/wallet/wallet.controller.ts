@@ -9,14 +9,14 @@ function sendError(res: Response, error: unknown) {
   const message = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
   const known = new Set([
     "INVALID_WALLET_AMOUNT", "INSUFFICIENT_WALLET_BALANCE", "INVALID_DESTINATION_ADDRESS",
-    "WITHDRAWALS_DISABLED", "WALLET_NOT_ACTIVE", "EMAIL_NOT_VERIFIED",
+    "WITHDRAWALS_DISABLED", "DEPOSITS_DISABLED", "INVALID_WALLET_ASSET", "WALLET_NOT_ACTIVE", "EMAIL_NOT_VERIFIED",
     "TURNKEY_NOT_CONFIGURED", "TURNKEY_ENCRYPTION_KEY_NOT_CONFIGURED",
     "USER_NOT_FOUND", "TURNKEY_SUB_ORGANIZATION_CREATION_REQUIRES_REVIEW",
   ]);
   if (!known.has(message)) console.error("Wallet request failed", error);
   const status =
     message === "INSUFFICIENT_WALLET_BALANCE" || message === "TURNKEY_SUB_ORGANIZATION_CREATION_REQUIRES_REVIEW" ? 409 :
-    message === "WITHDRAWALS_DISABLED" || message === "TURNKEY_NOT_CONFIGURED" || message === "TURNKEY_ENCRYPTION_KEY_NOT_CONFIGURED" ? 503 :
+    message === "WITHDRAWALS_DISABLED" || message === "DEPOSITS_DISABLED" || message === "TURNKEY_NOT_CONFIGURED" || message === "TURNKEY_ENCRYPTION_KEY_NOT_CONFIGURED" ? 503 :
     message === "WALLET_NOT_ACTIVE" || message === "EMAIL_NOT_VERIFIED" ? 403 :
     message === "USER_NOT_FOUND" ? 404 :
     known.has(message) ? 400 : 500;
@@ -28,7 +28,7 @@ export async function getWalletHandler(req: AuthenticatedRequest, res: Response)
 }
 export async function requestDepositHandler(req: AuthenticatedRequest, res: Response) {
   const id = getUserId(req, res); if (!id) return;
-  try { return res.status(201).json({ success: true, data: await requestWalletDeposit(id, req.body?.amount) }); } catch (error) { return sendError(res, error); }
+  try { return res.status(201).json({ success: true, data: await requestWalletDeposit(id, req.body?.assetId) }); } catch (error) { return sendError(res, error); }
 }
 export async function requestWithdrawalHandler(req: AuthenticatedRequest, res: Response) {
   const id = getUserId(req, res); if (!id) return;
