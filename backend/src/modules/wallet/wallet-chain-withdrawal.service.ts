@@ -901,10 +901,10 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
             accountReference: withdrawalId,
           },
           {
-            account: "CUSTODY_ASSET",
+            account: "NETWORK_FEE_EXPENSE",
             direction: "CREDIT",
             amountAtomic: actualFee.toString(),
-            accountReference: current.walletAccountId,
+            accountReference: withdrawal.networkId,
           },
         ],
       });
