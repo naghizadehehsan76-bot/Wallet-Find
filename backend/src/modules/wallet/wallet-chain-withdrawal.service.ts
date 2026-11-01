@@ -571,7 +571,7 @@ async function refreshWithdrawalFeeReservation(input: {
         tx,
         input.withdrawal.userId,
         input.withdrawal.networkId,
-        input.withdrawal.feeAssetId,
+        feeAssetId,
       );
       if (available < additional) {
         throw new Error("INSUFFICIENT_NATIVE_FEE_BALANCE_FOR_UPDATED_QUOTE");
