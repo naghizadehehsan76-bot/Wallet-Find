@@ -1015,6 +1015,7 @@ model WalletChainDeposit {
   transactionReference       String
   eventIndex                 Int @default(0)
   position                   String
+  positionValue              Decimal @db.Decimal(78, 0)
   blockHash                  String?
   fromAddress                String?
   toAddress                  String
