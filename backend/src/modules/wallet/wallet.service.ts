@@ -109,8 +109,8 @@ export async function getWallet(userId: string) {
       const key = posting.journal.networkId + "|" + posting.journal.walletAssetId;
       const current = balanceMap.get(key) ?? { available: 0n, reserved: 0n };
       const signed = posting.direction === "CREDIT"
-        ? BigInt(posting.amountAtomic.toString())
-        : -BigInt(posting.amountAtomic.toString());
+        ? BigInt(posting.amountAtomic.toFixed(0))
+        : -BigInt(posting.amountAtomic.toFixed(0));
 
       if (posting.account === "USER_AVAILABLE") current.available += signed;
       if (posting.account === "USER_RESERVED") current.reserved += signed;
@@ -174,7 +174,7 @@ export async function getWallet(userId: string) {
           verificationStatus: asset.verificationStatus,
           minDeposit: asset.minDepositAtomic === null
             ? null
-            : formatAssetUnits(BigInt(asset.minDepositAtomic.toString()), asset.decimals),
+            : formatAssetUnits(BigInt(asset.minDepositAtomic.toFixed(0)), asset.decimals),
           confirmationCount: asset.confirmationCount,
           depositEnabled: (process.env.WALLET_GENERIC_DEPOSIT_SCANNER_ENABLED === "true"
             && process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY === "true"
@@ -265,7 +265,7 @@ export async function getWallet(userId: string) {
         networkId: deposit.networkId,
         network: deposit.network.displayName,
         asset: deposit.asset.symbol,
-        amount: formatAssetUnits(BigInt(deposit.amountAtomic.toString()), deposit.asset.decimals),
+        amount: formatAssetUnits(BigInt(deposit.amountAtomic.toFixed(0)), deposit.asset.decimals),
         status: deposit.status,
         transactionHash: deposit.transactionReference,
         explorerUrl: deposit.network.explorerTransactionUrlTemplate?.replace("{txHash}", deposit.transactionReference) ?? null,
@@ -305,12 +305,12 @@ export async function getWallet(userId: string) {
         networkId: withdrawal.networkId,
         network: withdrawal.network.displayName,
         asset: withdrawal.asset.symbol,
-        amount: formatAssetUnits(BigInt(withdrawal.amountAtomic.toString()), withdrawal.asset.decimals),
+        amount: formatAssetUnits(BigInt(withdrawal.amountAtomic.toFixed(0)), withdrawal.asset.decimals),
         estimatedFee: withdrawal.feeAtomic && withdrawal.feeAsset
-          ? formatAssetUnits(BigInt(withdrawal.feeAtomic.toString()), withdrawal.feeAsset.decimals)
+          ? formatAssetUnits(BigInt(withdrawal.feeAtomic.toFixed(0)), withdrawal.feeAsset.decimals)
           : null,
         actualFee: withdrawal.actualFeeAtomic && withdrawal.feeAsset
-          ? formatAssetUnits(BigInt(withdrawal.actualFeeAtomic.toString()), withdrawal.feeAsset.decimals)
+          ? formatAssetUnits(BigInt(withdrawal.actualFeeAtomic.toFixed(0)), withdrawal.feeAsset.decimals)
           : null,
         feeAsset: withdrawal.feeAsset?.symbol ?? null,
         status: withdrawal.status,
@@ -464,7 +464,7 @@ export async function requestWalletDeposit(
     depositAddress: address.address,
     minDeposit: asset.minDepositAtomic === null
       ? null
-      : formatAssetUnits(BigInt(asset.minDepositAtomic.toString()), asset.decimals),
+      : formatAssetUnits(BigInt(asset.minDepositAtomic.toFixed(0)), asset.decimals),
     confirmationsRequired: asset.confirmationCount,
     status: "AWAITING_TRANSFER",
     legacyDepositMode: false,
