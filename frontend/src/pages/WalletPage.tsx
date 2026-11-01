@@ -58,6 +58,8 @@ export default function WalletPage({ onNavigate }: Props) {
   const [selectedNetworkId, setSelectedNetworkId] = useState("");
   const [selectedAssetId, setSelectedAssetId] = useState("");
   const [expandedAssetId, setExpandedAssetId] = useState("");
+  const [assetSearch, setAssetSearch] = useState("");
+  const [networkFilter, setNetworkFilter] = useState("all");
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawAddress, setWithdrawAddress] = useState("");
   const [copied, setCopied] = useState(false);
@@ -267,119 +269,114 @@ export default function WalletPage({ onNavigate }: Props) {
       {wallet?.walletProvisioningReviewRequired && <div className="wallet-warning" role="status"><strong>⚠ {copy.reviewRequired}</strong><p>{copy.provisioningReview}</p></div>}
 
       {wallet && view === "overview" && <>
-        <section className="wallet-exchange-balance">
-          <div className="wallet-exchange-balance__top">
-            <span>{copy.balance}</span>
-            <span className="wallet-safe-pill">{wallet.networks.length} {fa ? "شبکه" : "networks"}</span>
+        <section className="wf-wallet-summary">
+          <div className="wf-wallet-summary__header">
+            <div>
+              <span className="wf-eyebrow">{fa ? "نمای کلی دارایی‌ها" : "ASSET OVERVIEW"}</span>
+              <h2>{fa ? "دارایی‌های من" : "My assets"}</h2>
+              <p>{copy.separateAssets}</p>
+            </div>
+            <span className="wf-network-count">{wallet.networks.length} {fa ? "شبکه" : "networks"}</span>
           </div>
-          <div className="wallet-exchange-balance__available">{copy.separateAssets}</div>
-          <div className="wallet-total-assets" aria-label={copy.balance}>
-            {assetBalanceTotals.length === 0
-              ? <p>{copy.noAssets}</p>
-              : assetBalanceTotals.map((item) => <div className="wallet-total-assets__row" key={item.symbol}>
-                  <div><strong>{item.symbol}</strong><small>{copy.totalAvailable}: {fmt(item.available)} · {copy.totalReserved}: {fmt(item.reserved)}</small></div>
-                  <strong className="wallet-total-assets__amount">{fmt(item.total)} {item.symbol}</strong>
-                </div>)}
+          <div className="wf-wallet-summary__totals">
+            <div className="wf-summary-stat">
+              <span>{copy.totalAvailable}</span>
+              <strong>{assetBalanceTotals.length ? assetBalanceTotals.map((item) => `${fmt(item.available)} ${item.symbol}`).join(" · ") : "—"}</strong>
+            </div>
+            <div className="wf-summary-stat">
+              <span>{copy.totalReserved}</span>
+              <strong>{assetBalanceTotals.length ? assetBalanceTotals.map((item) => `${fmt(item.reserved)} ${item.symbol}`).join(" · ") : "—"}</strong>
+            </div>
+            <div className="wf-summary-stat wf-summary-stat--highlight">
+              <span>{fa ? "موجودی کل به تفکیک ارز" : "Total balance by asset"}</span>
+              <div className="wf-summary-coins">
+                {assetBalanceTotals.length ? assetBalanceTotals.map((item) => <span key={item.symbol}><b>{item.symbol}</b><strong>{fmt(item.total)}</strong></span>) : <strong>—</strong>}
+              </div>
+            </div>
           </div>
-          <div className="wallet-exchange-actions">
-            <button type="button" className="wallet-action wallet-action--deposit" onClick={() => setView("deposit")}>
-              <span>↓</span>{copy.deposit}
-            </button>
-            <button type="button" className="wallet-action wallet-action--withdraw" onClick={() => setView("withdraw")}>
-              <span>↑</span>{copy.withdraw}
-            </button>
+          <div className="wf-wallet-primary-actions">
+            <button type="button" className="wf-primary-deposit" onClick={() => setView("deposit")}><span>↓</span>{copy.deposit}</button>
+            <button type="button" className="wf-primary-withdraw" onClick={() => setView("withdraw")}><span>↑</span>{copy.withdraw}</button>
           </div>
         </section>
 
+        <nav className="wf-wallet-tabs" aria-label={fa ? "بخش‌های کیف پول" : "Wallet sections"}>
+          <button type="button" className="is-active" onClick={() => setView("overview")}>{fa ? "دارایی‌ها" : "Assets"}</button>
+          <button type="button" onClick={() => setView("deposit")}>{copy.deposit}</button>
+          <button type="button" onClick={() => setView("withdraw")}>{copy.withdraw}</button>
+          <button type="button" onClick={() => document.getElementById("wf-wallet-history")?.scrollIntoView({ behavior: "smooth", block: "start" })}>{fa ? "تاریخچه" : "History"}</button>
+        </nav>
+
         {wallet.networks.length === 0 && <section className="wallet-network-card"><p>{copy.noNetworks}</p></section>}
 
-        <section className="wallet-assets-list" aria-label={fa ? "دارایی‌های کیف پول" : "Wallet assets"}>
-          {wallet.networks.map((network) => <div className="wallet-assets-network" key={network.id}>
-            <div className="wallet-assets-network__heading">
-              <h2>{network.displayName}</h2>
-              <span>{network.assets.length} {fa ? "دارایی" : "assets"}</span>
+        <section className="wf-assets-panel" aria-label={fa ? "فهرست دارایی‌ها" : "Asset list"}>
+          <div className="wf-assets-panel__heading">
+            <div><h2>{fa ? "موجودی ارزها" : "Coin balances"}</h2><p>{fa ? "موجودی هر ارز را در شبکهٔ مربوطه مشاهده کنید." : "Review each asset balance on its respective network."}</p></div>
+            <span>{wallet.networks.reduce((count, network) => count + network.assets.length, 0)} {fa ? "دارایی" : "assets"}</span>
+          </div>
+          <div className="wf-assets-toolbar">
+            <label className="wf-assets-search">
+              <span aria-hidden="true">⌕</span>
+              <input type="search" placeholder={fa ? "جست‌وجوی نام ارز، نماد یا شبکه" : "Search coin, symbol or network"} value={assetSearch} onChange={(event) => setAssetSearch(event.target.value)} />
+            </label>
+            <label className="wf-network-filter">
+              <span>{fa ? "شبکه" : "Network"}</span>
+              <select value={networkFilter} onChange={(event) => setNetworkFilter(event.target.value)}>
+                <option value="all">{fa ? "همهٔ شبکه‌ها" : "All networks"}</option>
+                {wallet.networks.map((network) => <option key={network.id} value={network.id}>{network.displayName}</option>)}
+              </select>
+            </label>
+          </div>
+          <div className="wf-asset-table">
+            <div className="wf-asset-table__head">
+              <span>{fa ? "دارایی / شبکه" : "Asset / Network"}</span>
+              <span>{copy.available}</span>
+              <span>{copy.reserved}</span>
+              <span>{fa ? "عملیات" : "Actions"}</span>
             </div>
-            {network.assets.length === 0
-              ? <p className="wallet-deposit-minimum">{copy.noAssets}</p>
-              : network.assets.map((asset) => {
-                const expanded = expandedAssetId === asset.id;
+            {wallet.networks.flatMap((network) => network.assets.map((asset) => ({ network, asset })))
+              .filter(({ network, asset }) => (networkFilter === "all" || network.id === networkFilter) &&
+                `${asset.displayName} ${asset.symbol} ${network.displayName}`.toLocaleLowerCase(fa ? "fa-IR" : "en-US").includes(assetSearch.trim().toLocaleLowerCase(fa ? "fa-IR" : "en-US")))
+              .map(({ network, asset }) => {
                 const assetStatus = asset.verificationStatus === "VERIFIED";
-                return <article className={expanded ? "wallet-asset-item is-expanded" : "wallet-asset-item"} key={asset.id}>
-                  <button
-                    type="button"
-                    className="wallet-asset-summary"
-                    aria-expanded={expanded}
-                    aria-controls={`wallet-asset-details-${asset.id}`}
-                    onClick={() => setExpandedAssetId((current) => current === asset.id ? "" : asset.id)}
-                  >
-                    <span className="wallet-asset-symbol">{asset.symbol.slice(0, 4)}</span>
-                    <span className="wallet-asset-main">
-                      <strong>{asset.displayName}</strong>
-                      <small>{asset.symbol} · {network.displayName}</small>
-                    </span>
-                    <span className="wallet-asset-balance">
-                      <strong>{fmt(asset.availableBalance)}</strong>
-                      <small>{fa ? "قابل استفاده" : "Available"}</small>
-                    </span>
-                    <span className={expanded ? "wallet-asset-chevron is-open" : "wallet-asset-chevron"} aria-hidden="true">⌄</span>
-                  </button>
-                  {expanded && <div className="wallet-asset-details" id={`wallet-asset-details-${asset.id}`}>
-                    <div className="wallet-asset-detail-row">
-                      <span>{copy.available}</span><strong>{fmt(asset.availableBalance)} {asset.symbol}</strong>
-                    </div>
-                    <div className="wallet-asset-detail-row">
-                      <span>{copy.reserved}</span><strong>{fmt(asset.reservedBalance)} {asset.symbol}</strong>
-                    </div>
-                    <div className="wallet-asset-detail-row">
-                      <span>{copy.network}</span><strong>{network.displayName}</strong>
-                    </div>
-                    <div className="wallet-asset-detail-row">
-                      <span>{copy.status}</span>
-                      <strong className={assetStatus ? "wallet-status-on" : "wallet-status-off"}>
-                        {assetStatus ? copy.enabled : copy.reviewRequired}
-                      </strong>
-                    </div>
-                    <div className="wallet-asset-detail-row">
-                      <span>{copy.deposit}</span>
-                      <strong className={asset.depositEnabled ? "wallet-status-on" : "wallet-status-off"}>{networkStatus(asset.depositEnabled)}</strong>
-                    </div>
-                    <div className="wallet-asset-detail-row">
-                      <span>{copy.withdraw}</span>
-                      <strong className={asset.withdrawalEnabled ? "wallet-status-on" : "wallet-status-off"}>{networkStatus(asset.withdrawalEnabled)}</strong>
-                    </div>
-                    {asset.contractAddress && <div className="wallet-asset-detail-row wallet-asset-detail-row--contract">
-                      <span>{copy.contract}</span><code>{asset.contractAddress}</code>
-                    </div>}
-                    {asset.legacyDepositMode && <p className="wallet-deposit-minimum">{copy.legacyDepositMode}</p>}
-                    <div className="wallet-asset-actions">
-                      <button type="button" className="wallet-action wallet-action--deposit" disabled={!asset.depositEnabled || !network.address} onClick={() => {
-                        setSelectedNetworkId(network.id);
-                        setSelectedAssetId(asset.id);
-                        setView("deposit");
-                      }}><span>↓</span>{copy.deposit}</button>
-                      <button type="button" className="wallet-action wallet-action--withdraw" disabled={!asset.withdrawalEnabled} onClick={() => {
-                        setSelectedNetworkId(network.id);
-                        setSelectedAssetId(asset.id);
-                        setView("withdraw");
-                      }}><span>↑</span>{copy.withdraw}</button>
-                    </div>
-                    {!network.address && <p className="wallet-deposit-minimum">{copy.noAddress}</p>}
+                return <article className="wf-asset-row" key={asset.id}>
+                  <div className="wf-asset-identity">
+                    <span className="wf-asset-coin-icon">{asset.symbol.slice(0, 1)}</span>
+                    <span><strong>{asset.displayName}</strong><small>{asset.symbol} <i>·</i> {network.displayName}</small></span>
+                  </div>
+                  <div className="wf-asset-number"><strong>{fmt(asset.availableBalance)} <small>{asset.symbol}</small></strong><span>{fa ? "قابل استفاده" : "Available"}</span></div>
+                  <div className="wf-asset-number"><strong>{fmt(asset.reservedBalance)} <small>{asset.symbol}</small></strong><span>{fa ? "رزروشده" : "In order"}</span></div>
+                  <div className="wf-asset-row__actions">
+                    <button type="button" disabled={!asset.depositEnabled || !network.address} onClick={() => { setSelectedNetworkId(network.id); setSelectedAssetId(asset.id); setView("deposit"); }}>{copy.deposit}</button>
+                    <button type="button" disabled={!asset.withdrawalEnabled} onClick={() => { setSelectedNetworkId(network.id); setSelectedAssetId(asset.id); setView("withdraw"); }}>{copy.withdraw}</button>
+                    <button type="button" className="wf-more-action" aria-label={fa ? `جزئیات ${asset.displayName}` : `Details for ${asset.displayName}`} onClick={() => setExpandedAssetId((current) => current === asset.id ? "" : asset.id)}>{expandedAssetId === asset.id ? "⌃" : "⋯"}</button>
+                  </div>
+                  {expandedAssetId === asset.id && <div className="wf-asset-expanded">
+                    <div><span>{copy.status}</span><strong className={assetStatus ? "wallet-status-on" : "wallet-status-off"}>{assetStatus ? copy.enabled : copy.reviewRequired}</strong></div>
+                    <div><span>{copy.deposit}</span><strong className={asset.depositEnabled ? "wallet-status-on" : "wallet-status-off"}>{networkStatus(asset.depositEnabled)}</strong></div>
+                    <div><span>{copy.withdraw}</span><strong className={asset.withdrawalEnabled ? "wallet-status-on" : "wallet-status-off"}>{networkStatus(asset.withdrawalEnabled)}</strong></div>
+                    {asset.contractAddress && <div><span>{copy.contract}</span><code>{asset.contractAddress}</code></div>}
+                    {asset.legacyDepositMode && <p>{copy.legacyDepositMode}</p>}
+                    {!network.address && <p>{copy.noAddress}</p>}
                   </div>}
                 </article>;
               })}
-          </div>)}
+            {wallet.networks.every((network) => network.assets.length === 0) && <div className="wf-assets-empty">{copy.noAssets}</div>}
+            {wallet.networks.some((network) => network.assets.length > 0) &&
+              !wallet.networks.flatMap((network) => network.assets.map((asset) => ({ network, asset })))
+                .some(({ network, asset }) => (networkFilter === "all" || network.id === networkFilter) && `${asset.displayName} ${asset.symbol} ${network.displayName}`.toLocaleLowerCase(fa ? "fa-IR" : "en-US").includes(assetSearch.trim().toLocaleLowerCase(fa ? "fa-IR" : "en-US"))) &&
+              <div className="wf-assets-empty">{fa ? "دارایی‌ای با این عبارت پیدا نشد." : "No assets match your search."}</div>}
+          </div>
+          <p className="wf-assets-footnote">{copy.balanceNote}</p>
         </section>
 
         <section className="wallet-network-card">
           <div className="wallet-card-heading"><h2>{fa ? "سوابق قدیمی" : "Legacy records"}</h2></div>
-          <div className="wallet-network-row">
-            <span>{fa ? "موجودی قدیمی" : "Legacy balance"}</span>
-            <strong>{fmt(wallet.legacyBalance)} {wallet.currency}</strong>
-          </div>
+          <div className="wallet-network-row"><span>{fa ? "موجودی قدیمی" : "Legacy balance"}</span><strong>{fmt(wallet.legacyBalance)} {wallet.currency}</strong></div>
           <p className="wallet-deposit-minimum">{copy.legacyNotice}</p>
         </section>
 
-        <section className="wallet-history wallet-exchange-history">
+        <section id="wf-wallet-history" className="wallet-history wallet-exchange-history">
           <div className="wallet-card-heading"><h2>{copy.chainHistory}</h2></div>
           {wallet.onChainDeposits.length === 0 && wallet.onChainWithdrawals.length === 0
             ? <div className="wallet-empty"><p>{copy.noChainActivity}</p></div>
@@ -387,10 +384,7 @@ export default function WalletPage({ onNavigate }: Props) {
                 {[...wallet.onChainDeposits, ...wallet.onChainWithdrawals]
                   .sort((a, b) => new Date(b.detectedAt ?? b.requestedAt ?? 0).getTime() - new Date(a.detectedAt ?? a.requestedAt ?? 0).getTime())
                   .map((item) => <article className="wallet-transaction" key={item.id}>
-                    <div>
-                      <strong>{item.type} · {item.asset}</strong>
-                      <small>{item.network} · {item.status}</small>
-                    </div>
+                    <div><strong>{item.type} · {item.asset}</strong><small>{item.network} · {item.status}</small></div>
                     <small>{new Date(item.detectedAt ?? item.requestedAt ?? 0).toLocaleString(locale)}</small>
                     <b>{fmt(item.amount)} {item.asset}</b>
                     {item.transactionHash && <a href={item.explorerUrl ?? undefined} target="_blank" rel="noreferrer">{item.transactionHash.slice(0, 12)}…</a>}
@@ -403,9 +397,7 @@ export default function WalletPage({ onNavigate }: Props) {
           {wallet.transactions.length === 0 ? <div className="wallet-empty"><span>↔</span><p>{copy.empty}</p></div> : <div className="wallet-table">
             <div className="wallet-table-head"><span>{copy.type}</span><span>{copy.date}</span><span>{copy.amountColumn}</span></div>
             {wallet.transactions.map((item) => <article className="wallet-transaction" key={item.id}>
-              <div><strong>{item.type}</strong><small>{item.status}</small></div>
-              <small>{new Date(item.createdAt).toLocaleString(locale)}</small>
-              <b>{fmt(item.amount)} <small>{item.currency}</small></b>
+              <div><strong>{item.type}</strong><small>{item.status}</small></div><small>{new Date(item.createdAt).toLocaleString(locale)}</small><b>{fmt(item.amount)} <small>{item.currency}</small></b>
             </article>)}
           </div>}
         </section>
