@@ -789,6 +789,79 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
   }
 }
 
+export async function recoverKnownPreBroadcastTurnkeyFailure(
+  withdrawalId: string,
+  adminUserId: string,
+  rawReason: unknown,
+) {
+  const reason = requireReason(rawReason);
+  const expectedId = "ab79dd7e-fa69-4c16-8a5d-b7eb3ebee5a1";
+  if (withdrawalId !== expectedId) throw new Error("WITHDRAWAL_RECOVERY_NOT_ALLOWED");
+
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRawUnsafe(
+      "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
+      "wallet-chain-withdrawal:" + withdrawalId,
+    );
+    const withdrawal = await tx.walletChainWithdrawal.findUnique({
+      where: { id: withdrawalId },
+      include: { network: true, asset: true, walletAddress: true },
+    });
+    if (!withdrawal) throw new Error("WALLET_WITHDRAWAL_NOT_FOUND");
+
+    // This one-off recovery is restricted to the exact request whose Render
+    // logs establish a Turnkey resource lookup failure before any broadcast.
+    if (
+      withdrawal.status !== "SIGNING" ||
+      withdrawal.failureCode !== "SIGNING_OR_BROADCAST_OUTCOME_UNCERTAIN" ||
+      withdrawal.transactionReference !== null ||
+      withdrawal.broadcastAt !== null ||
+      withdrawal.signerActivityId !== null ||
+      withdrawal.network.chainId !== 137 ||
+      withdrawal.networkId !== "eip155:137" ||
+      withdrawal.asset.assetType !== "NATIVE" ||
+      withdrawal.asset.symbol !== "POL" ||
+      withdrawal.amountAtomic.toFixed(0) !== "4000000000000000000" ||
+      withdrawal.destinationAddress.toLowerCase() !== "0xad2d384361fcdc90eafbf9255ebd38179e43216b8" ||
+      withdrawal.walletAddress.address.toLowerCase() !== "0x0e1a39734f21baa1f6d9f5205bc90f42fdce89d7"
+    ) {
+      throw new Error("WITHDRAWAL_RECOVERY_PRECONDITIONS_FAILED");
+    }
+
+    const updated = await tx.walletChainWithdrawal.updateMany({
+      where: {
+        id: withdrawalId,
+        status: "SIGNING",
+        failureCode: "SIGNING_OR_BROADCAST_OUTCOME_UNCERTAIN",
+        transactionReference: null,
+        broadcastAt: null,
+        signerActivityId: null,
+      },
+      data: {
+        status: "APPROVED",
+        failureCode: null,
+        lastCheckedAt: new Date(),
+      },
+    });
+    if (updated.count !== 1) throw new Error("WITHDRAWAL_RECOVERY_STATE_CHANGED");
+
+    await tx.auditLog.create({
+      data: {
+        userId: adminUserId,
+        action: "WALLET_CHAIN_WITHDRAWAL_RECOVERED_PRE_BROADCAST",
+        entity: "WalletChainWithdrawal",
+        entityId: withdrawalId,
+        metadata: {
+          reason,
+          recoveryBasis: "Verified Turnkey signWith resource lookup failure before transaction broadcast; no hash, broadcast timestamp, or signer activity ID.",
+        },
+      },
+    });
+
+    return { id: withdrawalId, status: "APPROVED", recovered: true };
+  }, { isolationLevel: "Serializable" });
+}
+
 export async function reconcileChainWalletWithdrawal(withdrawalId: string, adminUserId: string) {
   const withdrawal = await prisma.walletChainWithdrawal.findUnique({
     where: { id: withdrawalId },
