@@ -478,6 +478,14 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
       if (completed.count === 1) credited++;
     }
 
+    await prisma.walletNetworkScanCursor.updateMany({
+      where: { networkId, leaseOwner: owner },
+      data: {
+        lastSuccessfulScanAt: new Date(),
+        heartbeatAt: new Date(),
+        leaseExpiresAt: new Date(Date.now() + LEASE_MS),
+      },
+    });
     await refreshLease(networkId, owner);
     return {
       networkId,
@@ -492,7 +500,7 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
   } finally {
     await prisma.walletNetworkScanCursor.updateMany({
       where: { networkId, leaseOwner: owner },
-      data: { leaseOwner: null, leaseExpiresAt: null, heartbeatAt: new Date() },
+      data: { leaseOwner: null, leaseExpiresAt: null },
     }).catch((error) => {
       console.error("Could not release wallet network scanner lease", { networkId, error });
     });
