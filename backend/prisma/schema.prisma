@@ -1021,6 +1021,7 @@ model WalletChainDeposit {
   toAddress                  String
   rawAmount                  String
   amountAtomic               Decimal @db.Decimal(78, 0)
+  reviewReason               String?
   status                     WalletDepositStatus @default(DETECTED)
   confirmationCount          Int @default(0)
   creditedJournalId          String? @unique
