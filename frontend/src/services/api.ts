@@ -632,6 +632,7 @@ export type WalletAssetView = {
   confirmationCount: number;
   depositEnabled: boolean;
   withdrawalEnabled: boolean;
+  legacyDepositMode?: boolean;
   balance: string;
   availableBalance: string;
   reservedBalance: string;
@@ -652,6 +653,7 @@ export type WalletNetworkView = {
   withdrawalEnabled: boolean;
   address: string | null;
   assets: WalletAssetView[];
+  legacyDepositMode?: boolean;
 };
 
 export type WalletChainActivity = {
@@ -674,6 +676,7 @@ export type WalletChainActivity = {
   feeAsset?: string | null;
   reviewReason?: string | null;
   failureCode?: string | null;
+  legacy?: boolean;
 };
 
 export type WalletResult = {
@@ -684,6 +687,7 @@ export type WalletResult = {
   legacyAvailableBalance: string;
   walletAddress?: string | null;
   turnkeyConfigured?: boolean;
+  walletProvisioningReviewRequired?: boolean;
   supportedNetworks?: Array<{
     chainId: number;
     networkKey: string;
@@ -712,6 +716,7 @@ export type WalletDepositDetails = {
   confirmationsRequired: number;
   status: string;
   message: string;
+  legacyDepositMode?: boolean;
 };
 
 export async function getWallet(): Promise<WalletResult> {
