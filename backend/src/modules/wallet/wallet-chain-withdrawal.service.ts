@@ -236,11 +236,38 @@ export async function requestChainWalletWithdrawal(input: {
   const assetId = input.assetId.trim();
   if (!networkId || !assetId) throw new Error("INVALID_WALLET_ASSET_SELECTION");
 
-  if (typeof input.destinationAddress !== "string" || !isAddress(input.destinationAddress.trim())) {
+  if (typeof input.destinationAddress !== "string" || !isAddress(input.destinationAddress.trim(), { strict: false })) {
     throw new Error("INVALID_DESTINATION_ADDRESS");
   }
   const destinationAddress = input.destinationAddress.trim().toLowerCase();
   const idempotencyKey = requireIdempotencyKey(input.idempotencyKey);
+
+  // Resolve idempotent retries before Turnkey provisioning and a fresh RPC fee
+  // quote. This prevents a repeated HTTP request from creating side effects.
+  const priorRequest = await prisma.walletChainWithdrawal.findUnique({
+    where: { idempotencyKey },
+    include: { asset: { select: { decimals: true } } },
+  });
+  if (priorRequest) {
+    const retryAmount = typeof input.amount === "string"
+      ? parseAssetUnits(input.amount, priorRequest.asset.decimals)
+      : (() => { throw new Error("INVALID_WALLET_AMOUNT"); })();
+    if (
+      priorRequest.userId !== input.userId ||
+      priorRequest.networkId !== networkId ||
+      priorRequest.walletAssetId !== assetId ||
+      priorRequest.destinationAddress !== destinationAddress ||
+      priorRequest.amountAtomic.toString() !== retryAmount.toString()
+    ) {
+      throw new Error("WALLET_WITHDRAWAL_IDEMPOTENCY_CONFLICT");
+    }
+    return {
+      ...priorRequest,
+      amount: priorRequest.amountAtomic.toString(),
+      fee: priorRequest.feeAtomic?.toString() ?? null,
+      reused: true,
+    };
+  }
 
   const wallet = await provisionTurnkeyWallet(input.userId);
   if (!wallet || wallet.status !== "ACTIVE" || !wallet.turnkeyOrganizationId || !wallet.turnkeyWalletId) {
@@ -310,7 +337,12 @@ export async function requestChainWalletWithdrawal(input: {
       ) {
         throw new Error("WALLET_WITHDRAWAL_IDEMPOTENCY_CONFLICT");
       }
-      return duplicate;
+      return {
+        ...duplicate,
+        amount: duplicate.amountAtomic.toString(),
+        fee: duplicate.feeAtomic?.toString() ?? null,
+        reused: true,
+      };
     }
 
     const lockKeys = Array.from(new Set([asset.id, feeAsset.id]))
