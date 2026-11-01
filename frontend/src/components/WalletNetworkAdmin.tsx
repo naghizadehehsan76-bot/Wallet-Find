@@ -41,6 +41,10 @@ export default function WalletNetworkAdmin({ fa }: Props) {
     minDeposit: fa ? "حداقل واریز (Atomic)" : "Minimum deposit (atomic)",
     verification: fa ? "اعتبارسنجی" : "Verification",
     scanner: fa ? "وضعیت اسکنر" : "Scanner status",
+    adapter: fa ? "Adapter واریز" : "Deposit adapter",
+    withdrawalAdapter: fa ? "Adapter برداشت" : "Withdrawal adapter",
+    ready: fa ? "آماده" : "Ready",
+    notImplemented: fa ? "هنوز پیاده‌سازی نشده" : "Not implemented",
     cursor: fa ? "آخرین موقعیت پردازش‌شده" : "Last processed position",
     noCursor: fa ? "هنوز راه‌اندازی نشده" : "Not initialized",
     lastSuccessfulScan: fa ? "آخرین اسکن موفق" : "Last successful scan",
@@ -202,18 +206,19 @@ export default function WalletNetworkAdmin({ fa }: Props) {
           <span className={statusClass(network.depositEnabled)}>{copy.deposits}: {gate(network.depositEnabled)}</span>
           <span className={statusClass(network.withdrawalEnabled)}>{copy.withdrawals}: {gate(network.withdrawalEnabled)}</span>
         </div>
+        <small>{copy.adapter}: {network.adapterReady ? copy.ready : copy.notImplemented} · {copy.withdrawalAdapter}: {network.withdrawalAdapterReady ? copy.ready : copy.notImplemented}</small>
         <small>{copy.confirmations}: {network.finalityDepth}</small>
         <small>{copy.addresses}: {network.counts.addresses} · {copy.depositsCount}: {network.counts.deposits} · {copy.withdrawalCount}: {network.counts.withdrawals}</small>
         <small>{copy.scanner}: {network.scanner ? copy.enabled : copy.noCursor}</small>
         {network.scanner && <small>{copy.cursor}: {network.scanner.cursorPosition} · {copy.lastSuccessfulScan}: {network.scanner.lastSuccessfulScanAt ? new Date(network.scanner.lastSuccessfulScanAt).toLocaleString(fa ? "fa-IR" : "en-GB") : copy.noCursor}</small>}
         <div className="admin-wallet-network-actions">
-          <button type="button" disabled={Boolean(saving)} onClick={() => void saveNetwork(network.id, { isEnabled: !network.isEnabled })}>
+          <button type="button" disabled={Boolean(saving) || (!network.isEnabled && !network.adapterReady)} onClick={() => void saveNetwork(network.id, { isEnabled: !network.isEnabled })}>
             {saving === network.id ? "…" : network.isEnabled ? copy.disableNetwork : copy.activation}
           </button>
           <button type="button" disabled={Boolean(saving) || !network.isEnabled} onClick={() => void saveNetwork(network.id, { depositEnabled: !network.depositEnabled })}>
             {copy.depositToggle}
           </button>
-          <button type="button" disabled={Boolean(saving) || !network.isEnabled} onClick={() => void saveNetwork(network.id, { withdrawalEnabled: !network.withdrawalEnabled })}>
+          <button type="button" disabled={Boolean(saving) || !network.isEnabled || !network.withdrawalAdapterReady} onClick={() => void saveNetwork(network.id, { withdrawalEnabled: !network.withdrawalEnabled })}>
             {copy.withdrawalToggle}
           </button>
         </div>
@@ -235,7 +240,7 @@ export default function WalletNetworkAdmin({ fa }: Props) {
             <button type="button" disabled={Boolean(saving) || !network.isEnabled || !network.depositEnabled || asset.verificationStatus !== "VERIFIED"} onClick={() => void saveAsset(asset.id, { depositEnabled: !asset.depositEnabled })}>
               {fa ? "تغییر واریز" : "Toggle deposit"}
             </button>
-            <button type="button" disabled={Boolean(saving) || !network.isEnabled || !network.withdrawalEnabled || asset.verificationStatus !== "VERIFIED"} onClick={() => void saveAsset(asset.id, { withdrawalEnabled: !asset.withdrawalEnabled })}>
+            <button type="button" disabled={Boolean(saving) || !network.isEnabled || !network.withdrawalAdapterReady || !network.withdrawalEnabled || asset.verificationStatus !== "VERIFIED"} onClick={() => void saveAsset(asset.id, { withdrawalEnabled: !asset.withdrawalEnabled })}>
               {fa ? "تغییر برداشت" : "Toggle withdrawal"}
             </button>
           </div>
