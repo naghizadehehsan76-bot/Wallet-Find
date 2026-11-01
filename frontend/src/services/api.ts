@@ -618,30 +618,141 @@ export type WalletTransaction = {
   createdAt: string;
 };
 
+export type WalletAssetView = {
+  id: string;
+  symbol: string;
+  displayName: string;
+  assetType: "NATIVE" | "TOKEN";
+  assetReference: string;
+  contractAddress: string | null;
+  decimals: number;
+  issuerClassification: string;
+  verificationStatus: "PENDING_VERIFICATION" | "VERIFIED" | "REVIEW_REQUIRED" | "REJECTED";
+  minDeposit: string | null;
+  confirmationCount: number;
+  depositEnabled: boolean;
+  withdrawalEnabled: boolean;
+  legacyDepositMode?: boolean;
+  balance: string;
+  availableBalance: string;
+  reservedBalance: string;
+};
+
+export type WalletNetworkView = {
+  id: string;
+  family: "EVM" | "BITCOIN" | "SOLANA";
+  chainId: number | null;
+  networkKey: string;
+  displayName: string;
+  nativeAssetSymbol: string;
+  nativeAssetDecimals: number;
+  explorerTransactionUrlTemplate: string | null;
+  finalityDepth: number;
+  adapterReady: boolean;
+  withdrawalAdapterReady: boolean;
+  isEnabled: boolean;
+  depositEnabled: boolean;
+  withdrawalEnabled: boolean;
+  address: string | null;
+  assets: WalletAssetView[];
+  legacyDepositMode?: boolean;
+};
+
+export type WalletChainActivity = {
+  id: string;
+  type: "DEPOSIT" | "WITHDRAWAL";
+  networkId: string;
+  network: string;
+  asset: string;
+  amount: string;
+  status: string;
+  transactionHash: string | null;
+  explorerUrl: string | null;
+  confirmationCount: number;
+  detectedAt?: string;
+  requestedAt?: string;
+  creditedAt?: string | null;
+  confirmedAt?: string | null;
+  estimatedFee?: string | null;
+  actualFee?: string | null;
+  feeAsset?: string | null;
+  reviewReason?: string | null;
+  failureCode?: string | null;
+  legacy?: boolean;
+};
+
 export type WalletResult = {
   currency: string;
   balance: string;
   availableBalance: string;
+  legacyBalance: string;
+  legacyAvailableBalance: string;
   walletAddress?: string | null;
+  turnkeyConfigured?: boolean;
+  walletProvisioningReviewRequired?: boolean;
   supportedNetworks?: Array<{
     chainId: number;
     networkKey: string;
     depositEnabled: boolean;
     withdrawalEnabled: boolean;
   }>;
+  networks: WalletNetworkView[];
+  onChainDeposits: WalletChainActivity[];
+  onChainWithdrawals: WalletChainActivity[];
   transactions: WalletTransaction[];
+};
+
+export type WalletDepositDetails = {
+  networkId: string;
+  network: string;
+  family: "EVM" | "BITCOIN" | "SOLANA";
+  chainId: number | null;
+  assetId: string;
+  asset: string;
+  displayName: string;
+  assetType: "NATIVE" | "TOKEN";
+  contractAddress: string | null;
+  decimals: number;
+  depositAddress: string;
+  minDeposit: string | null;
+  confirmationsRequired: number;
+  status: string;
+  message: string;
+  legacyDepositMode?: boolean;
 };
 
 export async function getWallet(): Promise<WalletResult> {
   return request<WalletResult>("/wallet/me", {}, true);
 }
 
-export async function requestWalletDeposit(amount: string): Promise<{ transaction: WalletTransaction; message: string }> {
-  return request<{ transaction: WalletTransaction; message: string }>("/wallet/deposit", { method: "POST", body: JSON.stringify({ amount }) }, true);
+export async function requestWalletDeposit(networkId: string, assetId: string): Promise<WalletDepositDetails> {
+  return request<WalletDepositDetails>("/wallet/deposit", {
+    method: "POST",
+    body: JSON.stringify({ networkId, assetId }),
+  }, true);
 }
 
-export async function requestWalletWithdrawal(amount: string): Promise<{ transaction: WalletTransaction; message: string }> {
-  return request<{ transaction: WalletTransaction; message: string }>("/wallet/withdraw", { method: "POST", body: JSON.stringify({ amount }) }, true);
+export type WalletWithdrawalRequestResult = {
+  id: string;
+  status: string;
+  amount: string;
+  fee: string | null;
+  reused: boolean;
+  idempotencyKey: string;
+  transactionReference?: string | null;
+};
+
+export async function requestWalletWithdrawal(input: {
+  networkId: string;
+  assetId: string;
+  amount: string;
+  destinationAddress: string;
+  idempotencyKey: string;
+}): Promise<WalletWithdrawalRequestResult> {
+  return request<WalletWithdrawalRequestResult>("/wallet/withdraw", {
+    method: "POST",
+    body: JSON.stringify(input),
+  }, true);
 }
 
 
@@ -654,6 +765,174 @@ export type AdminWalletSummary = {
   pendingDepositRequests: number;
   pendingWithdrawalRequests: number;
 };
+
+export type AdminWalletAsset = {
+  id: string;
+  symbol: string;
+  displayName: string;
+  assetType: "NATIVE" | "TOKEN";
+  contractAddress: string | null;
+  decimals: number;
+  issuerClassification: string;
+  verificationStatus: string;
+  minDepositAtomic: string | null;
+  confirmationCount: number;
+  depositEnabled: boolean;
+  withdrawalEnabled: boolean;
+};
+
+export type AdminWalletNetwork = {
+  id: string;
+  family: "EVM" | "BITCOIN" | "SOLANA";
+  chainId: number | null;
+  networkKey: string;
+  displayName: string;
+  nativeAssetSymbol: string;
+  nativeAssetDecimals: number;
+  isEnabled: boolean;
+  adapterReady: boolean;
+  withdrawalAdapterReady: boolean;
+  depositEnabled: boolean;
+  withdrawalEnabled: boolean;
+  finalityDepth: number;
+  assets: AdminWalletAsset[];
+  scanner: {
+    cursorPosition: string;
+    cursorHash: string | null;
+    leaseOwner: string | null;
+    leaseExpiresAt: string | null;
+    heartbeatAt: string | null;
+    lastSuccessfulScanAt: string | null;
+  } | null;
+  counts: { addresses: number; deposits: number; withdrawals: number };
+};
+
+export type AdminWalletNetworkRegistry = {
+  globalEmergencyPause: { active: boolean; updatedAt: string | null };
+  networks: AdminWalletNetwork[];
+  provisioning: Array<{ status: string; count: number }>;
+  generatedAt: string;
+  activationGates: { depositsReady: boolean; withdrawalsReady: boolean };
+};
+
+export async function emergencyPauseAllWalletOperations(reason: string): Promise<{
+  paused: boolean;
+  networksChanged: number;
+  assetsChanged: number;
+  legacyAssetsChanged: number;
+  legacyAccountsChanged: number;
+  note: string;
+}> {
+  return request("/admin/wallet-emergency-pause", {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  }, true);
+}
+
+export async function resumeWalletOperations(reason: string): Promise<{
+  paused: boolean;
+  networkAndAssetSwitchesRemainDisabled: boolean;
+  note: string;
+}> {
+  return request("/admin/wallet-emergency-resume", {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  }, true);
+}
+
+export async function getAdminWalletNetworkRegistry(): Promise<AdminWalletNetworkRegistry> {
+  return request<AdminWalletNetworkRegistry>("/admin/wallet-networks", {}, true);
+}
+
+export async function updateAdminWalletNetwork(
+  networkId: string,
+  patch: {
+    isEnabled?: boolean;
+    depositEnabled?: boolean;
+    withdrawalEnabled?: boolean;
+    finalityDepth?: number;
+    reason: string;
+  },
+): Promise<AdminWalletNetwork> {
+  return request<AdminWalletNetwork>("/admin/wallet-networks/" + encodeURIComponent(networkId), {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  }, true);
+}
+
+export async function updateAdminWalletAsset(
+  assetId: string,
+  patch: {
+    depositEnabled?: boolean;
+    withdrawalEnabled?: boolean;
+    confirmationCount?: number;
+    minDeposit?: string | null;
+    reason: string;
+  },
+): Promise<AdminWalletAsset> {
+  return request<AdminWalletAsset>("/admin/wallet-assets/" + encodeURIComponent(assetId), {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  }, true);
+}
+
+export type AdminChainWalletWithdrawal = {
+  id: string;
+  userId: string;
+  username: string;
+  email: string;
+  networkId: string;
+  network: string;
+  chainId: number | null;
+  assetId: string;
+  asset: string;
+  decimals: number;
+  feeAsset: string | null;
+  feeDecimals: number | null;
+  destinationAddress: string;
+  amount: string;
+  estimatedFee: string | null;
+  actualFee: string | null;
+  status: string;
+  failureCode: string | null;
+  reviewReason: string | null;
+  transactionHash: string | null;
+  confirmationCount: number;
+  requestedAt: string;
+  reviewedAt: string | null;
+  broadcastAt: string | null;
+  confirmedAt: string | null;
+  lastCheckedAt: string | null;
+};
+
+export async function getAdminChainWalletWithdrawals(): Promise<AdminChainWalletWithdrawal[]> {
+  return request<AdminChainWalletWithdrawal[]>("/admin/wallet-chain-withdrawals", {}, true);
+}
+
+export async function reviewAdminChainWalletWithdrawal(
+  id: string,
+  decision: "APPROVE" | "REJECT",
+  reason: string,
+): Promise<unknown> {
+  return request("/admin/wallet-chain-withdrawals/" + encodeURIComponent(id) + "/review", {
+    method: "POST",
+    body: JSON.stringify({ decision, reason }),
+  }, true);
+}
+
+export async function executeAdminChainWalletWithdrawal(id: string): Promise<unknown> {
+  return request("/admin/wallet-chain-withdrawals/" + encodeURIComponent(id) + "/execute", {
+    method: "POST",
+    body: JSON.stringify({}),
+  }, true);
+}
+
+export async function reconcileAdminChainWalletWithdrawal(id: string): Promise<unknown> {
+  return request("/admin/wallet-chain-withdrawals/" + encodeURIComponent(id) + "/reconcile", {
+    method: "POST",
+    body: JSON.stringify({}),
+  }, true);
+}
 
 export async function getAdminWallets(): Promise<AdminWalletSummary[]> {
   return request<AdminWalletSummary[]>("/admin/wallets", {}, true);

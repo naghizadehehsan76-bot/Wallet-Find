@@ -1,8 +1,8 @@
-import { createCipheriv, createDecipheriv, createECDH, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createECDH, randomBytes, randomUUID } from "node:crypto";
 import { Turnkey } from "@turnkey/sdk-server";
 import { createAccount } from "@turnkey/viem";
 import { createWalletClient, http, type WalletClient } from "viem";
-import { bsc, polygon } from "viem/chains";
+import { arbitrum, bsc, mainnet, optimism, polygon } from "viem/chains";
 import prisma from "../../config/prisma.js";
 
 const requiredEnv = [
@@ -56,6 +56,17 @@ function decryptApiPrivateKey(payload: string): string {
   }
 }
 
+function turnkeyEvmChain(chainId: number) {
+  switch (chainId) {
+    case 1: return { chain: mainnet, rpcEnv: "ETHEREUM_RPC_URL" };
+    case 10: return { chain: optimism, rpcEnv: "OPTIMISM_RPC_URL" };
+    case 56: return { chain: bsc, rpcEnv: "BSC_RPC_URL" };
+    case 137: return { chain: polygon, rpcEnv: "POLYGON_RPC_URL" };
+    case 42161: return { chain: arbitrum, rpcEnv: "ARBITRUM_RPC_URL" };
+    default: throw new Error("TURNKEY_EVM_CHAIN_NOT_SUPPORTED");
+  }
+}
+
 function generateSubOrganizationApiKey() {
   const ecdh = createECDH("prime256v1");
   ecdh.generateKeys();
@@ -65,18 +76,90 @@ function generateSubOrganizationApiKey() {
   };
 }
 
+async function registerWalletEvmNetworks(
+  tx: any,
+  walletAccountId: string,
+  address: string,
+) {
+  const networks = [
+    { chainId: 1, networkKey: "ethereum", networkId: "eip155:1" },
+    { chainId: 10, networkKey: "optimism", networkId: "eip155:10" },
+    { chainId: 56, networkKey: "bsc", networkId: "eip155:56" },
+    { chainId: 137, networkKey: "polygon", networkId: "eip155:137" },
+    { chainId: 42161, networkKey: "arbitrum", networkId: "eip155:42161" },
+  ] as const;
+
+  for (const item of networks) {
+    const registry = await tx.walletNetwork.findUnique({
+      where: { id: item.networkId },
+      select: { id: true, family: true },
+    });
+    if (!registry || registry.family !== "EVM") {
+      throw new Error("WALLET_NETWORK_REGISTRY_NOT_INITIALIZED");
+    }
+
+    await tx.walletNetworkAccount.upsert({
+      where: {
+        walletAccountId_chainId: {
+          walletAccountId,
+          chainId: item.chainId,
+        },
+      },
+      create: {
+        walletAccountId,
+        chainId: item.chainId,
+        networkKey: item.networkKey,
+        depositEnabled: false,
+        withdrawalEnabled: false,
+      },
+      update: {},
+    });
+
+    await tx.walletAddress.upsert({
+      where: {
+        walletAccountId_networkId: {
+          walletAccountId,
+          networkId: item.networkId,
+        },
+      },
+      create: {
+        walletAccountId,
+        networkId: item.networkId,
+        address: address.toLowerCase(),
+        addressType: "EVM",
+        curve: "SECP256K1",
+        derivationPath: WALLET_PATH,
+        isPrimary: true,
+        status: "ACTIVE",
+      },
+      update: {
+        address: address.toLowerCase(),
+        addressType: "EVM",
+        curve: "SECP256K1",
+        derivationPath: WALLET_PATH,
+        isPrimary: true,
+        status: "ACTIVE",
+      },
+    });
+  }
+}
+
 /**
- * Creates one custodial Turnkey sub-organization and its Polygon-compatible EVM
- * wallet for a verified Wallet-Find user. The per-user API private key is
- * encrypted at rest and is never returned by an application endpoint.
+ * Creates one custodial Turnkey Sub-Organization for a verified user.
+ *
+ * The durable intent and encrypted per-user API credential are committed
+ * before the remote Turnkey request. No database transaction is held open
+ * while calling Turnkey. Any uncertain remote outcome is quarantined for
+ * reconciliation rather than blindly creating a second organization.
  */
 export async function provisionTurnkeyWallet(userId: string) {
   if (!isTurnkeyConfigured()) throw new Error("TURNKEY_NOT_CONFIGURED");
 
-  // A transaction-scoped advisory lock prevents concurrent wallet-page requests
-  // from provisioning more than one sub-organization for the same user.
-  return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext(${`wallet-provision:${userId}`}))) AS advisory_lock`;
+  const preparation = await prisma.$transaction(async (tx) => {
+    await tx.$queryRawUnsafe(
+      "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
+      "wallet-provision:" + userId,
+    );
 
     const user = await tx.user.findUnique({
       where: { id: userId },
@@ -89,18 +172,84 @@ export async function provisionTurnkeyWallet(userId: string) {
       where: { userId },
       include: { networkAccounts: true },
     });
-    if (existing?.turnkeyOrganizationId && existing.turnkeyWalletId) return existing;
+    if (existing?.turnkeyOrganizationId && existing.turnkeyWalletId) {
+      await registerWalletEvmNetworks(tx, existing.id, existing.address);
+      return { kind: "READY" as const, walletAccountId: existing.id };
+    }
+    if (existing?.turnkeyOrganizationId || existing?.turnkeyWalletId) {
+      throw new Error("TURNKEY_WALLET_RECORD_REQUIRES_REVIEW");
+    }
 
-    const { client: parentClient } = turnkeyConfig();
+    const registries = await tx.walletNetwork.findMany({
+      where: { id: { in: ["eip155:1", "eip155:10", "eip155:56", "eip155:137", "eip155:42161"] }, family: "EVM" },
+      select: { id: true },
+    });
+    if (registries.length !== 5) throw new Error("WALLET_NETWORK_REGISTRY_NOT_INITIALIZED");
+
+    const priorIntent = await tx.walletProvisioningIntent.findUnique({
+      where: { userId },
+    });
+    if (priorIntent) {
+      if (priorIntent.status === "COMPLETED") {
+        throw new Error("TURNKEY_PROVISIONING_RECORD_INCONSISTENT");
+      }
+      if (priorIntent.status === "CREATING") {
+        const staleBefore = Date.now() - 5 * 60_000;
+        if (priorIntent.updatedAt.getTime() < staleBefore) {
+          await tx.walletProvisioningIntent.update({
+            where: { id: priorIntent.id },
+            data: {
+              status: "REQUIRES_REVIEW",
+              failureCode: "STALE_TURNKEY_REMOTE_OUTCOME_REQUIRES_RECONCILIATION",
+            },
+          });
+          return { kind: "REVIEW" as const };
+        }
+        throw new Error("TURNKEY_PROVISIONING_IN_PROGRESS");
+      }
+      throw new Error("TURNKEY_PROVISIONING_REQUIRES_REVIEW");
+    }
+
     const apiKey = generateSubOrganizationApiKey();
-    const created = await parentClient.createSubOrganization({
-      subOrganizationName: `Wallet-Find user ${user.id}`,
+    const intent = await tx.walletProvisioningIntent.create({
+      data: {
+        userId,
+        idempotencyKey: randomUUID(),
+        status: "CREATING",
+        turnkeyApiPublicKey: apiKey.publicKey,
+        turnkeyApiPrivateKeyEncrypted: encryptApiPrivateKey(apiKey.privateKey),
+      },
+    });
+    return {
+      kind: "CREATE" as const,
+      user,
+      intentId: intent.id,
+      apiPublicKey: intent.turnkeyApiPublicKey,
+    };
+  }, { isolationLevel: "Serializable" });
+
+  if (preparation.kind === "READY") {
+    return prisma.walletAccount.findUniqueOrThrow({
+      where: { id: preparation.walletAccountId },
+      include: { networkAccounts: true },
+    });
+  }
+  if (preparation.kind === "REVIEW") {
+    throw new Error("TURNKEY_PROVISIONING_REQUIRES_REVIEW");
+  }
+
+  const { client: parentClient } = turnkeyConfig();
+  let created: Awaited<ReturnType<typeof parentClient.createSubOrganization>>;
+
+  try {
+    created = await parentClient.createSubOrganization({
+      subOrganizationName: "Wallet-Find user " + preparation.user.id + " " + preparation.intentId,
       rootUsers: [{
-        userName: user.username,
-        userEmail: user.email,
+        userName: preparation.user.username,
+        userEmail: preparation.user.email,
         apiKeys: [{
           apiKeyName: "Wallet-Find custodial service",
-          publicKey: apiKey.publicKey,
+          publicKey: preparation.apiPublicKey,
           curveType: "API_KEY_CURVE_P256",
         }],
         authenticators: [],
@@ -108,7 +257,7 @@ export async function provisionTurnkeyWallet(userId: string) {
       }],
       rootQuorumThreshold: 1,
       wallet: {
-        walletName: `Wallet-Find Polygon wallet ${user.id}`,
+        walletName: "Wallet-Find user wallet " + preparation.user.id,
         accounts: [{
           curve: "CURVE_SECP256K1",
           pathFormat: "PATH_FORMAT_BIP32",
@@ -121,68 +270,126 @@ export async function provisionTurnkeyWallet(userId: string) {
       disableSmsAuth: true,
       disableOtpEmailAuth: true,
     });
+  } catch {
+    await prisma.walletProvisioningIntent.updateMany({
+      where: { id: preparation.intentId, status: "CREATING" },
+      data: {
+        status: "REQUIRES_REVIEW",
+        failureCode: "TURNKEY_REMOTE_RESULT_UNCERTAIN",
+      },
+    }).catch(() => undefined);
+    throw new Error("TURNKEY_PROVISIONING_REQUIRES_REVIEW");
+  }
 
-    const organizationId = created.subOrganizationId;
-    const walletId = created.wallet?.walletId;
-    const address = created.wallet?.addresses?.[0];
-    if (!organizationId || !walletId || !address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
-      // The remote activity may have completed. Do not retry blindly: that could
-      // create duplicate organizations. The failed provisioning requires review.
-      throw new Error("TURNKEY_SUB_ORGANIZATION_CREATION_REQUIRES_REVIEW");
-    }
+  const organizationId = created.subOrganizationId;
+  const walletId = created.wallet?.walletId;
+  const address = created.wallet?.addresses?.[0];
 
-    const wallet = existing
-      ? await tx.walletAccount.update({
-          where: { userId },
-          data: {
-            turnkeyOrganizationId: organizationId,
-            turnkeyWalletId: walletId,
-            turnkeyApiPublicKey: apiKey.publicKey,
-            turnkeyApiPrivateKeyEncrypted: encryptApiPrivateKey(apiKey.privateKey),
-            legacyTurnkeyWalletId: existing.legacyTurnkeyWalletId ?? existing.turnkeyWalletId,
-            legacyAddress: existing.legacyAddress ?? existing.address,
-            address: address.toLowerCase(),
-            derivationPath: WALLET_PATH,
-            status: "ACTIVE",
-          },
-          include: { networkAccounts: true },
-        })
-      : await tx.walletAccount.create({
-          data: {
-            userId,
-            turnkeyOrganizationId: organizationId,
-            turnkeyWalletId: walletId,
-            turnkeyApiPublicKey: apiKey.publicKey,
-            turnkeyApiPrivateKeyEncrypted: encryptApiPrivateKey(apiKey.privateKey),
-            address: address.toLowerCase(),
-            derivationPath: WALLET_PATH,
-            status: "ACTIVE",
-          },
-          include: { networkAccounts: true },
-        });
+  if (!organizationId || !walletId || !address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+    await prisma.walletProvisioningIntent.update({
+      where: { id: preparation.intentId },
+      data: {
+        status: "REQUIRES_REVIEW",
+        turnkeyOrganizationId: organizationId ?? null,
+        turnkeyWalletId: walletId ?? null,
+        address: address && /^0x[a-fA-F0-9]{40}$/.test(address) ? address.toLowerCase() : null,
+        failureCode: "TURNKEY_REMOTE_RESPONSE_INCOMPLETE",
+      },
+    }).catch(() => undefined);
+    throw new Error("TURNKEY_PROVISIONING_REQUIRES_REVIEW");
+  }
 
-    for (const network of [
-      { chainId: 56, networkKey: "bsc" },
-      { chainId: 137, networkKey: "polygon" },
-    ]) {
-      await tx.walletNetworkAccount.upsert({
-        where: { walletAccountId_chainId: { walletAccountId: wallet.id, chainId: network.chainId } },
-        create: { walletAccountId: wallet.id, ...network, depositEnabled: false, withdrawalEnabled: false },
-        update: {},
+  try {
+    const walletAccountId = await prisma.$transaction(async (tx) => {
+      await tx.$queryRawUnsafe(
+        "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
+        "wallet-provision:" + userId,
+      );
+
+      const intent = await tx.walletProvisioningIntent.findUnique({
+        where: { id: preparation.intentId },
       });
-    }
+      if (!intent || intent.status !== "CREATING") {
+        throw new Error("TURNKEY_PROVISIONING_STATE_CHANGED");
+      }
 
-    return tx.walletAccount.findUniqueOrThrow({
-      where: { id: wallet.id },
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { emailVerifiedAt: true },
+      });
+      if (!user?.emailVerifiedAt) throw new Error("EMAIL_NOT_VERIFIED");
+
+      const existing = await tx.walletAccount.findUnique({ where: { userId } });
+      if (existing?.turnkeyOrganizationId || existing?.turnkeyWalletId) {
+        throw new Error("TURNKEY_WALLET_RECORD_REQUIRES_REVIEW");
+      }
+
+      const wallet = existing
+        ? await tx.walletAccount.update({
+            where: { userId },
+            data: {
+              turnkeyOrganizationId: organizationId,
+              turnkeyWalletId: walletId,
+              turnkeyApiPublicKey: intent.turnkeyApiPublicKey,
+              turnkeyApiPrivateKeyEncrypted: intent.turnkeyApiPrivateKeyEncrypted,
+              legacyTurnkeyWalletId: existing.legacyTurnkeyWalletId ?? existing.turnkeyWalletId,
+              legacyAddress: existing.legacyAddress ?? existing.address,
+              address: address.toLowerCase(),
+              derivationPath: WALLET_PATH,
+              status: "ACTIVE",
+            },
+          })
+        : await tx.walletAccount.create({
+            data: {
+              userId,
+              turnkeyOrganizationId: organizationId,
+              turnkeyWalletId: walletId,
+              turnkeyApiPublicKey: intent.turnkeyApiPublicKey,
+              turnkeyApiPrivateKeyEncrypted: intent.turnkeyApiPrivateKeyEncrypted,
+              address: address.toLowerCase(),
+              derivationPath: WALLET_PATH,
+              status: "ACTIVE",
+            },
+          });
+
+      await registerWalletEvmNetworks(tx, wallet.id, address);
+      await tx.walletProvisioningIntent.update({
+        where: { id: intent.id },
+        data: {
+          status: "COMPLETED",
+          turnkeyOrganizationId: organizationId,
+          turnkeyWalletId: walletId,
+          address: address.toLowerCase(),
+          failureCode: null,
+          completedAt: new Date(),
+        },
+      });
+      return wallet.id;
+    }, { isolationLevel: "Serializable" });
+
+    return prisma.walletAccount.findUniqueOrThrow({
+      where: { id: walletAccountId },
       include: { networkAccounts: true },
     });
-  }, { timeout: 120_000, maxWait: 15_000 });
+  } catch {
+    await prisma.walletProvisioningIntent.updateMany({
+      where: { id: preparation.intentId, status: "CREATING" },
+      data: {
+        status: "REQUIRES_REVIEW",
+        turnkeyOrganizationId: organizationId,
+        turnkeyWalletId: walletId,
+        address: address.toLowerCase(),
+        failureCode: "LOCAL_PERSISTENCE_AFTER_REMOTE_SUCCESS_FAILED",
+      },
+    }).catch(() => undefined);
+    throw new Error("TURNKEY_PROVISIONING_REQUIRES_REVIEW");
+  }
 }
 
 /** Builds a signer using the API credential stored for this user's own sub-org. */
 export async function createTurnkeySigner(
   address: string,
-  chainId: 56 | 137,
+  chainId: number,
 ): Promise<WalletClient> {
   const wallet = await prisma.walletAccount.findFirst({
     where: { address: address.toLowerCase() },
@@ -207,11 +414,11 @@ export async function createTurnkeySigner(
     organizationId: wallet.turnkeyOrganizationId,
     signWith: address,
   });
-  const chain = chainId === 56 ? bsc : polygon;
-  const rpcUrl = chainId === 56 ? process.env.BSC_RPC_URL : process.env.POLYGON_RPC_URL;
+  const chainConfig = turnkeyEvmChain(chainId);
+  const rpcUrl = process.env[chainConfig.rpcEnv];
   if (!rpcUrl?.trim()) throw new Error("CHAIN_RPC_NOT_CONFIGURED");
 
-  return createWalletClient({ account, chain, transport: http(rpcUrl.trim()) });
+  return createWalletClient({ account, chain: chainConfig.chain, transport: http(rpcUrl.trim()) });
 }
 
 /** Parent-org signer is intentionally separate and reserved for parent-owned treasury wallets. */
@@ -221,10 +428,10 @@ export async function createParentTurnkeySigner(
 ): Promise<WalletClient> {
   const { client, organizationId } = turnkeyConfig();
   const account = await createAccount({ client, organizationId, signWith: address });
-  const chain = chainId === 56 ? bsc : polygon;
-  const rpcUrl = chainId === 56 ? process.env.BSC_RPC_URL : process.env.POLYGON_RPC_URL;
+  const chainConfig = turnkeyEvmChain(chainId);
+  const rpcUrl = process.env[chainConfig.rpcEnv];
   if (!rpcUrl?.trim()) throw new Error("CHAIN_RPC_NOT_CONFIGURED");
-  return createWalletClient({ account, chain, transport: http(rpcUrl.trim()) });
+  return createWalletClient({ account, chain: chainConfig.chain, transport: http(rpcUrl.trim()) });
 }
 
 export function isTurnkeyConfigured(): boolean {

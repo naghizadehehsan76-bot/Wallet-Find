@@ -29,6 +29,8 @@ import {
 } from "../services/api";
 import LoadingIndicator from "../components/LoadingIndicator";
 import WalletWithdrawalReview from "../components/WalletWithdrawalReview";
+import WalletNetworkAdmin from "../components/WalletNetworkAdmin";
+import WalletChainWithdrawalReview from "../components/WalletChainWithdrawalReview";
 
 type AdminDestination = "home" | "admin-manage";
 
@@ -1227,6 +1229,8 @@ export default function AdminControlCenter({ onNavigate }: Props) {
             </section>
           )}
 
+            <WalletNetworkAdmin fa={fa} />
+            <WalletChainWithdrawalReview fa={fa} />
           </>
         )}
 

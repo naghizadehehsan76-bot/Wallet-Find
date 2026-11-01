@@ -1,112 +1,126 @@
-# Real Wallet Foundation — BNB Smart Chain + Polygon
+# Wallet-Find Custodial Wallet — Current Implementation Audit
 
-## Scope and safety boundary
+Audit baseline: `main` commit `456524da2ef4a6569f9adfa86478adcfbd56f792`, reviewed on 2026-11-01.
+This document distinguishes repository code from production deployment and live-chain operation.
 
-This document defines the first implementation stage for the custodial Wallet-Find wallet. It does not activate deposits, withdrawals, signing, sweeping, or prize payouts. The current wallet API remains simulated until the later implementation and security review are complete.
+## Current code already present
 
-Implementation branch: `feature/real-wallet-foundation`
+- Backend dependencies include Turnkey Server SDK, Turnkey Viem integration, and viem.
+- Prisma contains legacy simulated `WalletTransaction` history plus initial custodial wallet, per-network account, chain asset, user deposit, withdrawal, and scan-cursor models.
+- Each user can receive a Turnkey Sub-Organization with its own EVM wallet when a verified user opens the wallet page. Creation is protected by a database advisory lock. The account stores the Sub-Organization identifiers, public API key, and an AES-256-GCM encrypted API private key.
+- The first supported EVM networks are represented as BNB Smart Chain (chain ID 56) and Polygon PoS (chain ID 137); both network account flags are created disabled.
+- A Polygon USDT0 deposit scanner exists. It reads ERC-20 Transfer logs, persists deposit events, tracks confirmations and block hashes, avoids duplicate log records, and has basic reorg handling.
+- The Polygon withdrawal path includes an admin review step, a Turnkey signer, token/native-gas balance checks, broadcast tracking, and a confirmation/reconciliation endpoint.
+- Separate Polygon prize-treasury wallet/deposit/ledger/reconciliation functionality exists. This is not the same ledger as an end-user multi-asset wallet.
+- Admin endpoints expose user wallet summaries, withdrawal requests/review/execution, treasury deposits, treasury ledger history, and treasury reconciliation.
 
-## Confirmed product decisions
+## Important limitations still present in the audited main branch
 
-- Custodial wallet operated by Wallet-Find.
-- Supported networks: BNB Smart Chain (BEP20) and Polygon PoS.
-- BNB asset requested: USDT (BEP20).
-- Polygon asset requested: native USDT0.
-- One dedicated EVM receiving address per user may be reused on both networks.
-- Balances, deposits, confirmations, withdrawals, and transaction history are network-specific.
-- A withdrawal can spend only the available balance on its own network.
-- No real funds or existing simulated balances are migrated automatically.
+- Wallet API and UI remain hardcoded to Polygon / USDT0.
+- The user balance calculation still aggregates legacy `WalletTransaction` rows by type without network or asset segregation. A legacy row is not proof of on-chain funds.
+- The scanner remains Polygon-specific. Its `toMicro(raw, decimals)` helper only accepts six-decimal assets, so it cannot safely process 18-decimal tokens.
+- The existing `BigInt` amount columns map to PostgreSQL signed 64-bit integers. They are not a general storage solution for full 18-decimal token amounts or uint256-scale chain amounts.
+- `WalletNetworkAccount` and `WalletAccount` do not yet provide a complete network-specific address registry for Bitcoin/Solana.
+- The current scanner cursor does not have a database-backed distributed lease/heartbeat.
+- Turnkey provisioning performs a remote Sub-Organization creation call while a database transaction/advisory lock is open. A durable provisioning-intent/reconciliation workflow is still needed for uncertain remote outcomes.
+- Withdrawal sending and recovery are not yet generic. A broadcast/signing ambiguity can require manual review.
+- The UI formats some amounts through JavaScript `Number`, which can lose precision for sufficiently large values.
+- There is no complete double-entry user wallet journal, and generic network adapters for Bitcoin/Solana do not yet exist.
 
-## Verified network metadata
+## Existing chain-asset metadata
 
-| Network | Chain ID | Asset | Contract | Status |
-|---|---:|---|---|---|
-| BNB Smart Chain mainnet | 56 | Binance-Peg USDT representation / BEP20 | `0x55d398326f99059fF775485246999027B3197955` | Stored as a candidate representation; deposits and withdrawals disabled |
-| Polygon PoS mainnet | 137 | USDT0 | `0xc2132D05D31c914a87C6611C10748AEb04B58e8F` | Listed by USDT0 deployment documentation; verify on-chain before enabling |
+| Network | Asset | Chain ID | Contract | Current repository safety state |
+|---|---|---:|---|---|
+| BNB Smart Chain | Binance-Peg BSC-USD representation often displayed as USDT | 56 | `0x55d398326f99059fF775485246999027B3197955` | `REVIEW_REQUIRED`; 18 decimals; deposits and withdrawals disabled |
+| Polygon PoS | USDT0 | 137 | `0xc2132d05d31c914a87c6611c10748aeb04b58e8f` | Marked on-chain verified in the database seed/migration; deposits and withdrawals disabled |
 
-Important BNB distinction: Tether's supported-protocol page lists BNB Smart Chain under its ERC-20-compatible protocol family, but the BNB section currently publishes an XAU₮ contract address, not a USD₮ contract address. The commonly used BSC contract `0x55d398326f99059fF775485246999027B3197955` is identified by BNB ecosystem references as Binance-Peg / wrapped BSC-USD (often displayed as USDT), not as a Tether-published native USD₮ contract. Its on-chain decimals are 18, not 6. Wallet-Find records this as a Binance-Peg USDT representation, not as issuer-direct Tether USDT. Do not enable deposits until the exact asset representation is explicitly accepted in product disclosures and its live on-chain contract behavior, decimals, bridge/custody provenance, and redemption risk have been independently verified.
+The BSC token above must not be described as a Tether-issued native USDt token. Keep it disabled until its representation, issuer/custody assumptions, redemption risk, contract behavior, and user-facing disclosure are explicitly accepted and verified.
 
-Polygon's USDT0 documentation lists Polygon PoS (chain ID 137) token address `0xc2132D05D31c914a87C6611C10748AEb04B58e8F`. Polygon announced the migration of its USDT to native USDT0. The implementation must identify this asset by both chain ID and exact contract address, not symbol alone.
+## Critical migration safety warning
 
-## Current repository facts
+The migration `20261031120000_custodial_wallet_foundation` contains destructive SQL:
+- deletes `wallet_transactions` rows where `type = 'PRIZE_CREDIT'`;
+- deletes all `prize_awards` rows;
+- deletes `prize_ledger` rows where `type = 'AWARD'`;
+- resets `prize_pools.awardedMicro` to zero.
 
-- The current `WalletTransaction` table is a generic simulated ledger.
-- Current wallet service reports `simulatedOnly: true`.
-- Deposit and withdrawal endpoints create pending simulated requests; they do not monitor chains or transfer assets.
-- There is no wallet-account/address model, deposit scanner, chain cursor, or signed withdrawal pipeline yet.
-- `@turnkey/sdk-server` is not currently a backend dependency.
-- Existing `WalletTransaction` rows must not be silently interpreted as on-chain funds.
+Do not assume this migration has or has not run in Production. Before any deployment that could apply pending migrations, read the production `_prisma_migrations` state, take/verify a database backup, and compare financial row counts and totals. Never replay or edit an already-applied migration. The correct remediation depends on whether it has already been applied and on the actual production data state.
 
-## Schema implementation status\n\nThe current branch now contains the initial Prisma models and SQL migration for wallet accounts, per-network accounts, assets, deposits, withdrawals, and chain scan cursors. The migration seeds both networks with deposits and withdrawals disabled. It also removes simulated prize credits and prize award history when applied. These changes are not deployed to production.\n\nThe same migration deletes only `PRIZE_CREDIT` wallet history, all `PrizeAward` rows, and `AWARD` prize-ledger rows; it preserves contest participation/submission history, deposits, withdrawals, and other non-prize wallet transactions. It resets historical per-round `awardedMicro` totals to zero.\n\n## Data model notes
+## Production/deployment status
 
-1. `WalletAccount`
-   - `id`, `userId` (unique), `turnkeyWalletId`, `turnkeyAccountId`, `address`, `derivationPath`, `status`, timestamps.
-   - Store public address and Turnkey identifiers only. Never store a private key, seed phrase, or API private key.
+Repository code alone does not prove that Turnkey environment variables are present, that the migrations have run, that the scanner is active, or that deposits/withdrawals have been tested on-chain.
 
-2. `WalletNetworkAccount` or network-scoped account metadata
-   - `walletAccountId`, `chainId`, `networkKey`, `depositEnabled`, `withdrawalEnabled`, timestamps.
-   - Unique on wallet account + chain ID.
+The Render Blueprint currently defines a Free web service and runs `prisma migrate deploy` during service startup. Consequently, merging code with a new migration into an auto-deploying production branch can apply database changes on restart. Production service status, applied migration history, environment variables, backup availability, and live-chain behavior must be verified separately before activation.
 
-3. `ChainAsset`
-   - `chainId`, `contractAddress`, `symbol`, `decimals`, `canonicalStatus`, `depositEnabled`, `withdrawalEnabled`.
-   - Unique on chain ID + normalized contract address.
-   - Asset configuration must be admin-controlled and auditable; do not identify tokens by symbol alone.
+## Multi-asset / multi-chain implementation status
 
-4. `WalletDeposit`
-   - User/account/network/asset references, transaction hash, log index, block number/hash, from/to addresses, raw token amount, normalized micro amount, confirmation state, credited ledger transaction ID, timestamps.
-   - Unique idempotency key on chain ID + transaction hash + log index.
-   - Credit only after configured confirmations and canonical block checks.
+The initial repository implementation is a Polygon-first custodial wallet, not a finished Multi-Asset / Multi-Chain wallet.
 
-5. `WalletWithdrawal`
-   - User/account/network/asset references, destination, raw and normalized amount, fee/gas quote, status, idempotency key, Turnkey activity/request identifiers, transaction hash, approval/audit fields, timestamps.
-   - No user-supplied gas price or arbitrary calldata.
+The development branch `feature/multi-asset-wallet-foundation` adds:
+- exact decimal-string / BigInt conversion helpers and tests;
+- a generic network and network-scoped asset registry;
+- network-specific public wallet-address records;
+- generic chain deposit/withdrawal record models using `NUMERIC(78,0)` atomic amounts;
+- a generic journal header/posting structure;
+- per-network scanner cursor and lease metadata.
 
-6. `ChainScanCursor`
-   - Chain ID, last safely processed block, last block hash, scanner lease/heartbeat metadata.
-   - Reorg-safe scanner must rewind to a configured finality buffer when block hashes diverge.
+These branch changes are additive and do not activate deposits/withdrawals or migrate legacy simulated balances into the new ledger. They must pass CI and migration review before merge. The legacy Polygon services remain in place as compatibility code until the generic adapters and replacement lifecycle are validated.
 
-7. Ledger extensions
-   - Every deposit credit, withdrawal reservation, withdrawal settlement, fee, and reversal must be represented as immutable, reference-keyed ledger entries.
-   - Use database transactions and unique constraints for idempotency.
-   - Keep the existing simulated ledger distinguishable from on-chain ledger history.
+## Remaining staged work
 
-## Required service boundaries
+1. Complete and validate the generalized wallet foundation; define immutable balanced journal posting services and safe legacy-history display.
+2. Implement the generic deposit engine with network adapters, leases, finality, idempotency, and reorg recovery.
+3. Add BNB Smart Chain as a second-network proof while keeping the candidate token disabled until its risk decision is resolved.
+4. Replace hardcoded wallet APIs/UI with asset/network-driven data and exact string formatting.
+5. Implement generic withdrawal reservations, fee-asset accounting, Turnkey signing policies, broadcast recovery, and chain confirmation.
+6. Run security, integration, migration, backup/recovery, monitoring, and production-readiness checks.
 
-- AddressProvisioningService: create or retrieve one user EVM address through Turnkey; persist public identifiers only.
-- ChainScannerService: independently scan BSC and Polygon logs; validate chain, token contract, destination, amount, block canonicality, and confirmations.
-- DepositCreditService: atomically credit a confirmed deposit exactly once.
-- WithdrawalService: reserve funds, validate policy/limits/destination, create a narrowly scoped Turnkey signing request, broadcast, and reconcile finality.
-- GasManagementService: monitor native BNB on BSC and POL on Polygon. Do not promise withdrawals until gas funding and operational ownership are defined.
-- ReconciliationService: compare ledger balances with on-chain balances and outstanding reservations; alert on discrepancies.
+No production deposit, withdrawal, sweep, or prize-payout activation is implied by this document.
 
-## Security and operational requirements before live funds
 
-- Create a dedicated non-root Turnkey service user. Do not use the Root user/API key for production transaction signing.
-- Apply least-privilege Turnkey policies; restrict supported chains, token contracts, methods, destinations/allowlists, and spend limits where supported.
-- Keep the Turnkey API private key only in Render secret environment variables. Never commit it or send it through chat.
-- Use separate RPC endpoints for each chain, with provider failover and rate-limit handling.
-- Validate chain ID and contract address server-side for every deposit and withdrawal.
-- Use exact integer arithmetic (USDT/USDT0 6 decimals only after on-chain verification); never use floating point for amounts.
-- Add confirmation thresholds, reorg handling, replay protection, withdrawal limits, audit logs, alerts, backups, and incident-response procedures.
-- Never enable deposits or withdrawals based solely on frontend configuration.
-- Do not automatically sweep user funds until gas, custody, reconciliation, and recovery procedures have been designed and tested.
+---
 
-## Staged implementation plan
+## Final multi-chain implementation review — 2026-11-01
 
-1. **Foundation (this branch):** document network/asset decisions, safety gates, and target architecture. No runtime behavior changes.
-2. **Schema-only PR:** add wallet account, asset, deposit, withdrawal, and scanner-cursor tables; generate and review a migration without enabling chain operations.
-3. **Turnkey integration:** provision a non-root service identity and test wallet/address creation on test environments.
-4. **Read-only chain monitoring:** monitor test deposits and validate event parsing, confirmations, duplicate handling, and reorg recovery.
-5. **Controlled test withdrawals:** test signing, gas management, limits, and reconciliation with non-production assets.
-6. **Production readiness review:** verify BNB USDT contract, legal/compliance requirements, custody controls, operational runbooks, backups, monitoring, and user-facing disclosures.
-7. **Explicit activation:** enable one network/asset at a time only after all gates pass.
+Development is being carried out in `feature/multi-asset-wallet-foundation`. The production branch is not modified by these development commits.
 
-## Explicitly not done
+### New additive database foundation
 
-- No Prisma schema or migration changes.
-- No package installation.
-- No Turnkey API calls, wallet creation, or signing.
-- No Render environment-variable changes.
-- No production deploy.
-- No real deposits, withdrawals, sweeps, or prize payouts.
-- The migration has not yet run against the production database; live simulated prize rows remain until deployment.
+Two new migrations are prepared:
+
+- `20261101130000_multi_asset_wallet_foundation`
+- `20261101140000_recoverable_turnkey_provisioning`
+
+They add the network/asset registry, network-specific public addresses, generic chain deposit and withdrawal records, a `NUMERIC(78,0)` journal, scan cursors, and durable Turnkey provisioning intents. They seed disabled metadata for Ethereum, Optimism, BNB Smart Chain, Polygon, Arbitrum, Bitcoin mainnet, and Solana mainnet. Native asset metadata is added for each network.
+
+The new migrations contain no `DELETE`, `TRUNCATE`, `DROP TABLE`, or updates to legacy prize/wallet financial tables. The only backfill reads existing chain-asset and EVM address records into newly created registry/address tables. Existing legacy rows remain intact.
+
+Production database inspection (read-only) showed the applied migration history ending at `20261101110000_one_active_polygon_withdrawal_per_wallet`; the two migrations above were still pending at the time of inspection. The old destructive `20261031120000_custodial_wallet_foundation` migration had already been applied before this implementation. At inspection, the affected prize-award and prize-credit row counts were already zero; the current prize ledger contained 11 `GLOBAL_ALLOCATION` rows and no `AWARD` rows. Do not replay or edit the historical migration.
+
+### Implementation boundaries
+
+- Exact atomic-unit conversion and the multi-asset API use decimal strings and `BigInt`; PostgreSQL `NUMERIC(78,0)` values are read through `Decimal.toFixed(0)` to avoid scientific notation.
+- The journal uses balanced debit/credit postings, idempotent reference keys, exact inverse reversals, database-level balance triggers, and append-only triggers.
+- The EVM adapter supports token Transfer logs and direct native transfers and verifies the RPC chain ID. Deposit scanning uses independent network cursors/leases, finality, duplicate detection, and reorg reversal.
+- The generic scanner is opt-in and the new network/asset flags remain disabled. The existing Polygon USDT0 scanner remains a separate compatibility path; it is not silently replaced by the generic engine.
+- Turnkey provisioning records a durable intent before the remote request. Ambiguous results are quarantined for review rather than blindly creating another Sub-Organization. Sub-Organizations remain provisioned only when a verified user opens the wallet page.
+- The generic EVM withdrawal workflow includes reservations, fee-asset accounting, admin review, Turnkey signing, broadcast tracking, and receipt reconciliation. It is still feature-gated and has not been proven with live on-chain withdrawal tests. Ambiguous signing/broadcast outcomes require manual reconciliation.
+- Ethereum, BNB Smart Chain, and Polygon have a configured EVM withdrawal fee model. Optimism and Arbitrum are intentionally blocked for withdrawals until L1 data-fee accounting is implemented.
+- Bitcoin and Solana are registry placeholders only. Their address derivation, network-specific custody, scanning, and transaction workflows are not implemented; they cannot be activated through the admin controls.
+- A persisted emergency pause disables old and new deposit/withdrawal flags and is enforced by both scanner paths and generic withdrawals. Releasing the global pause leaves all network and asset switches off.
+
+### CI and dependency security controls
+
+The CI pipeline now provisions a disposable PostgreSQL 18 service (matching the current production database major version), applies the full Prisma migration chain, generates Prisma Client, builds the backend, and runs backend tests. Frontend CI runs its build and lint checks.
+
+A PostgreSQL-backed integration test covers large atomic amounts, replay idempotency, conflicting replays, exact reversal, database rejection of unbalanced journals, and database rejection of mutation of posted journals. A separate EVM adapter test covers 18-decimal token transfers, native coin transfers, chain-ID mismatch, finality position, and unsupported configuration.
+
+The build process runs non-breaking `npm audit fix --package-lock-only` before installation and fails if High or Critical advisories remain. The latest completed security audit found zero backend advisories; frontend tooling still reports Moderate-only advisories in development dependencies. No `--force` or automatic major dependency downgrade is used.
+
+### Production deployment boundary
+
+At the time of this review, the two new migrations had not yet been applied to Production. The live Polygon path was active and must remain separate during migration. Generic deposits and withdrawals, BSC token deposits, and Bitcoin/Solana operations remain disabled. Do not enable them solely because their registry rows or adapters exist.
+
+Render's current Free Postgres instance was reported to expire on 2026-11-17 and the Free plan does not include managed backups/PITR. A verified external backup or paid database plan is strongly recommended before relying on it beyond that date. No production backup was created by this implementation.
+
+A successful CI build and successful deployment do not, by themselves, constitute a live deposit/withdrawal security certification.

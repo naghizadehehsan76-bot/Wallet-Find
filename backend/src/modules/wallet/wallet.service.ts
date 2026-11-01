@@ -1,15 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { createPublicClient, http, isAddress, parseUnits, parseAbi, parseEventLogs } from "viem";
+import { createPublicClient, http, isAddress, parseAbi, parseEventLogs } from "viem";
+import { formatAssetUnits, parseAssetUnits } from "./asset-amount.js";
+import { isEvmWithdrawalFeeModelSupported, isSupportedEvmChainId } from "./chain-adapters/evm.adapter.js";
 import { polygon } from "viem/chains";
 import prisma from "../../config/prisma.js";
 import { createTurnkeySigner, isTurnkeyConfigured, provisionTurnkeyWallet } from "./turnkey.service.js";
-const MICRO = 1_000_000n;
 function formatMicro(value: bigint): string {
-  const negative = value < 0n;
-  const absolute = negative ? -value : value;
-  const whole = absolute / MICRO;
-  const fraction = (absolute % MICRO).toString().padStart(6, "0");
-  return (negative ? "-" : "") + whole.toString() + "." + fraction;
+  return formatAssetUnits(value, 6);
 }
 async function calculateBalances(tx: any, userId: string) {
   const rows = await tx.walletTransaction.findMany({ where: { userId }, select: { type: true, status: true, amountMicro: true } });
@@ -29,60 +26,459 @@ function serializeTransaction(row: any) {
   return { id: row.id, type: row.type, status: row.status, amount: formatMicro(BigInt(row.amountMicro)), currency: row.currency, note: row.note, contestId: row.contestId, createdAt: row.createdAt };
 }
 export async function getWallet(userId: string) {
-  // Provision an EVM address only after server-side Turnkey credentials are configured.
-  // No private key material is returned to the API caller.
-  const turnkeyWallet = isTurnkeyConfigured() ? await provisionTurnkeyWallet(userId) : null;
-  return prisma.$transaction(async (tx) => {
-    const balances = await calculateBalances(tx, userId);
-    const transactions = await tx.walletTransaction.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 100 });
-    return { currency: "USDT", simulatedOnly: false, turnkeyConfigured: isTurnkeyConfigured(), walletAddress: turnkeyWallet?.address ?? null, supportedNetworks: turnkeyWallet?.networkAccounts.map((network) => ({ chainId: network.chainId, networkKey: network.networkKey, depositEnabled: network.depositEnabled, withdrawalEnabled: network.withdrawalEnabled })) ?? [], balance: formatMicro(balances.balance), availableBalance: formatMicro(balances.availableBalance), transactions: transactions.map(serializeTransaction) };
-  });
-}
-export async function requestWalletDeposit(userId: string, _rawAmount: unknown) {
-  if (!isTurnkeyConfigured()) throw new Error("TURNKEY_NOT_CONFIGURED");
-  // Provisioning enforces verified email and creates/returns this user's own
-  // independent Turnkey sub-organization. Deposits are discovered from canonical
-  // Polygon Transfer logs; a client-supplied amount is never credited.
-  const wallet = await provisionTurnkeyWallet(userId);
-  if (!wallet || wallet.status !== "ACTIVE" || !wallet.turnkeyOrganizationId || !wallet.turnkeyWalletId) {
-    throw new Error("WALLET_NOT_ACTIVE");
+  // Turnkey provisioning occurs only for a verified user who explicitly opens
+  // the wallet page. Existing partial legacy records are shown read-only and
+  // are never silently overwritten or duplicated.
+  let turnkeyWallet: (Awaited<ReturnType<typeof provisionTurnkeyWallet>> & {
+    networkAccounts: Array<{ chainId: number; networkKey: string; depositEnabled: boolean; withdrawalEnabled: boolean }>;
+  }) | null = null;
+  let walletProvisioningReviewRequired = false;
+
+  if (isTurnkeyConfigured()) {
+    try {
+      turnkeyWallet = await provisionTurnkeyWallet(userId);
+    } catch (error) {
+      if (error instanceof Error && error.message === "TURNKEY_WALLET_RECORD_REQUIRES_REVIEW") {
+        walletProvisioningReviewRequired = true;
+        turnkeyWallet = await prisma.walletAccount.findUnique({
+          where: { userId },
+          include: { networkAccounts: true },
+        });
+      } else {
+        throw error;
+      }
+    }
   }
-  const [network, asset] = await Promise.all([
-    prisma.walletNetworkAccount.findUnique({
-      where: { walletAccountId_chainId: { walletAccountId: wallet.id, chainId: 137 } },
-    }),
-    prisma.chainAsset.findMany({
+
+  return prisma.$transaction(async (tx) => {
+    const legacyBalances = await calculateBalances(tx, userId);
+    const transactions = await tx.walletTransaction.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+
+    const [chainDeposits, chainWithdrawals, legacyDeposits, legacyWithdrawals] = await Promise.all([
+      tx.walletChainDeposit.findMany({
+        where: { userId },
+        include: {
+          network: { select: { displayName: true, explorerTransactionUrlTemplate: true } },
+          asset: { select: { symbol: true, decimals: true } },
+        },
+        orderBy: { detectedAt: "desc" },
+        take: 100,
+      }),
+      tx.walletChainWithdrawal.findMany({
+        where: { userId },
+        include: {
+          network: { select: { displayName: true, explorerTransactionUrlTemplate: true } },
+          asset: { select: { symbol: true, decimals: true } },
+          feeAsset: { select: { symbol: true, decimals: true } },
+        },
+        orderBy: { requestedAt: "desc" },
+        take: 100,
+      }),
+      tx.walletDeposit.findMany({
+        where: { userId },
+        include: { asset: { select: { symbol: true, decimals: true } } },
+        orderBy: { detectedAt: "desc" },
+        take: 100,
+      }),
+      tx.walletWithdrawal.findMany({
+        where: { userId },
+        include: { asset: { select: { symbol: true, decimals: true } } },
+        orderBy: { requestedAt: "desc" },
+        take: 100,
+      }),
+    ]);
+
+    const journalPostings = await tx.walletJournalPosting.findMany({
+      where: { journal: { userId } },
+      select: {
+        account: true,
+        direction: true,
+        amountAtomic: true,
+        journal: {
+          select: { networkId: true, walletAssetId: true },
+        },
+      },
+    });
+
+    const balanceMap = new Map<string, { available: bigint; reserved: bigint }>();
+    for (const posting of journalPostings) {
+      const key = posting.journal.networkId + "|" + posting.journal.walletAssetId;
+      const current = balanceMap.get(key) ?? { available: 0n, reserved: 0n };
+      const signed = posting.direction === "CREDIT"
+        ? BigInt(posting.amountAtomic.toFixed(0))
+        : -BigInt(posting.amountAtomic.toFixed(0));
+
+      if (posting.account === "USER_AVAILABLE") current.available += signed;
+      if (posting.account === "USER_RESERVED") current.reserved += signed;
+      balanceMap.set(key, current);
+    }
+
+    const legacyPolygonAsset = await tx.chainAsset.findFirst({
       where: {
         chainId: 137,
         symbol: "USDT0",
-        contractAddress: polygonUsdt0Contract,
+        contractAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f",
         decimals: 6,
         canonicalStatus: "ONCHAIN_VERIFIED",
         depositEnabled: true,
       },
-      take: 2,
+    });
+    const legacyPolygonAccount = turnkeyWallet?.networkAccounts.find(
+      (item) => item.chainId === 137 && item.networkKey === "polygon",
+    );
+    const legacyPolygonDepositReady = process.env.POLYGON_DEPOSIT_SCANNER_ENABLED === "true"
+      && process.env.POLYGON_DEPOSITS_ENABLED === "true"
+      && Boolean(legacyPolygonAsset)
+      && Boolean(legacyPolygonAccount?.depositEnabled)
+      && Boolean(turnkeyWallet?.status === "ACTIVE")
+      && Boolean(turnkeyWallet?.turnkeyOrganizationId && turnkeyWallet?.turnkeyWalletId);
+
+    const networks = await tx.walletNetwork.findMany({
+      orderBy: [{ family: "asc" }, { networkKey: "asc" }],
+      include: {
+        assets: { orderBy: [{ symbol: "asc" }, { id: "asc" }] },
+        addresses: {
+          where: {
+            walletAccountId: turnkeyWallet?.id ?? "__no_wallet_account__",
+            status: "ACTIVE",
+            isPrimary: true,
+          },
+        },
+      },
+    });
+
+    const networkViews = networks.map((network) => {
+      const address = network.addresses[0] ?? null;
+      const assets = network.assets.map((asset) => {
+        const key = network.id + "|" + asset.id;
+        const balance = balanceMap.get(key) ?? { available: 0n, reserved: 0n };
+        const availableBalance = balance.available;
+        const reservedBalance = balance.reserved;
+        const isLegacyPolygonUsdt0 = network.chainId === 137
+          && asset.symbol === "USDT0"
+          && asset.contractAddress?.toLowerCase() === "0xc2132d05d31c914a87c6611c10748aeb04b58e8f";
+        const legacyDepositEnabled = isLegacyPolygonUsdt0 && legacyPolygonDepositReady && Boolean(address);
+        return {
+          id: asset.id,
+          symbol: asset.symbol,
+          displayName: asset.displayName,
+          assetType: asset.assetType,
+          assetReference: asset.assetReference,
+          contractAddress: asset.contractAddress,
+          decimals: asset.decimals,
+          issuerClassification: asset.issuerClassification,
+          verificationStatus: asset.verificationStatus,
+          minDeposit: asset.minDepositAtomic === null
+            ? null
+            : formatAssetUnits(BigInt(asset.minDepositAtomic.toFixed(0)), asset.decimals),
+          confirmationCount: asset.confirmationCount,
+          depositEnabled: (process.env.WALLET_GENERIC_DEPOSIT_SCANNER_ENABLED === "true"
+            && process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY === "true"
+            && network.isEnabled && network.depositEnabled && asset.depositEnabled
+            && asset.verificationStatus === "VERIFIED" && Boolean(address))
+            || legacyDepositEnabled,
+          legacyDepositMode: legacyDepositEnabled,
+          withdrawalEnabled: process.env.WALLET_GENERIC_WITHDRAWALS_ENABLED === "true"
+            && process.env.WALLET_GENERIC_WITHDRAWALS_PRODUCTION_READY === "true"
+            && network.isEnabled && network.withdrawalEnabled && asset.withdrawalEnabled && asset.verificationStatus === "VERIFIED" && Boolean(address),
+          balance: formatAssetUnits(availableBalance + reservedBalance, asset.decimals),
+          availableBalance: formatAssetUnits(availableBalance, asset.decimals),
+          reservedBalance: formatAssetUnits(reservedBalance, asset.decimals),
+        };
+      });
+
+      return {
+        id: network.id,
+        family: network.family,
+        chainId: network.chainId,
+        networkKey: network.networkKey,
+        displayName: network.displayName,
+        nativeAssetSymbol: network.nativeAssetSymbol,
+        nativeAssetDecimals: network.nativeAssetDecimals,
+        explorerTransactionUrlTemplate: network.explorerTransactionUrlTemplate,
+        finalityDepth: network.finalityDepth,
+        adapterReady: network.family === "EVM" && network.chainId !== null && isSupportedEvmChainId(network.chainId),
+        withdrawalAdapterReady: network.family === "EVM" && network.chainId !== null && isEvmWithdrawalFeeModelSupported(network.chainId),
+        isEnabled: network.isEnabled || (network.chainId === 137 && legacyPolygonDepositReady && Boolean(address)),
+        legacyDepositMode: network.chainId === 137 && legacyPolygonDepositReady && Boolean(address),
+        depositEnabled: (process.env.WALLET_GENERIC_DEPOSIT_SCANNER_ENABLED === "true"
+          && process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY === "true"
+          && network.isEnabled && network.depositEnabled && Boolean(address))
+          || (network.chainId === 137 && legacyPolygonDepositReady && Boolean(address)),
+        withdrawalEnabled: process.env.WALLET_GENERIC_WITHDRAWALS_ENABLED === "true"
+          && process.env.WALLET_GENERIC_WITHDRAWALS_PRODUCTION_READY === "true"
+          && network.isEnabled && network.withdrawalEnabled && Boolean(address),
+        address: address?.address ?? null,
+        assets,
+      };
+    });
+
+    return {
+      currency: "USDT",
+      simulatedOnly: false,
+      turnkeyConfigured: isTurnkeyConfigured(),
+      walletProvisioningReviewRequired,
+      walletAddress: turnkeyWallet?.address ?? null,
+      supportedNetworks: (turnkeyWallet?.networkAccounts ?? []).map((item) => ({
+        chainId: item.chainId,
+        networkKey: item.networkKey,
+        depositEnabled: item.depositEnabled,
+        withdrawalEnabled: item.withdrawalEnabled,
+      })),
+      // Legacy rows remain visible and are deliberately not added to the
+      // on-chain multi-asset balances above.
+      balance: formatMicro(legacyBalances.balance),
+      availableBalance: formatMicro(legacyBalances.availableBalance),
+      legacyBalance: formatMicro(legacyBalances.balance),
+      legacyAvailableBalance: formatMicro(legacyBalances.availableBalance),
+      networks: networkViews,
+      onChainDeposits: [
+        ...legacyDeposits.map((deposit) => {
+          const network = networkViews.find((item) => item.chainId === deposit.chainId);
+          const amountAtomic = deposit.amountMicro === null
+            ? BigInt(deposit.rawAmount)
+            : BigInt(deposit.amountMicro.toString());
+          return {
+            id: deposit.id,
+            type: "DEPOSIT",
+            networkId: network?.id ?? "eip155:" + deposit.chainId,
+            network: network?.displayName ?? "Legacy EVM network",
+            asset: deposit.asset.symbol,
+            amount: formatAssetUnits(amountAtomic, deposit.asset.decimals),
+            status: deposit.status,
+            transactionHash: deposit.transactionHash,
+            explorerUrl: network?.explorerTransactionUrlTemplate?.replace("{txHash}", deposit.transactionHash) ?? null,
+            confirmationCount: deposit.confirmationCount,
+            detectedAt: deposit.detectedAt,
+            creditedAt: deposit.creditedAt,
+            reviewReason: null,
+            legacy: true,
+          };
+        }),
+        ...chainDeposits.map((deposit: any) => ({
+        id: deposit.id,
+        type: "DEPOSIT",
+        networkId: deposit.networkId,
+        network: deposit.network.displayName,
+        asset: deposit.asset.symbol,
+        amount: formatAssetUnits(BigInt(deposit.amountAtomic.toFixed(0)), deposit.asset.decimals),
+        status: deposit.status,
+        transactionHash: deposit.transactionReference,
+        explorerUrl: deposit.network.explorerTransactionUrlTemplate?.replace("{txHash}", deposit.transactionReference) ?? null,
+        confirmationCount: deposit.confirmationCount,
+        detectedAt: deposit.detectedAt,
+        creditedAt: deposit.creditedAt,
+        reviewReason: deposit.reviewReason,
+        legacy: false,
+      })),
+      ],
+      onChainWithdrawals: [
+        ...legacyWithdrawals.map((withdrawal) => {
+          const network = networkViews.find((item) => item.chainId === withdrawal.chainId);
+          return {
+            id: withdrawal.id,
+            type: "WITHDRAWAL",
+            networkId: network?.id ?? "eip155:" + withdrawal.chainId,
+            network: network?.displayName ?? "Legacy EVM network",
+            asset: withdrawal.asset.symbol,
+            amount: formatAssetUnits(BigInt(withdrawal.amountMicro.toString()), withdrawal.asset.decimals),
+            estimatedFee: formatAssetUnits(BigInt(withdrawal.feeMicro.toString()), withdrawal.asset.decimals),
+            actualFee: null,
+            feeAsset: withdrawal.asset.symbol,
+            status: withdrawal.status,
+            transactionHash: withdrawal.transactionHash,
+            explorerUrl: network?.explorerTransactionUrlTemplate?.replace("{txHash}", withdrawal.transactionHash ?? "") ?? null,
+            confirmationCount: 0,
+            requestedAt: withdrawal.requestedAt,
+            confirmedAt: withdrawal.confirmedAt,
+            failureCode: withdrawal.failureCode,
+            legacy: true,
+          };
+        }),
+        ...chainWithdrawals.map((withdrawal: any) => ({
+        id: withdrawal.id,
+        type: "WITHDRAWAL",
+        networkId: withdrawal.networkId,
+        network: withdrawal.network.displayName,
+        asset: withdrawal.asset.symbol,
+        amount: formatAssetUnits(BigInt(withdrawal.amountAtomic.toFixed(0)), withdrawal.asset.decimals),
+        estimatedFee: withdrawal.feeAtomic && withdrawal.feeAsset
+          ? formatAssetUnits(BigInt(withdrawal.feeAtomic.toFixed(0)), withdrawal.feeAsset.decimals)
+          : null,
+        actualFee: withdrawal.actualFeeAtomic && withdrawal.feeAsset
+          ? formatAssetUnits(BigInt(withdrawal.actualFeeAtomic.toFixed(0)), withdrawal.feeAsset.decimals)
+          : null,
+        feeAsset: withdrawal.feeAsset?.symbol ?? null,
+        status: withdrawal.status,
+        transactionHash: withdrawal.transactionReference,
+        explorerUrl: withdrawal.network.explorerTransactionUrlTemplate?.replace("{txHash}", withdrawal.transactionReference ?? "") ?? null,
+        confirmationCount: withdrawal.confirmationCount,
+        requestedAt: withdrawal.requestedAt,
+        confirmedAt: withdrawal.confirmedAt,
+        failureCode: withdrawal.failureCode,
+        legacy: false,
+      })),
+      ],
+      transactions: transactions.map(serializeTransaction),
+    };
+  });
+}
+export async function requestWalletDeposit(
+  userId: string,
+  rawNetworkId: unknown,
+  rawWalletAssetId: unknown,
+) {
+  if (typeof rawNetworkId !== "string" || typeof rawWalletAssetId !== "string") {
+    throw new Error("INVALID_WALLET_ASSET_SELECTION");
+  }
+
+  const networkId = rawNetworkId.trim();
+  const walletAssetId = rawWalletAssetId.trim();
+  if (!networkId || !walletAssetId || networkId.length > 128 || walletAssetId.length > 256) {
+    throw new Error("INVALID_WALLET_ASSET_SELECTION");
+  }
+
+  // Compatibility path: keep the already-active Polygon USDT0 deposit scanner
+  // working until the generic engine has independently passed production gates.
+  if (networkId === "eip155:137") {
+    const [wallet, network, asset, legacyAsset] = await Promise.all([
+      prisma.walletAccount.findUnique({
+        where: { userId },
+        include: {
+          networkAccounts: {
+            where: { chainId: 137, networkKey: "polygon" },
+          },
+        },
+      }),
+      prisma.walletNetwork.findUnique({ where: { id: networkId } }),
+      prisma.walletAsset.findUnique({ where: { id: walletAssetId } }),
+      prisma.chainAsset.findFirst({
+        where: {
+          chainId: 137,
+          symbol: "USDT0",
+          contractAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f",
+          decimals: 6,
+          canonicalStatus: "ONCHAIN_VERIFIED",
+          depositEnabled: true,
+        },
+      }),
+    ]);
+
+    if (
+      !network || network.chainId !== 137 || !asset || asset.networkId !== networkId ||
+      asset.symbol !== "USDT0" || asset.decimals !== 6 ||
+      asset.verificationStatus !== "VERIFIED" ||
+      asset.contractAddress?.toLowerCase() !== "0xc2132d05d31c914a87c6611c10748aeb04b58e8f" ||
+      !legacyAsset
+    ) {
+      throw new Error("WALLET_ASSET_NOT_AVAILABLE");
+    }
+
+    {
+      if (
+        process.env.POLYGON_DEPOSIT_SCANNER_ENABLED !== "true" ||
+        process.env.POLYGON_DEPOSITS_ENABLED !== "true" ||
+        !wallet || wallet.status !== "ACTIVE" ||
+        !wallet.turnkeyOrganizationId || !wallet.turnkeyWalletId ||
+        wallet.networkAccounts.length !== 1 ||
+        wallet.networkAccounts[0]?.depositEnabled !== true
+      ) {
+        throw new Error("DEPOSITS_DISABLED");
+      }
+
+      const address = wallet.address;
+      if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        throw new Error("WALLET_ADDRESS_NOT_READY");
+      }
+
+      return {
+        networkId,
+        network: network.displayName,
+        family: "EVM" as const,
+        chainId: 137,
+        assetId: asset.id,
+        asset: "USDT0",
+        displayName: "USDT0 on Polygon PoS",
+        assetType: "TOKEN" as const,
+        contractAddress: legacyAsset.contractAddress,
+        decimals: 6,
+        depositAddress: address,
+        minDeposit: null,
+        confirmationsRequired: Math.max(
+          32,
+          Number.parseInt(process.env.POLYGON_USDT_CONFIRMATIONS ?? "128", 10) || 128,
+        ),
+        status: "AWAITING_TRANSFER",
+        legacyDepositMode: true,
+        message: "Send only Polygon USDT0 to this address. The existing Polygon deposit scanner verifies and credits confirmed transfers.",
+      };
+    }
+  }
+
+  if (process.env.WALLET_GENERIC_DEPOSIT_SCANNER_ENABLED !== "true" ||
+      process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY !== "true") {
+    throw new Error("DEPOSITS_NOT_PRODUCTION_READY");
+  }
+  if (!isTurnkeyConfigured()) throw new Error("TURNKEY_NOT_CONFIGURED");
+
+  const wallet = await provisionTurnkeyWallet(userId);
+  if (!wallet || wallet.status !== "ACTIVE" || !wallet.turnkeyOrganizationId || !wallet.turnkeyWalletId) {
+    throw new Error("WALLET_NOT_ACTIVE");
+  }
+
+  const [network, asset, address] = await Promise.all([
+    prisma.walletNetwork.findUnique({ where: { id: networkId } }),
+    prisma.walletAsset.findUnique({ where: { id: walletAssetId } }),
+    prisma.walletAddress.findUnique({
+      where: { walletAccountId_networkId: { walletAccountId: wallet.id, networkId } },
     }),
   ]);
-  if (!network || network.networkKey !== "polygon" || !network.depositEnabled || asset.length !== 1) {
+  if (!network || !asset || asset.networkId !== networkId || !address || address.status !== "ACTIVE") {
+    throw new Error("WALLET_ASSET_NOT_AVAILABLE");
+  }
+
+  if (
+    !network.isEnabled ||
+    !network.depositEnabled ||
+    !asset.depositEnabled ||
+    asset.verificationStatus !== "VERIFIED"
+  ) {
     throw new Error("DEPOSITS_DISABLED");
   }
+
   return {
-    network: "Polygon PoS",
-    chainId: 137,
-    asset: "USDT0",
-    contractAddress: polygonUsdt0Contract,
-    decimals: 6,
-    depositAddress: wallet.address,
-    confirmationsRequired: Math.max(32, Number.parseInt(process.env.POLYGON_USDT_CONFIRMATIONS ?? "128", 10) || 128),
+    networkId: network.id,
+    network: network.displayName,
+    family: network.family,
+    chainId: network.chainId,
+    assetId: asset.id,
+    asset: asset.symbol,
+    displayName: asset.displayName,
+    assetType: asset.assetType,
+    contractAddress: asset.contractAddress,
+    decimals: asset.decimals,
+    depositAddress: address.address,
+    minDeposit: asset.minDepositAtomic === null
+      ? null
+      : formatAssetUnits(BigInt(asset.minDepositAtomic.toFixed(0)), asset.decimals),
+    confirmationsRequired: asset.confirmationCount,
     status: "AWAITING_TRANSFER",
-    message: "Send only Polygon USDT0 to this address. The balance is credited automatically after canonical confirmations.",
+    legacyDepositMode: false,
+    message: "Send only the selected asset on the selected network to this address. The balance is credited after canonical finality checks.",
   };
 }
 export async function requestWalletWithdrawal(userId: string, rawAmount: unknown, rawDestination: unknown) {
-  if (typeof rawAmount !== "string" && typeof rawAmount !== "number") throw new Error("INVALID_WALLET_AMOUNT");
-  const amountText = String(rawAmount).trim();
-  if (!/^\d+(\.\d{1,6})?$/.test(amountText)) throw new Error("INVALID_WALLET_AMOUNT");
-  const amountMicro = parseUnits(amountText, 6);
+  if (typeof rawAmount !== "string") throw new Error("INVALID_WALLET_AMOUNT");
+  let amountMicro: bigint;
+  try {
+    amountMicro = parseAssetUnits(rawAmount, 6);
+  } catch {
+    throw new Error("INVALID_WALLET_AMOUNT");
+  }
   if (amountMicro <= 0n) throw new Error("INVALID_WALLET_AMOUNT");
   if (typeof rawDestination !== "string" || !isAddress(rawDestination.trim())) throw new Error("INVALID_DESTINATION_ADDRESS");
 
@@ -644,14 +1040,17 @@ export async function getAdminTreasuryLedgerHistory() {
 }
 
 export async function allocateTreasuryToPrizeFund(rawAmount: unknown, adminUserId: string) {
-  if (typeof rawAmount !== "string" && typeof rawAmount !== "number") throw new Error("INVALID_ALLOCATION_AMOUNT");
-  const amountText = String(rawAmount).trim();
-  if (!/^\d+(\.\d{1,6})?$/.test(amountText)) throw new Error("INVALID_ALLOCATION_AMOUNT");
-  const amount = parseUnits(amountText, 6);
+  if (typeof rawAmount !== "string") throw new Error("INVALID_ALLOCATION_AMOUNT");
+  let amount: bigint;
+  try {
+    amount = parseAssetUnits(rawAmount, 6);
+  } catch {
+    throw new Error("INVALID_ALLOCATION_AMOUNT");
+  }
   if (amount <= 0n) throw new Error("INVALID_ALLOCATION_AMOUNT");
   const snapshot = await getTreasuryPrizeFundingSnapshot();
   if (snapshot.accountingStatus !== "MATCH") throw new Error("TREASURY_ACCOUNTING_MISMATCH");
-  const liveBalance = parseUnits(snapshot.onChainBalance, 6);
+  const liveBalance = parseAssetUnits(snapshot.onChainBalance, 6);
   if (amount > liveBalance) throw new Error("INSUFFICIENT_TREASURY_BALANCE");
   return prisma.$transaction(async (tx) => {
     await tx.globalPrizeFund.upsert({ where: { id: "global" }, update: {}, create: { id: "global" } });
