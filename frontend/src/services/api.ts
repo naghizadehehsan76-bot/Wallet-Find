@@ -651,8 +651,6 @@ export type WalletNetworkView = {
   adapterReady: boolean;
   withdrawalAdapterReady: boolean;
   isEnabled: boolean;
-  adapterReady: boolean;
-  withdrawalAdapterReady: boolean;
   depositEnabled: boolean;
   withdrawalEnabled: boolean;
   address: string | null;
