@@ -37,11 +37,15 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - name: Sync lockfile with package.json
         run: npm install --package-lock-only --ignore-scripts
+      - name: Apply compatible security updates to locked backend dependencies
+        run: npm audit fix --package-lock-only --ignore-scripts
       - run: npm ci
       - name: Report dependency security advisories
         run: |
           npm audit --json > npm-audit.json || true
           node -e 'const a=require("./npm-audit.json"); for (const [name,v] of Object.entries(a.vulnerabilities||{})) console.log(JSON.stringify({name,severity:v.severity,isDirect:v.isDirect,range:v.range,via:(v.via||[]).map(x=>typeof x==="string"?x:{name:x.name,title:x.title,url:x.url,range:x.range}),fixAvailable:v.fixAvailable})); console.log("AUDIT_TOTALS",JSON.stringify(a.metadata?.vulnerabilities||{}))'
+      - name: Enforce no high or critical dependency advisories
+        run: npm audit --audit-level=high
       - name: Apply all Prisma migrations to a disposable CI database
         run: npx prisma migrate deploy
       - run: npx prisma generate
@@ -60,10 +64,14 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+      - name: Apply compatible security updates to locked frontend dependencies
+        run: npm audit fix --package-lock-only --ignore-scripts
       - run: npm ci
       - name: Report dependency security advisories
         run: |
           npm audit --json > npm-audit.json || true
           node -e 'const a=require("./npm-audit.json"); for (const [name,v] of Object.entries(a.vulnerabilities||{})) console.log(JSON.stringify({name,severity:v.severity,isDirect:v.isDirect,range:v.range,via:(v.via||[]).map(x=>typeof x==="string"?x:{name:x.name,title:x.title,url:x.url,range:x.range}),fixAvailable:v.fixAvailable})); console.log("AUDIT_TOTALS",JSON.stringify(a.metadata?.vulnerabilities||{}))'
+      - name: Enforce no high or critical dependency advisories
+        run: npm audit --audit-level=high
       - run: npm run build
       - run: npm run lint
