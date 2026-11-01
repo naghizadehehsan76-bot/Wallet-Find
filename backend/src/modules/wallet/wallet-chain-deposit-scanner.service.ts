@@ -128,7 +128,6 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
     include: {
       assets: {
         where: {
-          assetType: "TOKEN",
           verificationStatus: "VERIFIED",
           depositEnabled: true,
         },
@@ -144,8 +143,8 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
     },
   });
 
-  if (!network || !network.isEnabled || !network.depositEnabled) {
-    return { networkId, skipped: "NETWORK_DEPOSITS_DISABLED" };
+  if (!network || !network.isEnabled) {
+    return { networkId, skipped: "NETWORK_DISABLED" };
   }
   if (network.id === "eip155:137" && process.env.POLYGON_DEPOSIT_SCANNER_ENABLED === "true") {
     return { networkId, skipped: "LEGACY_POLYGON_SCANNER_ACTIVE" };
@@ -153,13 +152,6 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
   if (network.family !== "EVM") {
     return { networkId, skipped: "NETWORK_ADAPTER_NOT_IMPLEMENTED" };
   }
-  if (network.assets.length === 0) {
-    return { networkId, skipped: "NO_VERIFIED_ENABLED_TOKEN_ASSETS" };
-  }
-  if (network.addresses.length === 0) {
-    return { networkId, skipped: "NO_ACTIVE_RECEIVING_ADDRESSES" };
-  }
-
   const adapter = makeAdapter(network);
   const latestPosition = await adapter.getLatestPosition();
   const safePosition = await adapter.getSafePosition(network.finalityDepth);
@@ -215,7 +207,10 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
     // hashes in a bounded lookback window, reverse credited entries, and rewind.
     if (cursor.cursorHash) {
       const canonicalCursorHash = await adapter.getPositionHash(cursor.cursorPosition);
-      if (!canonicalCursorHash || canonicalCursorHash.toLowerCase() !== cursor.cursorHash.toLowerCase()) {
+      if (!canonicalCursorHash) {
+        throw new Error("EVM_CANONICAL_CURSOR_HASH_UNAVAILABLE");
+      }
+      if (canonicalCursorHash.toLowerCase() !== cursor.cursorHash.toLowerCase()) {
         const lookback = BigInt(positiveIntegerEnv(
           "WALLET_NETWORK_REORG_LOOKBACK",
           Number(DEFAULT_REORG_LOOKBACK),
@@ -274,6 +269,18 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
       userId: item.walletAccount.userId,
     }));
 
+    if (!network.depositEnabled || network.assets.length === 0 || network.addresses.length === 0) {
+      // Advance the cursor while deposits are disabled or no eligible asset /
+      // receiving address exists. Transfers sent during a paused period are
+      // intentionally not credited when operations resume.
+      if (cursorPosition < safeValue) {
+        const safeHash = await adapter.getPositionHash(safePosition);
+        if (!safeHash) throw new Error("EVM_CANONICAL_CURSOR_HASH_UNAVAILABLE");
+        await updateCursor(networkId, owner, safePosition, safeHash);
+        scannedBlocks += safeValue - cursorPosition;
+        cursorPosition = safeValue;
+      }
+    } else {
     for (let start = cursorPosition + 1n; start <= safeValue; start += chunkSize) {
       const end = start + chunkSize - 1n > safeValue ? safeValue : start + chunkSize - 1n;
 
@@ -358,6 +365,7 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
       cursorPosition = end;
       scannedBlocks += end - start + 1n;
       await refreshLease(networkId, owner);
+      }
     }
 
     // Deposits are credited only after canonicality and configured finality are
@@ -382,8 +390,23 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
         adapter.getPositionHash(deposit.position),
         adapter.getLatestPosition(),
       ]);
-      if (!canonicalHash || !deposit.blockHash ||
-          canonicalHash.toLowerCase() !== deposit.blockHash.toLowerCase()) {
+      if (!canonicalHash) {
+        throw new Error("EVM_CANONICAL_DEPOSIT_HASH_UNAVAILABLE");
+      }
+      if (!deposit.blockHash) {
+        await reverseCreditedDeposit({
+          id: deposit.id,
+          userId: deposit.userId,
+          walletAccountId: deposit.walletAccountId,
+          networkId: deposit.networkId,
+          walletAssetId: deposit.walletAssetId,
+          creditedJournalId: deposit.creditedJournalId,
+          status: deposit.status,
+        });
+        reorged++;
+        continue;
+      }
+      if (canonicalHash.toLowerCase() !== deposit.blockHash.toLowerCase()) {
         await reverseCreditedDeposit({
           id: deposit.id,
           userId: deposit.userId,
@@ -488,7 +511,6 @@ export function startWalletChainDepositScanner() {
         where: {
           family: "EVM",
           isEnabled: true,
-          depositEnabled: true,
         },
         select: { id: true },
         orderBy: { id: "asc" },
