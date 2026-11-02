@@ -11,6 +11,22 @@ permissions:
 jobs:
   repair-and-verify:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: wallet_find
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d wallet_find"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://test:test@localhost:5432/wallet_find?schema=public
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,17 +59,14 @@ jobs:
         working-directory: backend
         run: npm ci --include=dev
 
-      - name: Apply migrations and generate Prisma client
+      - name: Apply all migrations to disposable PostgreSQL and generate Prisma client
         working-directory: backend
-        env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/wallet_find?schema=public
         run: |
+          npx prisma migrate deploy
           npx prisma generate
 
       - name: Run backend tests
         working-directory: backend
-        env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/wallet_find?schema=public
         run: npm test
 
       - name: Build backend
