@@ -41,7 +41,7 @@ jobs:
 
       - name: Safely update backend lockfile without major-version forcing
         working-directory: backend
-        run: npm audit fix --package-lock-only --ignore-scripts
+        run: npm audit fix --package-lock-only --ignore-scripts || true
 
       - name: Safely update frontend lockfile without major-version forcing
         working-directory: frontend
