@@ -3,7 +3,9 @@ import BottomNav from "../components/BottomNav";
 import { useI18n } from "../i18n";
 import {
   getWallet,
+  getTurnkeyWalletData,
   getMarketPrices,
+  type TurnkeyWalletData,
   requestWalletDeposit,
   requestWalletWithdrawal,
   type WalletChainActivity,
@@ -106,6 +108,10 @@ export default function WalletPage({ onNavigate }: Props) {
   const [usdPrices, setUsdPrices] = useState<Record<string, number>>({});
   const [priceUpdatedAt, setPriceUpdatedAt] = useState<number | null>(null);
   const [priceStatus, setPriceStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [turnkeyData, setTurnkeyData] = useState<Record<string, TurnkeyWalletData>>({});
+  const [turnkeyLoading, setTurnkeyLoading] = useState<Record<string, boolean>>({});
+  const [turnkeyErrors, setTurnkeyErrors] = useState<Record<string, string>>({});
+
 
   const copy = useMemo(() => ({
     title: fa ? "کیف پول من" : "My wallet",
@@ -231,6 +237,23 @@ export default function WalletPage({ onNavigate }: Props) {
     insufficientPol: copy.insufficientPol,
     insufficientUsdt0: copy.insufficientUsdt0,
     invalidDestination: copy.invalidDestination,
+  };
+
+  const loadTurnkeyData = async (networkId: string) => {
+    setTurnkeyLoading((current) => ({ ...current, [networkId]: true }));
+    setTurnkeyErrors((current) => ({ ...current, [networkId]: "" }));
+    try {
+      const result = await getTurnkeyWalletData(networkId);
+      setTurnkeyData((current) => ({ ...current, [networkId]: result }));
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : "";
+      setTurnkeyErrors((current) => ({
+        ...current,
+        [networkId]: message || (fa ? "دریافت اطلاعات مستقیم Turnkey ناموفق بود." : "Unable to load direct Turnkey data."),
+      }));
+    } finally {
+      setTurnkeyLoading((current) => ({ ...current, [networkId]: false }));
+    }
   };
 
   const openDeposit = async (assetId?: string) => {
@@ -422,6 +445,37 @@ export default function WalletPage({ onNavigate }: Props) {
                 </div>)}
             </div>
           ))}
+        </section>
+
+        <section className="wallet-network-card wallet-assets-directory">
+          <div className="wallet-card-heading"><h2>{fa ? "اطلاعات مستقیم Turnkey" : "Direct Turnkey data"}</h2></div>
+          <p className="wallet-assets-note">{fa
+            ? "این اطلاعات مستقیماً از API کیف پول Turnkey دریافت می‌شود و با موجودی قابل برداشت دفتر حسابداری Wallet-Find تفاوت دارد."
+            : "This data is fetched directly from Turnkey and is separate from Wallet-Find's spendable accounting balance."}</p>
+          {wallet.networks.filter((network) => network.family === "EVM" && Boolean(network.address)).map((network) => {
+            const result = turnkeyData[network.id];
+            return <div className="wallet-network-group" key={"turnkey-" + network.id}>
+              <div className="wallet-network-group__heading">
+                <span className="wallet-network-dot" />
+                <div><strong>{network.displayName}</strong><small>{network.address}</small></div>
+                <button type="button" className="wallet-asset-deposit-button"
+                  onClick={() => void loadTurnkeyData(network.id)} disabled={Boolean(turnkeyLoading[network.id])}>
+                  {turnkeyLoading[network.id] ? (fa ? "در حال دریافت..." : "Loading...")
+                    : (fa ? "دریافت از Turnkey" : "Fetch from Turnkey")}
+                </button>
+              </div>
+              {turnkeyErrors[network.id] && <p className="inline-feedback wallet-error" role="alert">{turnkeyErrors[network.id]}</p>}
+              {result && <>
+                <p className="wallet-assets-note">{fa ? "آدرس" : "Address"}: <code>{result.address}</code> · {fa ? "زمان دریافت" : "Fetched"}: {new Date(result.fetchedAt).toLocaleString(locale)}</p>
+                <h3>{fa ? "موجودی خام" : "Raw balances"}</h3>
+                <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxHeight: 260, overflow: "auto" }}>{JSON.stringify(result.balances, null, 2)}</pre>
+                <h3>{fa ? "تاریخچه خام تراکنش‌ها" : "Raw transaction history"}</h3>
+                <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxHeight: 360, overflow: "auto" }}>{JSON.stringify({ transactions: result.transactions, pageInfo: result.pageInfo }, null, 2)}</pre>
+              </>}
+            </div>;
+          })}
+          {wallet.networks.every((network) => network.family !== "EVM" || !network.address) &&
+            <p className="wallet-asset-empty">{fa ? "هنوز آدرس EVM فعالی برای دریافت اطلاعات Turnkey وجود ندارد." : "No active EVM wallet address is available for Turnkey data."}</p>}
         </section>
 
         <section className="wallet-history wallet-exchange-history">
