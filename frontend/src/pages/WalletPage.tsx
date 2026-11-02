@@ -135,8 +135,8 @@ export default function WalletPage({ onNavigate }: Props) {
     amount: fa ? "مقدار" : "Amount",
     destination: fa ? "آدرس مقصد" : "Destination address",
     fee: fa ? "کارمزد تخمینی شبکه" : "Estimated network fee",
-    feePaidInPol: fa ? "کارمزد از موجودی POL کسر می‌شود." : "The network fee is reserved from your POL balance.",
-    polGasBalance: fa ? "موجودی POL برای کارمزد" : "POL available for gas",
+    feePaidInPol: fa ? "کارمزد از موجودی دارایی بومی همان شبکه رزرو می‌شود." : "The network fee is reserved from the native asset balance on this network.",
+    polGasBalance: fa ? "موجودی دارایی بومی برای کارمزد" : "Native asset available for gas",
     youReceive: fa ? "مقدار درخواستی" : "Requested amount",
     submitWithdrawal: fa ? "ثبت درخواست برداشت" : "Submit withdrawal request",
     unavailable: fa ? "غیرفعال" : "Disabled",
@@ -451,7 +451,7 @@ export default function WalletPage({ onNavigate }: Props) {
         <div className="wallet-form-field">
           <label>{copy.asset}</label>
           <div className="wallet-exchange-actions">
-            {depositAssets.map((asset) => <button key={asset.id} type="button" className="wallet-asset-deposit-button" aria-pressed={depositAssetId === asset.id} onClick={() => changeDepositAsset(asset.id)}>{asset.symbol}</button>)}
+            {depositAssets.map((asset) => <button key={asset.id} type="button" className="wallet-asset-deposit-button" aria-pressed={depositAssetId === asset.id} onClick={() => changeDepositAsset(asset.id)}>{asset.symbol} · {asset.networkName}</button>)}
           </div>
         </div>
         {depositLoading && <div className="inline-feedback"><LoadingIndicator label={copy.loadingAddress} /></div>}
