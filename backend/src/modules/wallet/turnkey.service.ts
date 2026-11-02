@@ -41,7 +41,7 @@ function encryptApiPrivateKey(privateKey: string): string {
   return [iv.toString("hex"), cipher.getAuthTag().toString("hex"), encrypted.toString("hex")].join(".");
 }
 
-function decryptApiPrivateKey(payload: string): string {
+export function decryptApiPrivateKey(payload: string): string {
   const [ivHex, tagHex, encryptedHex] = payload.split(".");
   if (!ivHex || !tagHex || !encryptedHex) throw new Error("TURNKEY_CREDENTIAL_DECRYPTION_FAILED");
   try {
