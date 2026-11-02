@@ -1,0 +1,37 @@
+name: Temporary frontend audit report
+on:
+  push:
+    branches:
+      - feature/turnkey-wallet-ui-and-deposit-events
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install and apply non-breaking audit fixes
+        run: |
+          npm ci
+          npm audit fix
+          npm audit --json > audit-after.json || true
+          npm run build
+      - name: Package audit report and updated lockfile
+        if: always()
+        run: |
+          tar -czf frontend-audit-results.tar.gz package-lock.json audit-after.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-audit-results
+          path: frontend/frontend-audit-results.tar.gz
+          if-no-files-found: warn
