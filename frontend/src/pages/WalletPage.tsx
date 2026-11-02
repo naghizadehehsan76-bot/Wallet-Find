@@ -386,8 +386,8 @@ export default function WalletPage({ onNavigate }: Props) {
           {priceUpdatedAt && <div className="wallet-exchange-balance__available">{fa ? "آخرین به‌روزرسانی قیمت: " : "Prices updated: "}{new Date(priceUpdatedAt).toLocaleTimeString(locale)}</div>}
           <div className="wallet-exchange-balance__available">{fa ? "موجودی USDT0" : "USDT0 balance"}: <strong>{fmt(usdt0Balance, usdt0Asset?.decimals ?? 6)} USDT0</strong> · {copy.available}: <strong>{fmt(usdt0Available, usdt0Asset?.decimals ?? 6)} USDT0</strong></div>
           <div className="wallet-exchange-actions">
-            <button type="button" className="wallet-action wallet-action--deposit" onClick={() => void openDeposit()}><span>↓</span>{copy.deposit}</button>
-            <button type="button" className="wallet-action wallet-action--withdraw" onClick={() => openWithdraw()}><span>↑</span>{copy.withdraw}</button>
+            <button type="button" className="wallet-action wallet-action--deposit" onClick={() => void openDeposit(usdt0Asset?.id)}><span>↓</span>{copy.deposit}</button>
+            <button type="button" className="wallet-action wallet-action--withdraw" onClick={() => openWithdraw(usdt0Asset?.id)}><span>↑</span>{copy.withdraw}</button>
           </div>
         </section>
 
