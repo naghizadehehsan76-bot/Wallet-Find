@@ -3,12 +3,14 @@ import app from "./app.js";
 import { startContestScheduler } from "./modules/contest/contest-scheduler.service.js";
 import { ensureMvpActiveContest } from "./modules/contest/mvp-contest-seed.service.js";
 import { startWalletChainDepositScanner } from "./modules/wallet/wallet-chain-deposit-scanner.service.js";
+import { startWalletChainWithdrawalReconciler } from "./modules/wallet/wallet-chain-withdrawal-reconciler.service.js";
 
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   startWalletChainDepositScanner();
+  startWalletChainWithdrawalReconciler();
 
   // Keep /health responsive while contest data is prepared. Start the
   // scheduler only after the initial seed attempt settles so it cannot race
