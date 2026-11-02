@@ -11,6 +11,7 @@ import adminRoutes from "./modules/admin/admin.routes.js";
 import adminBootstrapRoutes from "./modules/admin/admin-bootstrap.routes.js";
 import profileRoutes from "./modules/profile/profile.routes.js";
 import walletRoutes from "./modules/wallet/wallet.routes.js";
+import { receiveTurnkeyWebhook } from "./modules/wallet/turnkey-webhook.service.js";
 import statsRoutes from "./modules/stats/stats.routes.js";
 
 const app = express();
@@ -38,6 +39,34 @@ app.use(
     credentials: true,
   }),
 );
+app.post(
+  "/api/webhooks/turnkey",
+  express.raw({ type: "application/json", limit: "1mb" }),
+  async (req, res) => {
+    try {
+      const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+      const result = await receiveTurnkeyWebhook(
+        rawBody,
+        req.headers as Record<string, string | string[] | undefined>,
+      );
+      if (!result.accepted) {
+        return res.status(result.status).json({ success: false, error: result.error });
+      }
+      return res.status(200).json({
+        success: true,
+        received: true,
+        duplicate: result.duplicate,
+        eventId: result.eventId,
+      });
+    } catch (error) {
+      console.error("Turnkey webhook persistence failed", error);
+      return res.status(503).json({ success: false, error: "TURNKEY_WEBHOOK_TEMPORARILY_UNAVAILABLE" });
+    }
+  },
+);
+
+// Register the raw-body webhook route before the JSON parser because Turnkey
+// signatures must be verified against the exact original request bytes.
 app.use(express.json({ limit: "2mb" }));
 
 const authLimiter = rateLimit({
