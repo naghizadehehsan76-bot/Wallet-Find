@@ -1166,3 +1166,23 @@ model WalletProvisioningIntent {
   @@index([status, createdAt])
   @@map("wallet_provisioning_intents")
 }
+
+/// Verified Turnkey webhook inbox. Payloads are stored idempotently after
+/// signature verification; downstream reconciliation must process events
+/// into wallet deposits/journal entries only after validating their schema.
+model TurnkeyWebhookEvent {
+  id             String   @id @default(cuid())
+  eventId        String   @unique
+  eventType      String
+  organizationId String?
+  status         String   @default("RECEIVED")
+  payload        Json
+  receivedAt     DateTime @default(now())
+  processedAt    DateTime?
+  processingError String?
+  updatedAt      DateTime @updatedAt
+
+  @@index([status, receivedAt])
+  @@index([organizationId, receivedAt])
+  @@map("turnkey_webhook_events")
+}
