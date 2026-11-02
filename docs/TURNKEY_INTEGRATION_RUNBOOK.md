@@ -32,3 +32,25 @@ A separate reviewed implementation must validate the organization, wallet/addres
 
 ## Production gate
 Before merge or deployment, inspect production migration history, take and verify a restorable database backup, review the additive inbox migration, verify the Turnkey and Render configuration, and confirm CI passes on the exact PR head. Deploy with financial processing disabled and test signature rejection, inbox persistence, and duplicate handling. Do not remove the Polygon scanner until the replacement lifecycle passes reconciliation and recovery tests.
+
+
+## Wallet-Find accounting and UI integration
+
+The existing EVM deposit scanner is the authoritative deposit detector and posts a balanced `DEPOSIT_CREDIT` journal only after the configured canonicality/finality checks. A source-chain reorganization posts an exact inverse `DEPOSIT_REVERSAL` journal and suspends the affected wallet for review. Do not also credit the same deposit from a Turnkey webhook; that would double-credit the user.
+
+The existing Turnkey-backed withdrawal path reserves the requested asset and the network-native fee in the double-entry journal before admin review. The approved request is signed/broadcast through the user's Turnkey sub-organization. After canonical receipt and finality checks, the amount and actual network fee are settled from reserved balances and unused fee reserve is released. Failed canonical transactions release the amount reservation. Uncertain signing/broadcast outcomes remain reserved for reconciliation rather than being automatically released.
+
+The wallet UI now resolves each enabled deposit/withdrawal asset against its own network instead of assuming Polygon. It displays the native fee asset for the selected network. Existing legacy wallet transactions and legacy balances remain visible as a separate compatibility balance; they are not silently copied into the multi-asset journal and are not overwritten by Turnkey on-chain balance reads.
+
+Turnkey's Balance API is an on-chain custody observation, not the user's spendable Wallet-Find ledger balance. Keep these figures separate in the UI and never use a raw provider balance response to credit a user. The journal is the source of truth for spendable/ reserved amounts; the chain scanner and canonical transaction reconciliation are the source of truth for external deposits and withdrawals.
+
+## Required end-to-end tests before enabling live operations
+
+- Send a small supported-asset deposit to a test wallet and verify exactly one scanner deposit row, one balanced deposit journal, one balance increase, and one history row.
+- Replay the same transfer scan and verify no second credit is created.
+- Reject a below-minimum or non-allowlisted asset without changing the ledger.
+- Submit a small withdrawal, verify amount and native fee reservations, approve it, verify Turnkey broadcasts once, and reconcile a canonical successful receipt to final settlement.
+- Reject a withdrawal and verify both amount and fee reservations are released.
+- Simulate a reverted transaction and verify amount release plus actual fee settlement.
+- Verify old `wallet_transactions`, `wallet_deposits`, and `wallet_withdrawals` remain visible and unchanged; do not convert their historical totals into new journal credits without a separately reviewed reconciliation plan.
+- Compare Turnkey on-chain balances against the custody-side journal asset totals; investigate any difference before raising withdrawal limits.
