@@ -22,7 +22,7 @@ jobs:
       - name: Install and apply non-breaking audit fixes
         run: |
           npm ci
-          npm audit fix
+          npm audit fix || true
           npm audit --json > audit-after.json || true
           npm run build
       - name: Package audit report and updated lockfile
