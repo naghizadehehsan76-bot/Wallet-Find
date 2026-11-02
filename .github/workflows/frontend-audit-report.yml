@@ -19,16 +19,17 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Install and apply non-breaking audit fixes
+      - name: Regenerate lockfile with security override
+        run: npm install --package-lock-only
+      - name: Install, audit and validate
         run: |
           npm ci
-          npm audit fix || true
-          npm audit --json > audit-after.json || true
+          npm audit --audit-level=moderate --json > audit-after.json
           npm run build
+          npm run lint
       - name: Package audit report and updated lockfile
         if: always()
-        run: |
-          tar -czf frontend-audit-results.tar.gz package-lock.json audit-after.json
+        run: tar -czf frontend-audit-results.tar.gz package-lock.json audit-after.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
