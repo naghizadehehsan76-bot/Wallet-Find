@@ -862,7 +862,7 @@ export async function recoverKnownPreBroadcastTurnkeyFailure(
   }, { isolationLevel: "Serializable" });
 }
 
-export async function reconcileChainWalletWithdrawal(withdrawalId: string, adminUserId: string) {
+export async function reconcileChainWalletWithdrawal(withdrawalId: string, adminUserId: string | null = null) {
   const withdrawal = await prisma.walletChainWithdrawal.findUnique({
     where: { id: withdrawalId },
     include: { network: true, asset: true, feeAsset: true },
