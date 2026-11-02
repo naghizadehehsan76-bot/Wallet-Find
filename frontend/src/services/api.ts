@@ -732,6 +732,21 @@ export type WalletDepositDetails = {
   legacyDepositMode?: boolean;
 };
 
+export type TurnkeyWalletData = {
+  provider: "turnkey";
+  networkId: string;
+  network: string;
+  address: string;
+  balances: unknown[];
+  transactions: unknown[];
+  pageInfo: unknown | null;
+  fetchedAt: string;
+};
+
+export async function getTurnkeyWalletData(networkId: string): Promise<TurnkeyWalletData> {
+  return request<TurnkeyWalletData>("/wallet/turnkey-data?networkId=" + encodeURIComponent(networkId), {}, true);
+}
+
 export async function getWallet(): Promise<WalletResult> {
   return request<WalletResult>("/wallet/me", {}, true);
 }
