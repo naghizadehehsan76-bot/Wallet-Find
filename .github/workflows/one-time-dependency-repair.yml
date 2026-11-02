@@ -1,0 +1,85 @@
+name: One-time dependency repair
+
+on:
+  push:
+    branches:
+      - refactor/controlled-cleanup
+
+permissions:
+  contents: write
+
+jobs:
+  repair-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Safely update backend lockfile without major-version forcing
+        working-directory: backend
+        run: npm audit fix --package-lock-only --ignore-scripts
+
+      - name: Safely update frontend lockfile without major-version forcing
+        working-directory: frontend
+        run: npm audit fix --package-lock-only --ignore-scripts
+
+      - name: Verify no high or critical backend advisories remain
+        working-directory: backend
+        run: npm audit --audit-level=high
+
+      - name: Verify no high or critical frontend advisories remain
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
+      - name: Install backend dependencies from updated lockfile
+        working-directory: backend
+        run: npm ci --include=dev
+
+      - name: Apply migrations and generate Prisma client
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/wallet_find?schema=public
+        run: |
+          npx prisma generate
+
+      - name: Run backend tests
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/wallet_find?schema=public
+        run: npm test
+
+      - name: Build backend
+        working-directory: backend
+        run: npm run build
+
+      - name: Install frontend dependencies from updated lockfile
+        working-directory: frontend
+        run: npm ci --include=dev
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Lint frontend
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Commit verified lockfile updates to this branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/package-lock.json frontend/package-lock.json
+          if git diff --cached --quiet; then
+            echo "No lockfile changes were needed."
+          else
+            git commit -m "fix: update vulnerable dependencies within compatible ranges"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
