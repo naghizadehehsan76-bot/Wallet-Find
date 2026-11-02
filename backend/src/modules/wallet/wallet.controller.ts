@@ -35,6 +35,35 @@ export async function getWalletHandler(req: AuthenticatedRequest, res: Response)
   const id = getUserId(req, res); if (!id) return;
   try { return res.json({ success: true, data: await getWallet(id) }); } catch (error) { return sendError(res, error); }
 }
+
+export async function getTurnkeyWalletDataHandler(req: AuthenticatedRequest, res: Response) {
+  const id = getUserId(req, res);
+  if (!id) return;
+  try {
+    const { getTurnkeyWalletAddressData } = await import("./turnkey-wallet-data.service.js");
+    const data = await getTurnkeyWalletAddressData(id, req.query.networkId);
+    return res.json({ success: true, data });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+    const unavailable = new Set([
+      "TURNKEY_NATIVE_DATA_API_DISABLED",
+      "TURNKEY_NATIVE_DATA_NETWORK_DISABLED",
+      "TURNKEY_USER_ORGANIZATION_NOT_FOUND",
+      "TURNKEY_NOT_CONFIGURED",
+    ]);
+    const badRequest = new Set(["TURNKEY_NATIVE_DATA_NETWORK_UNSUPPORTED"]);
+    if (!unavailable.has(message) && !badRequest.has(message) && message !== "WALLET_ADDRESS_NOT_READY") {
+      console.error("Turnkey wallet data request failed", error);
+    }
+    const status = unavailable.has(message) || message === "WALLET_ADDRESS_NOT_READY" ? 503
+      : badRequest.has(message) ? 400 : 502;
+    return res.status(status).json({
+      success: false,
+      error: unavailable.has(message) || badRequest.has(message) || message === "WALLET_ADDRESS_NOT_READY"
+        ? message : "TURNKEY_WALLET_DATA_UNAVAILABLE",
+    });
+  }
+}
 export async function requestDepositHandler(req: AuthenticatedRequest, res: Response) {
   const id = getUserId(req, res); if (!id) return;
   try { return res.status(200).json({ success: true, data: await requestWalletDeposit(id, req.body?.networkId, req.body?.assetId) }); } catch (error) { return sendError(res, error); }

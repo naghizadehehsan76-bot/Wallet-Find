@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { requireAuth } from "../../middleware/auth.middleware.js";
-import { getWalletHandler, requestDepositHandler, requestWithdrawalHandler } from "./wallet.controller.js";
+import { getWalletHandler, getTurnkeyWalletDataHandler, requestDepositHandler, requestWithdrawalHandler } from "./wallet.controller.js";
 const router = Router();
 router.use(requireAuth);
 router.get("/me", getWalletHandler);
+router.get("/turnkey-data", getTurnkeyWalletDataHandler);
 router.post("/deposit", requestDepositHandler);
 router.post("/withdraw", requestWithdrawalHandler);
 export default router;

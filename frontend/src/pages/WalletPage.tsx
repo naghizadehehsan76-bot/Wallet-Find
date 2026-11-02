@@ -88,11 +88,13 @@ export default function WalletPage({ onNavigate }: Props) {
   const [error, setError] = useState("");
   const [view, setView] = useState<WalletView>("overview");
   const [depositAssetId, setDepositAssetId] = useState("");
+  const [depositNetworkId, setDepositNetworkId] = useState("");
   const [depositDetails, setDepositDetails] = useState<Awaited<ReturnType<typeof requestWalletDeposit>> | null>(null);
   const [depositLoading, setDepositLoading] = useState(false);
   const depositRequestSequence = useRef(0);
   const [depositError, setDepositError] = useState("");
   const [withdrawAssetId, setWithdrawAssetId] = useState("");
+  const [withdrawNetworkId, setWithdrawNetworkId] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawAddress, setWithdrawAddress] = useState("");
   const [withdrawSubmitting, setWithdrawSubmitting] = useState(false);
@@ -125,24 +127,24 @@ export default function WalletPage({ onNavigate }: Props) {
     polygon: "Polygon PoS",
     depositTitle: fa ? "واریز ارز دیجیتال" : "Crypto deposit",
     withdrawTitle: fa ? "درخواست برداشت" : "Withdrawal request",
-    depositIntro: fa ? "دارایی انتخاب‌شده را فقط روی شبکه Polygon PoS به آدرس نمایش‌داده‌شده ارسال کنید." : "Send only the selected asset on Polygon PoS to the address shown below.",
-    withdrawIntro: fa ? "برداشت USDT0 پس از بررسی و تأیید مدیر ارسال می‌شود. کارمزد شبکه با POL پرداخت خواهد شد." : "USDT0 withdrawals are broadcast only after admin review. The network fee is paid in POL.",
+    depositIntro: fa ? "دارایی انتخاب‌شده را فقط روی شبکهٔ نمایش‌داده‌شده به آدرس اختصاصی خود ارسال کنید." : "Send only the selected asset on the selected network to your dedicated address.",
+    withdrawIntro: fa ? "درخواست برداشت پس از رزرو موجودی و بررسی مدیر، از طریق کیف پول امانی Turnkey ارسال می‌شود. کارمزد با دارایی بومی همان شبکه پرداخت می‌شود." : "Withdrawals reserve your ledger balance and are broadcast from your Turnkey custodial wallet after admin review. Network fees are paid in the network native asset.",
     receiveAddress: fa ? "آدرس دریافت شما" : "Your deposit address",
     copyAddress: fa ? "کپی آدرس" : "Copy address",
     copied: fa ? "آدرس کپی شد" : "Address copied",
     amount: fa ? "مقدار" : "Amount",
     destination: fa ? "آدرس مقصد" : "Destination address",
     fee: fa ? "کارمزد تخمینی شبکه" : "Estimated network fee",
-    feePaidInPol: fa ? "کارمزد از موجودی POL کسر می‌شود." : "The network fee is reserved from your POL balance.",
-    polGasBalance: fa ? "موجودی POL برای کارمزد" : "POL available for gas",
+    feePaidInPol: fa ? "کارمزد از موجودی دارایی بومی همان شبکه رزرو می‌شود." : "The network fee is reserved from the native asset balance on this network.",
+    polGasBalance: fa ? "موجودی دارایی بومی برای کارمزد" : "Native asset available for gas",
     youReceive: fa ? "مقدار درخواستی" : "Requested amount",
     submitWithdrawal: fa ? "ثبت درخواست برداشت" : "Submit withdrawal request",
     unavailable: fa ? "غیرفعال" : "Disabled",
     depositDisabled: fa ? "واریز در حال حاضر غیرفعال است. لطفاً هیچ ارزی به این آدرس ارسال نکنید." : "Deposits are currently disabled. Do not send funds to this address.",
     withdrawDisabled: fa ? "برداشت در حال حاضر فعال نیست." : "Withdrawals are currently disabled.",
     depositReady: fa ? "واریز پس از آماده بودن اسکنر شبکه فعال می‌شود." : "Deposits become available after the network scanner is healthy.",
-    usdt0Warning: fa ? "فقط USDT0 روی شبکه Polygon PoS ارسال کنید. ارسال توکن یا شبکهٔ اشتباه ممکن است باعث از دست رفتن دارایی شود." : "Send only USDT0 on Polygon PoS. Using another token or network may result in lost funds.",
-    polWarning: fa ? "فقط POL بومی شبکه Polygon PoS ارسال کنید؛ توکن‌های رَپ‌شده یا POL روی شبکه‌های دیگر پذیرفته نمی‌شوند." : "Send only native POL on Polygon PoS. Wrapped POL or POL on another network is not supported.",
+    usdt0Warning: fa ? "فقط همین دارایی را روی همین شبکه ارسال کنید. ارسال توکن یا شبکهٔ اشتباه ممکن است باعث از دست رفتن دارایی شود." : "Send only this asset on this network. Using another token or network may result in lost funds.",
+    polWarning: fa ? "فقط دارایی بومی اعلام‌شده برای همین شبکه را برای کارمزد در نظر بگیرید." : "Only the configured native asset on this network can be used for network fees.",
     confirmations: fa ? "تعداد تأییدهای لازم" : "Required confirmations",
     contract: fa ? "آدرس قرارداد توکن" : "Token contract",
     minimum: fa ? "حداقل واریز" : "Minimum deposit",
@@ -210,13 +212,15 @@ export default function WalletPage({ onNavigate }: Props) {
   }, []);
 
 
-  const polygonNetwork = wallet?.networks.find((network) => network.chainId === 137) ?? null;
-  const polygonAssets = polygonNetwork?.assets ?? [];
-  const depositAssets = polygonAssets.filter((asset) => asset.depositEnabled);
-  const withdrawalAssets = polygonAssets.filter((asset) => asset.withdrawalEnabled);
-  const usdt0Asset = polygonAssets.find((asset) => asset.symbol === "USDT0") ?? null;
-  const polAsset = polygonAssets.find((asset) => asset.symbol === "POL") ?? null;
+  const allAssets = (wallet?.networks ?? []).flatMap((network) => network.assets.map((asset) => ({ ...asset, networkId: network.id, networkName: network.displayName, chainId: network.chainId, nativeAssetSymbol: network.nativeAssetSymbol })));
+  const depositAssets = allAssets.filter((asset) => asset.depositEnabled);
+  const withdrawalAssets = allAssets.filter((asset) => asset.withdrawalEnabled);
+  const usdt0Asset = allAssets.find((asset) => asset.symbol === "USDT0") ?? null;
+  const selectedDepositAsset = depositAssets.find((asset) => asset.id === depositAssetId) ?? null;
+  const selectedDepositNetwork = wallet?.networks.find((network) => network.id === depositNetworkId) ?? null;
   const selectedWithdrawAsset = withdrawalAssets.find((asset) => asset.id === withdrawAssetId) ?? null;
+  const selectedWithdrawNetwork = wallet?.networks.find((network) => network.id === withdrawNetworkId) ?? null;
+  const feeAsset = selectedWithdrawNetwork?.assets.find((asset) => asset.assetType === "NATIVE" && asset.verificationStatus === "VERIFIED") ?? null;
 
   const fmt = (value: string, decimals = 6) => formatAmount(value, decimals, locale);
   const apiErrorCopy = {
@@ -238,16 +242,18 @@ export default function WalletPage({ onNavigate }: Props) {
     setDepositDetails(null);
     setDepositError("");
     setCopied(false);
-    if (!asset || !polygonNetwork) {
+    const network = asset ? wallet?.networks.find((item) => item.id === asset.networkId) : null;
+    if (!asset || !network) {
       setDepositAssetId("");
       setDepositError(copy.depositDisabled);
       setDepositLoading(false);
       return;
     }
     setDepositAssetId(asset.id);
+    setDepositNetworkId(network.id);
     setDepositLoading(true);
     try {
-      const details = await requestWalletDeposit(polygonNetwork.id, asset.id);
+      const details = await requestWalletDeposit(network.id, asset.id);
       if (requestSequence === depositRequestSequence.current) setDepositDetails(details);
     } catch (requestError) {
       if (requestSequence === depositRequestSequence.current) {
@@ -266,8 +272,10 @@ export default function WalletPage({ onNavigate }: Props) {
     const asset = withdrawalAssets.find((item) => item.id === assetId)
       ?? withdrawalAssets.find((item) => item.symbol === "USDT0")
       ?? withdrawalAssets[0];
+    const network = asset ? wallet?.networks.find((item) => item.id === asset.networkId) : null;
     setView("withdraw");
     setWithdrawAssetId(asset?.id ?? "");
+    setWithdrawNetworkId(network?.id ?? "");
     setWithdrawAmount("");
     setWithdrawAddress("");
     setWithdrawError("");
@@ -287,12 +295,12 @@ export default function WalletPage({ onNavigate }: Props) {
   };
 
   const submitWithdrawal = async () => {
-    if (!polygonNetwork || !selectedWithdrawAsset || !withdrawAmount || !withdrawAddress) return;
+    if (!selectedWithdrawNetwork || !selectedWithdrawAsset || !withdrawAmount || !withdrawAddress) return;
     setWithdrawSubmitting(true);
     setWithdrawError("");
     try {
       const result = await requestWalletWithdrawal({
-        networkId: polygonNetwork.id,
+        networkId: selectedWithdrawNetwork.id,
         assetId: selectedWithdrawAsset.id,
         amount: withdrawAmount,
         destinationAddress: withdrawAddress.trim(),
@@ -378,8 +386,8 @@ export default function WalletPage({ onNavigate }: Props) {
           {priceUpdatedAt && <div className="wallet-exchange-balance__available">{fa ? "آخرین به‌روزرسانی قیمت: " : "Prices updated: "}{new Date(priceUpdatedAt).toLocaleTimeString(locale)}</div>}
           <div className="wallet-exchange-balance__available">{fa ? "موجودی USDT0" : "USDT0 balance"}: <strong>{fmt(usdt0Balance, usdt0Asset?.decimals ?? 6)} USDT0</strong> · {copy.available}: <strong>{fmt(usdt0Available, usdt0Asset?.decimals ?? 6)} USDT0</strong></div>
           <div className="wallet-exchange-actions">
-            <button type="button" className="wallet-action wallet-action--deposit" onClick={() => void openDeposit()}><span>↓</span>{copy.deposit}</button>
-            <button type="button" className="wallet-action wallet-action--withdraw" onClick={() => openWithdraw()}><span>↑</span>{copy.withdraw}</button>
+            <button type="button" className="wallet-action wallet-action--deposit" onClick={() => void openDeposit(usdt0Asset?.id)}><span>↓</span>{copy.deposit}</button>
+            <button type="button" className="wallet-action wallet-action--withdraw" onClick={() => openWithdraw(usdt0Asset?.id)}><span>↑</span>{copy.withdraw}</button>
           </div>
         </section>
 
@@ -438,12 +446,12 @@ export default function WalletPage({ onNavigate }: Props) {
         <h1>{copy.depositTitle}</h1><p className="wallet-flow-intro">{copy.depositIntro}</p>
         <div className="wallet-form-field">
           <label>{copy.network}</label>
-          <div className="wallet-select-static"><span className="wallet-network-dot" />{polygonNetwork?.displayName ?? copy.polygon}</div>
+          <div className="wallet-select-static"><span className="wallet-network-dot" />{selectedDepositNetwork?.displayName ?? selectedDepositAsset?.networkName ?? (fa ? "شبکه انتخاب‌شده" : "Selected network")}</div>
         </div>
         <div className="wallet-form-field">
           <label>{copy.asset}</label>
           <div className="wallet-exchange-actions">
-            {depositAssets.map((asset) => <button key={asset.id} type="button" className="wallet-asset-deposit-button" aria-pressed={depositAssetId === asset.id} onClick={() => changeDepositAsset(asset.id)}>{asset.symbol}</button>)}
+            {depositAssets.map((asset) => <button key={asset.id} type="button" className="wallet-asset-deposit-button" aria-pressed={depositAssetId === asset.id} onClick={() => changeDepositAsset(asset.id)}>{asset.symbol} · {asset.networkName}</button>)}
           </div>
         </div>
         {depositLoading && <div className="inline-feedback"><LoadingIndicator label={copy.loadingAddress} /></div>}
@@ -469,7 +477,7 @@ export default function WalletPage({ onNavigate }: Props) {
         <button type="button" className="wallet-back" onClick={() => setView("overview")}>← {copy.back}</button>
         <div className="wallet-flow-icon wallet-flow-icon--withdraw">↑</div>
         <h1>{copy.withdrawTitle}</h1><p className="wallet-flow-intro">{copy.withdrawIntro}</p>
-        <div className="wallet-form-field"><label>{copy.network}</label><div className="wallet-select-static"><span className="wallet-network-dot" />{polygonNetwork?.displayName ?? copy.polygon}</div></div>
+        <div className="wallet-form-field"><label>{copy.network}</label><div className="wallet-select-static"><span className="wallet-network-dot" />{selectedWithdrawNetwork?.displayName ?? (fa ? "شبکه انتخاب‌شده" : "Selected network")}</div></div>
         {selectedWithdrawAsset ? <>
           <div className="wallet-form-field"><label>{copy.asset}</label><div className="wallet-select-static">{selectedWithdrawAsset.symbol} <span>{selectedWithdrawAsset.displayName}</span></div></div>
           <div className="wallet-form-field">
@@ -478,8 +486,8 @@ export default function WalletPage({ onNavigate }: Props) {
             <small>{copy.available}: {fmt(selectedWithdrawAsset.availableBalance, selectedWithdrawAsset.decimals)} {selectedWithdrawAsset.symbol}</small>
           </div>
           <div className="wallet-form-field"><label>{copy.destination}</label><input className="wallet-address-input" value={withdrawAddress} onChange={(event) => { setWithdrawAddress(event.target.value); setWithdrawIdempotencyKey(createIdempotencyKey()); setWithdrawResult(null); }} placeholder="0x..." autoComplete="off" /></div>
-          <div className="wallet-fee-row"><span>{copy.polGasBalance}</span><strong>{fmt(polAsset?.availableBalance ?? "0", polAsset?.decimals ?? 18)} POL</strong></div>
-          <div className="wallet-fee-row"><span>{copy.fee}</span><strong>{withdrawResult?.fee ? formatAtomic(withdrawResult.fee, withdrawResult.feeDecimals ?? 18, locale) + " " + (withdrawResult.feeAsset ?? "POL") : "— POL"}</strong></div>
+          <div className="wallet-fee-row"><span>{copy.polGasBalance}</span><strong>{fmt(feeAsset?.availableBalance ?? "0", feeAsset?.decimals ?? 18)} {feeAsset?.symbol ?? selectedWithdrawNetwork?.nativeAssetSymbol ?? "—"}</strong></div>
+          <div className="wallet-fee-row"><span>{copy.fee}</span><strong>{withdrawResult?.fee ? formatAtomic(withdrawResult.fee, withdrawResult.feeDecimals ?? 18, locale) + " " + (withdrawResult.feeAsset ?? feeAsset?.symbol ?? "—") : "— " + (feeAsset?.symbol ?? selectedWithdrawNetwork?.nativeAssetSymbol ?? "")}</strong></div>
           <p className="wallet-deposit-minimum">{copy.feePaidInPol}</p>
           {withdrawError && <p className="inline-feedback wallet-error" role="alert">{withdrawError}</p>}
           {withdrawResult && <div className="wallet-warning"><strong>✓ {copy.status}: {withdrawResult.status}</strong><p>{copy.withdrawalSubmitted}</p></div>}
