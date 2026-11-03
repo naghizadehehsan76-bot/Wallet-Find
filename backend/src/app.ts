@@ -93,7 +93,6 @@ const marketPriceIds = [
   "polygon-ecosystem-token", "tether", "usd-coin", "ethereum",
   "binancecoin", "tron", "ripple", "dogecoin", "cardano",
   "avalanche-2", "chainlink", "dai", "litecoin", "polkadot", "stellar",
-  "wrapped-bitcoin",
 ];
 let cachedMarketPrices: Record<string, number> | null = null;
 let marketPricesUpdatedAt: number | null = null;
