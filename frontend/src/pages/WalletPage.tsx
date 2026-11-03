@@ -208,7 +208,7 @@ export default function WalletPage({ onNavigate }: Props) {
       }));
       setTurnkeySnapshots(snapshots);
       const successful = snapshots.filter((snapshot) => !snapshot.error);
-      setTurnkeyUpdatedAt(successful.length ? successful.map((item) => item.fetchedAt).sort().at(-1) ?? null : null);
+      setTurnkeyUpdatedAt(successful.length ? successful.map((item) => item.fetchedAt).sort().slice(-1)[0] ?? null : null);
     } catch {
       setError(copy.error);
     } finally {
