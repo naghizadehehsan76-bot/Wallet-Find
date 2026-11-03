@@ -607,7 +607,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
           <h2>{copy.depositHistory}</h2>
           {wallet.onChainDeposits.length === 0 ? <p>{copy.noDepositHistory}</p> : wallet.onChainDeposits.slice(0, 8).map((item) => (
             <div className="wallet-deposit-history-row" key={item.id}>
-              <div><strong>{item.amount} {item.asset}</strong><small>{item.network} · {new Date(item.detectedAt ?? item.requestedAt ?? Date.now()).toLocaleString(locale)}</small><small>{item.status} · {item.confirmationCount} / {depositDetails?.confirmationsRequired ?? "—"}</small></div>
+              <div><strong>{item.amount} {item.asset}</strong><small>{item.network} · {(item.detectedAt || item.requestedAt ? new Date(item.detectedAt || item.requestedAt || 0).toLocaleString(locale) : "—")}</small><small>{item.status} · {item.confirmationCount} / {depositDetails?.confirmationsRequired ?? "—"}</small></div>
               <strong>{item.status}</strong>
             </div>
           ))}
