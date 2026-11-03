@@ -19,7 +19,7 @@ Safety boundary: this document does not enable deposits, withdrawals, signing, s
 
 ### Network registry
 
-A network is identified by a stable string such as `eip155:137`, `eip155:56`, `bip122:<genesis-hash>`, or `solana:mainnet`. Store its family (EVM, BITCOIN, SOLANA, OTHER), native asset metadata, explorer template, finality policy, and operational status. RPC URLs and credentials remain in secret environment configuration, not in public database fields.
+A network is identified by a stable string such as `eip155:137` or `eip155:56`. Wallet-Find product scope is EVM-only; Bitcoin and Solana are excluded. Store its family (EVM), native asset metadata, explorer template, finality policy, and operational status. RPC URLs and credentials remain in secret environment configuration, not in public database fields.
 
 The current integer `chainId` fields remain as compatibility fields for existing EVM records during migration. Non-EVM adapters must not be forced to invent an EVM chain ID.
 
@@ -29,7 +29,7 @@ An asset is uniquely scoped to a network and a native/token reference. It stores
 
 ### Custody and addresses
 
-`WalletAccount` represents the user's custody identity and Turnkey Sub-Organization. It must not be assumed to be a single universal address. A separate wallet-address record maps a custody identity to a network, address, curve, derivation path, and provider account reference. EVM networks may reuse an EVM address where technically appropriate; Bitcoin and Solana require network-specific address/account derivation.
+`WalletAccount` represents the user's custody identity and Turnkey Sub-Organization. It must not be assumed to be a single universal address. A separate wallet-address record maps a custody identity to a network, address, curve, derivation path, and provider account reference. The supported product wallet currently uses EVM addresses only.
 
 Provisioning must be a recoverable state machine. Do not hold a database transaction open while waiting for a remote Turnkey API call. Persist a provisioning intent and stable correlation/idempotency key first, then reconcile the remote result before retrying. An uncertain remote result must require lookup/reconciliation, not blind recreation.
 
@@ -50,8 +50,6 @@ The target accounting model is an immutable, reference-keyed journal/ledger with
 ## 4. Adapter boundaries
 
 - EVM adapter: RPC, ERC-20/native transfer parsing, EVM address validation, block hashes, confirmations/finality, reorg handling, gas quotes, and EVM transaction broadcast.
-- Bitcoin adapter: UTXO discovery, address derivation, confirmations, fee estimation, spend selection, change outputs, and reorg handling.
-- Solana adapter: account/token-account discovery, SPL token parsing, commitment/finality, transaction construction, and signature reconciliation.
 
 The accounting, user API, and common lifecycle state machines must not import EVM-specific libraries. Network-specific dependencies belong inside their adapters. Turnkey support must be checked per curve/chain before an adapter is marked usable.
 
@@ -71,7 +69,7 @@ The accounting, user API, and common lifecycle state machines must not import EV
 4. **Generic API and UI:** dynamic network/asset metadata, network-specific addresses, and asset-scoped balances/history.
 5. **Withdrawal engine:** reservations, policy checks, fee asset accounting, Turnkey signing, broadcast recovery, confirmation, and reversal.
 6. **Operational/security readiness:** tests, monitoring, backups, incident runbooks, reconciliation, and a network-by-network activation checklist.
-7. Bitcoin and Solana adapters can then be added independently against the same contracts; they are not implicitly production-ready because the shared model exists.
+7. Bitcoin and Solana are outside the Wallet-Find product scope and are not to be added to the user or admin wallet interfaces.
 
 A stage passes only when its code, schema migration, CI checks, tests, and explicit acceptance criteria are verified. A successful TypeScript build alone is not proof that funds can be safely handled.
 
@@ -87,10 +85,8 @@ The additive registry migration seeds these networks with `isEnabled=false`, `de
 | BNB Smart Chain | `eip155:56` | EVM deposit scanner and withdrawal fee model implemented |
 | Polygon PoS | `eip155:137` | EVM deposit scanner and withdrawal fee model implemented; legacy USDT0 path remains separate |
 | Arbitrum One | `eip155:42161` | EVM deposit scanner implemented; withdrawals blocked pending L1 fee accounting |
-| Bitcoin | `bip122:000000000019d6689c085ae165831e93` | Registry placeholder only; Bitcoin adapter, UTXO accounting, address derivation, and spend workflow are not implemented |
-| Solana Mainnet-Beta | `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp` | Registry placeholder only; Solana adapter, SPL token-account handling, Ed25519 custody, and transaction workflow are not implemented |
 
-Native assets are registered as metadata for fee and balance dimensions. Their deposit and withdrawal flags remain disabled. No Bitcoin or Solana receiving address is generated by the current EVM-only Turnkey flow.
+Native assets are registered as metadata for fee and balance dimensions. Their deposit and withdrawal flags remain disabled. Bitcoin and Solana are excluded from the product scope. Legacy registry enum values/placeholders, if present in an existing database, are retained only for compatibility and are not exposed by wallet APIs.
 
 The EVM withdrawal fee adapter is deliberately limited to Ethereum, BNB Smart Chain, and Polygon. Optimism and Arbitrum require L1 data-fee accounting and remain blocked for withdrawals until that model is implemented and tested. The registry UI reports adapter implementation separately from operational activation; an implemented adapter is not equivalent to a production-ready or enabled network.
 
