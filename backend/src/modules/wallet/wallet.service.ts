@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createPublicClient, http, isAddress, parseAbi, parseEventLogs } from "viem";
 import { formatAssetUnits, parseAssetUnits } from "./asset-amount.js";
+import { meetsMinimumDeposit } from "./deposit-minimum.js";
 import { isEvmWithdrawalFeeModelSupported, isSupportedEvmChainId } from "./chain-adapters/evm.adapter.js";
 import { polygon } from "viem/chains";
 import prisma from "../../config/prisma.js";
@@ -234,7 +235,14 @@ export async function getWallet(userId: string) {
       legacyAvailableBalance: formatMicro(legacyBalances.availableBalance),
       networks: networkViews,
       onChainDeposits: [
-        ...legacyDeposits.map((deposit) => {
+        ...legacyDeposits.filter((deposit) => meetsMinimumDeposit({
+          chainId: deposit.chainId,
+          symbol: deposit.asset.symbol,
+          decimals: deposit.asset.decimals,
+          amountAtomic: deposit.amountMicro === null
+            ? BigInt(deposit.rawAmount)
+            : BigInt(deposit.amountMicro.toString()),
+        })).map((deposit) => {
           const network = networkViews.find((item) => item.chainId === deposit.chainId);
           const amountAtomic = deposit.amountMicro === null
             ? BigInt(deposit.rawAmount)
@@ -256,7 +264,12 @@ export async function getWallet(userId: string) {
             legacy: true,
           };
         }),
-        ...chainDeposits.map((deposit: any) => ({
+        ...chainDeposits.filter((deposit: any) => meetsMinimumDeposit({
+          chainId: Number(deposit.networkId.split(":")[1] ?? 0) || null,
+          symbol: deposit.asset.symbol,
+          decimals: deposit.asset.decimals,
+          amountAtomic: BigInt(deposit.amountAtomic.toFixed(0)),
+        })).map((deposit: any) => ({
         id: deposit.id,
         type: "DEPOSIT",
         networkId: deposit.networkId,
