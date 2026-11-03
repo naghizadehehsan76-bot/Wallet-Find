@@ -109,10 +109,12 @@ async function registerWalletEvmNetworks(
         walletAccountId,
         chainId: item.chainId,
         networkKey: item.networkKey,
-        depositEnabled: false,
+        depositEnabled: item.chainId === 137,
         withdrawalEnabled: false,
       },
-      update: {},
+      // Polygon deposits are enabled for every verified, provisioned wallet.
+      // Keep all withdrawal permissions unchanged.
+      update: item.chainId === 137 ? { depositEnabled: true } : {},
     });
 
     await tx.walletAddress.upsert({
