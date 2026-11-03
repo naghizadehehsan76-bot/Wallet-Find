@@ -177,7 +177,7 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
 
   const legacyPolygonScannerActive = network.id === "eip155:137"
     && process.env.POLYGON_DEPOSIT_SCANNER_ENABLED === "true";
-  const adapter = makeAdapter(network);
+  const adapter = makeAdapter({ id: network.id, family: "EVM", chainId: network.chainId });
   const latestPosition = await adapter.getLatestPosition();
   const safePosition = await adapter.getSafePosition(network.finalityDepth);
   const safeValue = numericPosition(safePosition);
