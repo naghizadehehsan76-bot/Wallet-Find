@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import prisma from "../../config/prisma.js";
 import { postWalletJournal } from "./wallet-journal.service.js";
 import { createEvmWalletChainAdapter } from "./chain-adapters/evm.adapter.js";
+import { minimumDepositAtomic } from "./deposit-minimum.js";
 import type { AdapterAddress, AdapterAsset, WalletChainAdapter } from "./chain-adapters/types.js";
 
 const DEFAULT_CHUNK_SIZE = 250n;
@@ -371,9 +372,12 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
           const amount = BigInt(transfer.amountAtomic);
           if (amount <= 0n) return [];
 
-          const minAmount = asset.minDepositAtomic === null
-            ? 0n
-            : BigInt(asset.minDepositAtomic.toFixed(0));
+          const minAmount = minimumDepositAtomic({
+            chainId: network.chainId,
+            symbol: asset.symbol,
+            decimals: asset.decimals,
+            configuredMinimum: asset.minDepositAtomic?.toFixed(0) ?? null,
+          });
           const belowMinimum = amount < minAmount;
 
           return [{
