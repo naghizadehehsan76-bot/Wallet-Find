@@ -621,6 +621,8 @@ enum WalletProvisioningStatus {
   FAILED
 }
 
+// BITCOIN and SOLANA remain reserved enum values for legacy database compatibility.
+// They are retired product networks and must never be used for new wallet records.
 enum WalletNetworkFamily {
   EVM
   BITCOIN
@@ -639,6 +641,7 @@ enum WalletAssetVerificationStatus {
   REJECTED
 }
 
+// Non-EVM address types are retained only to preserve compatibility with old records.
 enum WalletAddressType {
   EVM
   BITCOIN
@@ -929,7 +932,7 @@ model TreasuryReconciliation {
 
 
 /// Stable chain identity. EVM networks use CAIP-2 IDs such as eip155:137.
-/// Bitcoin and Solana use their own namespace rather than fake EVM chain IDs.
+/// Product wallet registry is EVM-only. Legacy non-EVM enum values/rows are retained for compatibility only.
 model WalletNetwork {
   id                         String @id
   family                     WalletNetworkFamily
@@ -987,7 +990,7 @@ model WalletAsset {
 }
 
 /// Network-specific public receiving/spending addresses. One EVM address can
-/// be registered on compatible EVM networks; Bitcoin/Solana use their own type.
+/// be registered on compatible EVM networks. Non-EVM address types are legacy-only.
 model WalletAddress {
   id                         String @id @default(cuid())
   walletAccountId            String
