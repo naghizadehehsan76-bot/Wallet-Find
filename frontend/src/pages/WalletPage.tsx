@@ -383,9 +383,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
           <div className="wallet-card-heading">
             <div>
               <h2 id="wallet-assets-heading">{fa ? "لیست دارایی‌ها" : "Asset list"}</h2>
-              <p className="wallet-assets-note">{fa ? "تمام دارایی‌های تعریف‌شده در شبکه‌های Wallet-Find" : "All assets registered across Wallet-Find networks"}</p>
             </div>
-            <strong>{wallet.networks.reduce((count, network) => count + network.assets.length, 0)}</strong>
           </div>
           {wallet.networks.filter((network) => network.assets.length > 0).map((network) => (
             <div className="wallet-network-group" key={network.id}>
