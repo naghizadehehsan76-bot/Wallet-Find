@@ -16,6 +16,7 @@ import LoadingIndicator from "../components/LoadingIndicator";
 type Page = "home" | "auth" | "competition" | "key" | "leaderboard" | "profile" | "wallet";
 type Props = { onNavigate: (page: Page) => void };
 type WalletView = "overview" | "deposit" | "withdraw";
+type PlannedWalletAction = "transfer" | "convert" | "buy" | "sell" | "earn" | "addressBook" | "export" | "qr";
 type TurnkeySnapshot = { networkId: string; network: string; address: string; balances: unknown[]; transactions: unknown[]; fetchedAt: string; error?: string };
 function recordOf(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
 function firstValue(record: Record<string, unknown>, keys: string[]): unknown { for (const key of keys) if (record[key] !== undefined && record[key] !== null && record[key] !== "") return record[key]; return undefined; }
@@ -128,10 +129,43 @@ export default function WalletPage({ onNavigate }: Props) {
   const [usdPrices, setUsdPrices] = useState<Record<string, number>>({});
   const [priceUpdatedAt, setPriceUpdatedAt] = useState<number | null>(null);
   const [priceStatus, setPriceStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [balancesHidden, setBalancesHidden] = useState(false);
+  const [activityFilter, setActivityFilter] = useState<"all" | "deposit" | "withdrawal">("all");
+  const [activitySearch, setActivitySearch] = useState("");
+  const [plannedAction, setPlannedAction] = useState<PlannedWalletAction | null>(null);
 
 
   const copy = useMemo(() => ({
     title: fa ? "کیف پول من" : "My wallet",
+    pageSubtitle: fa ? "دارایی‌ها، عملیات و فعالیت‌های کیف پولت را یک‌جا مدیریت کن." : "Manage your assets, wallet actions and activity in one place.",
+    overviewTab: fa ? "نمای کلی" : "Overview",
+    assetsTab: fa ? "دارایی‌ها" : "Assets",
+    activityTab: fa ? "تاریخچه" : "Activity",
+    hideBalances: fa ? "مخفی‌کردن موجودی" : "Hide balances",
+    showBalances: fa ? "نمایش موجودی" : "Show balances",
+    totalPortfolio: fa ? "ارزش کل دارایی‌های ثبت‌شده" : "Total estimated portfolio value",
+    balancePrivacy: fa ? "موجودی‌ها برای حفظ حریم خصوصی مخفی شده‌اند." : "Balances are hidden for privacy.",
+    quickActions: fa ? "دسترسی سریع" : "Quick actions",
+    planned: fa ? "به‌زودی" : "Coming soon",
+    plannedNote: fa ? "این گزینه فعلاً فقط در رابط کاربری نمایش داده می‌شود و هنوز به سرویس عملیاتی متصل نیست." : "This option is visible in the interface but is not connected to an operational service yet.",
+    close: fa ? "بستن" : "Close",
+    activitySearchPlaceholder: fa ? "جست‌وجو در نوع، دارایی یا وضعیت..." : "Search type, asset or status...",
+    filterAll: fa ? "همه" : "All",
+    filterDeposits: fa ? "واریزها" : "Deposits",
+    filterWithdrawals: fa ? "برداشت‌ها" : "Withdrawals",
+    noFilteredActivity: fa ? "تراکنشی با این فیلتر پیدا نشد." : "No transactions match this filter.",
+    assetsCount: fa ? "دارایی‌های ثبت‌شده" : "Registered assets",
+    networkData: fa ? "داده‌های شبکه" : "Network data",
+    plannedActions: {
+      transfer: { title: fa ? "انتقال داخلی" : "Internal transfer", description: fa ? "انتقال دارایی بین کاربران Wallet-Find یا بین حساب‌های داخلی؛ به طراحی دفترکل، کارمزد احتمالی و محدودیت‌های انتقال نیاز دارد." : "Move assets between Wallet-Find users or internal accounts. This needs ledger rules, any transfer fees and transfer limits." },
+      convert: { title: fa ? "تبدیل ارز" : "Convert assets", description: fa ? "تبدیل یک دارایی به دارایی دیگر با نرخ لحظه‌ای، نرخ نهایی، کارمزد و ثبت دوطرفه در دفترکل هنوز پیاده‌سازی نشده است." : "Asset conversion with a live quote, final rate, fee and balanced ledger posting has not been implemented." },
+      buy: { title: fa ? "خرید ارز دیجیتال" : "Buy crypto", description: fa ? "برای خرید به درگاه پرداخت یا ارائه‌دهندهٔ خرید، احراز پرداخت و ثبت سفارش نیاز داریم." : "Buying requires a payment gateway or on-ramp provider, payment verification and order settlement." },
+      sell: { title: fa ? "فروش ارز دیجیتال" : "Sell crypto", description: fa ? "برای فروش به مسیر تسویهٔ بانکی/پرداخت، کنترل مقصد و مدیریت بازپرداخت نیاز داریم." : "Selling requires a payout provider, destination checks and refund handling." },
+      earn: { title: fa ? "کسب سود / استیکینگ" : "Earn / staking", description: fa ? "محصول سوددهی، انتخاب پروتکل، ریسک‌ها، دورهٔ قفل، محاسبهٔ پاداش و برداشت هنوز تعریف و پیاده‌سازی نشده‌اند." : "An earn product, protocol selection, risk disclosure, lock-up rules, rewards accounting and withdrawals are not defined or implemented." },
+      addressBook: { title: fa ? "دفترچهٔ آدرس‌ها" : "Address book", description: fa ? "ذخیره، برچسب‌گذاری، تأیید و حذف آدرس‌های مقصد هنوز در بک‌اند و پایگاه داده ساخته نشده است." : "Saving, labeling, verifying and deleting withdrawal addresses are not yet supported by the backend or database." },
+      export: { title: fa ? "خروجی گزارش" : "Export report", description: fa ? "خروجی CSV/PDF با فیلتر تاریخ، نوع عملیات، کارمزد و شناسهٔ تراکنش هنوز ساخته نشده است." : "CSV/PDF export with date, action, fee and transaction filters has not been built yet." },
+      qr: { title: fa ? "نمایش QR واریز" : "Deposit QR code", description: fa ? "تولید و نمایش QR از آدرس دریافت، همراه با درج شبکه و دارایی در دادهٔ QR هنوز پیاده‌سازی نشده است." : "Generating a receive-address QR with the selected network and asset embedded has not been implemented." },
+    },
     balance: fa ? "ارزش تخمینی دارایی‌های ثبت‌شده" : "Estimated portfolio value",
     balanceNote: fa ? "محاسبه بر اساس دفترکل داخلی Wallet-Find و قیمت بازار؛ با موجودی زنجیره‌ای Turnkey یکسان نیست." : "Calculated from Wallet-Find internal records and market prices; it may differ from Turnkey on-chain balances.",
     partialPriceNote: fa ? "قیمت بعضی دارایی‌ها موجود نیست؛ این عدد ممکن است کامل نباشد." : "Some asset prices are unavailable, so this estimate may be incomplete.",
@@ -395,6 +429,16 @@ export default function WalletPage({ onNavigate }: Props) {
     })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
 
+  const filteredActivities = activities.filter((item) => {
+    const normalizedType = item.type.toLowerCase();
+    const isDeposit = normalizedType.includes("deposit") || normalizedType.includes("واریز");
+    const isWithdrawal = normalizedType.includes("withdraw");
+    if (activityFilter === "deposit" && !isDeposit) return false;
+    if (activityFilter === "withdrawal" && !isWithdrawal) return false;
+    const query = activitySearch.trim().toLowerCase();
+    return !query || [item.type, item.status, item.currency, item.note ?? ""].some((value) => value.toLowerCase().includes(query));
+  });
+
   const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token", MATIC: "polygon-ecosystem-token", USDT: "tether", USDT0: "tether", USDC: "usd-coin", DAI: "dai", ETH: "ethereum", WETH: "ethereum", BTC: "bitcoin", WBTC: "wrapped-bitcoin", SOL: "solana", BNB: "binancecoin", TRX: "tron", XRP: "ripple", DOGE: "dogecoin", ADA: "cardano", AVAX: "avalanche-2", LINK: "chainlink", LTC: "litecoin", DOT: "polkadot", XLM: "stellar" };
   const usdBalance = (wallet?.networks ?? []).reduce((sum, network) => sum + network.assets.reduce((assetSum, asset) => { const id = priceIdBySymbol[asset.symbol.toUpperCase()]; const price = id ? usdPrices[id] : undefined; const amount = Number(asset.balance); return price !== undefined && Number.isFinite(amount) ? assetSum + amount * price : assetSum; }, 0), 0);
   const unpricedAssetCount = (wallet?.networks ?? []).reduce((count, network) => count + network.assets.filter((asset) => { const amount = Number(asset.balance); const id = priceIdBySymbol[asset.symbol.toUpperCase()]; return Number.isFinite(amount) && amount > 0 && (!id || usdPrices[id] === undefined); }).length, 0);
@@ -409,28 +453,49 @@ export default function WalletPage({ onNavigate }: Props) {
     </header>
     <main className="page wallet-exchange">
       <div className="wallet-page-heading">
-        <div><div className="section-title">{copy.title}</div><p>{fa ? "موجودی، واریز، برداشت و تراکنش‌های شما" : "Your balances, deposits, withdrawals and transactions"}</p></div>
+        <div><div className="section-title">{copy.title}</div><p>{copy.pageSubtitle}</p></div>
         <button type="button" className="wallet-refresh" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? "…" : "↻"} {copy.refresh}</button>
       </div>
+
+      {wallet && view === "overview" && <nav className="wallet-section-nav" aria-label={fa ? "بخش‌های کیف پول" : "Wallet sections"}>
+        <a href="#wallet-overview">{copy.overviewTab}</a>
+        <a href="#wallet-assets">{copy.assetsTab}</a>
+        <a href="#wallet-ledger-history">{copy.activityTab}</a>
+      </nav>}
 
       {!wallet && !error && <div className="inline-feedback"><LoadingIndicator label={copy.loading} /></div>}
       {error && <p className="inline-feedback wallet-error" role="alert">{error}</p>}
       {wallet?.walletProvisioningReviewRequired && <div className="wallet-warning" role="alert"><strong>⚠ {copy.unavailable}</strong><p>{copy.reviewRequired}</p></div>}
 
       {wallet && view === "overview" && <>
-        <section className="wallet-exchange-balance">
+        <section className="wallet-exchange-balance" id="wallet-overview">
           <div className="wallet-exchange-balance__top">
-            <span>{copy.balance}</span>
-            
+            <span>{copy.totalPortfolio}</span>
+            <button type="button" className="wallet-balance-privacy" onClick={() => setBalancesHidden((value) => !value)} aria-pressed={balancesHidden} aria-label={balancesHidden ? copy.showBalances : copy.hideBalances}>
+              <span aria-hidden="true">{balancesHidden ? "◉" : "◎"}</span>{balancesHidden ? copy.showBalances : copy.hideBalances}
+            </button>
           </div>
-          <div className="wallet-exchange-balance__value">{priceStatus === "ready" ? usdFormatter.format(usdBalance) : "—"}</div>
-          <div className="wallet-exchange-balance__available">{priceStatus === "loading" ? copy.priceLoading : priceStatus === "error" ? copy.priceUnavailable : copy.balanceNote}</div>
+          <div className="wallet-exchange-balance__value">{balancesHidden ? "••••••••" : priceStatus === "ready" ? usdFormatter.format(usdBalance) : "—"}</div>
+          <div className="wallet-exchange-balance__available">{balancesHidden ? copy.balancePrivacy : priceStatus === "loading" ? copy.priceLoading : priceStatus === "error" ? copy.priceUnavailable : copy.balanceNote}</div>
           {unpricedAssetCount > 0 && <div className="wallet-exchange-balance__available">{copy.partialPriceNote}</div>}
           {priceUpdatedAt && <div className="wallet-exchange-balance__available">{fa ? "آخرین به‌روزرسانی قیمت: " : "Prices updated: "}{new Date(priceUpdatedAt).toLocaleTimeString(locale)}</div>}
 
           <div className="wallet-exchange-actions">
-            <button type="button" className="wallet-action wallet-action--deposit" onClick={() => void openDeposit()}><span>↓</span>{copy.deposit}</button>
-            <button type="button" className="wallet-action wallet-action--withdraw" onClick={() => openWithdraw()}><span>↑</span>{copy.withdraw}</button>
+            <button type="button" className="wallet-action wallet-action--deposit" onClick={() => void openDeposit()}><span aria-hidden="true">↓</span>{copy.deposit}</button>
+            <button type="button" className="wallet-action wallet-action--withdraw" onClick={() => openWithdraw()}><span aria-hidden="true">↑</span>{copy.withdraw}</button>
+          </div>
+          <div className="wallet-quick-actions">
+            <div className="wallet-quick-actions__heading"><strong>{copy.quickActions}</strong><small>{fa ? "عملیات موجود و قابلیت‌های آینده" : "Available actions and planned features"}</small></div>
+            <div className="wallet-quick-actions__grid">
+              <button type="button" className="wallet-planned-action" onClick={() => setPlannedAction("transfer")}><span>⇄</span><strong>{copy.plannedActions.transfer.title}</strong><em>{copy.planned}</em></button>
+              <button type="button" className="wallet-planned-action" onClick={() => setPlannedAction("convert")}><span>⇆</span><strong>{copy.plannedActions.convert.title}</strong><em>{copy.planned}</em></button>
+              <button type="button" className="wallet-planned-action" onClick={() => setPlannedAction("buy")}><span>＋</span><strong>{copy.plannedActions.buy.title}</strong><em>{copy.planned}</em></button>
+              <button type="button" className="wallet-planned-action" onClick={() => setPlannedAction("sell")}><span>－</span><strong>{copy.plannedActions.sell.title}</strong><em>{copy.planned}</em></button>
+              <button type="button" className="wallet-planned-action" onClick={() => setPlannedAction("earn")}><span>✧</span><strong>{copy.plannedActions.earn.title}</strong><em>{copy.planned}</em></button>
+              <button type="button" className="wallet-planned-action" onClick={() => setPlannedAction("addressBook")}><span>⌖</span><strong>{copy.plannedActions.addressBook.title}</strong><em>{copy.planned}</em></button>
+              <button type="button" className="wallet-planned-action" onClick={() => setPlannedAction("export")}><span>⇩</span><strong>{copy.plannedActions.export.title}</strong><em>{copy.planned}</em></button>
+              <button type="button" className="wallet-planned-action" onClick={() => setPlannedAction("qr")}><span>▦</span><strong>{copy.plannedActions.qr.title}</strong><em>{copy.planned}</em></button>
+            </div>
           </div>
         </section>
 
@@ -445,7 +510,7 @@ export default function WalletPage({ onNavigate }: Props) {
             {snapshot.error ? <p className="wallet-error">{copy.turnkeyUnavailable}</p> : snapshot.balances.length === 0 ? <p className="wallet-asset-empty">{copy.turnkeyNoBalances}</p> :
               snapshot.balances.map((item, index) => { const balance = turnkeyBalance(item); return <div className="wallet-asset-row" key={snapshot.networkId + "-" + balance.contract + "-" + index}>
                 <div className="wallet-asset-row__identity"><span className="wallet-asset-symbol">{balance.symbol.slice(0, 4)}</span><div><strong>{balance.symbol}</strong><small>{balance.contract || snapshot.network}</small></div></div>
-                <div className="wallet-asset-row__balance"><strong>{balance.amount} {balance.symbol}</strong><small>Turnkey · {fa ? "موجودی زنجیره" : "On-chain balance"}</small></div>
+                <div className="wallet-asset-row__balance"><strong>{balancesHidden ? "••••••" : balance.amount} {balance.symbol}</strong><small>Turnkey · {fa ? "موجودی زنجیره" : "On-chain balance"}</small></div>
               </div>; })}
           </div>)}
         </section>
@@ -462,7 +527,7 @@ export default function WalletPage({ onNavigate }: Props) {
           })()}
         </section>
         </details>
-        <section className="wallet-network-card wallet-assets-directory">
+        <section className="wallet-network-card wallet-assets-directory" id="wallet-assets">
           <div className="wallet-card-heading"><div><h2>{copy.assetsTitle}</h2><p className="wallet-assets-note">{copy.assetsNote}</p></div><span>{wallet.networks.reduce((count, network) => count + network.assets.length, 0)}</span></div>
           
           {wallet.networks.map((network) => (
@@ -478,9 +543,9 @@ export default function WalletPage({ onNavigate }: Props) {
                     <div><strong>{asset.symbol}</strong><small>{asset.displayName}</small></div>
                   </div>
                   <div className="wallet-asset-row__balance">
-                    <strong>{fmt(asset.balance, asset.decimals)} {asset.symbol}</strong>
-                    <small>{fa ? "قابل استفاده" : "Available"}: {fmt(asset.availableBalance, asset.decimals)} {asset.symbol}</small>
-                    {Number(asset.reservedBalance) > 0 && <small className="wallet-asset-reserved">{fa ? "رزروشده" : "Reserved"}: {fmt(asset.reservedBalance, asset.decimals)} {asset.symbol}</small>}
+                    <strong>{balancesHidden ? "••••••" : fmt(asset.balance, asset.decimals)} {asset.symbol}</strong>
+                    <small>{fa ? "قابل استفاده" : "Available"}: {balancesHidden ? "••••••" : fmt(asset.availableBalance, asset.decimals)} {asset.symbol}</small>
+                    {Number(asset.reservedBalance) > 0 && <small className="wallet-asset-reserved">{fa ? "رزروشده" : "Reserved"}: {balancesHidden ? "••••••" : fmt(asset.reservedBalance, asset.decimals)} {asset.symbol}</small>}
                   </div>
                   <div className="wallet-asset-row__actions">
                     {asset.depositEnabled && <button type="button" className="wallet-asset-deposit-button" onClick={() => void openDeposit(asset.id)}>{copy.deposit}</button>}
@@ -491,14 +556,22 @@ export default function WalletPage({ onNavigate }: Props) {
           ))}
         </section>
 
-        <section className="wallet-history wallet-exchange-history">
+        <section className="wallet-history wallet-exchange-history" id="wallet-ledger-history">
           <div className="wallet-card-heading"><div><h2>{copy.history}</h2><p className="wallet-assets-note">{fa ? "سوابق واریز، برداشت و عملیات ثبت‌شده در Wallet-Find." : "Deposits, withdrawals and operations recorded by Wallet-Find."}</p></div><span>{activities.length}</span></div>
-          {activities.length === 0 ? <div className="wallet-empty"><span>↔</span><p>{copy.empty}</p></div> : <div className="wallet-table">
+          <div className="wallet-activity-tools">
+            <div className="wallet-activity-filters" role="group" aria-label={fa ? "فیلتر تراکنش‌ها" : "Transaction filters"}>
+              <button type="button" aria-pressed={activityFilter === "all"} onClick={() => setActivityFilter("all")}>{copy.filterAll}</button>
+              <button type="button" aria-pressed={activityFilter === "deposit"} onClick={() => setActivityFilter("deposit")}>{copy.filterDeposits}</button>
+              <button type="button" aria-pressed={activityFilter === "withdrawal"} onClick={() => setActivityFilter("withdrawal")}>{copy.filterWithdrawals}</button>
+            </div>
+            <input className="wallet-activity-search" value={activitySearch} onChange={(event) => setActivitySearch(event.target.value)} placeholder={copy.activitySearchPlaceholder} aria-label={copy.activitySearchPlaceholder} />
+          </div>
+          {filteredActivities.length === 0 ? <div className="wallet-empty"><span>↔</span><p>{activities.length === 0 ? copy.empty : copy.noFilteredActivity}</p></div> : <div className="wallet-table">
             <div className="wallet-table-head"><span>{copy.type}</span><span>{copy.date}</span><span>{copy.amountColumn}</span></div>
-            {activities.slice(0, 100).map((item) => <article className="wallet-transaction" key={item.id}>
+            {filteredActivities.slice(0, 100).map((item) => <article className="wallet-transaction" key={item.id}>
               <div><strong>{item.type}</strong><small>{item.status}{item.note ? " · " + item.note : ""}</small></div>
               <small>{new Date(item.createdAt).toLocaleString(locale)}</small>
-              <div><b>{fmt(item.amount)} <small>{item.currency}</small></b>
+              <div><b>{balancesHidden ? "••••••" : fmt(item.amount)} <small>{item.currency}</small></b>
                 {item.fee && <small>{copy.fee}: {item.fee} {item.feeAsset ?? "POL"}</small>}
                 {item.explorerUrl && <a href={item.explorerUrl} target="_blank" rel="noreferrer">{fa ? "مشاهده تراکنش" : "View transaction"}</a>}
               </div>
@@ -563,6 +636,16 @@ export default function WalletPage({ onNavigate }: Props) {
           </button>
         </> : <div className="wallet-warning"><strong>⚠ {copy.unavailable}</strong><p>{copy.noWithdrawalAssets}</p></div>}
       </section>}
+      {plannedAction && <div className="wallet-planned-modal" role="presentation" onClick={() => setPlannedAction(null)}>
+        <section className="wallet-planned-modal__card" role="dialog" aria-modal="true" aria-labelledby="wallet-planned-title" onClick={(event) => event.stopPropagation()}>
+          <div className="wallet-planned-modal__icon">✧</div>
+          <span className="wallet-planned-modal__status">{copy.planned}</span>
+          <h2 id="wallet-planned-title">{copy.plannedActions[plannedAction].title}</h2>
+          <p>{copy.plannedActions[plannedAction].description}</p>
+          <div className="wallet-planned-modal__note">{copy.plannedNote}</div>
+          <button type="button" onClick={() => setPlannedAction(null)}>{copy.close}</button>
+        </section>
+      </div>}
     </main>
     <BottomNav activePage="wallet" onNavigate={onNavigate} />
   </div>;
