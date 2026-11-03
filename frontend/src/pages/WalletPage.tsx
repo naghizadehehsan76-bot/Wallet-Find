@@ -154,7 +154,18 @@ export default function WalletPage({ onNavigate }: Props) {
     withdrawTitle: fa ? "درخواست برداشت" : "Withdrawal request",
     depositIntro: fa ? "دارایی انتخاب‌شده را فقط روی شبکهٔ نمایش‌داده‌شده به آدرس اختصاصی خود ارسال کنید." : "Send only the selected asset on the selected network to your dedicated address.",
     withdrawIntro: fa ? "مبلغ و آدرس مقصد را با دقت وارد کنید. کارمزد شبکه از دارایی بومی همان شبکه پرداخت می‌شود." : "Enter the amount and destination carefully. Network fees are paid in the native asset of the selected network.",
-    receiveAddress: fa ? "آدرس دریافت شما" : "Your deposit address",
+    receiveAddress: fa ? "آدرس واریز" : "Deposit address",
+    depositStep1: fa ? "انتخاب ارز" : "Select coin",
+    depositStep2: fa ? "انتخاب شبکه" : "Select network",
+    depositStep3: fa ? "اطلاعات واریز" : "Deposit information",
+    depositNetworkWarning: fa ? "شبکه انتخاب‌شده باید دقیقاً با شبکه مبدأ برداشت یکسان باشد." : "The selected network must exactly match the withdrawal network.",
+    depositQr: fa ? "برای دریافت آدرس اسکن کنید" : "Scan to get deposit address",
+    depositStatus: fa ? "وضعیت واریز" : "Deposit status",
+    depositHistory: fa ? "تاریخچه واریز" : "Deposit history",
+    noDepositHistory: fa ? "هنوز واریزی روی شبکه برای این کیف پول ثبت نشده است." : "No on-chain deposits have been recorded for this wallet yet.",
+    confirmationsProgress: fa ? "تأییدیه‌های دریافت‌شده" : "Confirmations received",
+    networkFeeNotice: fa ? "Wallet-Find برای دریافت واریز از شما کارمزد دریافت نمی‌کند؛ کارمزد احتمالی ارسال را کیف پول مبدأ تعیین می‌کند." : "Wallet-Find does not charge a deposit fee; any sending fee is set by the sending wallet.",
+    depositRisk: fa ? "از ارسال دارایی روی شبکه یا قرارداد اشتباه خودداری کنید. تراکنش‌های بلاک‌چین برگشت‌پذیر نیستند." : "Do not send assets using the wrong network or token contract. Blockchain transactions cannot be reversed.",
     copyAddress: fa ? "کپی آدرس" : "Copy address",
     copied: fa ? "آدرس کپی شد" : "Address copied",
     amount: fa ? "مقدار" : "Amount",
@@ -456,18 +467,42 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
         {depositLoading && <div className="inline-feedback"><LoadingIndicator label={copy.loadingAddress} /></div>}
         {depositError && <p className="inline-feedback wallet-error" role="alert">{depositError}</p>}
         {depositDetails && <>
-          <div className="wallet-form-field"><label>{copy.asset}</label><div className="wallet-select-static">{depositDetails.asset} <span>{depositDetails.displayName}</span></div></div>
-          <div className="wallet-deposit-address">
+          <div className="wallet-deposit-steps" aria-label="Deposit steps">
+            <span className="is-active">1. {copy.depositStep1}</span><span className="is-active">2. {copy.depositStep2}</span><span className="is-active">3. {copy.depositStep3}</span>
+          </div>
+          <div className="wallet-deposit-network-note"><strong>{copy.network}: {depositDetails.network}</strong><span>{copy.depositNetworkWarning}</span></div>
+          <div className="wallet-deposit-qr-panel">
+            <div className="wallet-deposit-qr">
+              <img src={"https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=" + encodeURIComponent(depositDetails.depositAddress)} alt={copy.depositQr} loading="lazy" />
+            </div>
+            <strong>{copy.depositQr}</strong>
+            <small>{depositDetails.asset} · {depositDetails.network}</small>
+          </div>
+          <div className="wallet-deposit-address wallet-deposit-address--binance">
             <label>{copy.receiveAddress}</label>
             <code>{depositDetails.depositAddress}</code>
             <button type="button" onClick={() => void copyAddress()} disabled={copied}>{copied ? "✓ " + copy.copied : copy.copyAddress}</button>
           </div>
-          <div className="wallet-network-row"><span>{copy.confirmations}</span><strong>{depositDetails.confirmationsRequired}</strong></div>
+          <div className="wallet-deposit-info-grid">
+            <div><span>{copy.depositStatus}</span><strong>{depositDetails.status}</strong></div>
+            <div><span>{copy.confirmations}</span><strong>{depositDetails.confirmationsRequired}</strong></div>
+            <div><span>{copy.minimum}</span><strong>{depositDetails.minDeposit ? depositDetails.minDeposit + " " + depositDetails.asset : "—"}</strong></div>
+            <div><span>{copy.asset}</span><strong>{depositDetails.asset} · {depositDetails.displayName}</strong></div>
+          </div>
           {depositDetails.contractAddress && <div className="wallet-deposit-address"><label>{copy.contract}</label><code>{depositDetails.contractAddress}</code></div>}
-          {depositDetails.minDeposit && <div className="wallet-network-row"><span>{copy.minimum}</span><strong>{depositDetails.minDeposit} {depositDetails.asset}</strong></div>}
-          <div className="wallet-warning"><strong>⚠ {fa ? "نکتهٔ مهم" : "Important"}</strong><p>{depositDetails.asset === "POL" ? copy.polWarning : copy.usdt0Warning}</p></div>
+          <div className="wallet-warning"><strong>⚠ {fa ? "هشدار امنیتی" : "Security notice"}</strong><p>{depositDetails.asset === "POL" ? copy.polWarning : copy.usdt0Warning} {copy.depositRisk}</p></div>
           <p className="wallet-deposit-minimum">{depositDetails.message}</p>
+          <p className="wallet-deposit-minimum">{copy.networkFeeNotice}</p>
         </>}
+        <section className="wallet-deposit-history">
+          <h2>{copy.depositHistory}</h2>
+          {wallet.onChainDeposits.length === 0 ? <p>{copy.noDepositHistory}</p> : wallet.onChainDeposits.slice(0, 8).map((item) => (
+            <div className="wallet-deposit-history-row" key={item.id}>
+              <div><strong>{item.amount} {item.asset}</strong><small>{item.network} · {new Date(item.detectedAt ?? item.requestedAt ?? Date.now()).toLocaleString(locale)}</small><small>{item.status} · {item.confirmationCount} / {depositDetails?.confirmationsRequired ?? "—"}</small></div>
+              <strong>{item.status}</strong>
+            </div>
+          ))}
+        </section>
         {!depositLoading && !depositDetails && !depositError && depositAssets.length === 0 && <div className="wallet-warning"><strong>⚠ {copy.unavailable}</strong><p>{copy.noDepositAssets}</p></div>}
 
       </section>}
