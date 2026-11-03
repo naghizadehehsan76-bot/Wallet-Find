@@ -35,29 +35,13 @@ function serializeTransaction(row: any) {
   return { id: row.id, type: row.type, status: row.status, amount: formatMicro(BigInt(row.amountMicro)), currency: row.currency, note: row.note, contestId: row.contestId, createdAt: row.createdAt };
 }
 export async function getWallet(userId: string) {
-  // Turnkey provisioning occurs only for a verified user who explicitly opens
-  // the wallet page. Existing partial legacy records are shown read-only and
-  // are never silently overwritten or duplicated.
-  let turnkeyWallet: (Awaited<ReturnType<typeof provisionTurnkeyWallet>> & {
-    networkAccounts: Array<{ chainId: number; networkKey: string; depositEnabled: boolean; withdrawalEnabled: boolean }>;
-  }) | null = null;
-  let walletProvisioningReviewRequired = false;
-
-  if (isTurnkeyConfigured()) {
-    try {
-      turnkeyWallet = await provisionTurnkeyWallet(userId);
-    } catch (error) {
-      if (error instanceof Error && error.message === "TURNKEY_WALLET_RECORD_REQUIRES_REVIEW") {
-        walletProvisioningReviewRequired = true;
-        turnkeyWallet = await prisma.walletAccount.findUnique({
-          where: { userId },
-          include: { networkAccounts: true },
-        });
-      } else {
-        throw error;
-      }
-    }
-  }
+  // Loading the wallet page is read-only. Creation requires an explicit POST action.
+  const turnkeyWallet = isTurnkeyConfigured()
+    ? await prisma.walletAccount.findUnique({ where: { userId }, include: { networkAccounts: true } })
+    : null;
+  const walletProvisioningReviewRequired = Boolean(
+    turnkeyWallet && (!turnkeyWallet.turnkeyOrganizationId || !turnkeyWallet.turnkeyWalletId),
+  );
 
   return prisma.$transaction(async (tx) => {
     const legacyBalances = await calculateBalances(tx, userId);
