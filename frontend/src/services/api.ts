@@ -655,7 +655,7 @@ export type WalletAssetView = {
 
 export type WalletNetworkView = {
   id: string;
-  family: "EVM" | "BITCOIN" | "SOLANA";
+  family: "EVM";
   chainId: number | null;
   networkKey: string;
   displayName: string;
@@ -720,7 +720,7 @@ export type WalletResult = {
 export type WalletDepositDetails = {
   networkId: string;
   network: string;
-  family: "EVM" | "BITCOIN" | "SOLANA";
+  family: "EVM";
   chainId: number | null;
   assetId: string;
   asset: string;
@@ -822,7 +822,7 @@ export type AdminWalletAsset = {
 
 export type AdminWalletNetwork = {
   id: string;
-  family: "EVM" | "BITCOIN" | "SOLANA";
+  family: "EVM";
   chainId: number | null;
   networkKey: string;
   displayName: string;
