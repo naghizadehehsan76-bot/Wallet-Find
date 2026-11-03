@@ -11,6 +11,7 @@ import {
   type WalletWithdrawalRequestResult,
 } from "../services/api";
 import LoadingIndicator from "../components/LoadingIndicator";
+import { QRCodeSVG } from "qrcode.react";
 
 type Page = "home" | "auth" | "competition" | "key" | "leaderboard" | "profile" | "wallet";
 type Props = { onNavigate: (page: Page) => void };
@@ -584,7 +585,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
           <div className="wallet-deposit-network-note"><strong>{copy.network}: {depositDetails.network}</strong><span>{copy.depositNetworkWarning}</span></div>
           <div className="wallet-deposit-qr-panel">
             <div className="wallet-deposit-qr">
-              <img src={"https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=" + encodeURIComponent(depositDetails.depositAddress)} alt={copy.depositQr} loading="lazy" />
+              <QRCodeSVG value={depositDetails.depositAddress} size={220} level="M" marginSize={2} title={copy.depositQr} />
             </div>
             <strong>{copy.depositQr}</strong>
             <small>{depositDetails.asset} · {depositDetails.network}</small>
