@@ -56,8 +56,8 @@ function parseDepositMessage(payloadValue: unknown) {
 
   if (!txHash || !/^0x[a-f0-9]{64}$/.test(txHash) ||
       !address || !/^0x[a-f0-9]{40}$/.test(address) ||
-      !caip2 || !/^eip155:\\d+$/.test(caip2) ||
-      !caip19 || !amountAtomic || !/^[1-9]\\d{0,77}$/.test(amountAtomic) ||
+      !caip2 || !/^eip155:\d+$/.test(caip2) ||
+      !caip19 || !amountAtomic || !/^[1-9]\d{0,77}$/.test(amountAtomic) ||
       blockNumber === null || !blockHash || !/^0x[a-f0-9]{64}$/.test(blockHash) ||
       decimals === null || decimals > 255 || !symbol) {
     throw new PermanentWebhookDepositError("TURNKEY_FINALIZED_EVENT_FIELDS_INVALID");
@@ -133,7 +133,7 @@ async function processFinalizedDepositEvent(event: {
   }
 
   const isNative = hint.caip19.endsWith("/slip44:966") && hint.symbol.toUpperCase() === "POL";
-  const tokenMatch = hint.caip19.match(/\\/erc20:(0x[a-f0-9]{40})$/i);
+  const tokenMatch = hint.caip19.match(/\/erc20:(0x[a-f0-9]{40})$/i);
   const asset = await prisma.walletAsset.findFirst({
     where: {
       networkId: network.id,
