@@ -226,19 +226,24 @@ export default function WalletPage({ onNavigate }: Props) {
       setWallet(walletResult);
       setError("");
       if (walletResult.walletAddress) {
-        const networkResults = await Promise.all(
+        const networkResults = await Promise.allSettled(
           walletResult.networks
-            .filter((network) => network.address)
-            .map(async (network) => {
-              try {
-                return [network.id, await getTurnkeyWalletData(network.id)] as const;
-              } catch {
-                return [network.id, null] as const;
-              }
-            }),
+            .filter((network) => network.address && network.isEnabled)
+            .map(async (network) => [network.id, await getTurnkeyWalletData(network.id)] as const),
         );
         const nextData: Record<string, TurnkeyWalletData | null> = {};
-        for (const [networkId, data] of networkResults) nextData[networkId] = data;
+        for (const result of networkResults) {
+          if (result.status === "fulfilled") nextData[result.value[0]] = result.value[1];
+          else {
+            const message = result.reason instanceof Error ? result.reason.message : "";
+            const match = walletResult.networks.find((network) =>
+              !Object.prototype.hasOwnProperty.call(nextData, network.id) &&
+              network.address && network.isEnabled &&
+              !networkResults.some((candidate) => candidate.status === "fulfilled" && candidate.value[0] === network.id)
+            );
+            if (match && message) nextData[match.id] = null;
+          }
+        }
         setTurnkeyDataByNetwork(nextData);
       } else {
         setTurnkeyDataByNetwork({});
@@ -464,7 +469,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
               <small>{fa ? "اطلاعات خام شبکه؛ مستقل از موجودی قابل‌خرج دفترکل" : "Raw network data; separate from spendable ledger balances"}</small>
             </div>
           </div>
-          {wallet.networks.filter((network) => network.address).map((network) => {
+          {wallet.networks.filter((network) => network.address && network.isEnabled).map((network) => {
             const live = turnkeyDataByNetwork[network.id];
             return (
               <div className="wallet-network-group" key={"turnkey-" + network.id}>
