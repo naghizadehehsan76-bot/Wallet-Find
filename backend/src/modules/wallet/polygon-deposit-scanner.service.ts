@@ -1,6 +1,7 @@
 import { createPublicClient, http, parseAbiItem, type Address } from "viem";
 import { polygon } from "viem/chains";
 import prisma from "../../config/prisma.js";
+import { minimumDepositAtomic } from "./deposit-minimum.js";
 
 const chainId = 137;
 const transferEvent = parseAbiItem("event Transfer(address indexed from, address indexed to, uint256 value)");
@@ -368,6 +369,7 @@ export async function scanPolygonUsdtDepositsOnce() {
         if (!wallet && !isTreasuryRecipient) continue;
         const amountMicro = toMicro(log.args.value, asset.decimals);
         if (amountMicro === null || amountMicro <= 0n) continue;
+        const minimumAmountMicro = minimumDepositAtomic({ chainId, symbol: asset.symbol, decimals: asset.decimals });
 
         const unique = { chainId, transactionHash: log.transactionHash, logIndex: log.logIndex };
         if (wallet) {
@@ -389,7 +391,7 @@ export async function scanPolygonUsdtDepositsOnce() {
               toAddress: recipientAddress,
               rawAmount: log.args.value.toString(),
               amountMicro,
-              status: "CONFIRMING",
+              status: amountMicro < minimumAmountMicro ? "IGNORED" : "CONFIRMING",
               confirmationCount: Number(latestBlock - log.blockNumber + 1n),
             }],
             skipDuplicates: true,
