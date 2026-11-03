@@ -357,6 +357,7 @@ export async function requestWalletDeposit(
   // Compatibility path: keep the already-active Polygon USDT0 deposit scanner
   // working until the generic engine has independently passed production gates.
   if (networkId === "eip155:137" &&
+      walletAssetId === "eip155:137/erc20:0xc2132d05d31c914a87c6611c10748aeb04b58e8f" &&
       process.env.POLYGON_DEPOSIT_SCANNER_ENABLED === "true" &&
       process.env.POLYGON_DEPOSITS_ENABLED === "true") {
     const [wallet, network, asset, legacyAsset] = await Promise.all([
