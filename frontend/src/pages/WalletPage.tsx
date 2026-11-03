@@ -3,11 +3,13 @@ import BottomNav from "../components/BottomNav";
 import { useI18n } from "../i18n";
 import {
   getWallet,
+  getTurnkeyWalletData,
   provisionOwnWallet,
   getMarketPrices,
   requestWalletDeposit,
   requestWalletWithdrawal,
   type WalletResult,
+  type TurnkeyWalletData,
   type WalletWithdrawalRequestResult,
 } from "../services/api";
 import LoadingIndicator from "../components/LoadingIndicator";
@@ -112,6 +114,7 @@ export default function WalletPage({ onNavigate }: Props) {
   const [withdrawIdempotencyKey, setWithdrawIdempotencyKey] = useState(createIdempotencyKey);
   const [copied, setCopied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [turnkeyDataByNetwork, setTurnkeyDataByNetwork] = useState<Record<string, TurnkeyWalletData | null>>({});
   const [provisioningWallet, setProvisioningWallet] = useState(false);
   const [provisionWalletError, setProvisionWalletError] = useState("");
   const [usdPrices, setUsdPrices] = useState<Record<string, number>>({});
@@ -222,6 +225,29 @@ export default function WalletPage({ onNavigate }: Props) {
       const walletResult = await getWallet();
       setWallet(walletResult);
       setError("");
+      if (walletResult.walletAddress) {
+        const networkResults = await Promise.allSettled(
+          walletResult.networks
+            .filter((network) => network.address && network.isEnabled)
+            .map(async (network) => [network.id, await getTurnkeyWalletData(network.id)] as const),
+        );
+        const nextData: Record<string, TurnkeyWalletData | null> = {};
+        for (const result of networkResults) {
+          if (result.status === "fulfilled") nextData[result.value[0]] = result.value[1];
+          else {
+            const message = result.reason instanceof Error ? result.reason.message : "";
+            const match = walletResult.networks.find((network) =>
+              !Object.prototype.hasOwnProperty.call(nextData, network.id) &&
+              network.address && network.isEnabled &&
+              !networkResults.some((candidate) => candidate.status === "fulfilled" && candidate.value[0] === network.id)
+            );
+            if (match && message) nextData[match.id] = null;
+          }
+        }
+        setTurnkeyDataByNetwork(nextData);
+      } else {
+        setTurnkeyDataByNetwork({});
+      }
 
     } catch {
       setError(copy.error);
@@ -232,7 +258,11 @@ export default function WalletPage({ onNavigate }: Props) {
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void refresh(); }, 0);
-    return () => window.clearTimeout(timer);
+    const interval = window.setInterval(() => { void refresh(); }, 60_000);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearInterval(interval);
+    };
   }, [refresh]);
 
   useEffect(() => {
@@ -430,6 +460,37 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
             <button type="button" className="wallet-action wallet-action--deposit" onClick={() => void openDeposit()}><span aria-hidden="true">↓</span>{copy.deposit}</button>
             <button type="button" className="wallet-action wallet-action--withdraw" onClick={() => openWithdraw()}><span aria-hidden="true">↑</span>{copy.withdraw}</button>
           </div>
+        </section>
+
+        <section className="wallet-assets-directory" aria-labelledby="turnkey-live-heading">
+          <div className="wallet-card-heading">
+            <div>
+              <h2 id="turnkey-live-heading">{copy.turnkeyTitle} · Turnkey</h2>
+              <small>{fa ? "اطلاعات خام شبکه؛ مستقل از موجودی قابل‌خرج دفترکل" : "Raw network data; separate from spendable ledger balances"}</small>
+            </div>
+          </div>
+          {wallet.networks.filter((network) => network.address && network.isEnabled).map((network) => {
+            const live = turnkeyDataByNetwork[network.id];
+            return (
+              <div className="wallet-network-group" key={"turnkey-" + network.id}>
+                <div className="wallet-network-group__heading">
+                  <span className="wallet-network-dot" aria-hidden="true" />
+                  <div><strong>{network.displayName}</strong><small>{network.address}</small></div>
+                  <small>{live ? new Date(live.fetchedAt).toLocaleTimeString(locale) : "—"}</small>
+                </div>
+                {!live ? <p className="wallet-asset-empty">{copy.turnkeyUnavailable}</p> : <>
+                  <div className="wallet-network-row">
+                    <strong>{fa ? "موجودی‌های گزارش‌شده" : "Reported balances"}</strong>
+                    <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", fontSize: "0.78rem" }}>{JSON.stringify(live.balances, null, 2)}</pre>
+                  </div>
+                  <div className="wallet-network-row">
+                    <strong>{copy.turnkeyHistory}</strong>
+                    <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", fontSize: "0.78rem" }}>{JSON.stringify(live.transactions, null, 2)}</pre>
+                  </div>
+                </>}
+              </div>
+            );
+          })}
         </section>
 
         <section className="wallet-assets-directory" aria-labelledby="wallet-assets-heading">
