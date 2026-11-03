@@ -324,7 +324,17 @@ export default function WalletPage({ onNavigate }: Props) {
     }
   };
 
-  const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token", MATIC: "polygon-ecosystem-token", USDT: "tether", USDT0: "tether", USDC: "usd-coin", DAI: "dai", ETH: "ethereum", WETH: "ethereum", BTC: "bitcoin", WBTC: "wrapped-bitcoin", SOL: "solana", BNB: "binancecoin", TRX: "tron", XRP: "ripple", DOGE: "dogecoin", ADA: "cardano", AVAX: "avalanche-2", LINK: "chainlink", LTC: "litecoin", DOT: "polkadot", XLM: "stellar" };
+  const assetLogoBySymbol: Record<string, string> = {
+  BTC: "https://cdn.simpleicons.org/bitcoin/F7931A",
+  ETH: "https://cdn.simpleicons.org/ethereum/627EEA",
+  BNB: "https://cdn.simpleicons.org/binance/F0B90B",
+  USDT: "https://cdn.simpleicons.org/tether/26A17B",
+  USDT0: "https://cdn.simpleicons.org/tether/26A17B",
+  POL: "https://cdn.simpleicons.org/polygon/8247E5",
+  SOL: "https://cdn.simpleicons.org/solana/9945FF",
+};
+
+const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token", MATIC: "polygon-ecosystem-token", USDT: "tether", USDT0: "tether", USDC: "usd-coin", DAI: "dai", ETH: "ethereum", WETH: "ethereum", BTC: "bitcoin", WBTC: "wrapped-bitcoin", SOL: "solana", BNB: "binancecoin", TRX: "tron", XRP: "ripple", DOGE: "dogecoin", ADA: "cardano", AVAX: "avalanche-2", LINK: "chainlink", LTC: "litecoin", DOT: "polkadot", XLM: "stellar" };
   const usdBalance = (wallet?.networks ?? []).reduce((sum, network) => sum + network.assets.reduce((assetSum, asset) => { const id = priceIdBySymbol[asset.symbol.toUpperCase()]; const price = id ? usdPrices[id] : undefined; const amount = Number(asset.balance); return price !== undefined && Number.isFinite(amount) ? assetSum + amount * price : assetSum; }, 0), 0);
   const unpricedAssetCount = (wallet?.networks ?? []).reduce((count, network) => count + network.assets.filter((asset) => { const amount = Number(asset.balance); const id = priceIdBySymbol[asset.symbol.toUpperCase()]; return Number.isFinite(amount) && amount > 0 && (!id || usdPrices[id] === undefined); }).length, 0);
   const usdFormatter = new Intl.NumberFormat(locale, { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 6 });
@@ -386,7 +396,13 @@ export default function WalletPage({ onNavigate }: Props) {
                 return (
                   <div className="wallet-asset-row" key={asset.id}>
                     <div className="wallet-asset-row__identity">
-                      <span className="wallet-asset-symbol" aria-hidden="true">{asset.symbol.slice(0, 4)}</span>
+                      <span className="wallet-asset-symbol" aria-hidden="true">
+                        {assetLogoBySymbol[asset.symbol.toUpperCase()] ? (
+                          <img src={assetLogoBySymbol[asset.symbol.toUpperCase()]} alt="" loading="lazy" />
+                        ) : (
+                          asset.symbol.slice(0, 4)
+                        )}
+                      </span>
                       <div>
                         <strong>{asset.symbol}</strong>
                         <small>{asset.displayName}</small>
