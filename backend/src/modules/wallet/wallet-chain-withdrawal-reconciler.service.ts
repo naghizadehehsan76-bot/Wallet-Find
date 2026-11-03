@@ -1,5 +1,5 @@
 import prisma from "../../config/prisma.js";
-import { reconcileChainWalletWithdrawal } from "./wallet-chain-withdrawal.service.js";
+import { executeChainWalletWithdrawal, reconcileChainWalletWithdrawal } from "./wallet-chain-withdrawal.service.js";
 
 const INTERVAL_MS = 30_000;
 const BATCH_SIZE = 50;
@@ -18,6 +18,24 @@ export function startWalletChainWithdrawalReconciler(): void {
     if (running) return;
     running = true;
     try {
+      const awaitingBroadcast = await prisma.walletChainWithdrawal.findMany({
+        where: { status: "APPROVED", transactionReference: null },
+        select: { id: true, userId: true },
+        orderBy: { requestedAt: "asc" },
+        take: BATCH_SIZE,
+      });
+
+      for (const row of awaitingBroadcast) {
+        try {
+          await executeChainWalletWithdrawal(row.id, row.userId);
+        } catch (error) {
+          console.error("Automatic chain withdrawal execution attempt failed", {
+            withdrawalId: row.id,
+            error,
+          });
+        }
+      }
+
       const pending = await prisma.walletChainWithdrawal.findMany({
         where: {
           status: "BROADCAST",
