@@ -52,6 +52,7 @@ function requireBoundedInteger(value: unknown, min: number, max: number, code: s
 export async function getWalletNetworkRegistryForAdmin() {
   const [networks, provisioning, pauseSetting] = await Promise.all([
     prisma.walletNetwork.findMany({
+      where: { family: "EVM" },
       orderBy: [{ family: "asc" }, { networkKey: "asc" }],
       include: {
         assets: { orderBy: [{ symbol: "asc" }, { id: "asc" }] },
