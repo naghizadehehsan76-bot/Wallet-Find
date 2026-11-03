@@ -91,7 +91,6 @@ export default function WalletPage({ onNavigate }: Props) {
   const [usdPrices, setUsdPrices] = useState<Record<string, number>>({});
   const [priceUpdatedAt, setPriceUpdatedAt] = useState<number | null>(null);
   const [priceStatus, setPriceStatus] = useState<"loading" | "ready" | "error">("loading");
-  const [balancesHidden, setBalancesHidden] = useState(false);
 
 
   const copy = useMemo(() => ({
@@ -100,10 +99,7 @@ export default function WalletPage({ onNavigate }: Props) {
     overviewTab: fa ? "نمای کلی" : "Overview",
     assetsTab: fa ? "دارایی‌ها" : "Assets",
     activityTab: fa ? "تاریخچه" : "Activity",
-    hideBalances: fa ? "مخفی‌کردن موجودی" : "Hide balances",
-    showBalances: fa ? "نمایش موجودی" : "Show balances",
     totalPortfolio: fa ? "ارزش کل دارایی‌های ثبت‌شده" : "Total estimated portfolio value",
-    balancePrivacy: fa ? "موجودی‌ها برای حفظ حریم خصوصی مخفی شده‌اند." : "Balances are hidden for privacy.",
     activitySearchPlaceholder: fa ? "جست‌وجو در نوع، دارایی یا وضعیت..." : "Search type, asset or status...",
     filterAll: fa ? "همه" : "All",
     filterDeposits: fa ? "واریزها" : "Deposits",
@@ -352,12 +348,9 @@ export default function WalletPage({ onNavigate }: Props) {
         <section className="wallet-exchange-balance" id="wallet-overview">
           <div className="wallet-exchange-balance__top">
             <span>{copy.totalPortfolio}</span>
-            <button type="button" className="wallet-balance-privacy" onClick={() => setBalancesHidden((value) => !value)} aria-pressed={balancesHidden} aria-label={balancesHidden ? copy.showBalances : copy.hideBalances}>
-              <span aria-hidden="true">{balancesHidden ? "◉" : "◎"}</span>{balancesHidden ? copy.showBalances : copy.hideBalances}
-            </button>
           </div>
-          <div className="wallet-exchange-balance__value">{balancesHidden ? "••••••••" : priceStatus === "ready" ? usdFormatter.format(usdBalance) : "—"}</div>
-          <div className="wallet-exchange-balance__available">{balancesHidden ? copy.balancePrivacy : priceStatus === "loading" ? copy.priceLoading : priceStatus === "error" ? copy.priceUnavailable : copy.balanceNote}</div>
+          <div className="wallet-exchange-balance__value">{priceStatus === "ready" ? usdFormatter.format(usdBalance) : "—"}</div>
+          <div className="wallet-exchange-balance__available">{priceStatus === "loading" ? copy.priceLoading : priceStatus === "error" ? copy.priceUnavailable : copy.balanceNote}</div>
           {unpricedAssetCount > 0 && <div className="wallet-exchange-balance__available">{copy.partialPriceNote}</div>}
           {priceUpdatedAt && <div className="wallet-exchange-balance__available">{fa ? "آخرین به‌روزرسانی قیمت: " : "Prices updated: "}{new Date(priceUpdatedAt).toLocaleTimeString(locale)}</div>}
 
