@@ -144,7 +144,7 @@ async function processFinalizedDepositEvent(event: {
       ...(isNative
         ? { assetType: "NATIVE", contractAddress: null, assetReference: "native" }
         : tokenMatch
-          ? { assetType: "TOKEN", contractAddress: { equals: tokenMatch[1], mode: "insensitive" } }
+          ? { assetType: "TOKEN", contractAddress: tokenMatch }
           : { id: "__unsupported_turnkey_asset__" }),
     },
     select: {
