@@ -551,6 +551,39 @@ function GlobalSidebar({ currentPage, isLoggedIn, onNavigate, onAuth, onLogout }
   );
 }
 
+const PAGE_PATHS: Record<Page, string> = {
+  home: "/",
+  auth: "/auth",
+  competition: "/competition",
+  key: "/competition/key",
+  leaderboard: "/leaderboard",
+  profile: "/profile",
+  wallet: "/wallet",
+  rewards: "/rewards",
+  help: "/help",
+  terms: "/terms",
+  rules: "/rules",
+  admin: "/admin",
+  "admin-manage": "/admin/manage",
+};
+
+const PATH_PAGES: Record<string, Page> = Object.fromEntries(
+  Object.entries(PAGE_PATHS).map(([page, route]) => [route, page as Page]),
+) as Record<string, Page>;
+
+function getPageFromPath(pathname: string): Page | null {
+  const normalizedPath = pathname.length > 1 ? pathname.replace(/\\/+$/, "") : pathname;
+  return PATH_PAGES[normalizedPath] ?? null;
+}
+
+function getPathFromPage(page: Page): string {
+  return PAGE_PATHS[page] ?? "/";
+}
+
+function isPublicPage(page: Page): boolean {
+  return ["home", "auth", "leaderboard", "rewards", "help", "terms", "rules"].includes(page);
+}
+
 function App() {
   const { language, isRTL } = useI18n();
   const [authStatus, setAuthStatus] = useState<"checking" | "authenticated" | "unauthenticated">(
@@ -560,29 +593,42 @@ function App() {
   const initialSavedUser = safelyReadSavedUser();
   const initialIsAdmin = initialSavedUser?.role === "ADMIN";
 
-  const [page, setPage] = useState<Page>(() => {
+  const [page, setPageState] = useState<Page>(() => {
     const hasToken = Boolean(localStorage.getItem("walletFindToken"));
-    const validPages: Page[] = ["home", "auth", "competition", "key", "leaderboard", "profile", "wallet", "rewards", "help", "terms", "rules", "admin", "admin-manage"];
+    const requestedPage = getPageFromPath(window.location.pathname);
+
     if (window.location.pathname === "/admin-setup") {
-      window.history.replaceState({}, "", initialIsAdmin && hasToken ? "/admin" : "/");
-      if (initialIsAdmin && hasToken) return "admin";
+      const destination = initialIsAdmin && hasToken ? "admin" : "home";
+      window.history.replaceState({}, "", getPathFromPage(destination));
+      return destination;
     }
-    // Keep the last in-app page across a browser refresh instead of always sending signed-in users to the challenge.
+
+    if (requestedPage) {
+      if (!hasToken && !isPublicPage(requestedPage)) return "auth";
+      if ((requestedPage === "admin" || requestedPage === "admin-manage") && !initialIsAdmin) return hasToken ? "home" : "auth";
+      return requestedPage;
+    }
+
+    // Keep compatibility with an older in-app session if the browser opens an unknown legacy URL.
     let savedPage: Page | null = null;
     try {
       const saved = sessionStorage.getItem("walletFindCurrentPage");
-      if (saved && validPages.includes(saved as Page)) savedPage = saved as Page;
+      if (saved && Object.prototype.hasOwnProperty.call(PAGE_PATHS, saved)) savedPage = saved as Page;
     } catch {
-      // If session storage is unavailable, fall back to the safe default below.
+      // Fall back to the default page when session storage is unavailable.
     }
-    if (hasToken) {
-      if (savedPage && (savedPage !== "admin" && savedPage !== "admin-manage" || initialIsAdmin)) return savedPage;
-      return "competition";
-    }
-    // Public pages remain open after refresh; protected pages still require authentication.
-    if (savedPage && ["home", "auth", "leaderboard", "rewards", "help", "terms", "rules"].includes(savedPage)) return savedPage;
-    return "auth";
+
+    if (hasToken && savedPage && (savedPage !== "admin" && savedPage !== "admin-manage" || initialIsAdmin)) return savedPage;
+    if (!hasToken && savedPage && isPublicPage(savedPage)) return savedPage;
+    return hasToken ? "competition" : "home";
   });
+  const navigatePage = useCallback((nextPage: Page) => {
+    const nextPath = getPathFromPage(nextPage);
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({ walletFindPage: nextPage }, "", nextPath);
+    }
+    setPageState(nextPage);
+  }, []);
   const [authMode, setAuthMode] = useState<AuthMode>(() =>
     localStorage.getItem("walletFindToken") ? "login" : "signup",
   );
@@ -593,7 +639,33 @@ function App() {
     } catch {
       // Navigation still works if the browser blocks session storage.
     }
+
+    const canonicalPath = getPathFromPage(page);
+    if (window.location.pathname !== canonicalPath) {
+      window.history.replaceState({ walletFindPage: page }, "", canonicalPath);
+    }
   }, [page]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const requestedPage = getPageFromPath(window.location.pathname) ?? "home";
+      const hasToken = Boolean(localStorage.getItem("walletFindToken"));
+      const userIsAdmin = safelyReadSavedUser()?.role === "ADMIN";
+
+      if (!hasToken && !isPublicPage(requestedPage)) {
+        setPageState("auth");
+        return;
+      }
+      if ((requestedPage === "admin" || requestedPage === "admin-manage") && !userIsAdmin) {
+        setPageState(hasToken ? "home" : "auth");
+        return;
+      }
+      setPageState(requestedPage);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -606,7 +678,7 @@ function App() {
     setAuthStatus("unauthenticated");
     setAuthMode("login");
     setAuthNotice("TOKEN_EXPIRED");
-    setPage("auth");
+    navigatePage("auth");
   }, []);
 
   useEffect(() => {
@@ -654,7 +726,7 @@ function App() {
           setAuthStatus("unauthenticated");
           setAuthMode("signup");
           setAuthNotice("");
-          setPage("auth");
+          navigatePage("auth");
           return;
         }
 
@@ -664,7 +736,7 @@ function App() {
         } else {
           setAuthStatus("unauthenticated");
           setAuthMode("signup");
-          setPage("auth");
+          navigatePage("auth");
         }
       });
 
@@ -708,14 +780,14 @@ function App() {
 
   function openAuth(mode: AuthMode) {
     setAuthMode(mode);
-    setPage("auth");
+    navigatePage("auth");
   }
 
   function handleAuthenticated(token: string) {
     localStorage.setItem("walletFindToken", token);
     setAuthNotice("");
     setAuthStatus("authenticated");
-    setPage("competition");
+    navigatePage("competition");
   }
 
   function handleLogout() {
@@ -724,7 +796,7 @@ function App() {
     setAuthNotice("");
     setAuthStatus("unauthenticated");
     setAuthMode("signup");
-    setPage("auth");
+    navigatePage("auth");
   }
 
   const isLoggedIn = authStatus === "authenticated";
@@ -739,40 +811,40 @@ function App() {
   let currentView: ReactNode;
 
   if (page === "auth") {
-    currentView = <AuthPage initialMode={authMode} initialNotice={authNotice} onAuthenticated={handleAuthenticated} onOpenTerms={() => setPage("terms")} onBack={() => {
+    currentView = <AuthPage initialMode={authMode} initialNotice={authNotice} onAuthenticated={handleAuthenticated} onOpenTerms={() => navigatePage("terms")} onBack={() => {
       if (!isLoggedIn) {
         setAuthMode("signup");
-        setPage("auth");
+        navigatePage("auth");
       } else {
-        setPage("home");
+        navigatePage("home");
       }
     }} />;
   } else if (page === "admin" && isAdmin) {
-    currentView = <AdminControlCenter onNavigate={setPage} />;
+    currentView = <AdminControlCenter onNavigate={navigatePage} />;
   } else if (page === "admin-manage" && isAdmin) {
-    currentView = <AdminPage onNavigate={setPage} />;
+    currentView = <AdminPage onNavigate={navigatePage} />;
   } else if (page === "competition") {
     currentView = isLoggedIn
-      ? <CompetitionPage onNavigate={setPage} />
-      : <AuthPage initialMode="signup" onAuthenticated={handleAuthenticated} onOpenTerms={() => setPage("terms")} onBack={() => setPage("auth")} />;
+      ? <CompetitionPage onNavigate={navigatePage} />
+      : <AuthPage initialMode="signup" onAuthenticated={handleAuthenticated} onOpenTerms={() => navigatePage("terms")} onBack={() => navigatePage("auth")} />;
   } else if (page === "leaderboard") {
-    currentView = <LeaderboardPage onNavigate={setPage} />;
+    currentView = <LeaderboardPage onNavigate={navigatePage} />;
   } else if (page === "profile") {
     currentView = isLoggedIn
-      ? <ProfilePage onNavigate={setPage} onLogout={handleLogout} />
-      : <AuthPage initialMode="signup" onAuthenticated={handleAuthenticated} onOpenTerms={() => setPage("terms")} onBack={() => setPage("auth")} />;
+      ? <ProfilePage onNavigate={navigatePage} onLogout={handleLogout} />
+      : <AuthPage initialMode="signup" onAuthenticated={handleAuthenticated} onOpenTerms={() => navigatePage("terms")} onBack={() => navigatePage("auth")} />;
   } else if (page === "key") {
-    currentView = <KeyStagePage onNavigate={setPage} />;
+    currentView = <KeyStagePage onNavigate={navigatePage} />;
   } else if (page === "rewards" || page === "help" || page === "terms") {
-    currentView = <InfoPage kind={page} onNavigate={setPage} />;
+    currentView = <InfoPage kind={page} onNavigate={navigatePage} />;
   } else if (page === "rules") {
-    currentView = <ContestRulesPage onNavigate={setPage} />;
+    currentView = <ContestRulesPage onNavigate={navigatePage} />;
   } else if (page === "wallet") {
     currentView = isLoggedIn
-      ? <WalletPage onNavigate={setPage} />
-      : <AuthPage initialMode="signup" onAuthenticated={handleAuthenticated} onOpenTerms={() => setPage("terms")} onBack={() => setPage("auth")} />;
+      ? <WalletPage onNavigate={navigatePage} />
+      : <AuthPage initialMode="signup" onAuthenticated={handleAuthenticated} onOpenTerms={() => navigatePage("terms")} onBack={() => navigatePage("auth")} />;
   } else {
-    currentView = <HomePage onNavigate={setPage} onAuth={openAuth} language={language} isLoggedIn={isLoggedIn} />;
+    currentView = <HomePage onNavigate={navigatePage} onAuth={openAuth} language={language} isLoggedIn={isLoggedIn} />;
   }
 
   return (
@@ -783,10 +855,10 @@ function App() {
         onNavigate={(nextPage) => {
           if (!isLoggedIn && ["competition", "profile", "wallet", "key"].includes(nextPage)) {
             setAuthMode("signup");
-            setPage("auth");
+            navigatePage("auth");
             return;
           }
-          setPage(nextPage);
+          navigatePage(nextPage);
         }}
         onAuth={openAuth}
         onLogout={handleLogout}
