@@ -116,7 +116,6 @@ export default function WalletPage({ onNavigate }: Props) {
 
   const copy = useMemo(() => ({
     title: fa ? "کیف پول من" : "My wallet",
-    pageSubtitle: fa ? "دارایی‌ها، عملیات و فعالیت‌های کیف پولت را یک‌جا مدیریت کن." : "Manage your assets, wallet actions and activity in one place.",
     overviewTab: fa ? "نمای کلی" : "Overview",
     assetsTab: fa ? "دارایی‌ها" : "Assets",
     activityTab: fa ? "تاریخچه" : "Activity",
@@ -359,7 +358,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
     </header>
     <main className="page wallet-exchange">
       <div className="wallet-page-heading">
-        <div><div className="section-title">{copy.title}</div><p>{copy.pageSubtitle}</p></div>
+        <div><div className="section-title">{copy.title}</div></div>
         <button type="button" className="wallet-refresh" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? "…" : "↻"} {copy.refresh}</button>
       </div>
 
