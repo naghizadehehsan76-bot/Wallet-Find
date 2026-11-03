@@ -3,6 +3,7 @@ import BottomNav from "../components/BottomNav";
 import { useI18n } from "../i18n";
 import {
   getWallet,
+  provisionOwnWallet,
   getMarketPrices,
   requestWalletDeposit,
   requestWalletWithdrawal,
@@ -110,6 +111,8 @@ export default function WalletPage({ onNavigate }: Props) {
   const [withdrawIdempotencyKey, setWithdrawIdempotencyKey] = useState(createIdempotencyKey);
   const [copied, setCopied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [provisioningWallet, setProvisioningWallet] = useState(false);
+  const [provisionWalletError, setProvisionWalletError] = useState("");
   const [usdPrices, setUsdPrices] = useState<Record<string, number>>({});
   const [priceStatus, setPriceStatus] = useState<"loading" | "ready" | "error">("loading");
 
@@ -205,6 +208,11 @@ export default function WalletPage({ onNavigate }: Props) {
     noDepositAssets: fa ? "در حال حاضر دارایی فعالی برای واریز وجود ندارد." : "There are currently no enabled deposit assets.",
     noWithdrawalAssets: fa ? "در حال حاضر دارایی فعالی برای برداشت وجود ندارد." : "There are currently no enabled withdrawal assets.",
     walletActive: fa ? "کیف پول امانی" : "Custodial wallet",
+    createWallet: fa ? "ساخت کیف پول" : "Create wallet",
+    createWalletIntro: fa ? "برای ساخت کیف پول اختصاصی خود، دکمهٔ زیر را بزنید." : "Press the button below to create your dedicated wallet.",
+    walletCreating: fa ? "در حال ساخت کیف پول..." : "Creating wallet...",
+    walletCreateFailed: fa ? "ساخت کیف پول انجام نشد. لطفاً دوباره تلاش کنید." : "Wallet creation failed. Please try again.",
+    walletEmailUnverified: fa ? "برای ساخت کیف پول ابتدا ایمیل خود را تأیید کنید." : "Verify your email before creating a wallet.",
   }), [fa]);
 
   const refresh = useCallback(async () => {
@@ -268,6 +276,25 @@ export default function WalletPage({ onNavigate }: Props) {
     insufficientPol: copy.insufficientPol,
     insufficientUsdt0: copy.insufficientUsdt0,
     invalidDestination: copy.invalidDestination,
+  };
+
+  const createWallet = async () => {
+    if (provisioningWallet) return;
+    setProvisioningWallet(true);
+    setProvisionWalletError("");
+    try {
+      setWallet(await provisionOwnWallet());
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : "";
+      setProvisionWalletError(
+        message.includes("EMAIL_NOT_VERIFIED") ? copy.walletEmailUnverified :
+        message.includes("TURNKEY_PROVISIONING_IN_PROGRESS") ? (fa ? "ساخت کیف پول در حال انجام است؛ کمی صبر کنید." : "Wallet creation is already in progress. Please wait.") :
+        message.includes("TURNKEY_PROVISIONING_REQUIRES_REVIEW") ? copy.reviewRequired :
+        copy.walletCreateFailed,
+      );
+    } finally {
+      setProvisioningWallet(false);
+    }
   };
 
   const openDeposit = async (assetId?: string) => {
@@ -379,7 +406,17 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
       {!wallet && !error && <div className="inline-feedback"><LoadingIndicator label={copy.loading} /></div>}
       {error && <p className="inline-feedback wallet-error" role="alert">{error}</p>}
 
-      {wallet && view === "overview" && <>
+      {wallet && view === "overview" && !wallet.walletAddress && wallet.turnkeyConfigured && !wallet.walletProvisioningReviewRequired && <>
+        <section className="wallet-exchange-balance" id="wallet-create">
+          <div className="wallet-exchange-balance__top"><span>{copy.createWalletIntro}</span></div>
+          {provisionWalletError && <p className="inline-feedback wallet-error" role="alert">{provisionWalletError}</p>}
+          <button type="button" className="wallet-action wallet-action--deposit" onClick={() => void createWallet()} disabled={provisioningWallet}>
+            {provisioningWallet ? copy.walletCreating : copy.createWallet}
+          </button>
+        </section>
+      </>}
+      {wallet && view === "overview" && wallet.walletProvisioningReviewRequired && <p className="inline-feedback wallet-error" role="alert">{copy.reviewRequired}</p>}
+      {wallet && view === "overview" && wallet.walletAddress && <> 
         <section className="wallet-exchange-balance" id="wallet-overview">
           <div className="wallet-exchange-balance__top">
             <span>{copy.totalPortfolio}</span>
