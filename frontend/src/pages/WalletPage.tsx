@@ -228,7 +228,7 @@ export default function WalletPage({ onNavigate }: Props) {
       if (walletResult.walletAddress) {
         const networkResults = await Promise.all(
           walletResult.networks
-            .filter((network) => network.address && network.isEnabled)
+            .filter((network) => network.address)
             .map(async (network) => {
               try {
                 return [network.id, await getTurnkeyWalletData(network.id)] as const;
@@ -464,7 +464,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
               <small>{fa ? "اطلاعات خام شبکه؛ مستقل از موجودی قابل‌خرج دفترکل" : "Raw network data; separate from spendable ledger balances"}</small>
             </div>
           </div>
-          {wallet.networks.filter((network) => network.address && network.isEnabled).map((network) => {
+          {wallet.networks.filter((network) => network.address).map((network) => {
             const live = turnkeyDataByNetwork[network.id];
             return (
               <div className="wallet-network-group" key={"turnkey-" + network.id}>
