@@ -349,7 +349,7 @@ export default function WalletPage({ onNavigate }: Props) {
           <div className="wallet-exchange-balance__top">
             <span>{copy.totalPortfolio}</span>
           </div>
-          <div className="wallet-exchange-balance__value">{priceStatus === "ready" ? usdFormatter.format(usdBalance) : "—"}</div>
+          <div className="wallet-exchange-balance__value">{usdFormatter.format(usdBalance)}</div>
           <div className="wallet-exchange-balance__available">{priceStatus === "loading" ? copy.priceLoading : priceStatus === "error" ? copy.priceUnavailable : copy.balanceNote}</div>
           {unpricedAssetCount > 0 && <div className="wallet-exchange-balance__available">{copy.partialPriceNote}</div>}
           {priceUpdatedAt && <div className="wallet-exchange-balance__available">{fa ? "آخرین به‌روزرسانی قیمت: " : "Prices updated: "}{new Date(priceUpdatedAt).toLocaleTimeString(locale)}</div>}
