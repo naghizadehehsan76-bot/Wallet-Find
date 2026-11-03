@@ -390,7 +390,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
               <div className="wallet-network-group__heading">
                 <span className="wallet-network-dot" aria-hidden="true" />
                 <div><strong>{network.displayName}</strong><small>{network.networkKey}</small></div>
-                <small>{network.assets.length} {fa ? "دارایی" : "assets"}</small>
+                <small>{fa ? "شبکه" : "Network"}</small>
               </div>
               {network.assets.map((asset) => {
                 const amount = Number(asset.balance);
