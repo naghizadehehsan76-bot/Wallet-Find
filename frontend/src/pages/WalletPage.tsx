@@ -25,13 +25,13 @@ function turnkeyBalance(value: unknown) {
   const decimals = Number(firstValue(row, ["decimals", "tokenDecimals"]) ?? firstValue(asset, ["decimals"]) ?? 0);
   const raw = firstValue(row, ["formattedBalance", "displayBalance", "uiAmount", "amountFormatted", "balance", "amount", "quantity"]);
   let amount = raw === undefined ? "—" : String(raw);
-  if (["amount", "quantity"].some((key) => row[key] === raw) && /^\\d+$/.test(amount) && Number.isInteger(decimals) && decimals > 0) amount = formatAtomic(amount, decimals, "en-US");
+  if (["amount", "quantity"].some((key) => row[key] === raw) && /^\d+$/.test(amount) && Number.isInteger(decimals) && decimals > 0) amount = formatAtomic(amount, decimals, "en-US");
   return { symbol: typeof symbol === "string" ? symbol : "Asset", amount, contract: String(firstValue(row, ["contractAddress", "tokenAddress", "address", "mint"]) ?? firstValue(asset, ["contractAddress", "address"]) ?? "") };
 }
 function turnkeyTransaction(value: unknown, index: number) {
   const row = recordOf(value); const asset = recordOf(row.asset ?? row.token);
   const timestamp = firstValue(row, ["timestamp", "timestampMs", "createdAt", "updatedAt", "blockTimestamp", "date"]);
-  const date = typeof timestamp === "number" || (typeof timestamp === "string" && /^\\d{13}$/.test(timestamp)) ? new Date(Number(timestamp)).toISOString() : typeof timestamp === "string" ? timestamp : "";
+  const date = typeof timestamp === "number" || (typeof timestamp === "string" && /^\d{13}$/.test(timestamp)) ? new Date(Number(timestamp)).toISOString() : typeof timestamp === "string" ? timestamp : "";
   return { id: String(firstValue(row, ["id", "transactionId", "hash", "txHash"]) ?? "turnkey-" + index), type: String(firstValue(row, ["type", "transactionType", "direction"]) ?? "TRANSACTION"), status: String(firstValue(row, ["status", "state"]) ?? "ON-CHAIN"), amount: String(firstValue(row, ["displayAmount", "formattedAmount", "amount", "value", "quantity"]) ?? "—"), symbol: String(firstValue(row, ["symbol", "assetSymbol", "tokenSymbol"]) ?? firstValue(asset, ["symbol", "name"]) ?? ""), date, hash: String(firstValue(row, ["hash", "transactionHash", "txHash"]) ?? "") };
 }
 
