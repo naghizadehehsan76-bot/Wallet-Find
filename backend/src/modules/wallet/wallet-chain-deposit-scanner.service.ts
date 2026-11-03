@@ -22,7 +22,7 @@ function numericPosition(value: string): bigint {
 
 function makeAdapter(network: {
   id: string;
-  family: "EVM" | "BITCOIN" | "SOLANA";
+  family: "EVM";
   chainId: number | null;
 }): WalletChainAdapter {
   if (network.family === "EVM" && network.chainId !== null) {
