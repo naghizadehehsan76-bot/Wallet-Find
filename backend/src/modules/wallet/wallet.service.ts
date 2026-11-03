@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createPublicClient, http, isAddress, parseAbi, parseEventLogs } from "viem";
 import { formatAssetUnits, parseAssetUnits } from "./asset-amount.js";
-import { meetsMinimumDeposit } from "./deposit-minimum.js";
+import { meetsMinimumDeposit, minimumDepositAtomic } from "./deposit-minimum.js";
 import { isEvmWithdrawalFeeModelSupported, isSupportedEvmChainId } from "./chain-adapters/evm.adapter.js";
 import { polygon } from "viem/chains";
 import prisma from "../../config/prisma.js";
@@ -168,9 +168,12 @@ export async function getWallet(userId: string) {
           decimals: asset.decimals,
           issuerClassification: asset.issuerClassification,
           verificationStatus: asset.verificationStatus,
-          minDeposit: asset.minDepositAtomic === null
-            ? null
-            : formatAssetUnits(BigInt(asset.minDepositAtomic.toFixed(0)), asset.decimals),
+          minDeposit: formatAssetUnits(minimumDepositAtomic({
+            chainId: network.chainId,
+            symbol: asset.symbol,
+            decimals: asset.decimals,
+            configuredMinimum: asset.minDepositAtomic?.toFixed(0) ?? null,
+          }), asset.decimals),
           confirmationCount: asset.confirmationCount,
           depositEnabled: (process.env.WALLET_GENERIC_DEPOSIT_SCANNER_ENABLED === "true"
             && process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY === "true"
@@ -423,7 +426,11 @@ export async function requestWalletDeposit(
         contractAddress: legacyAsset.contractAddress,
         decimals: 6,
         depositAddress: address,
-        minDeposit: null,
+        minDeposit: formatAssetUnits(minimumDepositAtomic({
+          chainId: 137,
+          symbol: "USDT0",
+          decimals: 6,
+        }), 6),
         confirmationsRequired: Math.max(
           32,
           Number.parseInt(process.env.POLYGON_USDT_CONFIRMATIONS ?? "128", 10) || 128,
@@ -484,9 +491,12 @@ export async function requestWalletDeposit(
     contractAddress: asset.contractAddress,
     decimals: asset.decimals,
     depositAddress: address.address,
-    minDeposit: asset.minDepositAtomic === null
-      ? null
-      : formatAssetUnits(BigInt(asset.minDepositAtomic.toFixed(0)), asset.decimals),
+    minDeposit: formatAssetUnits(minimumDepositAtomic({
+      chainId: network.chainId,
+      symbol: asset.symbol,
+      decimals: asset.decimals,
+      configuredMinimum: asset.minDepositAtomic?.toFixed(0) ?? null,
+    }), asset.decimals),
     confirmationsRequired: asset.confirmationCount,
     status: "AWAITING_TRANSFER",
     legacyDepositMode: false,
