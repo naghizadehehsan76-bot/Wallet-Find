@@ -255,6 +255,13 @@ export default function WalletPage({ onNavigate }: Props) {
   }, []);
 
 
+  const displayedNetworks = (wallet?.networks ?? [])
+    .filter((network) => network.chainId === 137)
+    .map((network) => ({
+      ...network,
+      assets: network.assets.filter((asset) => ["POL", "USDT0"].includes(asset.symbol.toUpperCase())),
+    }))
+    .filter((network) => network.assets.length > 0);
   const allAssets = (wallet?.networks ?? []).flatMap((network) => network.assets.map((asset) => ({ ...asset, networkId: network.id, networkName: network.displayName, chainId: network.chainId, nativeAssetSymbol: network.nativeAssetSymbol })));
   const depositAssets = allAssets.filter((asset) => asset.depositEnabled);
   const withdrawalAssets = allAssets.filter((asset) => asset.withdrawalEnabled);
@@ -379,8 +386,8 @@ export default function WalletPage({ onNavigate }: Props) {
   };
 
 const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token", MATIC: "polygon-ecosystem-token", USDT: "tether", USDT0: "tether", USDC: "usd-coin", DAI: "dai", ETH: "ethereum", WETH: "ethereum", BNB: "binancecoin", TRX: "tron", XRP: "ripple", DOGE: "dogecoin", ADA: "cardano", AVAX: "avalanche-2", LINK: "chainlink", LTC: "litecoin", DOT: "polkadot", XLM: "stellar" };
-  const usdBalance = (wallet?.networks ?? []).reduce((sum, network) => sum + network.assets.reduce((assetSum, asset) => { const id = priceIdBySymbol[asset.symbol.toUpperCase()]; const price = id ? usdPrices[id] : undefined; const amount = Number(asset.balance); return price !== undefined && Number.isFinite(amount) ? assetSum + amount * price : assetSum; }, 0), 0);
-  const unpricedAssetCount = (wallet?.networks ?? []).reduce((count, network) => count + network.assets.filter((asset) => { const amount = Number(asset.balance); const id = priceIdBySymbol[asset.symbol.toUpperCase()]; return Number.isFinite(amount) && amount > 0 && (!id || usdPrices[id] === undefined); }).length, 0);
+  const usdBalance = displayedNetworks.reduce((sum, network) => sum + network.assets.reduce((assetSum, asset) => { const id = priceIdBySymbol[asset.symbol.toUpperCase()]; const price = id ? usdPrices[id] : undefined; const amount = Number(asset.balance); return price !== undefined && Number.isFinite(amount) ? assetSum + amount * price : assetSum; }, 0), 0);
+  const unpricedAssetCount = displayedNetworks.reduce((count, network) => count + network.assets.filter((asset) => { const amount = Number(asset.balance); const id = priceIdBySymbol[asset.symbol.toUpperCase()]; return Number.isFinite(amount) && amount > 0 && (!id || usdPrices[id] === undefined); }).length, 0);
   const usdFormatter = new Intl.NumberFormat(locale, { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 6 });
 
 
@@ -419,7 +426,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
           <div className="wallet-exchange-balance__top">
             <span>{copy.totalPortfolio}</span>
           </div>
-          <div className="wallet-exchange-balance__value">{usdFormatter.format(usdBalance)}</div>
+          <div className="wallet-exchange-balance__value">{unpricedAssetCount > 0 ? "—" : usdFormatter.format(usdBalance)}</div>
           {priceStatus === "loading" && <div className="wallet-exchange-balance__available">{copy.priceLoading}</div>}
           {unpricedAssetCount > 0 && <div className="wallet-exchange-balance__available">{copy.partialPriceNote}</div>}
 
@@ -435,7 +442,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
               <h2 id="wallet-assets-heading">{fa ? "لیست دارایی‌ها" : "Asset list"}</h2>
             </div>
           </div>
-          {wallet.networks.filter((network) => network.assets.length > 0).map((network) => (
+          {displayedNetworks.map((network) => (
             <div className="wallet-network-group" key={network.id}>
               <div className="wallet-network-group__heading">
                 <span className="wallet-network-dot" aria-hidden="true" />
@@ -468,7 +475,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
               })}
             </div>
           ))}
-          {wallet.networks.every((network) => network.assets.length === 0) && <p className="wallet-asset-empty">{fa ? "هنوز دارایی‌ای در فهرست شبکه‌ها تعریف نشده است." : "No assets are registered in the network directory yet."}</p>}
+          {displayedNetworks.length === 0 && <p className="wallet-asset-empty">{fa ? "هنوز دارایی‌ای در فهرست شبکه‌ها تعریف نشده است." : "No assets are registered in the network directory yet."}</p>}
         </section>
 
       </>}
