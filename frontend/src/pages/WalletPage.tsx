@@ -129,7 +129,6 @@ export default function WalletPage({ onNavigate }: Props) {
     assetsCount: fa ? "دارایی‌های ثبت‌شده" : "Registered assets",
     networkData: fa ? "داده‌های شبکه" : "Network data",
     balance: fa ? "ارزش تخمینی دارایی‌های ثبت‌شده" : "Estimated portfolio value",
-    balanceNote: fa ? "محاسبه بر اساس دفترکل داخلی Wallet-Find و قیمت بازار؛ با موجودی زنجیره‌ای Turnkey یکسان نیست." : "Calculated from Wallet-Find internal records and market prices; it may differ from Turnkey on-chain balances.",
     partialPriceNote: fa ? "قیمت بعضی دارایی‌ها موجود نیست؛ این عدد ممکن است کامل نباشد." : "Some asset prices are unavailable, so this estimate may be incomplete.",
     priceLoading: fa ? "در حال دریافت قیمت لحظه‌ای ارزها..." : "Loading live market prices...",
     priceUnavailable: fa ? "در حال حاضر دریافت قیمت بازار ممکن نیست؛ موجودی دلاری موقتاً نمایش داده نمی‌شود." : "Market prices are temporarily unavailable; the USD total cannot be displayed.",
@@ -371,9 +370,8 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
             <span>{copy.totalPortfolio}</span>
           </div>
           <div className="wallet-exchange-balance__value">{usdFormatter.format(usdBalance)}</div>
-          <div className="wallet-exchange-balance__available">{priceStatus === "loading" ? copy.priceLoading : priceStatus === "error" ? copy.priceUnavailable : copy.balanceNote}</div>
+          {priceStatus !== "ready" && <div className="wallet-exchange-balance__available">{priceStatus === "loading" ? copy.priceLoading : copy.priceUnavailable}</div>}
           {unpricedAssetCount > 0 && <div className="wallet-exchange-balance__available">{copy.partialPriceNote}</div>}
-          {priceUpdatedAt && <div className="wallet-exchange-balance__available">{fa ? "آخرین به‌روزرسانی قیمت: " : "Prices updated: "}{new Date(priceUpdatedAt).toLocaleTimeString(locale)}</div>}
 
           <div className="wallet-exchange-actions">
             <button type="button" className="wallet-action wallet-action--deposit" onClick={() => void openDeposit()}><span aria-hidden="true">↓</span>{copy.deposit}</button>
