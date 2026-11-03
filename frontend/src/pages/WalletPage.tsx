@@ -132,9 +132,9 @@ export default function WalletPage({ onNavigate }: Props) {
 
   const copy = useMemo(() => ({
     title: fa ? "کیف پول من" : "My wallet",
-    balance: fa ? "موجودی کل به دلار" : "Total balance in USD",
-    balanceNote: fa ? "ارزش تقریبی دارایی‌ها بر اساس قیمت بازار؛ قیمت‌ها هر ۶۰ ثانیه به‌روزرسانی می‌شوند." : "Estimated market value of assets; prices refresh every 60 seconds.",
-    partialPriceNote: fa ? "قیمت برخی دارایی‌ها در دسترس نیست؛ جمع بالا فقط دارایی‌های قیمت‌گذاری‌شده را شامل می‌شود." : "Some asset prices are unavailable; the total includes only priced assets.",
+    balance: fa ? "ارزش تخمینی دارایی‌های ثبت‌شده" : "Estimated portfolio value",
+    balanceNote: fa ? "محاسبه بر اساس دفترکل داخلی Wallet-Find و قیمت بازار؛ با موجودی زنجیره‌ای Turnkey یکسان نیست." : "Calculated from Wallet-Find internal records and market prices; it may differ from Turnkey on-chain balances.",
+    partialPriceNote: fa ? "قیمت بعضی دارایی‌ها موجود نیست؛ این عدد ممکن است کامل نباشد." : "Some asset prices are unavailable, so this estimate may be incomplete.",
     priceLoading: fa ? "در حال دریافت قیمت لحظه‌ای ارزها..." : "Loading live market prices...",
     priceUnavailable: fa ? "در حال حاضر دریافت قیمت بازار ممکن نیست؛ موجودی دلاری موقتاً نمایش داده نمی‌شود." : "Market prices are temporarily unavailable; the USD total cannot be displayed.",
     available: fa ? "موجودی قابل استفاده" : "Available balance",
@@ -142,10 +142,10 @@ export default function WalletPage({ onNavigate }: Props) {
     withdraw: fa ? "برداشت" : "Withdraw",
     history: fa ? "تاریخچه تراکنش‌ها" : "Transaction history",
     empty: fa ? "هنوز تراکنشی ثبت نشده است." : "No transactions yet.",
-    turnkeyTitle: fa ? "موجودی زنده از Turnkey" : "Live balances from Turnkey",
-    turnkeyHistory: fa ? "تراکنش‌های ثبت‌شده در Turnkey" : "Transactions recorded by Turnkey",
+    turnkeyTitle: fa ? "موجودی روی بلاک‌چین" : "On-chain balances",
+    turnkeyHistory: fa ? "فعالیت‌های زنجیره‌ای" : "On-chain activity",
     turnkeyLoading: fa ? "در حال دریافت اطلاعات مستقیم از Turnkey..." : "Fetching live wallet data from Turnkey...",
-    turnkeyUnavailable: fa ? "دریافت اطلاعات این شبکه از Turnkey ممکن نشد." : "Turnkey data is currently unavailable for this network.",
+    turnkeyUnavailable: fa ? "اطلاعات این شبکه فعلاً دریافت نشد؛ این وضعیت به معنی صفر بودن موجودی نیست." : "Network data could not be loaded. This does not mean the balance is zero.",
     turnkeyUpdated: fa ? "آخرین دریافت موفق: " : "Last successful update: ",
     turnkeyAddress: fa ? "آدرس کیف پول" : "Wallet address",
     turnkeyNoBalances: fa ? "Turnkey برای این شبکه موجودی قابل نمایشی برنگرداند." : "Turnkey returned no displayable balances for this network.",
@@ -194,8 +194,8 @@ export default function WalletPage({ onNavigate }: Props) {
     reviewRequired: fa ? "این کیف پول برای بررسی دستی علامت‌گذاری شده است؛ تا رفع مشکل به آدرس قدیمی آن وجه ارسال نکنید." : "This wallet requires manual review. Do not send funds to its legacy address until it has been reconciled.",
     withdrawalSubmitted: fa ? "درخواست برداشت ثبت شد و منتظر بررسی مدیر است. هنوز هیچ تراکنشی روی بلاک‌چین ارسال نشده است." : "Your withdrawal request is recorded and awaiting admin review. No blockchain transaction has been sent yet.",
     status: fa ? "وضعیت" : "Status",
-    assetsTitle: fa ? "دارایی‌ها و شبکه‌ها" : "Assets & networks",
-    assetsNote: fa ? "موجودی و عملیات قابل انجام برای هر دارایی را مشاهده کنید." : "View the balance and available actions for each asset.",
+    assetsTitle: fa ? "موجودی دفترکل Wallet-Find" : "Wallet-Find account records",
+    assetsNote: fa ? "سوابق داخلی موجودی و مبالغ قابل استفاده؛ این بخش برای حسابداری و رزروهای داخلی است." : "Internal balances and available amounts used for accounting and reservations.",
     noDepositAssets: fa ? "در حال حاضر دارایی فعالی برای واریز وجود ندارد." : "There are currently no enabled deposit assets.",
     noWithdrawalAssets: fa ? "در حال حاضر دارایی فعالی برای برداشت وجود ندارد." : "There are currently no enabled withdrawal assets.",
     walletActive: fa ? "کیف پول امانی" : "Custodial wallet",
@@ -434,8 +434,10 @@ export default function WalletPage({ onNavigate }: Props) {
           </div>
         </section>
 
+        <details className="wallet-provider-details">
+          <summary><span><strong>{fa ? "جزئیات فنی و تأیید موجودی" : "Technical details & balance verification"}</strong><small>{fa ? "داده‌های مستقیم شبکه؛ خطا به معنی موجودی صفر نیست." : "Direct network data; an error does not mean a zero balance."}</small></span><span className="wallet-provider-details__chevron">⌄</span></summary>
         <section className="wallet-network-card wallet-assets-directory">
-          <div className="wallet-card-heading"><h2>{copy.turnkeyTitle}</h2><span>Turnkey</span></div>
+          <div className="wallet-card-heading"><div><h2>{copy.turnkeyTitle}</h2><p className="wallet-assets-note">{fa ? "منبع نمایش موجودی واقعی شبکه؛ خطا یا تأخیر دریافت را با صفر اشتباه نگیرید." : "Source for actual network balances. A loading error must never be interpreted as zero."}</p></div><span>Turnkey</span></div>
           <p className="wallet-deposit-minimum">{turnkeyLoading ? copy.turnkeyLoading : turnkeyUpdatedAt ? copy.turnkeyUpdated + new Date(turnkeyUpdatedAt).toLocaleString(locale) : copy.turnkeyUnavailable}</p>
           {turnkeySnapshots.length === 0 && !turnkeyLoading && <p className="wallet-asset-empty">{copy.turnkeyUnavailable}</p>}
           {turnkeySnapshots.map((snapshot) => <div className="wallet-network-group" key={snapshot.networkId}>
@@ -448,7 +450,7 @@ export default function WalletPage({ onNavigate }: Props) {
           </div>)}
         </section>
         <section className="wallet-history wallet-exchange-history">
-          <div className="wallet-card-heading"><h2>{copy.turnkeyHistory}</h2><span>Turnkey</span></div>
+          <div className="wallet-card-heading"><div><h2>{copy.turnkeyHistory}</h2><p className="wallet-assets-note">{fa ? "وضعیت و جزئیات تراکنش‌های ثبت‌شده روی شبکه." : "Status and details of transactions recorded on-chain."}</p></div><span>Turnkey</span></div>
           {(() => { const rows = turnkeySnapshots.flatMap((snapshot) => snapshot.transactions.map(turnkeyTransaction));
             return rows.length === 0 ? <div className="wallet-empty"><span>↔</span><p>{turnkeyLoading ? copy.turnkeyLoading : copy.turnkeyNoHistory}</p></div> :
               <div className="wallet-table"><div className="wallet-table-head"><span>{copy.type}</span><span>{copy.date}</span><span>{copy.amountColumn}</span></div>
@@ -459,8 +461,9 @@ export default function WalletPage({ onNavigate }: Props) {
               </div>;
           })()}
         </section>
+        </details>
         <section className="wallet-network-card wallet-assets-directory">
-          <div className="wallet-card-heading"><h2>{copy.assetsTitle}</h2><span>{wallet.networks.reduce((count, network) => count + network.assets.length, 0)}</span></div>
+          <div className="wallet-card-heading"><div><h2>{copy.assetsTitle}</h2><p className="wallet-assets-note">{copy.assetsNote}</p></div><span>{wallet.networks.reduce((count, network) => count + network.assets.length, 0)}</span></div>
           
           {wallet.networks.map((network) => (
             <div className="wallet-network-group" key={network.id}>
@@ -477,6 +480,7 @@ export default function WalletPage({ onNavigate }: Props) {
                   <div className="wallet-asset-row__balance">
                     <strong>{fmt(asset.balance, asset.decimals)} {asset.symbol}</strong>
                     <small>{fa ? "قابل استفاده" : "Available"}: {fmt(asset.availableBalance, asset.decimals)} {asset.symbol}</small>
+                    {Number(asset.reservedBalance) > 0 && <small className="wallet-asset-reserved">{fa ? "رزروشده" : "Reserved"}: {fmt(asset.reservedBalance, asset.decimals)} {asset.symbol}</small>}
                   </div>
                   <div className="wallet-asset-row__actions">
                     {asset.depositEnabled && <button type="button" className="wallet-asset-deposit-button" onClick={() => void openDeposit(asset.id)}>{copy.deposit}</button>}
@@ -488,7 +492,7 @@ export default function WalletPage({ onNavigate }: Props) {
         </section>
 
         <section className="wallet-history wallet-exchange-history">
-          <div className="wallet-card-heading"><h2>{copy.history}</h2><span>{activities.length}</span></div>
+          <div className="wallet-card-heading"><div><h2>{copy.history}</h2><p className="wallet-assets-note">{fa ? "سوابق واریز، برداشت و عملیات ثبت‌شده در Wallet-Find." : "Deposits, withdrawals and operations recorded by Wallet-Find."}</p></div><span>{activities.length}</span></div>
           {activities.length === 0 ? <div className="wallet-empty"><span>↔</span><p>{copy.empty}</p></div> : <div className="wallet-table">
             <div className="wallet-table-head"><span>{copy.type}</span><span>{copy.date}</span><span>{copy.amountColumn}</span></div>
             {activities.slice(0, 100).map((item) => <article className="wallet-transaction" key={item.id}>

@@ -3441,3 +3441,23 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   .wallet-asset-row__meta { grid-column:1 / -1; flex-direction:row; justify-content:flex-start; align-items:center; flex-wrap:wrap; }
   .wallet-asset-deposit-button { grid-column:1 / -1; }
 }
+
+
+/* Wallet UX refinement: progressive disclosure for technical provider data. */
+.wallet-page .wallet-page-heading { margin-bottom: 14px; }
+.wallet-page .wallet-exchange-balance { padding: 21px 18px 17px; }
+.wallet-page .wallet-exchange-balance__value { font-variant-numeric: tabular-nums; }
+.wallet-page .wallet-action { min-height: 50px; }
+.wallet-page .wallet-asset-reserved { color: #f5c878 !important; }
+.wallet-provider-details { margin: 14px 0; border: 1px solid rgba(0,174,255,.18); border-radius: 15px; background: rgba(3,19,35,.56); }
+.wallet-provider-details > summary { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:62px; padding:12px 15px; color:#d9f2ff; cursor:pointer; list-style:none; }
+.wallet-provider-details > summary::-webkit-details-marker { display:none; }
+.wallet-provider-details > summary > span:first-child { display:grid; gap:4px; }
+.wallet-provider-details > summary strong { font-size:12px; font-weight:800; }
+.wallet-provider-details > summary small { color:#83a7bd; font-size:10px; line-height:1.5; }
+.wallet-provider-details__chevron { color:#00e9d1; font-size:21px; transition:transform .18s ease; }
+.wallet-provider-details[open] .wallet-provider-details__chevron { transform:rotate(180deg); }
+.wallet-provider-details > section { margin:0; border:0; border-top:1px solid rgba(100,180,220,.12); border-radius:0; box-shadow:none; }
+.wallet-provider-details > section + section { border-top:1px solid rgba(100,180,220,.12); }
+.wallet-page button:focus-visible, .wallet-page input:focus-visible, .wallet-page summary:focus-visible { outline:2px solid #00e9d1; outline-offset:3px; }
+@media (max-width:380px) { .wallet-page .wallet-exchange { padding-inline:12px; } .wallet-page .wallet-exchange-balance { padding:17px 13px 14px; } .wallet-page .wallet-asset-row { grid-template-columns:minmax(0,1fr); } .wallet-page .wallet-asset-row__balance { text-align:start; } }
