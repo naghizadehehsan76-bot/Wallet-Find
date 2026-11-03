@@ -460,10 +460,38 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
         </div>
         <div className="wallet-form-field">
           <label>{copy.asset}</label>
-          <div className="wallet-exchange-actions">
-            {depositAssets.map((asset) => <button key={asset.id} type="button" className="wallet-asset-deposit-button" aria-pressed={depositAssetId === asset.id} onClick={() => changeDepositAsset(asset.id)}>{asset.symbol} · {asset.networkName}</button>)}
+          <div className="wallet-exchange-actions wallet-deposit-asset-picker">
+            {allAssets.map((asset) => <button key={asset.id} type="button" className="wallet-asset-deposit-button" aria-pressed={depositAssetId === asset.id} onClick={() => {
+              if (asset.depositEnabled) changeDepositAsset(asset.id);
+              else {
+                setDepositAssetId(asset.id);
+                setDepositNetworkId(asset.networkId);
+                setDepositDetails(null);
+                setDepositError(copy.depositDisabled);
+              }
+            }}>{asset.symbol} · {asset.networkName}{!asset.depositEnabled ? " · " + copy.unavailable : ""}</button>)}
           </div>
         </div>
+        {!depositDetails && !depositLoading && <div className="wallet-deposit-preview">
+          <div className="wallet-deposit-steps" aria-label="Deposit steps">
+            <span className="is-active">1. {copy.depositStep1}</span><span className="is-active">2. {copy.depositStep2}</span><span>3. {copy.depositStep3}</span>
+          </div>
+          <div className="wallet-deposit-preview-grid">
+            <div className="wallet-deposit-qr-panel wallet-deposit-qr-panel--disabled">
+              <div className="wallet-deposit-qr wallet-deposit-qr--placeholder"><span>▦</span></div>
+              <strong>{fa ? "QR کد پس از فعال‌سازی واریز نمایش داده می‌شود" : "QR code appears when deposits are enabled"}</strong>
+              <small>{fa ? "آدرس اختصاصی هنوز صادر نشده است" : "A deposit address has not been issued yet"}</small>
+            </div>
+            <div className="wallet-deposit-preview-details">
+              <div><span>{copy.network}</span><strong>{selectedDepositNetwork?.displayName ?? selectedDepositAsset?.networkName ?? (fa ? "شبکه را انتخاب کنید" : "Select a network")}</strong></div>
+              <div><span>{copy.asset}</span><strong>{selectedDepositAsset?.symbol ?? (fa ? "دارایی را انتخاب کنید" : "Select an asset")}</strong></div>
+              <div><span>{copy.depositStatus}</span><strong className="wallet-deposit-status-disabled">{copy.unavailable}</strong></div>
+              <div><span>{copy.receiveAddress}</span><strong>—</strong></div>
+            </div>
+          </div>
+          <div className="wallet-warning"><strong>⚠ {copy.unavailable}</strong><p>{copy.depositDisabled}</p></div>
+          <p className="wallet-deposit-minimum">{copy.depositRisk}</p>
+        </div>}
         {depositLoading && <div className="inline-feedback"><LoadingIndicator label={copy.loadingAddress} /></div>}
         {depositError && <p className="inline-feedback wallet-error" role="alert">{depositError}</p>}
         {depositDetails && <>
