@@ -347,7 +347,6 @@ export default function WalletPage({ onNavigate }: Props) {
 
       {!wallet && !error && <div className="inline-feedback"><LoadingIndicator label={copy.loading} /></div>}
       {error && <p className="inline-feedback wallet-error" role="alert">{error}</p>}
-      {wallet?.walletProvisioningReviewRequired && <div className="wallet-warning" role="alert"><strong>⚠ {copy.unavailable}</strong><p>{copy.reviewRequired}</p></div>}
 
       {wallet && view === "overview" && <>
         <section className="wallet-exchange-balance" id="wallet-overview">
