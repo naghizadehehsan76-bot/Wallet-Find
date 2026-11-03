@@ -498,7 +498,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
               <span className={"wallet-custom-select__chevron" + (openDepositFilter === "network" ? " is-open" : "")}>⌄</span>
             </button>
             {openDepositFilter === "network" && <div className="wallet-custom-select__menu" role="listbox" aria-label={copy.network}>
-              {(wallet?.networks ?? []).filter((network) => network.assets.length > 0).map((network) => (
+              {(wallet?.networks ?? []).filter((network) => network.assets.some((asset) => asset.depositEnabled)).map((network) => (
                 <button type="button" role="option" aria-selected={depositNetworkId === network.id} className={"wallet-custom-select__option" + (depositNetworkId === network.id ? " is-selected" : "")} key={network.id} onClick={() => {
                   setOpenDepositFilter(null);
                   setDepositNetworkId(network.id);
@@ -534,7 +534,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
               <span className={"wallet-custom-select__chevron" + (openDepositFilter === "asset" ? " is-open" : "")}>⌄</span>
             </button>
             {openDepositFilter === "asset" && <div className="wallet-custom-select__menu" role="listbox" aria-label={copy.asset}>
-              {allAssets.filter((asset) => !depositNetworkId || asset.networkId === depositNetworkId).map((asset) => (
+              {depositAssets.filter((asset) => !depositNetworkId || asset.networkId === depositNetworkId).map((asset) => (
                 <button type="button" role="option" aria-selected={depositAssetId === asset.id} className={"wallet-custom-select__option" + (depositAssetId === asset.id ? " is-selected" : "")} key={asset.id} onClick={() => {
                   setOpenDepositFilter(null);
                   if (asset.depositEnabled) changeDepositAsset(asset.id);
