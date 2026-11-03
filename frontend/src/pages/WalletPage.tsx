@@ -21,14 +21,34 @@ function createIdempotencyKey(): string {
 
 function AssetLogo({ symbol }: { symbol: string }) {
   const code = symbol.toUpperCase();
-  const common = { viewBox: "0 0 40 40", role: "img" as const, "aria-label": code };
-  if (code === "BTC") return <span className="wallet-asset-symbol wallet-asset-symbol--btc" aria-hidden="true"><svg {...common}><circle cx="20" cy="20" r="19" fill="#F7931A" /><path d="M25.8 17.1c.5-3.2-1.9-4.8-5.1-5.9l1-4-2.4-.6-1 3.9-2-.5 1-4-2.4-.6-1 4-5-1.2-.7 2.6 1.9.5c1.3.3 1.5.8 1.3 1.8l-2.7 10.7c-.2.6-.6.8-1.3.6l-1.9-.5-1 2.8 5 1.2-1 4 2.4.6 1-4 2 .5-1 4 2.4.6 1-4.1c4.2.8 7.4.5 8.7-3.3 1.1-3-.1-4.8-2.4-5.9 1.7-.4 2.9-1.6 3.2-3.8Zm-5.2 8.1c-.8 3-5.8 1.4-7.4 1l1.3-5.2c1.6.4 7 .9 6.1 4.2Zm.8-8.2c-.7 2.7-4.9 1.3-6.3 1l1.2-4.7c1.4.4 5.8.9 5.1 3.7Z" fill="#fff" transform="translate(5 1) scale(.86)" /></svg></span>;
-  if (code === "ETH") return <span className="wallet-asset-symbol wallet-asset-symbol--eth" aria-hidden="true"><svg {...common}><circle cx="20" cy="20" r="19" fill="#627EEA" /><path d="M20 4 10 20l10 6 10-6L20 4Z" fill="#fff" /><path d="m20 28-10-6 10 14 10-14-10 6Z" fill="#C1CCF7" /></svg></span>;
-  if (code === "BNB") return <span className="wallet-asset-symbol wallet-asset-symbol--bnb" aria-hidden="true"><svg {...common}><circle cx="20" cy="20" r="19" fill="#F0B90B" /><g fill="#fff"><path d="m20 7 4.2 4.2-4.2 4.2-4.2-4.2L20 7Zm-8 8 3.2 3.2L12 21.4 8.8 18 12 15Zm16 0 3.2 3.2-3.2 3.2-3.2-3.2L28 15Zm-8 8 4.2 4.2-4.2 4.2-4.2-4.2L20 23Zm0-7 4 4-4 4-4-4 4-4Z" /></g></svg></span>;
-  if (code === "USDT" || code === "USDT0") return <span className="wallet-asset-symbol wallet-asset-symbol--usdt" aria-hidden="true"><svg {...common}><circle cx="20" cy="20" r="19" fill="#26A17B" /><path fill="#fff" d="M8 9h24v5h-9v3.1c5.3.3 9.3 1.2 9.3 2.4s-4 2.1-9.3 2.4V32h-6V22c-5.3-.3-9.3-1.2-9.3-2.4s4-2.1 9.3-2.4V14H8V9Zm9 8.7v3.1c1 .1 2 .1 3 .1s2 0 3-.1v-3.1c-1-.1-2-.1-3-.1s-2 0-3 .1Zm0 4.4v2.2c1 .1 2 .1 3 .1s2 0 3-.1v-2.2c-1 .1-2 .1-3 .1s-2 0-3-.1Z" /></svg></span>;
-  if (code === "POL") return <span className="wallet-asset-symbol wallet-asset-symbol--pol" aria-hidden="true"><svg {...common}><circle cx="20" cy="20" r="19" fill="#8247E5" /><g fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.2 16.2 15 12.8a3.2 3.2 0 0 1 3.2 0l2.2 1.3a3.2 3.2 0 0 1 0 5.5l-2.2 1.3a3.2 3.2 0 0 1-3.2 0l-1.5-.9" /><path d="m30.8 23.8-5.8 3.4a3.2 3.2 0 0 1-3.2 0l-2.2-1.3a3.2 3.2 0 0 1 0-5.5l2.2-1.3a3.2 3.2 0 0 1 3.2 0l1.5.9" /></g></svg></span>;
-  if (code === "SOL") return <span className="wallet-asset-symbol wallet-asset-symbol--sol" aria-hidden="true"><svg {...common}><circle cx="20" cy="20" r="19" fill="#14141F" /><defs><linearGradient id="solana-logo-gradient" x1="7" y1="31" x2="32" y2="8" gradientUnits="userSpaceOnUse"><stop offset="0" stopColor="#9945FF" /><stop offset="0.52" stopColor="#8752F3" /><stop offset="1" stopColor="#14F195" /></linearGradient></defs><g fill="url(#solana-logo-gradient)"><path d="M12.2 9.5h18.2l-3.8 4H8.4l3.8-4Z" /><path d="M9.6 18h18.2l-3.8 4H5.8l3.8-4Z" /><path d="M12.2 26.5h18.2l-3.8 4H8.4l3.8-4Z" /></g></svg></span>;
-  return <span className="wallet-asset-symbol" aria-hidden="true">{code.slice(0, 4)}</span>;
+  // CoinMarketCap's official hosted coin-logo assets, keyed by CMC's unique coin IDs.
+  // USDT0 uses the canonical Tether USD logo; network does not change the underlying asset brand.
+  const coinMarketCapIds: Record<string, string> = {
+    BTC: "1",
+    ETH: "1027",
+    BNB: "1839",
+    USDT: "825",
+    USDT0: "825",
+    POL: "28321",
+    SOL: "5426",
+  };
+  const coinId = coinMarketCapIds[code];
+  if (!coinId) return <span className="wallet-asset-symbol" aria-hidden="true">{code.slice(0, 4)}</span>;
+  return (
+    <span className={`wallet-asset-symbol wallet-asset-symbol--${code.toLowerCase()}`} aria-hidden="true">
+      <img
+        src={`https://s2.coinmarketcap.com/static/img/coins/64x64/${coinId}.png`}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        onError={(event) => {
+          event.currentTarget.style.display = "none";
+          event.currentTarget.parentElement?.classList.add("wallet-asset-symbol--fallback");
+          if (event.currentTarget.parentElement) event.currentTarget.parentElement.textContent = code.slice(0, 4);
+        }}
+      />
+    </span>
+  );
 }
 
 function formatAmount(value: string, decimals: number, locale: string, maxDecimals = 6): string {
