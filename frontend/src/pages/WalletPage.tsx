@@ -110,7 +110,6 @@ export default function WalletPage({ onNavigate }: Props) {
   const [copied, setCopied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [usdPrices, setUsdPrices] = useState<Record<string, number>>({});
-  const [priceUpdatedAt, setPriceUpdatedAt] = useState<number | null>(null);
   const [priceStatus, setPriceStatus] = useState<"loading" | "ready" | "error">("loading");
 
 
@@ -227,7 +226,6 @@ export default function WalletPage({ onNavigate }: Props) {
         if (Object.keys(validPrices).length === 0) throw new Error("PRICE_FEED_UNAVAILABLE");
         if (!cancelled) {
           setUsdPrices(validPrices);
-          setPriceUpdatedAt(result.updatedAt);
           setPriceStatus("ready");
         }
       } catch {
