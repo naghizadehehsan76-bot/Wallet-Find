@@ -1,6 +1,6 @@
 import { useEffect, useState, type ChangeEvent } from "react";
 import BottomNav from "../components/BottomNav";
-import { getProfile, uploadProfileAvatar, type ProfileResult } from "../services/api";
+import { deleteOwnAccount, getProfile, uploadProfileAvatar, type ProfileResult } from "../services/api";
 import { useI18n } from "../i18n";
 import { localizeApiError } from "../i18n/localize";
 import LoadingIndicator from "../components/LoadingIndicator";
@@ -27,7 +27,7 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [avatarError, setAvatarError] = useState("");
-  const [avatarSaving, setAvatarSaving] = useState(false);
+  const [avatarSaving, setAvatarSaving] = useState(false);\n  const [deletingAccount, setDeletingAccount] = useState(false);\n  const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -54,6 +54,43 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
       cancelled = true;
     };
   }, [isPersian]);
+
+  async function handleDeleteAccount() {
+    if (!profile || profile.role !== "USER" || deletingAccount) return;
+    const confirmed = window.confirm(isPersian
+      ? "حذف حساب دائمی است و سوابق فعالیت مسابقه‌ای این حساب نیز پاک می‌شود. ادامه می‌دهی؟"
+      : "Account deletion is permanent and this account's challenge activity history will also be erased. Continue?");
+    if (!confirmed) return;
+    const typedUsername = window.prompt(isPersian
+      ? `برای تأیید نهایی، نام کاربری «${profile.username}» را دقیقاً وارد کن:`
+      : `For final confirmation, type the username exactly: ${profile.username}`);
+    if (typedUsername !== profile.username) {
+      if (typedUsername !== null) setDeleteError(isPersian ? "نام کاربری مطابقت نداشت؛ حساب حذف نشد." : "The username did not match. The account was not deleted.");
+      return;
+    }
+    setDeleteError("");
+    setDeletingAccount(true);
+    try {
+      await deleteOwnAccount();
+      localStorage.removeItem("walletFindToken");
+      localStorage.removeItem("walletFindUser");
+      onLogout();
+    } catch (err) {
+      const code = err instanceof Error ? err.message : "ACCOUNT_DELETION_FAILED";
+      const messages: Record<string, [string, string]> = {
+        ACCOUNT_HAS_FINANCIAL_OR_EXTERNAL_RECORDS: [
+          "این حساب دارای کیف پول، سوابق مالی، جایزه یا اطلاعات وابسته است؛ برای محافظت از دارایی‌ها حذف آن مسدود شد.",
+          "This account has a wallet, financial records, prizes, or linked external records. Deletion was blocked to protect them."
+        ],
+        ACCOUNT_DELETION_NOT_ALLOWED: ["حذف این نوع حساب مجاز نیست.", "This account type cannot be deleted here."],
+        USER_NOT_FOUND: ["حساب پیدا نشد.", "Account not found."],
+      };
+      const message = messages[code];
+      setDeleteError(message ? (isPersian ? message[0] : message[1]) : (isPersian ? "حذف حساب ناموفق بود؛ دوباره تلاش کن." : "Account deletion failed. Please try again."));
+    } finally {
+      setDeletingAccount(false);
+    }
+  }
 
   async function handleAvatarChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
