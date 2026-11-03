@@ -27,7 +27,9 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [avatarError, setAvatarError] = useState("");
-  const [avatarSaving, setAvatarSaving] = useState(false);\n  const [deletingAccount, setDeletingAccount] = useState(false);\n  const [deleteError, setDeleteError] = useState("");
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -225,6 +227,12 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
         ) : null}
 
         <div className="profile-actions">
+          {profile?.role === "USER" && (
+            <button className="cta-button cta-button--logout" type="button" onClick={() => void handleDeleteAccount()} disabled={deletingAccount || loading}>
+              {deletingAccount ? (isPersian ? "در حال حذف..." : "Deleting...") : (isPersian ? "حذف حساب" : "Delete account")}
+            </button>
+          )}
+          {deleteError && <p className="inline-feedback round-error" role="alert">{deleteError}</p>}
           <button className="cta-button cta-button--logout" type="button" onClick={onLogout}>
             {isPersian ? "خروج از حساب" : "Log out"}
           </button>
