@@ -118,7 +118,7 @@ export default function WalletPage({ onNavigate }: Props) {
     overviewTab: fa ? "نمای کلی" : "Overview",
     assetsTab: fa ? "دارایی‌ها" : "Assets",
     activityTab: fa ? "تاریخچه" : "Activity",
-    totalPortfolio: fa ? "ارزش کل دارایی‌های ثبت‌شده" : "Total estimated portfolio value",
+    totalPortfolio: fa ? "ارزش کل دارایی‌ها" : "Total estimated portfolio value",
     assetList: fa ? "لیست دارایی‌ها" : "Asset list",
     activitySearchPlaceholder: fa ? "جست‌وجو در نوع، دارایی یا وضعیت..." : "Search type, asset or status...",
     filterAll: fa ? "همه" : "All",
