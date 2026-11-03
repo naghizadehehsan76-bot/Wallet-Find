@@ -356,7 +356,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
     <main className="page wallet-exchange">
       <div className="wallet-page-heading">
         <div><div className="section-title">{copy.title}</div></div>
-        <div className="wallet-page-heading__actions">
+        <div className="wallet-page-heading__actions" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <button type="button" className="wallet-refresh wallet-history-button" onClick={() => setView("history")} aria-label={copy.history} title={copy.history}>
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
           </button>
