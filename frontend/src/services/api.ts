@@ -355,7 +355,7 @@ export async function getProfile(): Promise<ProfileResult> {
   return request<ProfileResult>("/profile/me", {}, true);
 }
 
-export async function uploadProfileAvatar(avatarDataUrl: string): Promise<{ avatarDataUrl: string }> {
+export async function deleteOwnAccount(): Promise<{ deleted: boolean }> {\n  return request<{ deleted: boolean }>("/profile/me", { method: "DELETE" }, true);\n}\n\nexport async function uploadProfileAvatar(avatarDataUrl: string): Promise<{ avatarDataUrl: string }> {
   return request<{ avatarDataUrl: string }>("/profile/avatar", {
     method: "POST",
     body: JSON.stringify({ avatarDataUrl }),
