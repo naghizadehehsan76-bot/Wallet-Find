@@ -368,7 +368,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
             <span>{copy.totalPortfolio}</span>
           </div>
           <div className="wallet-exchange-balance__value">{usdFormatter.format(usdBalance)}</div>
-          {priceStatus !== "ready" && <div className="wallet-exchange-balance__available">{priceStatus === "loading" ? copy.priceLoading : copy.priceUnavailable}</div>}
+          {priceStatus === "loading" && <div className="wallet-exchange-balance__available">{copy.priceLoading}</div>}
           {unpricedAssetCount > 0 && <div className="wallet-exchange-balance__available">{copy.partialPriceNote}</div>}
 
           <div className="wallet-exchange-actions">
