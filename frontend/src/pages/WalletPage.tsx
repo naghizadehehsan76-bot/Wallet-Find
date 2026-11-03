@@ -3,6 +3,7 @@ import BottomNav from "../components/BottomNav";
 import { useI18n } from "../i18n";
 import {
   getWallet,
+  getTurnkeyWalletData,
   getMarketPrices,
   requestWalletDeposit,
   requestWalletWithdrawal,
@@ -15,6 +16,24 @@ import LoadingIndicator from "../components/LoadingIndicator";
 type Page = "home" | "auth" | "competition" | "key" | "leaderboard" | "profile" | "wallet";
 type Props = { onNavigate: (page: Page) => void };
 type WalletView = "overview" | "deposit" | "withdraw";
+type TurnkeySnapshot = { networkId: string; network: string; address: string; balances: unknown[]; transactions: unknown[]; fetchedAt: string; error?: string };
+function recordOf(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+function firstValue(record: Record<string, unknown>, keys: string[]): unknown { for (const key of keys) if (record[key] !== undefined && record[key] !== null && record[key] !== "") return record[key]; return undefined; }
+function turnkeyBalance(value: unknown) {
+  const row = recordOf(value); const asset = recordOf(row.asset ?? row.token ?? row.currency);
+  const symbol = firstValue(row, ["symbol", "assetSymbol", "tokenSymbol"]) ?? firstValue(asset, ["symbol", "name"]);
+  const decimals = Number(firstValue(row, ["decimals", "tokenDecimals"]) ?? firstValue(asset, ["decimals"]) ?? 0);
+  const raw = firstValue(row, ["formattedBalance", "displayBalance", "uiAmount", "amountFormatted", "balance", "amount", "quantity"]);
+  let amount = raw === undefined ? "—" : String(raw);
+  if (["amount", "quantity"].some((key) => row[key] === raw) && /^\d+$/.test(amount) && Number.isInteger(decimals) && decimals > 0) amount = formatAtomic(amount, decimals, "en-US");
+  return { symbol: typeof symbol === "string" ? symbol : "Asset", amount, contract: String(firstValue(row, ["contractAddress", "tokenAddress", "address", "mint"]) ?? firstValue(asset, ["contractAddress", "address"]) ?? "") };
+}
+function turnkeyTransaction(value: unknown, index: number) {
+  const row = recordOf(value); const asset = recordOf(row.asset ?? row.token);
+  const timestamp = firstValue(row, ["timestamp", "timestampMs", "createdAt", "updatedAt", "blockTimestamp", "date"]);
+  const date = typeof timestamp === "number" || (typeof timestamp === "string" && /^\d{13}$/.test(timestamp)) ? new Date(Number(timestamp)).toISOString() : typeof timestamp === "string" ? timestamp : "";
+  return { id: String(firstValue(row, ["id", "transactionId", "hash", "txHash"]) ?? "turnkey-" + index), type: String(firstValue(row, ["type", "transactionType", "direction"]) ?? "TRANSACTION"), status: String(firstValue(row, ["status", "state"]) ?? "ON-CHAIN"), amount: String(firstValue(row, ["displayAmount", "formattedAmount", "amount", "value", "quantity"]) ?? "—"), symbol: String(firstValue(row, ["symbol", "assetSymbol", "tokenSymbol"]) ?? firstValue(asset, ["symbol", "name"]) ?? ""), date, hash: String(firstValue(row, ["hash", "transactionHash", "txHash"]) ?? "") };
+}
 
 function createIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -84,7 +103,7 @@ export default function WalletPage({ onNavigate }: Props) {
   const { language } = useI18n();
   const fa = language === "fa";
   const locale = fa ? "fa-IR" : "en-US";
-  const [wallet, setWallet] = useState<WalletResult | null>(null);
+  const [wallet, setWallet] = useState<WalletResult | null>(null);\n  const [turnkeySnapshots, setTurnkeySnapshots] = useState<TurnkeySnapshot[]>([]);\n  const [turnkeyLoading, setTurnkeyLoading] = useState(false);\n  const [turnkeyUpdatedAt, setTurnkeyUpdatedAt] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [view, setView] = useState<WalletView>("overview");
   const [depositAssetId, setDepositAssetId] = useState("");
@@ -119,7 +138,7 @@ export default function WalletPage({ onNavigate }: Props) {
     deposit: fa ? "واریز" : "Deposit",
     withdraw: fa ? "برداشت" : "Withdraw",
     history: fa ? "تاریخچه تراکنش‌ها" : "Transaction history",
-    empty: fa ? "هنوز تراکنشی ثبت نشده است." : "No transactions yet.",
+    empty: fa ? "هنوز تراکنشی ثبت نشده است." : "No transactions yet.",\n    turnkeyTitle: fa ? "موجودی زنده از Turnkey" : "Live balances from Turnkey",\n    turnkeyHistory: fa ? "تراکنش‌های ثبت‌شده در Turnkey" : "Transactions recorded by Turnkey",\n    turnkeyLoading: fa ? "در حال دریافت اطلاعات مستقیم از Turnkey..." : "Fetching live wallet data from Turnkey...",\n    turnkeyUnavailable: fa ? "دریافت اطلاعات این شبکه از Turnkey ممکن نشد." : "Turnkey data is currently unavailable for this network.",\n    turnkeyUpdated: fa ? "آخرین دریافت موفق: " : "Last successful update: ",\n    turnkeyAddress: fa ? "آدرس کیف پول" : "Wallet address",\n    turnkeyNoBalances: fa ? "Turnkey برای این شبکه موجودی قابل نمایشی برنگرداند." : "Turnkey returned no displayable balances for this network.",\n    turnkeyNoHistory: fa ? "Turnkey هنوز تراکنشی برای این آدرس برنگردانده است." : "Turnkey returned no transactions for this address yet.",
     loading: fa ? "در حال دریافت کیف پول..." : "Loading wallet...",
     error: fa ? "دریافت اطلاعات کیف پول ناموفق بود." : "Unable to load wallet information.",
     refresh: fa ? "به‌روزرسانی" : "Refresh",
@@ -173,12 +192,27 @@ export default function WalletPage({ onNavigate }: Props) {
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
+    setTurnkeyLoading(true);
     try {
-      setWallet(await getWallet());
+      const walletResult = await getWallet();
+      setWallet(walletResult);
       setError("");
+      const supported = walletResult.networks.filter((network) => network.family === "EVM" && ["eip155:1", "eip155:10", "eip155:56", "eip155:137", "eip155:42161"].includes(network.id));
+      const snapshots = await Promise.all(supported.map(async (network): Promise<TurnkeySnapshot> => {
+        try {
+          const data = await getTurnkeyWalletData(network.id);
+          return { ...data, balances: data.balances ?? [], transactions: data.transactions ?? [] };
+        } catch (requestError) {
+          return { networkId: network.id, network: network.displayName, address: network.address ?? "", balances: [], transactions: [], fetchedAt: new Date().toISOString(), error: requestError instanceof Error ? requestError.message : "TURNKEY_WALLET_DATA_UNAVAILABLE" };
+        }
+      }));
+      setTurnkeySnapshots(snapshots);
+      const successful = snapshots.filter((snapshot) => !snapshot.error);
+      setTurnkeyUpdatedAt(successful.length ? successful.map((item) => item.fetchedAt).sort().slice(-1)[0] ?? null : null);
     } catch {
       setError(copy.error);
     } finally {
+      setTurnkeyLoading(false);
       setRefreshing(false);
     }
   }, [copy.error]);
@@ -389,6 +423,31 @@ export default function WalletPage({ onNavigate }: Props) {
           </div>
         </section>
 
+        <section className="wallet-network-card wallet-assets-directory">
+          <div className="wallet-card-heading"><h2>{copy.turnkeyTitle}</h2><span>Turnkey</span></div>
+          <p className="wallet-deposit-minimum">{turnkeyLoading ? copy.turnkeyLoading : turnkeyUpdatedAt ? copy.turnkeyUpdated + new Date(turnkeyUpdatedAt).toLocaleString(locale) : copy.turnkeyUnavailable}</p>
+          {turnkeySnapshots.length === 0 && !turnkeyLoading && <p className="wallet-asset-empty">{copy.turnkeyUnavailable}</p>}
+          {turnkeySnapshots.map((snapshot) => <div className="wallet-network-group" key={snapshot.networkId}>
+            <div className="wallet-network-group__heading"><span className="wallet-network-dot" /><div><strong>{snapshot.network}</strong><small>{snapshot.address ? copy.turnkeyAddress + ": " + snapshot.address : ""}</small></div></div>
+            {snapshot.error ? <p className="wallet-error">{copy.turnkeyUnavailable}</p> : snapshot.balances.length === 0 ? <p className="wallet-asset-empty">{copy.turnkeyNoBalances}</p> :
+              snapshot.balances.map((item, index) => { const balance = turnkeyBalance(item); return <div className="wallet-asset-row" key={snapshot.networkId + "-" + balance.contract + "-" + index}>
+                <div className="wallet-asset-row__identity"><span className="wallet-asset-symbol">{balance.symbol.slice(0, 4)}</span><div><strong>{balance.symbol}</strong><small>{balance.contract || snapshot.network}</small></div></div>
+                <div className="wallet-asset-row__balance"><strong>{balance.amount} {balance.symbol}</strong><small>Turnkey · {fa ? "موجودی زنجیره" : "On-chain balance"}</small></div>
+              </div>; })}
+          </div>)}
+        </section>
+        <section className="wallet-history wallet-exchange-history">
+          <div className="wallet-card-heading"><h2>{copy.turnkeyHistory}</h2><span>Turnkey</span></div>
+          {(() => { const rows = turnkeySnapshots.flatMap((snapshot) => snapshot.transactions.map(turnkeyTransaction));
+            return rows.length === 0 ? <div className="wallet-empty"><span>↔</span><p>{turnkeyLoading ? copy.turnkeyLoading : copy.turnkeyNoHistory}</p></div> :
+              <div className="wallet-table"><div className="wallet-table-head"><span>{copy.type}</span><span>{copy.date}</span><span>{copy.amountColumn}</span></div>
+                {rows.sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0)).slice(0, 100).map((item, index) => <article className="wallet-transaction" key={item.id + "-" + index}>
+                  <div><strong>{item.type}</strong><small>{item.status}{item.hash ? " · " + item.hash : ""}</small></div>
+                  <small>{item.date ? new Date(item.date).toLocaleString(locale) : "—"}</small><div><b>{item.amount} <small>{item.symbol}</small></b></div>
+                </article>)}
+              </div>;
+          })()}
+        </section>
         <section className="wallet-network-card wallet-assets-directory">
           <div className="wallet-card-heading"><h2>{copy.assetsTitle}</h2><span>{wallet.networks.reduce((count, network) => count + network.assets.length, 0)}</span></div>
           
