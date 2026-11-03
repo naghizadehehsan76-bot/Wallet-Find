@@ -27,7 +27,7 @@ export type IncomingChainTransfer = {
 
 export interface WalletChainAdapter {
   readonly networkId: string;
-  readonly family: "EVM" | "BITCOIN" | "SOLANA";
+  readonly family: "EVM";
   getLatestPosition(): Promise<string>;
   getSafePosition(finalityDepth: number): Promise<string>;
   getPositionHash(position: string): Promise<string | null>;
