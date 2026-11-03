@@ -19,6 +19,18 @@ function createIdempotencyKey(): string {
   return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
 }
 
+function AssetLogo({ symbol }: { symbol: string }) {
+  const code = symbol.toUpperCase();
+  const common = { viewBox: "0 0 40 40", role: "img" as const, "aria-label": code };
+  if (code === "BTC") return <span className="wallet-asset-symbol wallet-asset-symbol--btc" aria-hidden="true"><svg {...common}><circle cx="20" cy="20" r="19" fill="#F7931A" /><path d="M25.8 17.1c.5-3.2-1.9-4.8-5.1-5.9l1-4-2.4-.6-1 3.9-2-.5 1-4-2.4-.6-1 4-5-1.2-.7 2.6 1.9.5c1.3.3 1.5.8 1.3 1.8l-2.7 10.7c-.2.6-.6.8-1.3.6l-1.9-.5-1 2.8 5 1.2-1 4 2.4.6 1-4 2 .5-1 4 2.4.6 1-4.1c4.2.8 7.4.5 8.7-3.3 1.1-3-.1-4.8-2.4-5.9 1.7-.4 2.9-1.6 3.2-3.8Zm-5.2 8.1c-.8 3-5.8 1.4-7.4 1l1.3-5.2c1.6.4 7 .9 6.1 4.2Zm.8-8.2c-.7 2.7-4.9 1.3-6.3 1l1.2-4.7c1.4.4 5.8.9 5.1 3.7Z" fill="#fff" transform="translate(5 1) scale(.86)" /></svg></span>;
+  if (code === "ETH") return <span className="wallet-asset-symbol wallet-asset-symbol--eth" aria-hidden="true"><svg {...common}><circle cx="20" cy="20" r="19" fill="#627EEA" /><path d="M20 4 10 20l10 6 10-6L20 4Z" fill="#fff" /><path d="m20 28-10-6 10 14 10-14-10 6Z" fill="#C1CCF7" /></svg></span>;
+  if (code === "BNB") return <span className="wallet-asset-symbol wallet-asset-symbol--bnb" aria-hidden="true"><svg {...common}><circle cx="20" cy="20" r="19" fill="#F0B90B" /><g fill="#fff"><path d="m20 7 4.2 4.2-4.2 4.2-4.2-4.2L20 7Zm-8 8 3.2 3.2L12 21.4 8.8 18 12 15Zm16 0 3.2 3.2-3.2 3.2-3.2-3.2L28 15Zm-8 8 4.2 4.2-4.2 4.2-4.2-4.2L20 23Zm0-7 4 4-4 4-4-4 4-4Z" /></g></svg></span>;
+  if (code === "USDT" || code === "USDT0") return <span className="wallet-asset-symbol wallet-asset-symbol--usdt" aria-hidden="true"><svg {...common}><circle cx="20" cy="20" r="19" fill="#26A17B" /><path fill="#fff" d="M8 9h24v5h-9v3.1c5.3.3 9.3 1.2 9.3 2.4s-4 2.1-9.3 2.4V32h-6V22c-5.3-.3-9.3-1.2-9.3-2.4s4-2.1 9.3-2.4V14H8V9Zm9 8.7v3.1c1 .1 2 .1 3 .1s2 0 3-.1v-3.1c-1-.1-2-.1-3-.1s-2 0-3 .1Zm0 4.4v2.2c1 .1 2 .1 3 .1s2 0 3-.1v-2.2c-1 .1-2 .1-3 .1s-2 0-3-.1Z" /></svg></span>;
+  if (code === "POL") return <span className="wallet-asset-symbol wallet-asset-symbol--pol" aria-hidden="true"><svg {...common}><circle cx="20" cy="20" r="19" fill="#8247E5" /><g fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="m13 14 5-3 5 3v5l-5 3-5-3v-5Z" /><path d="m23 17 4-2 4 2v5l-4 2-4-2M13 19l-4 2v5l4 2 4-2" /></g></svg></span>;
+  if (code === "SOL") return <span className="wallet-asset-symbol wallet-asset-symbol--sol" aria-hidden="true"><svg {...common}><circle cx="20" cy="20" r="19" fill="#14141F" /><g fill="#fff"><path d="M11 10h19l-3.5 4H7.5L11 10Zm-3 8h19l-3.5 4H4.5L8 18Zm3 8h19l-3.5 4H7.5L11 26Z" /></g></svg></span>;
+  return <span className="wallet-asset-symbol" aria-hidden="true">{code.slice(0, 4)}</span>;
+}
+
 function formatAmount(value: string, decimals: number, locale: string, maxDecimals = 6): string {
   const [wholePart, fractionPart = ""] = value.split(".");
   const whole = (() => {
@@ -324,16 +336,6 @@ export default function WalletPage({ onNavigate }: Props) {
     }
   };
 
-  const assetLogoBySymbol: Record<string, string> = {
-  BTC: "https://cdn.simpleicons.org/bitcoin/F7931A",
-  ETH: "https://cdn.simpleicons.org/ethereum/627EEA",
-  BNB: "https://cdn.simpleicons.org/binance/F0B90B",
-  USDT: "https://cdn.simpleicons.org/tether/26A17B",
-  USDT0: "https://cdn.simpleicons.org/tether/26A17B",
-  POL: "https://cdn.simpleicons.org/polygon/8247E5",
-  SOL: "https://cdn.simpleicons.org/solana/9945FF",
-};
-
 const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token", MATIC: "polygon-ecosystem-token", USDT: "tether", USDT0: "tether", USDC: "usd-coin", DAI: "dai", ETH: "ethereum", WETH: "ethereum", BTC: "bitcoin", WBTC: "wrapped-bitcoin", SOL: "solana", BNB: "binancecoin", TRX: "tron", XRP: "ripple", DOGE: "dogecoin", ADA: "cardano", AVAX: "avalanche-2", LINK: "chainlink", LTC: "litecoin", DOT: "polkadot", XLM: "stellar" };
   const usdBalance = (wallet?.networks ?? []).reduce((sum, network) => sum + network.assets.reduce((assetSum, asset) => { const id = priceIdBySymbol[asset.symbol.toUpperCase()]; const price = id ? usdPrices[id] : undefined; const amount = Number(asset.balance); return price !== undefined && Number.isFinite(amount) ? assetSum + amount * price : assetSum; }, 0), 0);
   const unpricedAssetCount = (wallet?.networks ?? []).reduce((count, network) => count + network.assets.filter((asset) => { const amount = Number(asset.balance); const id = priceIdBySymbol[asset.symbol.toUpperCase()]; return Number.isFinite(amount) && amount > 0 && (!id || usdPrices[id] === undefined); }).length, 0);
@@ -396,13 +398,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
                 return (
                   <div className="wallet-asset-row" key={asset.id}>
                     <div className="wallet-asset-row__identity">
-                      <span className="wallet-asset-symbol" aria-hidden="true">
-                        {assetLogoBySymbol[asset.symbol.toUpperCase()] ? (
-                          <img src={assetLogoBySymbol[asset.symbol.toUpperCase()]} alt="" loading="lazy" />
-                        ) : (
-                          asset.symbol.slice(0, 4)
-                        )}
-                      </span>
+                      <AssetLogo symbol={asset.symbol} />
                       <div>
                         <strong>{asset.symbol}</strong>
                         <small>{asset.displayName}</small>
