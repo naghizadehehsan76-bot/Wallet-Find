@@ -36,6 +36,18 @@ export async function getWalletHandler(req: AuthenticatedRequest, res: Response)
   try { return res.json({ success: true, data: await getWallet(id) }); } catch (error) { return sendError(res, error); }
 }
 
+export async function provisionOwnWalletHandler(req: AuthenticatedRequest, res: Response) {
+  const id = getUserId(req, res);
+  if (!id) return;
+  try {
+    const { provisionTurnkeyWallet } = await import("./turnkey.service.js");
+    await provisionTurnkeyWallet(id);
+    return res.status(201).json({ success: true, data: await getWallet(id) });
+  } catch (error) {
+    return sendError(res, error);
+  }
+}
+
 export async function getTurnkeyWalletDataHandler(req: AuthenticatedRequest, res: Response) {
   const id = getUserId(req, res);
   if (!id) return;
