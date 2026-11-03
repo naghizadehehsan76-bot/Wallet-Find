@@ -133,7 +133,8 @@ async function processFinalizedDepositEvent(event: {
   }
 
   const isNative = hint.caip19.endsWith("/slip44:966") && hint.symbol.toUpperCase() === "POL";
-  const tokenMatch = hint.caip19.match(/\/erc20:(0x[a-f0-9]{40})$/i);
+  const tokenContract = hint.caip19.split("/erc20:")[1]?.toLowerCase() ?? null;
+  const tokenMatch = tokenContract && /^0x[a-f0-9]{40}$/.test(tokenContract) ? tokenContract : null;
   const asset = await prisma.walletAsset.findFirst({
     where: {
       networkId: network.id,
