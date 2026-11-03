@@ -100,6 +100,7 @@ export default function WalletPage({ onNavigate }: Props) {
     assetsTab: fa ? "دارایی‌ها" : "Assets",
     activityTab: fa ? "تاریخچه" : "Activity",
     totalPortfolio: fa ? "ارزش کل دارایی‌های ثبت‌شده" : "Total estimated portfolio value",
+    assetList: fa ? "لیست دارایی‌ها" : "Asset list",
     activitySearchPlaceholder: fa ? "جست‌وجو در نوع، دارایی یا وضعیت..." : "Search type, asset or status...",
     filterAll: fa ? "همه" : "All",
     filterDeposits: fa ? "واریزها" : "Deposits",
@@ -358,6 +359,50 @@ export default function WalletPage({ onNavigate }: Props) {
             <button type="button" className="wallet-action wallet-action--deposit" onClick={() => void openDeposit()}><span aria-hidden="true">↓</span>{copy.deposit}</button>
             <button type="button" className="wallet-action wallet-action--withdraw" onClick={() => openWithdraw()}><span aria-hidden="true">↑</span>{copy.withdraw}</button>
           </div>
+        </section>
+
+        <section className="wallet-assets-directory" aria-labelledby="wallet-assets-heading">
+          <div className="wallet-card-heading">
+            <div>
+              <h2 id="wallet-assets-heading">{fa ? "لیست دارایی‌ها" : "Asset list"}</h2>
+              <p className="wallet-assets-note">{fa ? "تمام دارایی‌های تعریف‌شده در شبکه‌های Wallet-Find" : "All assets registered across Wallet-Find networks"}</p>
+            </div>
+            <strong>{wallet.networks.reduce((count, network) => count + network.assets.length, 0)}</strong>
+          </div>
+          {wallet.networks.filter((network) => network.assets.length > 0).map((network) => (
+            <div className="wallet-network-group" key={network.id}>
+              <div className="wallet-network-group__heading">
+                <span className="wallet-network-dot" aria-hidden="true" />
+                <div><strong>{network.displayName}</strong><small>{network.networkKey}</small></div>
+                <small>{network.assets.length} {fa ? "دارایی" : "assets"}</small>
+              </div>
+              {network.assets.map((asset) => {
+                const amount = Number(asset.balance);
+                const priceId = priceIdBySymbol[asset.symbol.toUpperCase()];
+                const unitPrice = priceId ? usdPrices[priceId] : undefined;
+                const hasBalance = Number.isFinite(amount);
+                const hasUsdValue = hasBalance && (amount === 0 || unitPrice !== undefined);
+                const usdValue = hasUsdValue ? amount * (unitPrice ?? 0) : null;
+                return (
+                  <div className="wallet-asset-row" key={asset.id}>
+                    <div className="wallet-asset-row__identity">
+                      <span className="wallet-asset-symbol" aria-hidden="true">{asset.symbol.slice(0, 4)}</span>
+                      <div>
+                        <strong>{asset.symbol}</strong>
+                        <small>{asset.displayName}</small>
+                        <small>{fa ? "موجودی" : "Balance"}: {hasBalance ? formatAmount(asset.balance, asset.decimals, locale, 8) : "0"} {asset.symbol}</small>
+                      </div>
+                    </div>
+                    <div className="wallet-asset-row__balance">
+                      <strong>{usdValue === null ? "—" : usdFormatter.format(usdValue).replace("$", "") + " USDT"}</strong>
+                      <small>{fa ? "ارزش تقریبی" : "Estimated value"}</small>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+          {wallet.networks.every((network) => network.assets.length === 0) && <p className="wallet-asset-empty">{fa ? "هنوز دارایی‌ای در فهرست شبکه‌ها تعریف نشده است." : "No assets are registered in the network directory yet."}</p>}
         </section>
 
       </>}
