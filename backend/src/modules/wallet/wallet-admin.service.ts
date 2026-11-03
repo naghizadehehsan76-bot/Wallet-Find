@@ -150,6 +150,9 @@ export async function updateWalletNetworkByAdmin(
     );
     const existing = await tx.walletNetwork.findUnique({ where: { id: networkId }, include: { scanCursor: true } });
     if (!existing) throw new Error("WALLET_NETWORK_NOT_FOUND");
+    // Bitcoin and Solana are retired product networks. Keep their registry rows for
+    // referential integrity, but reject all admin mutations so they cannot be reactivated.
+    if (existing.family !== "EVM") throw new Error("WALLET_NETWORK_RETIRED");
     const depositAdapterReady = existing.family === "EVM"
       && existing.chainId !== null && isSupportedEvmChainId(existing.chainId);
     const withdrawalAdapterReady = existing.family === "EVM"
@@ -264,6 +267,8 @@ export async function updateWalletAssetByAdmin(
       include: { network: { include: { scanCursor: true } } },
     });
     if (!existing) throw new Error("WALLET_ASSET_NOT_FOUND");
+    // Assets attached to retired non-EVM networks are immutable compatibility records.
+    if (existing.network.family !== "EVM") throw new Error("WALLET_NETWORK_RETIRED");
     const depositAdapterReady = existing.network.family === "EVM"
       && existing.network.chainId !== null && isSupportedEvmChainId(existing.network.chainId);
     const withdrawalAdapterReady = existing.network.family === "EVM"
