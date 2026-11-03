@@ -3,11 +3,9 @@ import BottomNav from "../components/BottomNav";
 import { useI18n } from "../i18n";
 import {
   getWallet,
-  getTurnkeyWalletData,
   getMarketPrices,
   requestWalletDeposit,
   requestWalletWithdrawal,
-  type WalletChainActivity,
   type WalletResult,
   type WalletWithdrawalRequestResult,
 } from "../services/api";
@@ -16,25 +14,6 @@ import LoadingIndicator from "../components/LoadingIndicator";
 type Page = "home" | "auth" | "competition" | "key" | "leaderboard" | "profile" | "wallet";
 type Props = { onNavigate: (page: Page) => void };
 type WalletView = "overview" | "deposit" | "withdraw";
-type TurnkeySnapshot = { networkId: string; network: string; address: string; balances: unknown[]; transactions: unknown[]; fetchedAt: string; error?: string };
-function recordOf(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
-function firstValue(record: Record<string, unknown>, keys: string[]): unknown { for (const key of keys) if (record[key] !== undefined && record[key] !== null && record[key] !== "") return record[key]; return undefined; }
-function turnkeyBalance(value: unknown) {
-  const row = recordOf(value); const asset = recordOf(row.asset ?? row.token ?? row.currency);
-  const symbol = firstValue(row, ["symbol", "assetSymbol", "tokenSymbol"]) ?? firstValue(asset, ["symbol", "name"]);
-  const decimals = Number(firstValue(row, ["decimals", "tokenDecimals"]) ?? firstValue(asset, ["decimals"]) ?? 0);
-  const raw = firstValue(row, ["formattedBalance", "displayBalance", "uiAmount", "amountFormatted", "balance", "amount", "quantity"]);
-  let amount = raw === undefined ? "—" : String(raw);
-  if (["amount", "quantity"].some((key) => row[key] === raw) && /^\d+$/.test(amount) && Number.isInteger(decimals) && decimals > 0) amount = formatAtomic(amount, decimals, "en-US");
-  return { symbol: typeof symbol === "string" ? symbol : "Asset", amount, contract: String(firstValue(row, ["contractAddress", "tokenAddress", "address", "mint"]) ?? firstValue(asset, ["contractAddress", "address"]) ?? "") };
-}
-function turnkeyTransaction(value: unknown, index: number) {
-  const row = recordOf(value); const asset = recordOf(row.asset ?? row.token);
-  const timestamp = firstValue(row, ["timestamp", "timestampMs", "createdAt", "updatedAt", "blockTimestamp", "date"]);
-  const date = typeof timestamp === "number" || (typeof timestamp === "string" && /^\d{13}$/.test(timestamp)) ? new Date(Number(timestamp)).toISOString() : typeof timestamp === "string" ? timestamp : "";
-  return { id: String(firstValue(row, ["id", "transactionId", "hash", "txHash"]) ?? "turnkey-" + index), type: String(firstValue(row, ["type", "transactionType", "direction"]) ?? "TRANSACTION"), status: String(firstValue(row, ["status", "state"]) ?? "ON-CHAIN"), amount: String(firstValue(row, ["displayAmount", "formattedAmount", "amount", "value", "quantity"]) ?? "—"), symbol: String(firstValue(row, ["symbol", "assetSymbol", "tokenSymbol"]) ?? firstValue(asset, ["symbol", "name"]) ?? ""), date, hash: String(firstValue(row, ["hash", "transactionHash", "txHash"]) ?? "") };
-}
-
 function createIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
@@ -86,27 +65,11 @@ function errorMessage(error: unknown, copy: {
   return message || copy.error;
 }
 
-type ActivityRow = {
-  id: string;
-  type: string;
-  status: string;
-  amount: string;
-  currency: string;
-  createdAt: string;
-  fee?: string | null;
-  feeAsset?: string | null;
-  explorerUrl?: string | null;
-  note?: string | null;
-};
-
 export default function WalletPage({ onNavigate }: Props) {
   const { language } = useI18n();
   const fa = language === "fa";
   const locale = fa ? "fa-IR" : "en-US";
   const [wallet, setWallet] = useState<WalletResult | null>(null);
-  const [turnkeySnapshots, setTurnkeySnapshots] = useState<TurnkeySnapshot[]>([]);
-  const [turnkeyLoading, setTurnkeyLoading] = useState(false);
-  const [turnkeyUpdatedAt, setTurnkeyUpdatedAt] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [view, setView] = useState<WalletView>("overview");
   const [depositAssetId, setDepositAssetId] = useState("");
@@ -129,8 +92,6 @@ export default function WalletPage({ onNavigate }: Props) {
   const [priceUpdatedAt, setPriceUpdatedAt] = useState<number | null>(null);
   const [priceStatus, setPriceStatus] = useState<"loading" | "ready" | "error">("loading");
   const [balancesHidden, setBalancesHidden] = useState(false);
-  const [activityFilter, setActivityFilter] = useState<"all" | "deposit" | "withdrawal">("all");
-  const [activitySearch, setActivitySearch] = useState("");
 
 
   const copy = useMemo(() => ({
@@ -221,27 +182,14 @@ export default function WalletPage({ onNavigate }: Props) {
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
-    setTurnkeyLoading(true);
     try {
       const walletResult = await getWallet();
       setWallet(walletResult);
       setError("");
-      const supported = walletResult.networks.filter((network) => network.family === "EVM" && ["eip155:1", "eip155:10", "eip155:56", "eip155:137", "eip155:42161"].includes(network.id));
-      const snapshots = await Promise.all(supported.map(async (network): Promise<TurnkeySnapshot> => {
-        try {
-          const data = await getTurnkeyWalletData(network.id);
-          return { ...data, balances: data.balances ?? [], transactions: data.transactions ?? [] };
-        } catch (requestError) {
-          return { networkId: network.id, network: network.displayName, address: network.address ?? "", balances: [], transactions: [], fetchedAt: new Date().toISOString(), error: requestError instanceof Error ? requestError.message : "TURNKEY_WALLET_DATA_UNAVAILABLE" };
-        }
-      }));
-      setTurnkeySnapshots(snapshots);
-      const successful = snapshots.filter((snapshot) => !snapshot.error);
-      setTurnkeyUpdatedAt(successful.length ? successful.map((item) => item.fetchedAt).sort().slice(-1)[0] ?? null : null);
+
     } catch {
       setError(copy.error);
     } finally {
-      setTurnkeyLoading(false);
       setRefreshing(false);
     }
   }, [copy.error]);
@@ -379,50 +327,6 @@ export default function WalletPage({ onNavigate }: Props) {
     }
   };
 
-  const activities: ActivityRow[] = wallet ? [
-    ...wallet.onChainDeposits.map((item: WalletChainActivity) => ({
-      id: item.id,
-      type: item.type,
-      status: item.status,
-      amount: item.amount,
-      currency: item.asset,
-      createdAt: item.detectedAt ?? item.creditedAt ?? item.confirmedAt ?? new Date().toISOString(),
-      explorerUrl: item.explorerUrl,
-      note: item.reviewReason,
-    })),
-    ...wallet.onChainWithdrawals.map((item: WalletChainActivity) => ({
-      id: item.id,
-      type: item.type,
-      status: item.status,
-      amount: item.amount,
-      currency: item.asset,
-      createdAt: item.requestedAt ?? item.confirmedAt ?? new Date().toISOString(),
-      fee: item.actualFee ?? item.estimatedFee,
-      feeAsset: item.feeAsset,
-      explorerUrl: item.explorerUrl,
-      note: item.failureCode,
-    })),
-    ...wallet.transactions.map((item) => ({
-      id: item.id,
-      type: item.type,
-      status: item.status,
-      amount: item.amount,
-      currency: item.currency,
-      createdAt: item.createdAt,
-      note: item.note,
-    })),
-  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
-
-  const filteredActivities = activities.filter((item) => {
-    const normalizedType = item.type.toLowerCase();
-    const isDeposit = normalizedType.includes("deposit") || normalizedType.includes("واریز");
-    const isWithdrawal = normalizedType.includes("withdraw");
-    if (activityFilter === "deposit" && !isDeposit) return false;
-    if (activityFilter === "withdrawal" && !isWithdrawal) return false;
-    const query = activitySearch.trim().toLowerCase();
-    return !query || [item.type, item.status, item.currency, item.note ?? ""].some((value) => value.toLowerCase().includes(query));
-  });
-
   const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token", MATIC: "polygon-ecosystem-token", USDT: "tether", USDT0: "tether", USDC: "usd-coin", DAI: "dai", ETH: "ethereum", WETH: "ethereum", BTC: "bitcoin", WBTC: "wrapped-bitcoin", SOL: "solana", BNB: "binancecoin", TRX: "tron", XRP: "ripple", DOGE: "dogecoin", ADA: "cardano", AVAX: "avalanche-2", LINK: "chainlink", LTC: "litecoin", DOT: "polkadot", XLM: "stellar" };
   const usdBalance = (wallet?.networks ?? []).reduce((sum, network) => sum + network.assets.reduce((assetSum, asset) => { const id = priceIdBySymbol[asset.symbol.toUpperCase()]; const price = id ? usdPrices[id] : undefined; const amount = Number(asset.balance); return price !== undefined && Number.isFinite(amount) ? assetSum + amount * price : assetSum; }, 0), 0);
   const unpricedAssetCount = (wallet?.networks ?? []).reduce((count, network) => count + network.assets.filter((asset) => { const amount = Number(asset.balance); const id = priceIdBySymbol[asset.symbol.toUpperCase()]; return Number.isFinite(amount) && amount > 0 && (!id || usdPrices[id] === undefined); }).length, 0);
@@ -440,6 +344,7 @@ export default function WalletPage({ onNavigate }: Props) {
         <div><div className="section-title">{copy.title}</div><p>{copy.pageSubtitle}</p></div>
         <button type="button" className="wallet-refresh" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? "…" : "↻"} {copy.refresh}</button>
       </div>
+
       {!wallet && !error && <div className="inline-feedback"><LoadingIndicator label={copy.loading} /></div>}
       {error && <p className="inline-feedback wallet-error" role="alert">{error}</p>}
       {wallet?.walletProvisioningReviewRequired && <div className="wallet-warning" role="alert"><strong>⚠ {copy.unavailable}</strong><p>{copy.reviewRequired}</p></div>}
@@ -462,6 +367,7 @@ export default function WalletPage({ onNavigate }: Props) {
             <button type="button" className="wallet-action wallet-action--withdraw" onClick={() => openWithdraw()}><span aria-hidden="true">↑</span>{copy.withdraw}</button>
           </div>
         </section>
+
       </>}
 
       {wallet && view === "deposit" && <section className="wallet-flow-card">
@@ -511,3 +417,16 @@ export default function WalletPage({ onNavigate }: Props) {
           </div>
           <div className="wallet-form-field"><label>{copy.destination}</label><input className="wallet-address-input" value={withdrawAddress} onChange={(event) => { setWithdrawAddress(event.target.value); setWithdrawIdempotencyKey(createIdempotencyKey()); setWithdrawResult(null); }} placeholder="0x..." autoComplete="off" /></div>
           <div className="wallet-fee-row"><span>{copy.polGasBalance}</span><strong>{fmt(feeAsset?.availableBalance ?? "0", feeAsset?.decimals ?? 18)} {feeAsset?.symbol ?? selectedWithdrawNetwork?.nativeAssetSymbol ?? "—"}</strong></div>
+          <div className="wallet-fee-row"><span>{copy.fee}</span><strong>{withdrawResult?.fee ? formatAtomic(withdrawResult.fee, withdrawResult.feeDecimals ?? 18, locale) + " " + (withdrawResult.feeAsset ?? feeAsset?.symbol ?? "—") : "— " + (feeAsset?.symbol ?? selectedWithdrawNetwork?.nativeAssetSymbol ?? "")}</strong></div>
+          <p className="wallet-deposit-minimum">{copy.feePaidInPol}</p>
+          {withdrawError && <p className="inline-feedback wallet-error" role="alert">{withdrawError}</p>}
+          {withdrawResult && <div className="wallet-warning"><strong>✓ {copy.status}: {withdrawResult.status}</strong><p>{copy.withdrawalSubmitted}</p></div>}
+          <button type="button" className="wallet-submit" onClick={() => void submitWithdrawal()} disabled={withdrawSubmitting || Boolean(withdrawResult) || !withdrawAmount || !withdrawAddress.trim()}>
+            {withdrawSubmitting ? (fa ? "در حال ثبت..." : "Submitting...") : copy.submitWithdrawal}
+          </button>
+        </> : <div className="wallet-warning"><strong>⚠ {copy.unavailable}</strong><p>{copy.noWithdrawalAssets}</p></div>}
+      </section>}
+    </main>
+    <BottomNav activePage="wallet" onNavigate={onNavigate} />
+  </div>;
+}
