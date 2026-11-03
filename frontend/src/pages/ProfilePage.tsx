@@ -226,16 +226,16 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
           </>
         ) : null}
 
-        <div className="profile-actions">
+        <div className="profile-actions" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <button className="cta-button cta-button--logout" type="button" onClick={onLogout}>
+            {isPersian ? "خروج از حساب" : "Log out"}
+          </button>
           {profile?.role === "USER" && (
             <button className="cta-button cta-button--logout" type="button" onClick={() => void handleDeleteAccount()} disabled={deletingAccount || loading}>
               {deletingAccount ? (isPersian ? "در حال حذف..." : "Deleting...") : (isPersian ? "حذف حساب" : "Delete account")}
             </button>
           )}
           {deleteError && <p className="inline-feedback round-error" role="alert">{deleteError}</p>}
-          <button className="cta-button cta-button--logout" type="button" onClick={onLogout}>
-            {isPersian ? "خروج از حساب" : "Log out"}
-          </button>
         </div>
       </main>
 
