@@ -3539,3 +3539,31 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   .wallet-page .wallet-asset-row__actions { grid-column:1 / -1; justify-content:flex-start; padding-inline-start:47px; }
 }
 
+
+
+/* Exchange-style crypto deposit experience */
+.wallet-deposit-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:18px 0 14px}
+.wallet-deposit-steps span{padding:9px 5px;border:1px solid rgba(66,232,212,.18);border-radius:9px;background:rgba(66,232,212,.035);color:var(--muted);font-size:10px;font-weight:700;text-align:center}
+.wallet-deposit-steps span.is-active{border-color:rgba(66,232,212,.42);color:var(--verdigris);background:rgba(66,232,212,.08)}
+.wallet-deposit-network-note{display:flex;flex-direction:column;gap:5px;margin:12px 0;padding:13px;border:1px solid rgba(66,232,212,.2);border-radius:12px;background:rgba(66,232,212,.045)}
+.wallet-deposit-network-note strong{color:var(--paper);font-size:13px}
+.wallet-deposit-network-note span{color:var(--muted);font-size:11px;line-height:1.7}
+.wallet-deposit-qr-panel{display:flex;flex-direction:column;align-items:center;gap:9px;margin:16px 0;padding:20px 14px;border:1px solid rgba(66,232,212,.2);border-radius:16px;background:linear-gradient(145deg,rgba(66,232,212,.07),rgba(13,17,18,.92))}
+.wallet-deposit-qr{display:flex;align-items:center;justify-content:center;width:196px;height:196px;padding:9px;border-radius:12px;background:#fff}
+.wallet-deposit-qr img{display:block;width:100%;height:100%;object-fit:contain}
+.wallet-deposit-qr-panel>strong{color:var(--paper);font-size:13px}
+.wallet-deposit-qr-panel>small{color:var(--muted);font-size:11px}
+.wallet-deposit-address--binance{margin-top:8px}
+.wallet-deposit-address--binance code{font-size:12px;line-height:1.8;overflow-wrap:anywhere;word-break:break-all}
+.wallet-deposit-info-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:14px 0}
+.wallet-deposit-info-grid>div{display:flex;flex-direction:column;gap:7px;min-width:0;padding:12px;border:1px solid rgba(255,255,255,.08);border-radius:11px;background:var(--ink-2)}
+.wallet-deposit-info-grid span{color:var(--muted);font-size:10px}
+.wallet-deposit-info-grid strong{color:var(--paper);font-size:12px;overflow-wrap:anywhere}
+.wallet-deposit-history{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.wallet-deposit-history h2{margin:0 0 12px;color:var(--paper);font-size:14px}
+.wallet-deposit-history>p{color:var(--muted);font-size:11px;line-height:1.8}
+.wallet-deposit-history-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.wallet-deposit-history-row>div{display:flex;flex-direction:column;gap:5px;min-width:0}
+.wallet-deposit-history-row strong{color:var(--paper);font-size:11px}
+.wallet-deposit-history-row small{color:var(--muted);font-size:10px;overflow-wrap:anywhere}
+@media(max-width:360px){.wallet-deposit-steps{gap:4px}.wallet-deposit-steps span{font-size:9px;padding:8px 3px}.wallet-deposit-qr{width:174px;height:174px}}
