@@ -21,7 +21,7 @@ Safety boundary: this document does not enable deposits, withdrawals, signing, s
 
 A network is identified by a stable string such as `eip155:137` or `eip155:56`. Wallet-Find product scope is EVM-only; Bitcoin and Solana are excluded. Store its family (EVM), native asset metadata, explorer template, finality policy, and operational status. RPC URLs and credentials remain in secret environment configuration, not in public database fields.
 
-The current integer `chainId` fields remain as compatibility fields for existing EVM records during migration. Non-EVM adapters must not be forced to invent an EVM chain ID.
+The current integer `chainId` fields remain as compatibility fields for existing EVM records during migration. Bitcoin and Solana are retired and are not valid product network families.
 
 ### Asset registry
 
@@ -90,4 +90,18 @@ Native assets are registered as metadata for fee and balance dimensions. Their d
 
 The EVM withdrawal fee adapter is deliberately limited to Ethereum, BNB Smart Chain, and Polygon. Optimism and Arbitrum require L1 data-fee accounting and remain blocked for withdrawals until that model is implemented and tested. The registry UI reports adapter implementation separately from operational activation; an implemented adapter is not equivalent to a production-ready or enabled network.
 
-Network identities follow CAIP-2 semantics: EVM chain IDs use the `eip155` namespace, while Bitcoin and Solana use chain-specific non-EVM references.
+Network identities follow CAIP-2 semantics for supported networks: EVM chain IDs use the `eip155` namespace. Bitcoin and Solana identifiers may remain in historical database rows only; they are not supported network identities for new product data.
+
+
+## Retired network policy (2026-11-03)
+
+Bitcoin and Solana are permanently out of the current Wallet-Find product scope. Their existing `WalletNetworkFamily` and `WalletAddressType` enum labels and registry rows are retained as compatibility placeholders only; this avoids destructive enum/table changes and preserves foreign-key integrity. The current production registry contains one disabled row for each retired network, each with zero addresses and zero generic chain deposits/withdrawals. Their network and asset switches must remain false.
+
+Enforcement requirements:
+- User wallet and admin registry reads must filter to `family = EVM`.
+- The generic deposit scanner must select only EVM networks.
+- Admin network and asset mutation endpoints must reject any retired non-EVM row, including attempts to re-enable it.
+- No Bitcoin/Solana adapter, price feed, logo fetch, provisioning path, or user-facing asset mapping may be added.
+- Do not delete legacy enum values or registry rows without a separately reviewed migration, verified backup, foreign-key/reference audit, and explicit approval. Existing historical records, if any, must remain readable and must never be reinterpreted as EVM funds.
+
+Any future decision to support a non-EVM network is a new product/security review, not a routine toggle.
