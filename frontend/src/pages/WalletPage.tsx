@@ -16,7 +16,7 @@ import LoadingIndicator from "../components/LoadingIndicator";
 type Page = "home" | "auth" | "competition" | "key" | "leaderboard" | "profile" | "wallet";
 type Props = { onNavigate: (page: Page) => void };
 type WalletView = "overview" | "deposit" | "withdraw";
-type PlannedWalletAction = "transfer" | "convert" | "buy" | "sell" | "earn" | "addressBook" | "export";
+type PlannedWalletAction = "transfer" | "convert" | "buy" | "sell" | "earn" | "addressBook" | "export" | "qr";
 type TurnkeySnapshot = { networkId: string; network: string; address: string; balances: unknown[]; transactions: unknown[]; fetchedAt: string; error?: string };
 function recordOf(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
 function firstValue(record: Record<string, unknown>, keys: string[]): unknown { for (const key of keys) if (record[key] !== undefined && record[key] !== null && record[key] !== "") return record[key]; return undefined; }
@@ -164,6 +164,7 @@ export default function WalletPage({ onNavigate }: Props) {
       earn: { title: fa ? "کسب سود / استیکینگ" : "Earn / staking", description: fa ? "محصول سوددهی، انتخاب پروتکل، ریسک‌ها، دورهٔ قفل، محاسبهٔ پاداش و برداشت هنوز تعریف و پیاده‌سازی نشده‌اند." : "An earn product, protocol selection, risk disclosure, lock-up rules, rewards accounting and withdrawals are not defined or implemented." },
       addressBook: { title: fa ? "دفترچهٔ آدرس‌ها" : "Address book", description: fa ? "ذخیره، برچسب‌گذاری، تأیید و حذف آدرس‌های مقصد هنوز در بک‌اند و پایگاه داده ساخته نشده است." : "Saving, labeling, verifying and deleting withdrawal addresses are not yet supported by the backend or database." },
       export: { title: fa ? "خروجی گزارش" : "Export report", description: fa ? "خروجی CSV/PDF با فیلتر تاریخ، نوع عملیات، کارمزد و شناسهٔ تراکنش هنوز ساخته نشده است." : "CSV/PDF export with date, action, fee and transaction filters has not been built yet." },
+      qr: { title: fa ? "نمایش QR واریز" : "Deposit QR code", description: fa ? "تولید و نمایش QR از آدرس دریافت، همراه با درج شبکه و دارایی در دادهٔ QR هنوز پیاده‌سازی نشده است." : "Generating a receive-address QR with the selected network and asset embedded has not been implemented." },
     },
     balance: fa ? "ارزش تخمینی دارایی‌های ثبت‌شده" : "Estimated portfolio value",
     balanceNote: fa ? "محاسبه بر اساس دفترکل داخلی Wallet-Find و قیمت بازار؛ با موجودی زنجیره‌ای Turnkey یکسان نیست." : "Calculated from Wallet-Find internal records and market prices; it may differ from Turnkey on-chain balances.",
@@ -456,7 +457,7 @@ export default function WalletPage({ onNavigate }: Props) {
         <button type="button" className="wallet-refresh" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? "…" : "↻"} {copy.refresh}</button>
       </div>
 
-      {wallet && <nav className="wallet-section-nav" aria-label={fa ? "بخش‌های کیف پول" : "Wallet sections"}>
+      {wallet && view === "overview" && <nav className="wallet-section-nav" aria-label={fa ? "بخش‌های کیف پول" : "Wallet sections"}>
         <a href="#wallet-overview">{copy.overviewTab}</a>
         <a href="#wallet-assets">{copy.assetsTab}</a>
         <a href="#wallet-ledger-history">{copy.activityTab}</a>
@@ -491,6 +492,9 @@ export default function WalletPage({ onNavigate }: Props) {
               <button type="button" className="wallet-planned-action" onClick={() => setPlannedAction("buy")}><span>＋</span><strong>{copy.plannedActions.buy.title}</strong><em>{copy.planned}</em></button>
               <button type="button" className="wallet-planned-action" onClick={() => setPlannedAction("sell")}><span>－</span><strong>{copy.plannedActions.sell.title}</strong><em>{copy.planned}</em></button>
               <button type="button" className="wallet-planned-action" onClick={() => setPlannedAction("earn")}><span>✧</span><strong>{copy.plannedActions.earn.title}</strong><em>{copy.planned}</em></button>
+              <button type="button" className="wallet-planned-action" onClick={() => setPlannedAction("addressBook")}><span>⌖</span><strong>{copy.plannedActions.addressBook.title}</strong><em>{copy.planned}</em></button>
+              <button type="button" className="wallet-planned-action" onClick={() => setPlannedAction("export")}><span>⇩</span><strong>{copy.plannedActions.export.title}</strong><em>{copy.planned}</em></button>
+              <button type="button" className="wallet-planned-action" onClick={() => setPlannedAction("qr")}><span>▦</span><strong>{copy.plannedActions.qr.title}</strong><em>{copy.planned}</em></button>
             </div>
           </div>
         </section>
@@ -506,7 +510,7 @@ export default function WalletPage({ onNavigate }: Props) {
             {snapshot.error ? <p className="wallet-error">{copy.turnkeyUnavailable}</p> : snapshot.balances.length === 0 ? <p className="wallet-asset-empty">{copy.turnkeyNoBalances}</p> :
               snapshot.balances.map((item, index) => { const balance = turnkeyBalance(item); return <div className="wallet-asset-row" key={snapshot.networkId + "-" + balance.contract + "-" + index}>
                 <div className="wallet-asset-row__identity"><span className="wallet-asset-symbol">{balance.symbol.slice(0, 4)}</span><div><strong>{balance.symbol}</strong><small>{balance.contract || snapshot.network}</small></div></div>
-                <div className="wallet-asset-row__balance"><strong>{balance.amount} {balance.symbol}</strong><small>Turnkey · {fa ? "موجودی زنجیره" : "On-chain balance"}</small></div>
+                <div className="wallet-asset-row__balance"><strong>{balancesHidden ? "••••••" : balance.amount} {balance.symbol}</strong><small>Turnkey · {fa ? "موجودی زنجیره" : "On-chain balance"}</small></div>
               </div>; })}
           </div>)}
         </section>
