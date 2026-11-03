@@ -572,7 +572,7 @@ const PATH_PAGES: Record<string, Page> = Object.fromEntries(
 ) as Record<string, Page>;
 
 function getPageFromPath(pathname: string): Page | null {
-  const normalizedPath = pathname.length > 1 ? pathname.replace(/\\/+$/, "") : pathname;
+  const normalizedPath = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
   return PATH_PAGES[normalizedPath] ?? null;
 }
 
