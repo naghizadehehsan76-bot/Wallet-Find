@@ -440,13 +440,6 @@ export default function WalletPage({ onNavigate }: Props) {
         <div><div className="section-title">{copy.title}</div><p>{copy.pageSubtitle}</p></div>
         <button type="button" className="wallet-refresh" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? "…" : "↻"} {copy.refresh}</button>
       </div>
-
-      {wallet && view === "overview" && <nav className="wallet-section-nav" aria-label={fa ? "بخش‌های کیف پول" : "Wallet sections"}>
-        <a href="#wallet-overview">{copy.overviewTab}</a>
-        <a href="#wallet-assets">{copy.assetsTab}</a>
-        <a href="#wallet-ledger-history">{copy.activityTab}</a>
-      </nav>}
-
       {!wallet && !error && <div className="inline-feedback"><LoadingIndicator label={copy.loading} /></div>}
       {error && <p className="inline-feedback wallet-error" role="alert">{error}</p>}
       {wallet?.walletProvisioningReviewRequired && <div className="wallet-warning" role="alert"><strong>⚠ {copy.unavailable}</strong><p>{copy.reviewRequired}</p></div>}
@@ -468,86 +461,6 @@ export default function WalletPage({ onNavigate }: Props) {
             <button type="button" className="wallet-action wallet-action--deposit" onClick={() => void openDeposit()}><span aria-hidden="true">↓</span>{copy.deposit}</button>
             <button type="button" className="wallet-action wallet-action--withdraw" onClick={() => openWithdraw()}><span aria-hidden="true">↑</span>{copy.withdraw}</button>
           </div>
-        </section>
-
-        <details className="wallet-provider-details">
-          <summary><span><strong>{fa ? "جزئیات فنی و تأیید موجودی" : "Technical details & balance verification"}</strong><small>{fa ? "داده‌های مستقیم شبکه؛ خطا به معنی موجودی صفر نیست." : "Direct network data; an error does not mean a zero balance."}</small></span><span className="wallet-provider-details__chevron">⌄</span></summary>
-        <section className="wallet-network-card wallet-assets-directory">
-          <div className="wallet-card-heading"><div><h2>{copy.turnkeyTitle}</h2><p className="wallet-assets-note">{fa ? "منبع نمایش موجودی واقعی شبکه؛ خطا یا تأخیر دریافت را با صفر اشتباه نگیرید." : "Source for actual network balances. A loading error must never be interpreted as zero."}</p></div><span>Turnkey</span></div>
-          <p className="wallet-deposit-minimum">{turnkeyLoading ? copy.turnkeyLoading : turnkeyUpdatedAt ? copy.turnkeyUpdated + new Date(turnkeyUpdatedAt).toLocaleString(locale) : copy.turnkeyUnavailable}</p>
-          {turnkeySnapshots.length === 0 && !turnkeyLoading && <p className="wallet-asset-empty">{copy.turnkeyUnavailable}</p>}
-          {turnkeySnapshots.map((snapshot) => <div className="wallet-network-group" key={snapshot.networkId}>
-            <div className="wallet-network-group__heading"><span className="wallet-network-dot" /><div><strong>{snapshot.network}</strong><small>{snapshot.address ? copy.turnkeyAddress + ": " + snapshot.address : ""}</small></div></div>
-            {snapshot.error ? <p className="wallet-error">{copy.turnkeyUnavailable}</p> : snapshot.balances.length === 0 ? <p className="wallet-asset-empty">{copy.turnkeyNoBalances}</p> :
-              snapshot.balances.map((item, index) => { const balance = turnkeyBalance(item); return <div className="wallet-asset-row" key={snapshot.networkId + "-" + balance.contract + "-" + index}>
-                <div className="wallet-asset-row__identity"><span className="wallet-asset-symbol">{balance.symbol.slice(0, 4)}</span><div><strong>{balance.symbol}</strong><small>{balance.contract || snapshot.network}</small></div></div>
-                <div className="wallet-asset-row__balance"><strong>{balancesHidden ? "••••••" : balance.amount} {balance.symbol}</strong><small>Turnkey · {fa ? "موجودی زنجیره" : "On-chain balance"}</small></div>
-              </div>; })}
-          </div>)}
-        </section>
-        <section className="wallet-history wallet-exchange-history">
-          <div className="wallet-card-heading"><div><h2>{copy.turnkeyHistory}</h2><p className="wallet-assets-note">{fa ? "وضعیت و جزئیات تراکنش‌های ثبت‌شده روی شبکه." : "Status and details of transactions recorded on-chain."}</p></div><span>Turnkey</span></div>
-          {(() => { const rows = turnkeySnapshots.flatMap((snapshot) => snapshot.transactions.map(turnkeyTransaction));
-            return rows.length === 0 ? <div className="wallet-empty"><span>↔</span><p>{turnkeyLoading ? copy.turnkeyLoading : copy.turnkeyNoHistory}</p></div> :
-              <div className="wallet-table"><div className="wallet-table-head"><span>{copy.type}</span><span>{copy.date}</span><span>{copy.amountColumn}</span></div>
-                {rows.sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0)).slice(0, 100).map((item, index) => <article className="wallet-transaction" key={item.id + "-" + index}>
-                  <div><strong>{item.type}</strong><small>{item.status}{item.hash ? " · " + item.hash : ""}</small></div>
-                  <small>{item.date ? new Date(item.date).toLocaleString(locale) : "—"}</small><div><b>{item.amount} <small>{item.symbol}</small></b></div>
-                </article>)}
-              </div>;
-          })()}
-        </section>
-        </details>
-        <section className="wallet-network-card wallet-assets-directory" id="wallet-assets">
-          <div className="wallet-card-heading"><div><h2>{copy.assetsTitle}</h2><p className="wallet-assets-note">{copy.assetsNote}</p></div><span>{wallet.networks.reduce((count, network) => count + network.assets.length, 0)}</span></div>
-          
-          {wallet.networks.map((network) => (
-            <div className="wallet-network-group" key={network.id}>
-              <div className="wallet-network-group__heading">
-                <span className="wallet-network-dot" />
-                <div><strong>{network.displayName}</strong></div>
-              </div>
-              {network.assets.length === 0 ? <p className="wallet-asset-empty">{fa ? "دارایی ثبت‌شده‌ای برای این شبکه وجود ندارد." : "No registered assets on this network."} </p> :
-                network.assets.map((asset) => <div className="wallet-asset-row" key={asset.id}>
-                  <div className="wallet-asset-row__identity">
-                    <span className="wallet-asset-symbol">{asset.symbol.slice(0, 4)}</span>
-                    <div><strong>{asset.symbol}</strong><small>{asset.displayName}</small></div>
-                  </div>
-                  <div className="wallet-asset-row__balance">
-                    <strong>{balancesHidden ? "••••••" : fmt(asset.balance, asset.decimals)} {asset.symbol}</strong>
-                    <small>{fa ? "قابل استفاده" : "Available"}: {balancesHidden ? "••••••" : fmt(asset.availableBalance, asset.decimals)} {asset.symbol}</small>
-                    {Number(asset.reservedBalance) > 0 && <small className="wallet-asset-reserved">{fa ? "رزروشده" : "Reserved"}: {balancesHidden ? "••••••" : fmt(asset.reservedBalance, asset.decimals)} {asset.symbol}</small>}
-                  </div>
-                  <div className="wallet-asset-row__actions">
-                    {asset.depositEnabled && <button type="button" className="wallet-asset-deposit-button" onClick={() => void openDeposit(asset.id)}>{copy.deposit}</button>}
-                    {asset.withdrawalEnabled && <button type="button" className="wallet-asset-deposit-button" onClick={() => openWithdraw(asset.id)}>{copy.withdraw}</button>}
-                  </div>
-                </div>)}
-            </div>
-          ))}
-        </section>
-
-        <section className="wallet-history wallet-exchange-history" id="wallet-ledger-history">
-          <div className="wallet-card-heading"><div><h2>{copy.history}</h2><p className="wallet-assets-note">{fa ? "سوابق واریز، برداشت و عملیات ثبت‌شده در Wallet-Find." : "Deposits, withdrawals and operations recorded by Wallet-Find."}</p></div><span>{activities.length}</span></div>
-          <div className="wallet-activity-tools">
-            <div className="wallet-activity-filters" role="group" aria-label={fa ? "فیلتر تراکنش‌ها" : "Transaction filters"}>
-              <button type="button" aria-pressed={activityFilter === "all"} onClick={() => setActivityFilter("all")}>{copy.filterAll}</button>
-              <button type="button" aria-pressed={activityFilter === "deposit"} onClick={() => setActivityFilter("deposit")}>{copy.filterDeposits}</button>
-              <button type="button" aria-pressed={activityFilter === "withdrawal"} onClick={() => setActivityFilter("withdrawal")}>{copy.filterWithdrawals}</button>
-            </div>
-            <input className="wallet-activity-search" value={activitySearch} onChange={(event) => setActivitySearch(event.target.value)} placeholder={copy.activitySearchPlaceholder} aria-label={copy.activitySearchPlaceholder} />
-          </div>
-          {filteredActivities.length === 0 ? <div className="wallet-empty"><span>↔</span><p>{activities.length === 0 ? copy.empty : copy.noFilteredActivity}</p></div> : <div className="wallet-table">
-            <div className="wallet-table-head"><span>{copy.type}</span><span>{copy.date}</span><span>{copy.amountColumn}</span></div>
-            {filteredActivities.slice(0, 100).map((item) => <article className="wallet-transaction" key={item.id}>
-              <div><strong>{item.type}</strong><small>{item.status}{item.note ? " · " + item.note : ""}</small></div>
-              <small>{new Date(item.createdAt).toLocaleString(locale)}</small>
-              <div><b>{balancesHidden ? "••••••" : fmt(item.amount)} <small>{item.currency}</small></b>
-                {item.fee && <small>{copy.fee}: {item.fee} {item.feeAsset ?? "POL"}</small>}
-                {item.explorerUrl && <a href={item.explorerUrl} target="_blank" rel="noreferrer">{fa ? "مشاهده تراکنش" : "View transaction"}</a>}
-              </div>
-            </article>)}
-          </div>}
         </section>
       </>}
 
@@ -598,16 +511,3 @@ export default function WalletPage({ onNavigate }: Props) {
           </div>
           <div className="wallet-form-field"><label>{copy.destination}</label><input className="wallet-address-input" value={withdrawAddress} onChange={(event) => { setWithdrawAddress(event.target.value); setWithdrawIdempotencyKey(createIdempotencyKey()); setWithdrawResult(null); }} placeholder="0x..." autoComplete="off" /></div>
           <div className="wallet-fee-row"><span>{copy.polGasBalance}</span><strong>{fmt(feeAsset?.availableBalance ?? "0", feeAsset?.decimals ?? 18)} {feeAsset?.symbol ?? selectedWithdrawNetwork?.nativeAssetSymbol ?? "—"}</strong></div>
-          <div className="wallet-fee-row"><span>{copy.fee}</span><strong>{withdrawResult?.fee ? formatAtomic(withdrawResult.fee, withdrawResult.feeDecimals ?? 18, locale) + " " + (withdrawResult.feeAsset ?? feeAsset?.symbol ?? "—") : "— " + (feeAsset?.symbol ?? selectedWithdrawNetwork?.nativeAssetSymbol ?? "")}</strong></div>
-          <p className="wallet-deposit-minimum">{copy.feePaidInPol}</p>
-          {withdrawError && <p className="inline-feedback wallet-error" role="alert">{withdrawError}</p>}
-          {withdrawResult && <div className="wallet-warning"><strong>✓ {copy.status}: {withdrawResult.status}</strong><p>{copy.withdrawalSubmitted}</p></div>}
-          <button type="button" className="wallet-submit" onClick={() => void submitWithdrawal()} disabled={withdrawSubmitting || Boolean(withdrawResult) || !withdrawAmount || !withdrawAddress.trim()}>
-            {withdrawSubmitting ? (fa ? "در حال ثبت..." : "Submitting...") : copy.submitWithdrawal}
-          </button>
-        </> : <div className="wallet-warning"><strong>⚠ {copy.unavailable}</strong><p>{copy.noWithdrawalAssets}</p></div>}
-      </section>}
-    </main>
-    <BottomNav activePage="wallet" onNavigate={onNavigate} />
-  </div>;
-}
