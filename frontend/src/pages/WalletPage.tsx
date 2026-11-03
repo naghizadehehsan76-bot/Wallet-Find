@@ -226,24 +226,19 @@ export default function WalletPage({ onNavigate }: Props) {
       setWallet(walletResult);
       setError("");
       if (walletResult.walletAddress) {
-        const networkResults = await Promise.allSettled(
+        const networkResults = await Promise.all(
           walletResult.networks
             .filter((network) => network.address && network.isEnabled)
-            .map(async (network) => [network.id, await getTurnkeyWalletData(network.id)] as const),
+            .map(async (network) => {
+              try {
+                return [network.id, await getTurnkeyWalletData(network.id)] as const;
+              } catch {
+                return [network.id, null] as const;
+              }
+            }),
         );
         const nextData: Record<string, TurnkeyWalletData | null> = {};
-        for (const result of networkResults) {
-          if (result.status === "fulfilled") nextData[result.value[0]] = result.value[1];
-          else {
-            const message = result.reason instanceof Error ? result.reason.message : "";
-            const match = walletResult.networks.find((network) =>
-              !Object.prototype.hasOwnProperty.call(nextData, network.id) &&
-              network.address && network.isEnabled &&
-              !networkResults.some((candidate) => candidate.status === "fulfilled" && candidate.value[0] === network.id)
-            );
-            if (match && message) nextData[match.id] = null;
-          }
-        }
+        for (const [networkId, data] of networkResults) nextData[networkId] = data;
         setTurnkeyDataByNetwork(nextData);
       } else {
         setTurnkeyDataByNetwork({});
