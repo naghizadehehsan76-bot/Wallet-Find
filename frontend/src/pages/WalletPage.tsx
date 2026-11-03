@@ -95,6 +95,7 @@ export default function WalletPage({ onNavigate }: Props) {
   const [view, setView] = useState<WalletView>("overview");
   const [depositAssetId, setDepositAssetId] = useState("");
   const [depositNetworkId, setDepositNetworkId] = useState("");
+  const [openDepositFilter, setOpenDepositFilter] = useState<"network" | "asset" | null>(null);
   const [depositDetails, setDepositDetails] = useState<Awaited<ReturnType<typeof requestWalletDeposit>> | null>(null);
   const [depositLoading, setDepositLoading] = useState(false);
   const depositRequestSequence = useRef(0);
@@ -455,50 +456,67 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
         <div className="wallet-flow-icon wallet-flow-icon--deposit">↓</div>
         <h1>{copy.depositTitle}</h1><p className="wallet-flow-intro">{copy.depositIntro}</p>
         <div className="wallet-form-field wallet-deposit-filter">
-          <label htmlFor="deposit-network-filter">{copy.network}</label>
-          <select id="deposit-network-filter" className="wallet-address-input" value={depositNetworkId} onChange={(event) => {
-            const networkId = event.target.value;
-            setDepositNetworkId(networkId);
-            const networkAssets = allAssets.filter((asset) => asset.networkId === networkId);
-            const nextAsset = networkAssets.find((asset) => asset.depositEnabled && asset.symbol === "USDT0")
-              ?? networkAssets.find((asset) => asset.depositEnabled)
-              ?? networkAssets[0];
-            if (!nextAsset) {
-              setDepositAssetId("");
-              setDepositDetails(null);
-              setDepositError(copy.depositDisabled);
-            } else if (nextAsset.depositEnabled) {
-              changeDepositAsset(nextAsset.id);
-            } else {
-              setDepositAssetId(nextAsset.id);
-              setDepositDetails(null);
-              setDepositError(copy.depositDisabled);
-            }
-          }}>
-            <option value="" disabled>{fa ? "انتخاب شبکه" : "Select network"}</option>
-            {(wallet?.networks ?? []).filter((network) => network.assets.length > 0).map((network) => (
-              <option key={network.id} value={network.id}>{network.displayName}</option>
-            ))}
-          </select>
+          <label>{copy.network}</label>
+          <div className="wallet-custom-select">
+            <button type="button" className="wallet-custom-select__trigger" aria-haspopup="listbox" aria-expanded={openDepositFilter === "network"} onClick={() => setOpenDepositFilter((current) => current === "network" ? null : "network")}>
+              <span><i className="wallet-network-dot" />{selectedDepositNetwork?.displayName ?? (fa ? "انتخاب شبکه" : "Select network")}</span>
+              <span className={"wallet-custom-select__chevron" + (openDepositFilter === "network" ? " is-open" : "")}>⌄</span>
+            </button>
+            {openDepositFilter === "network" && <div className="wallet-custom-select__menu" role="listbox" aria-label={copy.network}>
+              {(wallet?.networks ?? []).filter((network) => network.assets.length > 0).map((network) => (
+                <button type="button" role="option" aria-selected={depositNetworkId === network.id} className={"wallet-custom-select__option" + (depositNetworkId === network.id ? " is-selected" : "")} key={network.id} onClick={() => {
+                  setOpenDepositFilter(null);
+                  setDepositNetworkId(network.id);
+                  const networkAssets = allAssets.filter((asset) => asset.networkId === network.id);
+                  const nextAsset = networkAssets.find((asset) => asset.depositEnabled && asset.symbol === "USDT0")
+                    ?? networkAssets.find((asset) => asset.depositEnabled)
+                    ?? networkAssets[0];
+                  if (!nextAsset) {
+                    setDepositAssetId("");
+                    setDepositDetails(null);
+                    setDepositError(copy.depositDisabled);
+                  } else if (nextAsset.depositEnabled) {
+                    changeDepositAsset(nextAsset.id);
+                  } else {
+                    setDepositAssetId(nextAsset.id);
+                    setDepositDetails(null);
+                    setDepositError(copy.depositDisabled);
+                  }
+                }}>
+                  <span className="wallet-custom-select__option-main"><i className="wallet-network-dot" />{network.displayName}</span>
+                  <small>{network.networkKey}</small>
+                  <span className="wallet-custom-select__check">{depositNetworkId === network.id ? "✓" : ""}</span>
+                </button>
+              ))}
+            </div>}
+          </div>
         </div>
         <div className="wallet-form-field wallet-deposit-filter">
-          <label htmlFor="deposit-asset-filter">{copy.asset}</label>
-          <select id="deposit-asset-filter" className="wallet-address-input" value={depositAssetId} onChange={(event) => {
-            const asset = allAssets.find((item) => item.id === event.target.value);
-            if (!asset) return;
-            if (asset.depositEnabled) changeDepositAsset(asset.id);
-            else {
-              setDepositAssetId(asset.id);
-              setDepositNetworkId(asset.networkId);
-              setDepositDetails(null);
-              setDepositError(copy.depositDisabled);
-            }
-          }}>
-            <option value="" disabled>{fa ? "انتخاب دارایی" : "Select asset"}</option>
-            {allAssets.filter((asset) => !depositNetworkId || asset.networkId === depositNetworkId).map((asset) => (
-              <option key={asset.id} value={asset.id}>{asset.symbol} · {asset.displayName}{!asset.depositEnabled ? " · " + copy.unavailable : ""}</option>
-            ))}
-          </select>
+          <label>{copy.asset}</label>
+          <div className="wallet-custom-select">
+            <button type="button" className="wallet-custom-select__trigger" aria-haspopup="listbox" aria-expanded={openDepositFilter === "asset"} onClick={() => setOpenDepositFilter((current) => current === "asset" ? null : "asset")}>
+              <span>{selectedDepositAsset ? <><AssetLogo symbol={selectedDepositAsset.symbol} /><span className="wallet-custom-select__asset-copy"><strong>{selectedDepositAsset.symbol}</strong><small>{selectedDepositAsset.displayName}</small></span></> : (fa ? "انتخاب دارایی" : "Select asset")}</span>
+              <span className={"wallet-custom-select__chevron" + (openDepositFilter === "asset" ? " is-open" : "")}>⌄</span>
+            </button>
+            {openDepositFilter === "asset" && <div className="wallet-custom-select__menu" role="listbox" aria-label={copy.asset}>
+              {allAssets.filter((asset) => !depositNetworkId || asset.networkId === depositNetworkId).map((asset) => (
+                <button type="button" role="option" aria-selected={depositAssetId === asset.id} className={"wallet-custom-select__option" + (depositAssetId === asset.id ? " is-selected" : "")} key={asset.id} onClick={() => {
+                  setOpenDepositFilter(null);
+                  if (asset.depositEnabled) changeDepositAsset(asset.id);
+                  else {
+                    setDepositAssetId(asset.id);
+                    setDepositNetworkId(asset.networkId);
+                    setDepositDetails(null);
+                    setDepositError(copy.depositDisabled);
+                  }
+                }}>
+                  <span className="wallet-custom-select__option-main"><AssetLogo symbol={asset.symbol} /><span className="wallet-custom-select__asset-copy"><strong>{asset.symbol}</strong><small>{asset.displayName}</small></span></span>
+                  {!asset.depositEnabled && <small className="wallet-custom-select__disabled">{copy.unavailable}</small>}
+                  <span className="wallet-custom-select__check">{depositAssetId === asset.id ? "✓" : ""}</span>
+                </button>
+              ))}
+            </div>}
+          </div>
         </div>
         {!depositDetails && !depositLoading && <div className="wallet-deposit-preview">
           <div className="wallet-deposit-steps" aria-label="Deposit steps">
