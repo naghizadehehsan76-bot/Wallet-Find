@@ -42,7 +42,7 @@ export async function getTurnkeyWalletAddressData(userId: string, rawNetworkId: 
     }),
     prisma.walletNetwork.findUnique({
       where: { id: networkId },
-      select: { id: true, isEnabled: true, displayName: true, family: true },
+      select: { id: true, displayName: true, family: true },
     }),
     prisma.walletAccount.findUnique({
       where: { userId },
@@ -54,7 +54,7 @@ export async function getTurnkeyWalletAddressData(userId: string, rawNetworkId: 
       !wallet.turnkeyApiPublicKey || !wallet.turnkeyApiPrivateKeyEncrypted) {
     throw new Error("TURNKEY_USER_ORGANIZATION_NOT_FOUND");
   }
-  if (!network || network.family !== "EVM" || !network.isEnabled) {
+  if (!network || network.family !== "EVM") {
     throw new Error("TURNKEY_NATIVE_DATA_NETWORK_DISABLED");
   }
 
