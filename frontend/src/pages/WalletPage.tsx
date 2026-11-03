@@ -21,23 +21,12 @@ function createIdempotencyKey(): string {
 
 function AssetLogo({ symbol }: { symbol: string }) {
   const code = symbol.toUpperCase();
-  // CoinMarketCap's official hosted coin-logo assets, keyed by CMC's unique coin IDs.
-  // USDT0 uses the canonical Tether USD logo; network does not change the underlying asset brand.
-  const coinMarketCapIds: Record<string, string> = {
-    BTC: "1",
-    ETH: "1027",
-    BNB: "1839",
-    USDT: "825",
-    USDT0: "825",
-    POL: "28321",
-    SOL: "5426",
-  };
-  const coinId = coinMarketCapIds[code];
-  if (!coinId) return <span className="wallet-asset-symbol" aria-hidden="true">{code.slice(0, 4)}</span>;
+  const supported = new Set(["BTC", "ETH", "BNB", "USDT", "USDT0", "POL", "SOL"]);
+  if (!supported.has(code)) return <span className="wallet-asset-symbol" aria-hidden="true">{code.slice(0, 4)}</span>;
   return (
     <span className={`wallet-asset-symbol wallet-asset-symbol--${code.toLowerCase()}`} aria-hidden="true">
       <img
-        src={`https://s2.coinmarketcap.com/static/img/coins/64x64/${coinId}.png`}
+        src={`/assets/coins/${code}.png`}
         alt=""
         loading="lazy"
         decoding="async"
