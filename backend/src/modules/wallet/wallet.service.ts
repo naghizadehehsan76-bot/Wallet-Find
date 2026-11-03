@@ -131,6 +131,7 @@ export async function getWallet(userId: string) {
       && Boolean(turnkeyWallet?.turnkeyOrganizationId && turnkeyWallet?.turnkeyWalletId);
 
     const networks = await tx.walletNetwork.findMany({
+      where: { family: "EVM" },
       orderBy: [{ family: "asc" }, { networkKey: "asc" }],
       include: {
         assets: { orderBy: [{ symbol: "asc" }, { id: "asc" }] },
