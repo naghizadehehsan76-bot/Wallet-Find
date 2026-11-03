@@ -216,6 +216,9 @@ async function processFinalizedDepositEvent(event: {
   }
 
   const transfer = matchingTransfers[0];
+  if (!transfer) {
+    throw new PermanentWebhookDepositError("TURNKEY_EVENT_TRANSFER_NOT_FOUND");
+  }
   const latest = BigInt(latestPosition);
   const position = BigInt(hint.blockNumber);
   const confirmations = Number(latest - position + 1n);
