@@ -63,3 +63,84 @@ export async function updateProfileAvatarHandler(
     return res.status(500).json({ success: false, error: "AVATAR_SAVE_FAILED" });
   }
 }
+
+
+export async function deleteOwnAccountHandler(
+  req: AuthenticatedRequest,
+  res: Response,
+) {
+  if (!req.user) {
+    return res.status(401).json({ success: false, error: "AUTHENTICATION_REQUIRED" });
+  }
+
+  if (req.user.role !== "USER") {
+    return res.status(403).json({ success: false, error: "ACCOUNT_DELETION_NOT_ALLOWED" });
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: req.user!.userId },
+        select: { id: true, role: true },
+      });
+
+      if (!user) throw new Error("USER_NOT_FOUND");
+      if (user.role !== "USER") throw new Error("ACCOUNT_DELETION_NOT_ALLOWED");
+
+      const [
+        walletAccount,
+        walletTransactions,
+        walletDeposits,
+        walletWithdrawals,
+        chainDeposits,
+        chainWithdrawals,
+        walletJournals,
+        provisioningIntent,
+        prizeAwards,
+        advertiserContent,
+        advertisementOrders,
+      ] = await Promise.all([
+        tx.walletAccount.findUnique({ where: { userId: user.id }, select: { id: true } }),
+        tx.walletTransaction.count({ where: { userId: user.id } }),
+        tx.walletDeposit.count({ where: { userId: user.id } }),
+        tx.walletWithdrawal.count({ where: { userId: user.id } }),
+        tx.walletChainDeposit.count({ where: { userId: user.id } }),
+        tx.walletChainWithdrawal.count({ where: { userId: user.id } }),
+        tx.walletJournal.count({ where: { userId: user.id } }),
+        tx.walletProvisioningIntent.findUnique({ where: { userId: user.id }, select: { id: true } }),
+        tx.prizeAward.count({ where: { userId: user.id } }),
+        tx.advertiserContent.count({ where: { advertiserId: user.id } }),
+        tx.advertisementOrder.count({ where: { advertiserId: user.id } }),
+      ]);
+
+      if (
+        walletAccount || walletTransactions || walletDeposits || walletWithdrawals ||
+        chainDeposits || chainWithdrawals || walletJournals || provisioningIntent ||
+        prizeAwards || advertiserContent || advertisementOrders
+      ) {
+        throw new Error("ACCOUNT_HAS_FINANCIAL_OR_EXTERNAL_RECORDS");
+      }
+
+      // Remove user-linked activity before deleting the account. Contest definitions
+      // and advertiser performance metrics are not deleted.
+      await tx.contestSourceVisit.deleteMany({ where: { userId: user.id } });
+      await tx.auditLog.deleteMany({ where: { userId: user.id } });
+      await tx.user.delete({ where: { id: user.id } });
+    }, { isolationLevel: "Serializable" });
+
+    return res.status(200).json({ success: true, data: { deleted: true } });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "";
+    if (code === "USER_NOT_FOUND") {
+      return res.status(404).json({ success: false, error: code });
+    }
+    if (code === "ACCOUNT_DELETION_NOT_ALLOWED") {
+      return res.status(403).json({ success: false, error: code });
+    }
+    if (code === "ACCOUNT_HAS_FINANCIAL_OR_EXTERNAL_RECORDS") {
+      return res.status(409).json({ success: false, error: code });
+    }
+    console.error("Account deletion failed", error);
+    return res.status(500).json({ success: false, error: "ACCOUNT_DELETION_FAILED" });
+  }
+}
