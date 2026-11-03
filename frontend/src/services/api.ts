@@ -755,6 +755,13 @@ export async function getWallet(): Promise<WalletResult> {
   return request<WalletResult>("/wallet/me", {}, true);
 }
 
+export async function provisionOwnWallet(): Promise<WalletResult> {
+  return request<WalletResult>("/wallet/provision", {
+    method: "POST",
+    body: JSON.stringify({}),
+  }, true);
+}
+
 export async function requestWalletDeposit(networkId: string, assetId: string): Promise<WalletDepositDetails> {
   return request<WalletDepositDetails>("/wallet/deposit", {
     method: "POST",
