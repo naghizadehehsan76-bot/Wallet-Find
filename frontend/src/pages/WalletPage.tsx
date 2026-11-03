@@ -104,6 +104,7 @@ export default function WalletPage({ onNavigate }: Props) {
   const [depositError, setDepositError] = useState("");
   const [withdrawAssetId, setWithdrawAssetId] = useState("");
   const [withdrawNetworkId, setWithdrawNetworkId] = useState("");
+  const [openWithdrawFilter, setOpenWithdrawFilter] = useState<"network" | "asset" | null>(null);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawAddress, setWithdrawAddress] = useState("");
   const [withdrawSubmitting, setWithdrawSubmitting] = useState(false);
@@ -336,6 +337,7 @@ export default function WalletPage({ onNavigate }: Props) {
     setView("withdraw");
     setWithdrawAssetId(asset?.id ?? "");
     setWithdrawNetworkId(network?.id ?? "");
+    setOpenWithdrawFilter(null);
     setWithdrawAmount("");
     setWithdrawAddress("");
     setWithdrawError("");
@@ -618,9 +620,62 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
         <button type="button" className="wallet-back" onClick={() => setView("overview")}>← {copy.back}</button>
         <div className="wallet-flow-icon wallet-flow-icon--withdraw">↑</div>
         <h1>{copy.withdrawTitle}</h1><p className="wallet-flow-intro">{copy.withdrawIntro}</p>
-        <div className="wallet-form-field"><label>{copy.network}</label><div className="wallet-select-static"><span className="wallet-network-dot" />{selectedWithdrawNetwork?.displayName ?? (fa ? "شبکه انتخاب‌شده" : "Selected network")}</div></div>
+        <div className="wallet-form-field wallet-deposit-filter">
+          <label>{copy.network}</label>
+          <div className="wallet-custom-select">
+            <button type="button" className="wallet-custom-select__trigger" aria-haspopup="listbox" aria-expanded={openWithdrawFilter === "network"} onClick={() => setOpenWithdrawFilter((current) => current === "network" ? null : "network")}>
+              <span><i className="wallet-network-dot" />{selectedWithdrawNetwork?.displayName ?? (fa ? "انتخاب شبکه" : "Select network")}</span>
+              <span className={"wallet-custom-select__chevron" + (openWithdrawFilter === "network" ? " is-open" : "")}>⌄</span>
+            </button>
+            {openWithdrawFilter === "network" && <div className="wallet-custom-select__menu" role="listbox" aria-label={copy.network}>
+              {(wallet?.networks ?? []).filter((network) => network.assets.some((asset) => asset.withdrawalEnabled)).map((network) => (
+                <button type="button" role="option" aria-selected={withdrawNetworkId === network.id} className={"wallet-custom-select__option" + (withdrawNetworkId === network.id ? " is-selected" : "")} key={network.id} onClick={() => {
+                  setOpenWithdrawFilter(null);
+                  setWithdrawNetworkId(network.id);
+                  const networkAssets = network.assets.filter((asset) => asset.withdrawalEnabled);
+                  const nextAsset = networkAssets.find((asset) => asset.symbol === "USDT0") ?? networkAssets[0];
+                  setWithdrawAssetId(nextAsset?.id ?? "");
+                  setWithdrawAmount("");
+                  setWithdrawAddress("");
+                  setWithdrawError("");
+                  setWithdrawResult(null);
+                  setWithdrawIdempotencyKey(createIdempotencyKey());
+                }}>
+                  <span className="wallet-custom-select__option-main"><i className="wallet-network-dot" />{network.displayName}</span>
+                  <small>{network.networkKey}</small>
+                  <span className="wallet-custom-select__check">{withdrawNetworkId === network.id ? "✓" : ""}</span>
+                </button>
+              ))}
+            </div>}
+          </div>
+        </div>
+        <div className="wallet-form-field wallet-deposit-filter">
+          <label>{copy.asset}</label>
+          <div className="wallet-custom-select">
+            <button type="button" className="wallet-custom-select__trigger" aria-haspopup="listbox" aria-expanded={openWithdrawFilter === "asset"} onClick={() => setOpenWithdrawFilter((current) => current === "asset" ? null : "asset")}>
+              <span>{selectedWithdrawAsset ? <><AssetLogo symbol={selectedWithdrawAsset.symbol} /><span className="wallet-custom-select__asset-copy"><strong>{selectedWithdrawAsset.symbol}</strong><small>{selectedWithdrawAsset.displayName}</small></span></> : (fa ? "انتخاب دارایی" : "Select asset")}</span>
+              <span className={"wallet-custom-select__chevron" + (openWithdrawFilter === "asset" ? " is-open" : "")}>⌄</span>
+            </button>
+            {openWithdrawFilter === "asset" && <div className="wallet-custom-select__menu" role="listbox" aria-label={copy.asset}>
+              {withdrawalAssets.filter((asset) => !withdrawNetworkId || asset.networkId === withdrawNetworkId).map((asset) => (
+                <button type="button" role="option" aria-selected={withdrawAssetId === asset.id} className={"wallet-custom-select__option" + (withdrawAssetId === asset.id ? " is-selected" : "")} key={asset.id} onClick={() => {
+                  setOpenWithdrawFilter(null);
+                  setWithdrawAssetId(asset.id);
+                  setWithdrawNetworkId(asset.networkId);
+                  setWithdrawAmount("");
+                  setWithdrawAddress("");
+                  setWithdrawError("");
+                  setWithdrawResult(null);
+                  setWithdrawIdempotencyKey(createIdempotencyKey());
+                }}>
+                  <span className="wallet-custom-select__option-main"><AssetLogo symbol={asset.symbol} /><span className="wallet-custom-select__asset-copy"><strong>{asset.symbol}</strong><small>{asset.displayName}</small></span></span>
+                  <span className="wallet-custom-select__check">{withdrawAssetId === asset.id ? "✓" : ""}</span>
+                </button>
+              ))}
+            </div>}
+          </div>
+        </div>
         {selectedWithdrawAsset ? <>
-          <div className="wallet-form-field"><label>{copy.asset}</label><div className="wallet-select-static">{selectedWithdrawAsset.symbol} <span>{selectedWithdrawAsset.displayName}</span></div></div>
           <div className="wallet-form-field">
             <label>{copy.amount}</label>
             <div className="wallet-input-wrap"><input inputMode="decimal" value={withdrawAmount} onChange={(event) => { setWithdrawAmount(event.target.value.replace(/[^0-9.]/g, "")); setWithdrawIdempotencyKey(createIdempotencyKey()); setWithdrawResult(null); }} placeholder="0.00" /><span>{selectedWithdrawAsset.symbol}</span></div>
