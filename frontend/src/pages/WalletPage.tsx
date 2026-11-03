@@ -103,7 +103,10 @@ export default function WalletPage({ onNavigate }: Props) {
   const { language } = useI18n();
   const fa = language === "fa";
   const locale = fa ? "fa-IR" : "en-US";
-  const [wallet, setWallet] = useState<WalletResult | null>(null);\n  const [turnkeySnapshots, setTurnkeySnapshots] = useState<TurnkeySnapshot[]>([]);\n  const [turnkeyLoading, setTurnkeyLoading] = useState(false);\n  const [turnkeyUpdatedAt, setTurnkeyUpdatedAt] = useState<string | null>(null);
+  const [wallet, setWallet] = useState<WalletResult | null>(null);
+  const [turnkeySnapshots, setTurnkeySnapshots] = useState<TurnkeySnapshot[]>([]);
+  const [turnkeyLoading, setTurnkeyLoading] = useState(false);
+  const [turnkeyUpdatedAt, setTurnkeyUpdatedAt] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [view, setView] = useState<WalletView>("overview");
   const [depositAssetId, setDepositAssetId] = useState("");
@@ -138,7 +141,15 @@ export default function WalletPage({ onNavigate }: Props) {
     deposit: fa ? "واریز" : "Deposit",
     withdraw: fa ? "برداشت" : "Withdraw",
     history: fa ? "تاریخچه تراکنش‌ها" : "Transaction history",
-    empty: fa ? "هنوز تراکنشی ثبت نشده است." : "No transactions yet.",\n    turnkeyTitle: fa ? "موجودی زنده از Turnkey" : "Live balances from Turnkey",\n    turnkeyHistory: fa ? "تراکنش‌های ثبت‌شده در Turnkey" : "Transactions recorded by Turnkey",\n    turnkeyLoading: fa ? "در حال دریافت اطلاعات مستقیم از Turnkey..." : "Fetching live wallet data from Turnkey...",\n    turnkeyUnavailable: fa ? "دریافت اطلاعات این شبکه از Turnkey ممکن نشد." : "Turnkey data is currently unavailable for this network.",\n    turnkeyUpdated: fa ? "آخرین دریافت موفق: " : "Last successful update: ",\n    turnkeyAddress: fa ? "آدرس کیف پول" : "Wallet address",\n    turnkeyNoBalances: fa ? "Turnkey برای این شبکه موجودی قابل نمایشی برنگرداند." : "Turnkey returned no displayable balances for this network.",\n    turnkeyNoHistory: fa ? "Turnkey هنوز تراکنشی برای این آدرس برنگردانده است." : "Turnkey returned no transactions for this address yet.",
+    empty: fa ? "هنوز تراکنشی ثبت نشده است." : "No transactions yet.",
+    turnkeyTitle: fa ? "موجودی زنده از Turnkey" : "Live balances from Turnkey",
+    turnkeyHistory: fa ? "تراکنش‌های ثبت‌شده در Turnkey" : "Transactions recorded by Turnkey",
+    turnkeyLoading: fa ? "در حال دریافت اطلاعات مستقیم از Turnkey..." : "Fetching live wallet data from Turnkey...",
+    turnkeyUnavailable: fa ? "دریافت اطلاعات این شبکه از Turnkey ممکن نشد." : "Turnkey data is currently unavailable for this network.",
+    turnkeyUpdated: fa ? "آخرین دریافت موفق: " : "Last successful update: ",
+    turnkeyAddress: fa ? "آدرس کیف پول" : "Wallet address",
+    turnkeyNoBalances: fa ? "Turnkey برای این شبکه موجودی قابل نمایشی برنگرداند." : "Turnkey returned no displayable balances for this network.",
+    turnkeyNoHistory: fa ? "Turnkey هنوز تراکنشی برای این آدرس برنگردانده است." : "Turnkey returned no transactions for this address yet.",
     loading: fa ? "در حال دریافت کیف پول..." : "Loading wallet...",
     error: fa ? "دریافت اطلاعات کیف پول ناموفق بود." : "Unable to load wallet information.",
     refresh: fa ? "به‌روزرسانی" : "Refresh",
