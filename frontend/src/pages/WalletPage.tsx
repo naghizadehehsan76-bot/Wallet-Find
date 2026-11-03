@@ -434,6 +434,8 @@ export default function WalletPage({ onNavigate }: Props) {
           </div>
         </section>
 
+        <details className="wallet-provider-details">
+          <summary><span><strong>{fa ? "جزئیات فنی و تأیید موجودی" : "Technical details & balance verification"}</strong><small>{fa ? "داده‌های مستقیم شبکه؛ خطا به معنی موجودی صفر نیست." : "Direct network data; an error does not mean a zero balance."}</small></span><span className="wallet-provider-details__chevron">⌄</span></summary>
         <section className="wallet-network-card wallet-assets-directory">
           <div className="wallet-card-heading"><div><h2>{copy.turnkeyTitle}</h2><p className="wallet-assets-note">{fa ? "منبع نمایش موجودی واقعی شبکه؛ خطا یا تأخیر دریافت را با صفر اشتباه نگیرید." : "Source for actual network balances. A loading error must never be interpreted as zero."}</p></div><span>Turnkey</span></div>
           <p className="wallet-deposit-minimum">{turnkeyLoading ? copy.turnkeyLoading : turnkeyUpdatedAt ? copy.turnkeyUpdated + new Date(turnkeyUpdatedAt).toLocaleString(locale) : copy.turnkeyUnavailable}</p>
@@ -459,6 +461,7 @@ export default function WalletPage({ onNavigate }: Props) {
               </div>;
           })()}
         </section>
+        </details>
         <section className="wallet-network-card wallet-assets-directory">
           <div className="wallet-card-heading"><div><h2>{copy.assetsTitle}</h2><p className="wallet-assets-note">{copy.assetsNote}</p></div><span>{wallet.networks.reduce((count, network) => count + network.assets.length, 0)}</span></div>
           
@@ -477,6 +480,7 @@ export default function WalletPage({ onNavigate }: Props) {
                   <div className="wallet-asset-row__balance">
                     <strong>{fmt(asset.balance, asset.decimals)} {asset.symbol}</strong>
                     <small>{fa ? "قابل استفاده" : "Available"}: {fmt(asset.availableBalance, asset.decimals)} {asset.symbol}</small>
+                    {Number(asset.reservedBalance) > 0 && <small className="wallet-asset-reserved">{fa ? "رزروشده" : "Reserved"}: {fmt(asset.reservedBalance, asset.decimals)} {asset.symbol}</small>}
                   </div>
                   <div className="wallet-asset-row__actions">
                     {asset.depositEnabled && <button type="button" className="wallet-asset-deposit-button" onClick={() => void openDeposit(asset.id)}>{copy.deposit}</button>}
