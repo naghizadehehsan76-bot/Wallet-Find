@@ -399,7 +399,7 @@ export async function requestChainWalletWithdrawal(input: {
         maxPriorityFeePerGasAtomic: feeQuote.maxPriorityFeePerGas?.toString() ?? null,
         feeQuoteExpiresAt: feeQuote.feeQuoteExpiresAt,
         idempotencyKey,
-        status: "RESERVED",
+        status: "APPROVED",
       },
     });
 
@@ -425,7 +425,7 @@ export async function requestChainWalletWithdrawal(input: {
     await tx.auditLog.create({
       data: {
         userId: input.userId,
-        action: "WALLET_CHAIN_WITHDRAWAL_REQUESTED",
+        action: "WALLET_CHAIN_WITHDRAWAL_AUTO_APPROVED",
         entity: "WalletChainWithdrawal",
         entityId: id,
         metadata: {
@@ -435,6 +435,7 @@ export async function requestChainWalletWithdrawal(input: {
           feeAssetId: feeAsset.id,
           reservedFeeAtomic: feeQuote.feeAtomic.toString(),
           idempotencyKey,
+          approvalMode: "AUTOMATIC_NO_ADMIN_REVIEW",
         },
       },
     });
