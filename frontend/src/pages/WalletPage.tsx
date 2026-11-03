@@ -3,9 +3,7 @@ import BottomNav from "../components/BottomNav";
 import { useI18n } from "../i18n";
 import {
   getWallet,
-  getTurnkeyWalletData,
   getMarketPrices,
-  type TurnkeyWalletData,
   requestWalletDeposit,
   requestWalletWithdrawal,
   type WalletChainActivity,
@@ -108,9 +106,6 @@ export default function WalletPage({ onNavigate }: Props) {
   const [usdPrices, setUsdPrices] = useState<Record<string, number>>({});
   const [priceUpdatedAt, setPriceUpdatedAt] = useState<number | null>(null);
   const [priceStatus, setPriceStatus] = useState<"loading" | "ready" | "error">("loading");
-  const [turnkeyData, setTurnkeyData] = useState<Record<string, TurnkeyWalletData>>({});
-  const [turnkeyLoading, setTurnkeyLoading] = useState<Record<string, boolean>>({});
-  const [turnkeyErrors, setTurnkeyErrors] = useState<Record<string, string>>({});
 
 
   const copy = useMemo(() => ({
@@ -134,7 +129,7 @@ export default function WalletPage({ onNavigate }: Props) {
     depositTitle: fa ? "واریز ارز دیجیتال" : "Crypto deposit",
     withdrawTitle: fa ? "درخواست برداشت" : "Withdrawal request",
     depositIntro: fa ? "دارایی انتخاب‌شده را فقط روی شبکهٔ نمایش‌داده‌شده به آدرس اختصاصی خود ارسال کنید." : "Send only the selected asset on the selected network to your dedicated address.",
-    withdrawIntro: fa ? "درخواست برداشت پس از رزرو موجودی و بررسی مدیر، از طریق کیف پول امانی Turnkey ارسال می‌شود. کارمزد با دارایی بومی همان شبکه پرداخت می‌شود." : "Withdrawals reserve your ledger balance and are broadcast from your Turnkey custodial wallet after admin review. Network fees are paid in the network native asset.",
+    withdrawIntro: fa ? "مبلغ و آدرس مقصد را با دقت وارد کنید. کارمزد شبکه از دارایی بومی همان شبکه پرداخت می‌شود." : "Enter the amount and destination carefully. Network fees are paid in the native asset of the selected network.",
     receiveAddress: fa ? "آدرس دریافت شما" : "Your deposit address",
     copyAddress: fa ? "کپی آدرس" : "Copy address",
     copied: fa ? "آدرس کپی شد" : "Address copied",
@@ -170,7 +165,7 @@ export default function WalletPage({ onNavigate }: Props) {
     withdrawalSubmitted: fa ? "درخواست برداشت ثبت شد و منتظر بررسی مدیر است. هنوز هیچ تراکنشی روی بلاک‌چین ارسال نشده است." : "Your withdrawal request is recorded and awaiting admin review. No blockchain transaction has been sent yet.",
     status: fa ? "وضعیت" : "Status",
     assetsTitle: fa ? "دارایی‌ها و شبکه‌ها" : "Assets & networks",
-    assetsNote: fa ? "موجودی هر دارایی جداگانه نمایش داده می‌شود؛ POL برای پرداخت کارمزد برداشت USDT0 استفاده می‌شود." : "Each asset balance is shown separately. POL is used to pay network fees for USDT0 withdrawals.",
+    assetsNote: fa ? "موجودی و عملیات قابل انجام برای هر دارایی را مشاهده کنید." : "View the balance and available actions for each asset.",
     noDepositAssets: fa ? "در حال حاضر دارایی فعالی برای واریز وجود ندارد." : "There are currently no enabled deposit assets.",
     noWithdrawalAssets: fa ? "در حال حاضر دارایی فعالی برای برداشت وجود ندارد." : "There are currently no enabled withdrawal assets.",
     walletActive: fa ? "کیف پول امانی" : "Custodial wallet",
@@ -221,7 +216,6 @@ export default function WalletPage({ onNavigate }: Props) {
   const allAssets = (wallet?.networks ?? []).flatMap((network) => network.assets.map((asset) => ({ ...asset, networkId: network.id, networkName: network.displayName, chainId: network.chainId, nativeAssetSymbol: network.nativeAssetSymbol })));
   const depositAssets = allAssets.filter((asset) => asset.depositEnabled);
   const withdrawalAssets = allAssets.filter((asset) => asset.withdrawalEnabled);
-  const usdt0Asset = allAssets.find((asset) => asset.symbol === "USDT0") ?? null;
   const selectedDepositAsset = depositAssets.find((asset) => asset.id === depositAssetId) ?? null;
   const selectedDepositNetwork = wallet?.networks.find((network) => network.id === depositNetworkId) ?? null;
   const selectedWithdrawAsset = withdrawalAssets.find((asset) => asset.id === withdrawAssetId) ?? null;
@@ -237,23 +231,6 @@ export default function WalletPage({ onNavigate }: Props) {
     insufficientPol: copy.insufficientPol,
     insufficientUsdt0: copy.insufficientUsdt0,
     invalidDestination: copy.invalidDestination,
-  };
-
-  const loadTurnkeyData = async (networkId: string) => {
-    setTurnkeyLoading((current) => ({ ...current, [networkId]: true }));
-    setTurnkeyErrors((current) => ({ ...current, [networkId]: "" }));
-    try {
-      const result = await getTurnkeyWalletData(networkId);
-      setTurnkeyData((current) => ({ ...current, [networkId]: result }));
-    } catch (requestError) {
-      const message = requestError instanceof Error ? requestError.message : "";
-      setTurnkeyErrors((current) => ({
-        ...current,
-        [networkId]: message || (fa ? "دریافت اطلاعات مستقیم Turnkey ناموفق بود." : "Unable to load direct Turnkey data."),
-      }));
-    } finally {
-      setTurnkeyLoading((current) => ({ ...current, [networkId]: false }));
-    }
   };
 
   const openDeposit = async (assetId?: string) => {
@@ -373,8 +350,6 @@ export default function WalletPage({ onNavigate }: Props) {
     })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
 
-  const usdt0Balance = usdt0Asset?.balance ?? "0";
-  const usdt0Available = usdt0Asset?.availableBalance ?? "0";
   const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token", MATIC: "polygon-ecosystem-token", USDT: "tether", USDT0: "tether", USDC: "usd-coin", DAI: "dai", ETH: "ethereum", WETH: "ethereum", BTC: "bitcoin", WBTC: "wrapped-bitcoin", SOL: "solana", BNB: "binancecoin", TRX: "tron", XRP: "ripple", DOGE: "dogecoin", ADA: "cardano", AVAX: "avalanche-2", LINK: "chainlink", LTC: "litecoin", DOT: "polkadot", XLM: "stellar" };
   const usdBalance = (wallet?.networks ?? []).reduce((sum, network) => sum + network.assets.reduce((assetSum, asset) => { const id = priceIdBySymbol[asset.symbol.toUpperCase()]; const price = id ? usdPrices[id] : undefined; const amount = Number(asset.balance); return price !== undefined && Number.isFinite(amount) ? assetSum + amount * price : assetSum; }, 0), 0);
   const unpricedAssetCount = (wallet?.networks ?? []).reduce((count, network) => count + network.assets.filter((asset) => { const amount = Number(asset.balance); const id = priceIdBySymbol[asset.symbol.toUpperCase()]; return Number.isFinite(amount) && amount > 0 && (!id || usdPrices[id] === undefined); }).length, 0);
@@ -389,7 +364,7 @@ export default function WalletPage({ onNavigate }: Props) {
     </header>
     <main className="page wallet-exchange">
       <div className="wallet-page-heading">
-        <div><div className="section-title">{copy.title}</div><p>{copy.assetsNote}</p></div>
+        <div><div className="section-title">{copy.title}</div><p>{fa ? "موجودی، واریز، برداشت و تراکنش‌های شما" : "Your balances, deposits, withdrawals and transactions"}</p></div>
         <button type="button" className="wallet-refresh" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? "…" : "↻"} {copy.refresh}</button>
       </div>
 
@@ -401,28 +376,27 @@ export default function WalletPage({ onNavigate }: Props) {
         <section className="wallet-exchange-balance">
           <div className="wallet-exchange-balance__top">
             <span>{copy.balance}</span>
-            <span className="wallet-safe-pill">● {depositAssets.length > 0 ? copy.active : copy.unavailable}</span>
+            
           </div>
           <div className="wallet-exchange-balance__value">{priceStatus === "ready" ? usdFormatter.format(usdBalance) : "—"}</div>
           <div className="wallet-exchange-balance__available">{priceStatus === "loading" ? copy.priceLoading : priceStatus === "error" ? copy.priceUnavailable : copy.balanceNote}</div>
           {unpricedAssetCount > 0 && <div className="wallet-exchange-balance__available">{copy.partialPriceNote}</div>}
           {priceUpdatedAt && <div className="wallet-exchange-balance__available">{fa ? "آخرین به‌روزرسانی قیمت: " : "Prices updated: "}{new Date(priceUpdatedAt).toLocaleTimeString(locale)}</div>}
-          <div className="wallet-exchange-balance__available">{fa ? "موجودی USDT0" : "USDT0 balance"}: <strong>{fmt(usdt0Balance, usdt0Asset?.decimals ?? 6)} USDT0</strong> · {copy.available}: <strong>{fmt(usdt0Available, usdt0Asset?.decimals ?? 6)} USDT0</strong></div>
+
           <div className="wallet-exchange-actions">
-            <button type="button" className="wallet-action wallet-action--deposit" onClick={() => void openDeposit(usdt0Asset?.id)}><span>↓</span>{copy.deposit}</button>
-            <button type="button" className="wallet-action wallet-action--withdraw" onClick={() => openWithdraw(usdt0Asset?.id)}><span>↑</span>{copy.withdraw}</button>
+            <button type="button" className="wallet-action wallet-action--deposit" onClick={() => void openDeposit()}><span>↓</span>{copy.deposit}</button>
+            <button type="button" className="wallet-action wallet-action--withdraw" onClick={() => openWithdraw()}><span>↑</span>{copy.withdraw}</button>
           </div>
         </section>
 
         <section className="wallet-network-card wallet-assets-directory">
           <div className="wallet-card-heading"><h2>{copy.assetsTitle}</h2><span>{wallet.networks.reduce((count, network) => count + network.assets.length, 0)}</span></div>
-          <p className="wallet-assets-note">{copy.assetsNote}</p>
+          
           {wallet.networks.map((network) => (
             <div className="wallet-network-group" key={network.id}>
               <div className="wallet-network-group__heading">
                 <span className="wallet-network-dot" />
-                <div><strong>{network.displayName}</strong><small>{network.family === "EVM" ? (fa ? "شبکه سازگار با EVM" : "EVM-compatible network") : network.family === "BITCOIN" ? "Bitcoin" : "Solana"}</small></div>
-                <span className={network.depositEnabled || network.withdrawalEnabled ? "wallet-network-status wallet-network-status--active" : "wallet-network-status"}>{network.depositEnabled || network.withdrawalEnabled ? copy.active : copy.unavailable}</span>
+                <div><strong>{network.displayName}</strong></div>
               </div>
               {network.assets.length === 0 ? <p className="wallet-asset-empty">{fa ? "دارایی ثبت‌شده‌ای برای این شبکه وجود ندارد." : "No registered assets on this network."} </p> :
                 network.assets.map((asset) => <div className="wallet-asset-row" key={asset.id}>
@@ -434,10 +408,6 @@ export default function WalletPage({ onNavigate }: Props) {
                     <strong>{fmt(asset.balance, asset.decimals)} {asset.symbol}</strong>
                     <small>{fa ? "قابل استفاده" : "Available"}: {fmt(asset.availableBalance, asset.decimals)} {asset.symbol}</small>
                   </div>
-                  <div className="wallet-asset-row__meta">
-                    <span className={asset.depositEnabled ? "wallet-status-on" : "wallet-status-off"}>{asset.depositEnabled ? copy.active : copy.unavailable}</span>
-                    <span className={asset.withdrawalEnabled ? "wallet-status-on" : "wallet-status-off"}>{asset.withdrawalEnabled ? copy.active : copy.safeWithdraw}</span>
-                  </div>
                   <div className="wallet-asset-row__actions">
                     {asset.depositEnabled && <button type="button" className="wallet-asset-deposit-button" onClick={() => void openDeposit(asset.id)}>{copy.deposit}</button>}
                     {asset.withdrawalEnabled && <button type="button" className="wallet-asset-deposit-button" onClick={() => openWithdraw(asset.id)}>{copy.withdraw}</button>}
@@ -445,37 +415,6 @@ export default function WalletPage({ onNavigate }: Props) {
                 </div>)}
             </div>
           ))}
-        </section>
-
-        <section className="wallet-network-card wallet-assets-directory">
-          <div className="wallet-card-heading"><h2>{fa ? "اطلاعات مستقیم Turnkey" : "Direct Turnkey data"}</h2></div>
-          <p className="wallet-assets-note">{fa
-            ? "این اطلاعات مستقیماً از API کیف پول Turnkey دریافت می‌شود و با موجودی قابل برداشت دفتر حسابداری Wallet-Find تفاوت دارد."
-            : "This data is fetched directly from Turnkey and is separate from Wallet-Find's spendable accounting balance."}</p>
-          {wallet.networks.filter((network) => network.family === "EVM" && Boolean(network.address)).map((network) => {
-            const result = turnkeyData[network.id];
-            return <div className="wallet-network-group" key={"turnkey-" + network.id}>
-              <div className="wallet-network-group__heading">
-                <span className="wallet-network-dot" />
-                <div><strong>{network.displayName}</strong><small>{network.address}</small></div>
-                <button type="button" className="wallet-asset-deposit-button"
-                  onClick={() => void loadTurnkeyData(network.id)} disabled={Boolean(turnkeyLoading[network.id])}>
-                  {turnkeyLoading[network.id] ? (fa ? "در حال دریافت..." : "Loading...")
-                    : (fa ? "دریافت از Turnkey" : "Fetch from Turnkey")}
-                </button>
-              </div>
-              {turnkeyErrors[network.id] && <p className="inline-feedback wallet-error" role="alert">{turnkeyErrors[network.id]}</p>}
-              {result && <>
-                <p className="wallet-assets-note">{fa ? "آدرس" : "Address"}: <code>{result.address}</code> · {fa ? "زمان دریافت" : "Fetched"}: {new Date(result.fetchedAt).toLocaleString(locale)}</p>
-                <h3>{fa ? "موجودی خام" : "Raw balances"}</h3>
-                <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxHeight: 260, overflow: "auto" }}>{JSON.stringify(result.balances, null, 2)}</pre>
-                <h3>{fa ? "تاریخچه خام تراکنش‌ها" : "Raw transaction history"}</h3>
-                <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxHeight: 360, overflow: "auto" }}>{JSON.stringify({ transactions: result.transactions, pageInfo: result.pageInfo }, null, 2)}</pre>
-              </>}
-            </div>;
-          })}
-          {wallet.networks.every((network) => network.family !== "EVM" || !network.address) &&
-            <p className="wallet-asset-empty">{fa ? "هنوز آدرس EVM فعالی برای دریافت اطلاعات Turnkey وجود ندارد." : "No active EVM wallet address is available for Turnkey data."}</p>}
         </section>
 
         <section className="wallet-history wallet-exchange-history">
@@ -524,7 +463,7 @@ export default function WalletPage({ onNavigate }: Props) {
           <p className="wallet-deposit-minimum">{depositDetails.message}</p>
         </>}
         {!depositLoading && !depositDetails && !depositError && depositAssets.length === 0 && <div className="wallet-warning"><strong>⚠ {copy.unavailable}</strong><p>{copy.noDepositAssets}</p></div>}
-        <button type="button" className="wallet-submit" disabled={!depositDetails}>{depositDetails ? (fa ? "آدرس آمادهٔ دریافت است" : "Deposit address ready") : copy.unavailable}</button>
+
       </section>}
 
       {wallet && view === "withdraw" && <section className="wallet-flow-card">
