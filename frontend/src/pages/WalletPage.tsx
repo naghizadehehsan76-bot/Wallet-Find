@@ -13,7 +13,7 @@ import LoadingIndicator from "../components/LoadingIndicator";
 
 type Page = "home" | "auth" | "competition" | "key" | "leaderboard" | "profile" | "wallet";
 type Props = { onNavigate: (page: Page) => void };
-type WalletView = "overview" | "deposit" | "withdraw";
+type WalletView = "overview" | "deposit" | "withdraw" | "history";
 function createIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
@@ -356,7 +356,12 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
     <main className="page wallet-exchange">
       <div className="wallet-page-heading">
         <div><div className="section-title">{copy.title}</div></div>
-        <button type="button" className="wallet-refresh" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? "…" : "↻"} {copy.refresh}</button>
+        <div className="wallet-page-heading__actions">
+          <button type="button" className="wallet-refresh wallet-history-button" onClick={() => setView("history")} aria-label={copy.history} title={copy.history}>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+          </button>
+          <button type="button" className="wallet-refresh" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? "…" : "↻"} {copy.refresh}</button>
+        </div>
       </div>
 
       {!wallet && !error && <div className="inline-feedback"><LoadingIndicator label={copy.loading} /></div>}
@@ -420,6 +425,19 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
         </section>
 
       </>}
+
+      {wallet && view === "history" && <section className="wallet-flow-card wallet-history-card">
+        <button type="button" className="wallet-back" onClick={() => setView("overview")}>← {copy.back}</button>
+        <h1>{copy.history}</h1>
+        {wallet.transactions.length === 0 ? <p className="wallet-asset-empty">{copy.empty}</p> : <div className="wallet-activity-list">
+          {[...wallet.transactions].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((transaction) => (
+            <div className="wallet-network-row wallet-activity-row" key={transaction.id}>
+              <div><strong>{transaction.type}</strong><small>{new Date(transaction.createdAt).toLocaleString(locale)}</small><small>{transaction.status}{transaction.note ? " · " + transaction.note : ""}</small></div>
+              <strong>{fmt(transaction.amount)} {transaction.currency}</strong>
+            </div>
+          ))}
+        </div>}
+      </section>}
 
       {wallet && view === "deposit" && <section className="wallet-flow-card">
         <button type="button" className="wallet-back" onClick={() => setView("overview")}>← {copy.back}</button>
