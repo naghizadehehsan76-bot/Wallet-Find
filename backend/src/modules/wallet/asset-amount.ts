@@ -65,3 +65,17 @@ export function formatAssetUnits(amount: bigint, decimals: number): string {
 
   return (negative ? "-" : "") + result;
 }
+
+/**
+ * Format an atomic asset amount with exactly the requested number of
+ * fractional digits. Unlike formatAssetUnits, this preserves trailing zeroes
+ * for fixed-scale API values such as six-decimal USDT amounts.
+ */
+export function formatAssetUnitsFixed(amount: bigint, decimals: number): string {
+  scaleFor(decimals);
+  const negative = amount < 0n;
+  const absolute = negative ? -amount : amount;
+  if (decimals === 0) return (negative ? "-" : "") + absolute.toString();
+  const padded = absolute.toString().padStart(decimals + 1, "0");
+  return (negative ? "-" : "") + padded.slice(0, -decimals) + "." + padded.slice(-decimals);
+}
