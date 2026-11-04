@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { formatAssetUnits, parseAssetUnits } from "./asset-amount.js";
+import { formatAssetUnits, formatAssetUnitsFixed, parseAssetUnits } from "./asset-amount.js";
 
 test("parses six-decimal USDT amounts exactly", () => {
   assert.equal(parseAssetUnits("123.456789", 6), 123456789n);
@@ -15,6 +15,13 @@ test("formats arbitrary asset precision without floating point", () => {
   assert.equal(formatAssetUnits(1000000000000000001n, 18), "1.000000000000000001");
   assert.equal(formatAssetUnits(1200000n, 6), "1.2");
   assert.equal(formatAssetUnits(0n, 18), "0");
+});
+
+test("formats fixed-scale amounts without trimming trailing zeroes", () => {
+  assert.equal(formatAssetUnitsFixed(1_200_000n, 6), "1.200000");
+  assert.equal(formatAssetUnitsFixed(0n, 6), "0.000000");
+  assert.equal(formatAssetUnitsFixed(-1n, 6), "-0.000001");
+  assert.equal(formatAssetUnitsFixed(42n, 0), "42");
 });
 
 test("formats negative ledger adjustments exactly", () => {
