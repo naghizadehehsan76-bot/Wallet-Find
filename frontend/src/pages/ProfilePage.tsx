@@ -2,6 +2,7 @@ import { useEffect, useState, type ChangeEvent } from "react";
 import BottomNav from "../components/BottomNav";
 import { deleteOwnAccount, getProfile, uploadProfileAvatar, type ProfileResult } from "../services/api";
 import { useI18n } from "../i18n";
+import { getPageCopy } from "../i18n/page-overrides";
 import { localizeApiError } from "../i18n/localize";
 import LoadingIndicator from "../components/LoadingIndicator";
 
@@ -23,6 +24,7 @@ type ProfilePageProps = {
 function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
   const { language } = useI18n();
   const isPersian = language === "fa";
+  const copy = getPageCopy(language, "profilePage");
   const [profile, setProfile] = useState<ProfileResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -156,7 +158,7 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
 
       <main className="page profile-page">
         {loading ? (
-          <div className="inline-feedback"><LoadingIndicator label={isPersian ? "در حال دریافت پروفایل..." : "Loading profile..."} /></div>
+          <div className="inline-feedback"><LoadingIndicator label={copy.loading ?? (isPersian ? "در حال دریافت پروفایل..." : "Loading profile...")} /></div>
         ) : error ? (
           <div className="inline-feedback">{localizeApiError(error, language)}</div>
         ) : profile ? (
@@ -165,11 +167,11 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
               <div style={{ position: "relative", width: 104, height: 104, margin: "0 auto 12px" }}>
                 <div className="avatar-lg" style={{ width: "100%", height: "100%", overflow: "hidden", padding: 0 }}>
                   {profile.avatarDataUrl ? (
-                    <img src={profile.avatarDataUrl} alt={isPersian ? "عکس پروفایل" : "Profile photo"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <img src={profile.avatarDataUrl} alt={copy.profilePhoto ?? (isPersian ? "عکس پروفایل" : "Profile photo")} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   ) : profile.username.slice(0, 2).toUpperCase()}
                 </div>
                 <label
-                  title={isPersian ? "آپلود یا تغییر عکس پروفایل" : "Upload or change profile photo"}
+                  title={copy.changePhoto ?? (isPersian ? "آپلود یا تغییر عکس پروفایل" : "Upload or change profile photo")}
                   aria-label={isPersian ? "آپلود یا تغییر عکس پروفایل" : "Upload or change profile photo"}
                   style={{
                     position: "absolute", right: 0, bottom: 0, width: 32, height: 32,
@@ -187,38 +189,37 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
               <h2>{profile.username}</h2>
               <span>
                 {isPersian
-                  ? `عضو از ${new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium" }).format(new Date(profile.createdAt))}`
-                  : `Member since ${new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(profile.createdAt))}`}
+                  ? `${copy.memberSince ?? "Member since"} ${new Intl.DateTimeFormat(language === "zh-CN" ? "zh-CN" : language, { dateStyle: "medium" }).format(new Date(profile.createdAt))}`}
               </span>
             </section>
 
             <section className="stat-row">
               <div className="stat-card">
                 <strong>{profile.contestsParticipated}</strong>
-                <span>{isPersian ? "شرکت در چالش" : "Challenges"}</span>
+                <span>{copy.challenges ?? (isPersian ? "شرکت در چالش" : "Challenges")}</span>
               </div>
               <div className="stat-card">
                 <strong>{profile.completedContests}</strong>
-                <span>{isPersian ? "چالش کامل" : "Completed"}</span>
+                <span>{copy.completed ?? (isPersian ? "چالش کامل" : "Completed")}</span>
               </div>
               <div className="stat-card">
                 <strong>{profile.solvedKeys}</strong>
-                <span>{isPersian ? "کلید حل‌شده" : "Keys solved"}</span>
+                <span>{copy.keysSolved ?? (isPersian ? "کلید حل‌شده" : "Keys solved")}</span>
               </div>
             </section>
 
             <div className="section-title">
-              {isPersian ? "اطلاعات عملکرد" : "Performance"}
+              {copy.performance ?? (isPersian ? "اطلاعات عملکرد" : "Performance")}
             </div>
 
             <div className="step">
               <div className="step-number mono">#</div>
               <div className="step-content">
                 <p>
-                  {isPersian ? "بهترین رتبه" : "Best rank"}: {profile.bestRank ?? "—"}
+                  {copy.bestRank ?? (isPersian ? "بهترین رتبه" : "Best rank")}: {profile.bestRank ?? "—"}
                 </p>
                 <small>
-                  {isPersian ? "پاسخ‌های نادرست" : "Incorrect attempts"}: {profile.incorrectAttempts}
+                  {copy.incorrectAttempts ?? (isPersian ? "پاسخ‌های نادرست" : "Incorrect attempts")}: {profile.incorrectAttempts}
                 </small>
               </div>
             </div>
@@ -228,11 +229,11 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
 
         <div className="profile-actions" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <button className="cta-button cta-button--logout" type="button" onClick={onLogout}>
-            {isPersian ? "خروج از حساب" : "Log out"}
+            {copy.logout ?? (isPersian ? "خروج از حساب" : "Log out")}
           </button>
           {profile?.role === "USER" && (
             <button className="cta-button cta-button--logout" type="button" onClick={() => void handleDeleteAccount()} disabled={deletingAccount || loading}>
-              {deletingAccount ? (isPersian ? "در حال حذف..." : "Deleting...") : (isPersian ? "حذف حساب" : "Delete account")}
+              {deletingAccount ? (copy.deleting ?? (isPersian ? "در حال حذف..." : "Deleting...")) : (copy.deleteAccount ?? (isPersian ? "حذف حساب" : "Delete account"))}
             </button>
           )}
           {deleteError && <p className="inline-feedback round-error" role="alert">{deleteError}</p>}
