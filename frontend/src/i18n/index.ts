@@ -12,6 +12,7 @@ import { fa } from "./translations/fa";
 import { en } from "./translations/en";
 import { CHALLENGE_LANGUAGES, isChallengeLanguage, type ChallengeLanguage } from "./challenge-languages";
 import { updateLanguagePreferences } from "../services/api";
+import { localeOverrides } from "./translations/locale-overrides";
 
 export const languages = {
   fa: fa as unknown as Translation,
@@ -41,7 +42,17 @@ type I18nContextValue = {
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 export function getTranslation(language: Language): Translation {
-  return languages[language];
+  const base = languages[language];
+  const overrides = localeOverrides[language];
+  if (!overrides) return base;
+  const merged: Record<string, unknown> = { ...base };
+  for (const [section, values] of Object.entries(overrides)) {
+    merged[section] = {
+      ...((base as unknown as Record<string, Record<string, unknown>>)[section] ?? {}),
+      ...values,
+    };
+  }
+  return merged as unknown as Translation;
 }
 
 export function isRTL(language: Language): boolean {
