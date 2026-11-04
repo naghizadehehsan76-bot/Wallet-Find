@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useI18n } from "../i18n";
+import { getAdminPanelCopy } from "../i18n/admin-panel-overrides";
 import {
   getAdminAuditLogs,
   getAdminOverview,
@@ -358,6 +359,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     reportNoAdvertiser: fa ? "بدون انتساب تبلیغ‌دهنده" : "Not advertiser-attributed",
     reportProofNote: fa ? "این گزارش زمان و کاربرِ کلیک ثبت‌شده روی لینک داخل Wallet-Find را نشان می‌دهد. به‌تنهایی اثبات نمی‌کند که سایت خارجی کامل بارگذاری شده یا کاربر آن را مشاهده کرده است. ایمیل و نشانی IP برای این گزارش ذخیره نمی‌شود." : "This report records the user and time of a click on a Wallet-Find link. It does not independently prove that the external page fully loaded or was viewed. Email addresses and IP addresses are not stored for this report.",
     reportLimitNotice: fa ? "مجموع‌ها مربوط به کل سابقه هستند؛ فهرست و فایل CSV شامل حداکثر ۵۰۰ رکورد اخیر است." : "Totals cover all recorded history; the list and CSV include up to the 500 most recent records.",
+    ...getAdminPanelCopy(language),
   };
 
   const loadSourceVisitReport = useCallback(async () => {
