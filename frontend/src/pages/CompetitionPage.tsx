@@ -14,6 +14,7 @@ import {
   type PrizePoolView,
 } from "../services/api";
 import { useI18n } from "../i18n";
+import { getPageCopy } from "../i18n/page-overrides";
 import { localizeApiError, localizeContestTitle, localizeUiMessage } from "../i18n/localize";
 import LoadingIndicator from "../components/LoadingIndicator";
 import { CHALLENGE_LANGUAGES, getChallengeLanguageName, type ChallengeLanguage } from "../i18n/challenge-languages.js";
@@ -120,6 +121,7 @@ function estimateCurrentPrize(
 function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const { language, challengeLanguage: contestLanguage, changeChallengeLanguage } = useI18n();
   const isPersian = language === "fa";
+  const messages = getPageCopy(language, "challengeMessages");
   function chooseContestLanguage(nextLanguage: ChallengeLanguage) {
     if (nextLanguage === contestLanguage) return;
     changeChallengeLanguage(nextLanguage);
