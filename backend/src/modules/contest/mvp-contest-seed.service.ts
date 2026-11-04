@@ -175,7 +175,8 @@ async function fetchWikipediaDocuments(limit: number, language: ChallengeLanguag
   apiUrl.searchParams.set("list", "random");
   apiUrl.searchParams.set("rnnamespace", "0");
   apiUrl.searchParams.set("rnlimit", String(Math.min(limit, 12)));
-  // HTTP header values must be ByteString-safe. Keep localized language names out of User-Agent.\n  const headers = { "User-Agent": "WalletFind/1.0 (multilingual word-round generator)" };
+  // HTTP header values must be ByteString-safe. Keep localized language names out of User-Agent.
+  const headers = { "User-Agent": "WalletFind/1.0 (multilingual word-round generator)" };
 
   try {
     const randomResponse = await fetch(apiUrl, {
