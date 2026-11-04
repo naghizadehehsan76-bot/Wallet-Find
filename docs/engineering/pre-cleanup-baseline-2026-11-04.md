@@ -56,7 +56,8 @@ Captured read-only from production at 2026-11-04 07:06 UTC:
 
 ## Database backup status
 A previously downloaded 2.5 MB export was reported on 2026-11-02, but it predates later database migrations and production activity observed on 2026-11-03/04. It is not accepted as a current pre-cleanup restore point.
-The available Render connector supports read-only SQL inspection but does not expose a database export/backup operation. A fresh Render dashboard export must be created and verified before production rollout.
+On 2026-11-04, the user confirmed that a new database export was received/downloaded from Render. The file itself was not uploaded or independently inspected in this session; retain it securely as the current pre-cleanup restore point and verify its timestamp/size locally before any production rollout.
+The available Render connector supports read-only SQL inspection but does not expose a database export/backup operation.
 
 ## Pre-existing production error signals (read-only observation)
 Observed in Render application error logs on 2026-11-04 between 06:00 and 07:07 UTC:
