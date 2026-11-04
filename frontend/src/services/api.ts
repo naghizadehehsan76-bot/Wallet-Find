@@ -1,3 +1,4 @@
+import { isChallengeLanguage, type ChallengeLanguage } from "../i18n/challenge-languages.js";
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ?? "/api";
 
@@ -68,7 +69,7 @@ export async function sendOnlineHeartbeat(): Promise<{ recorded: boolean }> {
 
 export type LanguageParticipationBlock = {
   challengeNumber: number;
-  completedLanguage: "fa" | "en";
+  completedLanguage: ChallengeLanguage;
   retryAt: string;
 };
 
@@ -282,8 +283,9 @@ export async function login(
   });
 }
 
-export async function getActiveContest(language?: "fa" | "en"): Promise<ActiveContest> {
-  const selectedLanguage = language ?? (localStorage.getItem("walletFindContestLanguage") === "fa" ? "fa" : "en");
+export async function getActiveContest(language?: ChallengeLanguage): Promise<ActiveContest> {
+  const savedLanguage = localStorage.getItem("walletFindContestLanguage");
+  const selectedLanguage = language ?? (isChallengeLanguage(savedLanguage) ? savedLanguage : "en");
   return request<ActiveContest>(`/contests/active?language=${selectedLanguage}`, {}, true);
 }
 
