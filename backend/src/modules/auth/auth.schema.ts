@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { CHALLENGE_LANGUAGES } from "../contest/supported-languages.js";
 
 const emailSchema = z.string().trim().email().max(254);
 const codeSchema = z.string().trim().regex(/^\d{6}$/);
-const languageSchema = z.enum(["fa", "en"]).optional();
+const languageSchema = z.enum(CHALLENGE_LANGUAGES).optional();
 
 export const registerSchema = z.object({
   email: emailSchema,
