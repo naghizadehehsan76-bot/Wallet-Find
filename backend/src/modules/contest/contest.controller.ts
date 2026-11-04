@@ -16,6 +16,7 @@ import {
 } from "./contest.service.js";
 import { ensureMvpActiveContest, startNextMvpContest } from "./mvp-contest-seed.service.js";
 import { getLanguageParticipationBlock } from "./language-participation.js";
+import { isChallengeLanguage } from "./supported-languages.js";
 
 function isError(error: unknown): error is Error {
   return error instanceof Error;
@@ -124,7 +125,11 @@ export async function getActiveContestHandler(
   }
 
   const userId = req.user.userId;
-  const language = req.query.language === "fa" ? "fa" : "en";
+  const requestedLanguage = typeof req.query.language === "string" ? req.query.language : "en";
+  if (!isChallengeLanguage(requestedLanguage)) {
+    return res.status(400).json({ success: false, error: "UNSUPPORTED_CHALLENGE_LANGUAGE" });
+  }
+  const language = requestedLanguage;
   try {
     // Validate the clue-generator version before serving an active round.
     // This replaces old rounds whose source phrases cannot be found reliably.
