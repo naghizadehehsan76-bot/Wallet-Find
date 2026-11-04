@@ -163,8 +163,8 @@ export type ProfileResult = {
   role: string;
   createdAt: string;
   avatarDataUrl: string | null;
-  uiLanguage: ChallengeLanguage;
-  challengeLanguage: ChallengeLanguage;
+  uiLanguage: ChallengeLanguage | null;
+  challengeLanguage: ChallengeLanguage | null;
   contestsParticipated: number;
   completedContests: number;
   solvedKeys: number;
