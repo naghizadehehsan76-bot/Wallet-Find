@@ -1,28 +1,17 @@
 import { useI18n } from "../i18n";
+import { CHALLENGE_LANGUAGES } from "../i18n/challenge-languages";
 
 function LanguageSwitcher() {
-  const { language, changeLanguage } = useI18n();
-  const isPersian = language === "fa";
-
+  const { language, changeLanguage, isRTL } = useI18n();
   return (
-    <div className="language-switcher" role="group" aria-label={isPersian ? "تغییر زبان" : "Change language"}>
-      <button
-        type="button"
-        className={language === "fa" ? "active" : ""}
-        aria-pressed={language === "fa"}
-        onClick={() => changeLanguage("fa")}
-      >
-        {isPersian ? "فارسی" : "Persian"}
-      </button>
-      <button
-        type="button"
-        className={language === "en" ? "active" : ""}
-        aria-pressed={language === "en"}
-        onClick={() => changeLanguage("en")}
-      >
-        {isPersian ? "انگلیسی" : "English"}
-      </button>
-    </div>
+    <label className="language-switcher" aria-label={isRTL ? "تغییر زبان رابط" : "Interface language"}>
+      <span className="sr-only">{isRTL ? "زبان رابط" : "Interface language"}</span>
+      <select value={language} onChange={(event) => changeLanguage(event.target.value as typeof language)}>
+        {CHALLENGE_LANGUAGES.map(({ code, nativeName }) => (
+          <option key={code} value={code}>{nativeName}</option>
+        ))}
+      </select>
+    </label>
   );
 }
 
