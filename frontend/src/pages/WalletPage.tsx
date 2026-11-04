@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import BottomNav from "../components/BottomNav";
 import { useI18n } from "../i18n";
+import { getPageCopy } from "../i18n/page-overrides";
 import {
   getWallet,
   provisionOwnWallet,
