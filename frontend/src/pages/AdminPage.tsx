@@ -7,6 +7,7 @@ import {
   finishContest,
 } from "../services/api";
 import { useI18n } from "../i18n";
+import { getAdminBuilderCopy } from "../i18n/admin-builder-overrides";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import { localizeApiError, localizeUiMessage } from "../i18n/localize";
 import PrizePoolPanel from "../components/PrizePoolPanel";
@@ -53,6 +54,7 @@ function toIsoOrUndefined(value: string) {
 function AdminPage(_props: AdminPageProps) {
   const { language, translation: t } = useI18n();
   const isPersian = language === "fa";
+  const adminCopy = { ...t.admin, ...getAdminBuilderCopy(language), status: t.admin.status };
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [startsAt, setStartsAt] = useState("");
@@ -129,8 +131,8 @@ function AdminPage(_props: AdminPageProps) {
       );
       setMessage(
         result.contest.status === "SCHEDULED"
-          ? t.admin.createdScheduled
-          : t.admin.createdDraft,
+          ? adminCopy.createdScheduled
+          : adminCopy.createdDraft,
       );
     } catch (err) {
       setError(
@@ -163,8 +165,8 @@ function AdminPage(_props: AdminPageProps) {
 
       setMessage(
         status === "scheduled"
-          ? t.admin.cluesScheduled
-          : t.admin.cluesReady,
+          ? adminCopy.cluesScheduled
+          : adminCopy.cluesReady,
       );
     } catch (err) {
       setError(
@@ -188,7 +190,7 @@ function AdminPage(_props: AdminPageProps) {
       setMessage(
         result.contest.status === "SCHEDULED"
           ? (isPersian ? "چالش برای مرز زمانی ثابت بعدی زمان‌بندی شد." : "Challenge scheduled for the next fixed boundary.")
-          : t.admin.activated,
+          : adminCopy.activated,
       );
     } catch (err) {
       setError(
@@ -209,7 +211,7 @@ function AdminPage(_props: AdminPageProps) {
     try {
       await finishContest(contestId);
       setStatus("finished");
-      setMessage(t.admin.finished);
+      setMessage(adminCopy.finished);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "REQUEST_FAILED",
@@ -241,25 +243,25 @@ function AdminPage(_props: AdminPageProps) {
       <main className="page">
         <section className="comp-head">
           <div>
-            <h1 className="page-title">{t.admin.pageTitle}</h1>
+            <h1 className="page-title">{adminCopy.pageTitle}</h1>
             <div className="date">
-              {t.admin.subtitle}
+              {adminCopy.subtitle}
             </div>
           </div>
           <div className="prize">
-            <strong>{t.admin.status[status]}</strong>
+            <strong>{adminCopy.status[status]}</strong>
             <span>{validClues.toLocaleString(isPersian ? "fa-IR" : "en-US")}/{(12).toLocaleString(isPersian ? "fa-IR" : "en-US")} {isPersian ? "سرنخ" : "clues"}</span>
           </div>
         </section>
 
         <form onSubmit={handleCreateContest}>
           <div className="field">
-            <label htmlFor="challenge-title">{t.admin.titleLabel}</label>
+            <label htmlFor="challenge-title">{adminCopy.titleLabel}</label>
             <input
               id="challenge-title"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder={t.admin.titlePlaceholder}
+              placeholder={adminCopy.titlePlaceholder}
               minLength={3}
               maxLength={200}
               required
@@ -268,12 +270,12 @@ function AdminPage(_props: AdminPageProps) {
           </div>
 
           <div className="field">
-            <label htmlFor="challenge-description">{t.admin.descriptionLabel}</label>
+            <label htmlFor="challenge-description">{adminCopy.descriptionLabel}</label>
             <textarea
               id="challenge-description"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder={t.admin.descriptionPlaceholder}
+              placeholder={adminCopy.descriptionPlaceholder}
               maxLength={2000}
               rows={3}
               disabled={Boolean(contestId)}
@@ -283,7 +285,7 @@ function AdminPage(_props: AdminPageProps) {
           {!contestId && (
             <>
               <div className="field">
-                <label htmlFor="challenge-start">{t.admin.startsLabel}</label>
+                <label htmlFor="challenge-start">{adminCopy.startsLabel}</label>
                 <input
                   id="challenge-start"
                   type="datetime-local"
@@ -293,7 +295,7 @@ function AdminPage(_props: AdminPageProps) {
               </div>
 
               <div className="field">
-                <label htmlFor="challenge-end">{t.admin.endsLabel}</label>
+                <label htmlFor="challenge-end">{adminCopy.endsLabel}</label>
                 <input
                   id="challenge-end"
                   type="datetime-local"
@@ -309,13 +311,13 @@ function AdminPage(_props: AdminPageProps) {
             type="submit"
             disabled={loading || Boolean(contestId)}
           >
-            {contestId ? t.admin.created : t.admin.create}
+            {contestId ? adminCopy.created : adminCopy.create}
           </button>
         </form>
 
         {contestId && (
           <>
-            <div className="section-title">{t.admin.roundsTitle}</div>
+            <div className="section-title">{adminCopy.roundsTitle}</div>
 
             <section className="admin-clues-grid">
               {clues.map((clue, index) => (
@@ -326,7 +328,7 @@ function AdminPage(_props: AdminPageProps) {
                   </div>
                   <textarea
                     rows={3}
-                    placeholder={t.admin.clueText}
+                    placeholder={adminCopy.clueText}
                     value={clue.content}
                     onChange={(event) =>
                       updateClue(index, "content", event.target.value)
@@ -335,7 +337,7 @@ function AdminPage(_props: AdminPageProps) {
                   />
                   <input
                     type="text"
-                    placeholder={t.admin.answerPlaceholder}
+                    placeholder={adminCopy.answerPlaceholder}
                     value={clue.correctAnswer}
                     onChange={(event) =>
                       updateClue(index, "correctAnswer", event.target.value)
@@ -344,7 +346,7 @@ function AdminPage(_props: AdminPageProps) {
                   />
                   <input
                     type="url"
-                    placeholder={t.admin.sourcePlaceholder}
+                    placeholder={adminCopy.sourcePlaceholder}
                     value={clue.sourceUrl}
                     onChange={(event) =>
                       updateClue(index, "sourceUrl", event.target.value)
@@ -354,7 +356,7 @@ function AdminPage(_props: AdminPageProps) {
                   <textarea
                     rows={2}
                     minLength={25}
-                    placeholder={t.admin.anchorPlaceholder}
+                    placeholder={adminCopy.anchorPlaceholder}
                     value={clue.hintAnchor}
                     onChange={(event) =>
                       updateClue(index, "hintAnchor", event.target.value)
@@ -377,7 +379,7 @@ function AdminPage(_props: AdminPageProps) {
                   validClues !== 12
                 }
               >
-                {t.admin.publish}
+                {adminCopy.publish}
               </button>
 
               {!isScheduled && status === "draft" && (
@@ -387,13 +389,13 @@ function AdminPage(_props: AdminPageProps) {
                   onClick={() => void handleActivate()}
                   disabled={loading || validClues !== 12}
                 >
-                  {t.admin.activate}
+                  {adminCopy.activate}
                 </button>
               )}
 
               {isScheduled && (
                 <div className="inline-feedback">
-                  {t.admin.scheduledNotice}
+                  {adminCopy.scheduledNotice}
                 </div>
               )}
 
@@ -403,7 +405,7 @@ function AdminPage(_props: AdminPageProps) {
                 onClick={() => void handleFinish()}
                 disabled={loading || status !== "active"}
               >
-                {t.admin.finish}
+                {adminCopy.finish}
               </button>
             </div>
           </>

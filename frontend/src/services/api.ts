@@ -1,3 +1,4 @@
+import { isChallengeLanguage, type ChallengeLanguage } from "../i18n/challenge-languages.js";
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ?? "/api";
 
@@ -68,7 +69,7 @@ export async function sendOnlineHeartbeat(): Promise<{ recorded: boolean }> {
 
 export type LanguageParticipationBlock = {
   challengeNumber: number;
-  completedLanguage: "fa" | "en";
+  completedLanguage: ChallengeLanguage;
   retryAt: string;
 };
 
@@ -162,6 +163,8 @@ export type ProfileResult = {
   role: string;
   createdAt: string;
   avatarDataUrl: string | null;
+  uiLanguage: ChallengeLanguage | null;
+  challengeLanguage: ChallengeLanguage | null;
   contestsParticipated: number;
   completedContests: number;
   solvedKeys: number;
@@ -236,7 +239,7 @@ export async function register(
   email: string,
   username: string,
   password: string,
-  language: "fa" | "en" = "en",
+  language: ChallengeLanguage = "en",
 ): Promise<{ email: string; verificationRequired: boolean }> {
   return request<{ email: string; verificationRequired: boolean }>("/auth/register", {
     method: "POST",
@@ -251,14 +254,14 @@ export async function verifyEmail(email: string, code: string): Promise<AuthResu
   });
 }
 
-export async function resendVerification(email: string, language: "fa" | "en" = "en"): Promise<{ requested: boolean }> {
+export async function resendVerification(email: string, language: ChallengeLanguage = "en"): Promise<{ requested: boolean }> {
   return request<{ requested: boolean }>("/auth/resend-verification", {
     method: "POST",
     body: JSON.stringify({ email, language }),
   });
 }
 
-export async function forgotPassword(email: string, language: "fa" | "en" = "en"): Promise<{ requested: boolean }> {
+export async function forgotPassword(email: string, language: ChallengeLanguage = "en"): Promise<{ requested: boolean }> {
   return request<{ requested: boolean }>("/auth/forgot-password", {
     method: "POST",
     body: JSON.stringify({ email, language }),
@@ -282,8 +285,9 @@ export async function login(
   });
 }
 
-export async function getActiveContest(language?: "fa" | "en"): Promise<ActiveContest> {
-  const selectedLanguage = language ?? (localStorage.getItem("walletFindContestLanguage") === "fa" ? "fa" : "en");
+export async function getActiveContest(language?: ChallengeLanguage): Promise<ActiveContest> {
+  const savedLanguage = localStorage.getItem("walletFindContestLanguage");
+  const selectedLanguage = language ?? (isChallengeLanguage(savedLanguage) ? savedLanguage : "en");
   return request<ActiveContest>(`/contests/active?language=${selectedLanguage}`, {}, true);
 }
 
@@ -353,6 +357,16 @@ export async function getLeaderboard(
 
 export async function getProfile(): Promise<ProfileResult> {
   return request<ProfileResult>("/profile/me", {}, true);
+}
+
+export async function updateLanguagePreferences(
+  uiLanguage: ChallengeLanguage,
+  challengeLanguage: ChallengeLanguage,
+): Promise<{ uiLanguage: ChallengeLanguage; challengeLanguage: ChallengeLanguage }> {
+  return request("/profile/preferences/language", {
+    method: "PUT",
+    body: JSON.stringify({ uiLanguage, challengeLanguage }),
+  }, true);
 }
 
 export async function deleteOwnAccount(): Promise<{ deleted: boolean }> {

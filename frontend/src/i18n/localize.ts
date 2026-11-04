@@ -1,4 +1,7 @@
-type UiLanguage = "fa" | "en";
+import type { ChallengeLanguage } from "./challenge-languages";
+type UiLanguage = ChallengeLanguage;
+type TranslationLanguage = "fa" | "en";
+const translationLanguage = (language: UiLanguage): TranslationLanguage => language === "fa" ? "fa" : "en";
 
 const apiErrors: Record<string, { fa: string; en: string }> = {
   ACTIVE_CONTEST_NOT_FOUND: { fa: "در حال حاضر چالش فعالی پیدا نشد. کمی بعد دوباره تلاش کن.", en: "No active challenge was found. Please try again shortly." },
@@ -94,7 +97,7 @@ const knownUiTexts: Record<string, { fa: string; en: string }> = {
 };
 
 export function localizeUiMessage(message: string, language: UiLanguage): string {
-  return knownUiTexts[message]?.[language] ?? message;
+  return knownUiTexts[message]?.[translationLanguage(language)] ?? message;
 }
 
 export function localizeApiError(error: unknown, language: UiLanguage): string {
@@ -109,9 +112,9 @@ export function localizeApiError(error: unknown, language: UiLanguage): string {
       : "Something went wrong. Please try again.";
   }
   const localized = apiErrors[message];
-  if (localized) return localized[language];
+  if (localized) return localized[translationLanguage(language)];
   const knownText = knownUiTexts[message];
-  if (knownText) return knownText[language];
+  if (knownText) return knownText[translationLanguage(language)];
   if (/^[A-Z][A-Z0-9_]+$/.test(message)) {
     return language === "fa"
       ? "مشکلی رخ داد. لطفاً دوباره تلاش کن."

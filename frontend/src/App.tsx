@@ -8,6 +8,7 @@ import AdminPage from "./pages/AdminPage";
 import AdminControlCenter from "./pages/AdminControlCenter";
 import WalletPage from "./pages/WalletPage";
 import { useI18n, type Language } from "./i18n";
+import { getPageCopy } from "./i18n/page-overrides";
 import SharedLanguageSwitcher from "./components/LanguageSwitcher";
 import LoadingIndicator from "./components/LoadingIndicator";
 import { getActiveContest, getCurrentClue, getProfile, getPublicPrizePoolStats, getPublicSiteStats, sendOnlineHeartbeat, type PublicPrizePoolStats, type PublicSiteStats } from "./services/api";
@@ -60,6 +61,8 @@ function HomePage({
   const [siteStats, setSiteStats] = useState<PublicSiteStats | null>(null);
   const [prizePoolStats, setPrizePoolStats] = useState<PublicPrizePoolStats | null>(null);
   const isPersian = language === "fa";
+  const isHomeRTL = language === "fa" || language === "ar";
+  const homeCopy = getPageCopy(language, "homePage");
   const homeProgressPercent = Math.min(100, (homeSolvedCount / 12) * 100);
   const localizeDigits = (value: string) => isPersian
     ? value
@@ -182,19 +185,19 @@ function HomePage({
   const stats = [
     {
       value: siteStats ? formatHomeNumber(siteStats.onlineUsers) : "—",
-      label: isPersian ? "کاربران آنلاین" : "Online users",
+      label: homeCopy.onlineUsers ?? (isPersian ? "کاربران آنلاین" : "Online users"),
       secondaryValue: siteStats ? formatHomeNumber(siteStats.totalUsers) : "—",
-      secondaryLabel: isPersian ? "کل کاربران سایت" : "Total site users",
+      secondaryLabel: homeCopy.totalSiteUsers ?? (isPersian ? "کل کاربران سایت" : "Total site users"),
     },
     {
       value: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.totalPool)} USDT` : "—",
-      label: isPersian ? "موجودی صندوق کلی جایزه" : "Available global prize fund",
+      label: homeCopy.globalPrizeFund ?? (isPersian ? "موجودی صندوق کلی جایزه" : "Available global prize fund"),
       secondaryValue: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.currentRoundPool)} USDT` : "—",
-      secondaryLabel: isPersian ? "حداکثر ۱ تتر اختصاص‌یافته به دور جاری" : "Up to 1 USDT allocated to this round",
+      secondaryLabel: homeCopy.currentRoundPool ?? (isPersian ? "تخصیص دور جاری" : "Allocated to this round"),
     },
     {
       value: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.totalPrizesAwarded)} USDT` : "—",
-      label: isPersian ? "مجموع جوایز پرداخت‌شده" : "Total prizes paid",
+      label: homeCopy.totalPrizesPaid ?? (isPersian ? "مجموع جوایز پرداخت‌شده" : "Total prizes paid"),
     },
   ];
   const steps = isPersian ? faSteps : enSteps;
@@ -264,32 +267,32 @@ function HomePage({
 
         <main className="page home-page">
         <section className="home-showcase">
-          <img className="home-concept-vector" src="/images/home-concept.svg" alt={isPersian ? "تصویر نئونی کیف پول و ذره‌بین" : "Neon wallet and magnifying glass illustration"} />
-          <h1 className="home-concept-title" lang={isPersian ? "fa" : "en"} dir={isPersian ? "rtl" : "ltr"}>
-            {isPersian ? <>کیف پول رو پیدا کن، <span>کریپتو بگیر</span></> : <>FIND THE WALLET, <span>GET CRYPTO</span></>}
+          <img className="home-concept-vector" src="/images/home-concept.svg" alt={homeCopy.alt ?? (isPersian ? "تصویر نئونی کیف پول و ذره‌بین" : "Neon wallet and magnifying glass illustration")} />
+          <h1 className="home-concept-title" lang={language} dir={isHomeRTL ? "rtl" : "ltr"}>
+            {isPersian ? <>کیف پول رو پیدا کن، <span>کریپتو بگیر</span></> : (homeCopy.heroTitle ?? <>FIND THE WALLET, <span>GET CRYPTO</span></>)}
           </h1>
-          <p className="home-concept-tagline" lang={isPersian ? "fa" : "en"} dir={isPersian ? "rtl" : "ltr"}>
-            {isPersian ? <>هر روز سرنخ‌های رسیدن به کیف پول رو بهت میدیم<br />هر چقدر سریعتر باشی درآمدت بیشتره.</> : <>We give you clues to find wallet every day...<br />The faster you are, the more you earn.</>}
+          <p className="home-concept-tagline" lang={language} dir={isHomeRTL ? "rtl" : "ltr"}>
+            {isPersian ? <>هر روز سرنخ‌های رسیدن به کیف پول رو بهت میدیم<br />هر چقدر سریعتر باشی درآمدت بیشتره.</> : (homeCopy.heroTagline ?? <>We give you clues to find wallet every day...<br />The faster you are, the more you earn.</>)}
           </p>
         </section>
 
         <section className="home-challenge-card" aria-label={isPersian ? "چالش امروز" : "Today's challenge"}>
           <div className="home-challenge-card__top">
             <div className="home-challenge-card__bolt" aria-hidden="true"><svg className="home-challenge-card__magnifier" viewBox="0 0 24 24" fill="none"><circle cx="10.5" cy="10.5" r="6.4" stroke="currentColor" strokeWidth="2.1"/><path d="m15.2 15.2 5 5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/></svg></div>
-            <strong>{isPersian ? "چالش امروز" : "Today's Challenge"}</strong>
+            <strong>{homeCopy.today ?? (isPersian ? "چالش امروز" : "Today's Challenge")}</strong>
             <div className="home-challenge-card__timer">
               <span><span aria-hidden="true">◷</span> {homeTimerText}</span>
-              <small>{isPersian ? "تا شروع دور جدید" : "Until next round"}</small>
+              <small>{homeCopy.untilNext ?? (isPersian ? "تا شروع دور جدید" : "Until next round")}</small>
             </div>
           </div>
           <div className="home-challenge-card__progress">
             <strong>{formatHomeNumber(homeSolvedCount)} / {formatHomeNumber(12)}</strong>
-            <span>{isPersian ? "پیشرفت شما" : "Your progress"}</span>
-            <i role="progressbar" aria-valuemin={0} aria-valuemax={12} aria-valuenow={homeSolvedCount} aria-label={isPersian ? "پیشرفت چالش" : "Challenge progress"}><b style={{ width: homeProgressPercent + "%" }} /></i>
+            <span>{homeCopy.yourProgress ?? (isPersian ? "پیشرفت شما" : "Your progress")}</span>
+            <i role="progressbar" aria-valuemin={0} aria-valuemax={12} aria-valuenow={homeSolvedCount} aria-label={homeCopy.challengeProgress ?? (isPersian ? "پیشرفت چالش" : "Challenge progress")}><b style={{ width: homeProgressPercent + "%" }} /></i>
           </div>
         </section>
 
-        <section className="home-key-grid" aria-label={isPersian ? "۱۲ خانهٔ چالش" : "12 challenge keys"}>
+        <section className="home-key-grid" aria-label={homeCopy.challengeKeys ?? (isPersian ? "۱۲ خانهٔ چالش" : "12 challenge keys")}>
           {Array.from({ length: 12 }).map((_, index) => (
             <button
               key={index}
@@ -304,8 +307,8 @@ function HomePage({
         </section>
 
         <section className="cta-group">
-          <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>{isPersian ? "ورود به چالش امشب" : "Enter Tonight's Challenge"}</button>
-          <button className="cta-button cta-button--ghost" type="button" onClick={() => onNavigate("rules")}>{isPersian ? "روش و قوانین چالش" : "How to Play & Challenge Rules"}</button>
+          <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>{homeCopy.enterChallenge ?? (isPersian ? "ورود به چالش امشب" : "Enter Challenge")}</button>
+          <button className="cta-button cta-button--ghost" type="button" onClick={() => onNavigate("rules")}>{homeCopy.rules ?? (isPersian ? "روش و قوانین چالش" : "How to Play & Challenge Rules")}</button>
         </section>
 
         <section className="stat-row">
@@ -331,7 +334,7 @@ function HomePage({
         </section>
 
         <section className="how-section">
-          <h2 className="section-heading">{isPersian ? "چالش چطور کار می‌کند" : "How the challenge works"}</h2>
+          <h2 className="section-heading">{homeCopy.howWorks ?? (isPersian ? "چالش چطور کار می‌کند" : "How the challenge works")}</h2>
           <div className="steps">
             {steps.map((step) => <article className="step" key={step.number}><div className="step-number mono">{step.number}</div><div className="step-content"><p>{step.title}</p><small>{step.description}</small></div></article>)}
           </div>
@@ -742,6 +745,20 @@ function App() {
 
     return () => { cancelled = true; };
   }, [handleSessionExpired]);
+
+  useEffect(() => {
+    if (authStatus !== "authenticated") return;
+    let cancelled = false;
+    getProfile().then((profile) => {
+      if (cancelled) return;
+      window.dispatchEvent(new CustomEvent("wallet-find:preferences-loaded", {
+        detail: { uiLanguage: profile.uiLanguage, challengeLanguage: profile.challengeLanguage },
+      }));
+    }).catch(() => {
+      // Keep the device's saved locale if the preference endpoint is temporarily unavailable.
+    });
+    return () => { cancelled = true; };
+  }, [authStatus]);
 
   useEffect(() => {
     if (authStatus !== "authenticated") return;

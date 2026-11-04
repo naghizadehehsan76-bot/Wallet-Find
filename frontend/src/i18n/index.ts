@@ -10,45 +10,118 @@ import {
 } from "react";
 import { fa } from "./translations/fa";
 import { en } from "./translations/en";
+import { CHALLENGE_LANGUAGES, isChallengeLanguage, type ChallengeLanguage } from "./challenge-languages";
+import { updateLanguagePreferences } from "../services/api";
+import { localeOverrides } from "./translations/locale-overrides";
 
 export const languages = {
-  fa,
-  en,
-} as const;
+  fa: fa as unknown as Translation,
+  en: en as unknown as Translation,
+  de: en as unknown as Translation,
+  es: en as unknown as Translation,
+  fr: en as unknown as Translation,
+  ar: en as unknown as Translation,
+  tr: en as unknown as Translation,
+  pt: en as unknown as Translation,
+  ru: en as unknown as Translation,
+  "zh-CN": en as unknown as Translation,
+} satisfies Record<ChallengeLanguage, Translation>;
 
-export type Language = keyof typeof languages;
+export type Language = ChallengeLanguage;
 export type Translation = typeof fa;
 
 type I18nContextValue = {
   language: Language;
   translation: Translation;
   changeLanguage: (language: Language) => void;
+  challengeLanguage: ChallengeLanguage;
+  changeChallengeLanguage: (language: ChallengeLanguage) => void;
   isRTL: boolean;
 };
 
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 export function getTranslation(language: Language): Translation {
-  return languages[language] as Translation;
+  const base = languages[language];
+  const overrides = localeOverrides[language];
+  if (!overrides) return base;
+  const merged: Record<string, unknown> = { ...base };
+  for (const [section, values] of Object.entries(overrides)) {
+    merged[section] = {
+      ...((base as unknown as Record<string, Record<string, unknown>>)[section] ?? {}),
+      ...values,
+    };
+  }
+  return merged as unknown as Translation;
 }
 
 export function isRTL(language: Language): boolean {
-  return language === "fa";
+  return language === "fa" || language === "ar";
+}
+
+function detectBrowserLanguage(): Language {
+  if (typeof navigator === "undefined") return "fa";
+  const candidates = [...(navigator.languages ?? []), navigator.language].filter(Boolean);
+  for (const candidate of candidates) {
+    const normalized = candidate.toLowerCase();
+    if (normalized === "zh-cn" || normalized.startsWith("zh-hans")) return "zh-CN";
+    const base = normalized.split("-")[0];
+    const match = CHALLENGE_LANGUAGES.find((item) => item.code.toLowerCase() === base);
+    if (match) return match.code;
+  }
+  return "en";
 }
 
 function getInitialLanguage(): Language {
   if (typeof window === "undefined") return "fa";
-
   const saved = window.localStorage.getItem("walletFindLanguage");
-  return saved === "en" || saved === "fa" ? saved : "fa";
+  return isChallengeLanguage(saved) ? saved : detectBrowserLanguage();
+}
+
+function getInitialChallengeLanguage(uiLanguage: Language): ChallengeLanguage {
+  if (typeof window === "undefined") return uiLanguage;
+  const saved = window.localStorage.getItem("walletFindContestLanguage");
+  return isChallengeLanguage(saved) ? saved : uiLanguage;
 }
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<Language>(getInitialLanguage);
+  const [challengeLanguage, setChallengeLanguage] = useState<ChallengeLanguage>(() => getInitialChallengeLanguage(getInitialLanguage()));
+
+  const persistPreferences = useCallback((ui: Language, challenge: ChallengeLanguage) => {
+    window.localStorage.setItem("walletFindLanguage", ui);
+    window.localStorage.setItem("walletFindContestLanguage", challenge);
+    if (window.localStorage.getItem("walletFindToken")) {
+      void updateLanguagePreferences(ui, challenge).catch(() => {
+        // Keep local preferences available during temporary API failures.
+      });
+    }
+  }, []);
 
   const changeLanguage = useCallback((nextLanguage: Language) => {
     setLanguage(nextLanguage);
-    window.localStorage.setItem("walletFindLanguage", nextLanguage);
+    persistPreferences(nextLanguage, challengeLanguage);
+  }, [challengeLanguage, persistPreferences]);
+
+  const changeChallengeLanguage = useCallback((nextLanguage: ChallengeLanguage) => {
+    setChallengeLanguage(nextLanguage);
+    persistPreferences(language, nextLanguage);
+  }, [language, persistPreferences]);
+
+  useEffect(() => {
+    const handlePreferencesLoaded = (event: Event) => {
+      const detail = (event as CustomEvent<{ uiLanguage?: string; challengeLanguage?: string }>).detail;
+      if (isChallengeLanguage(detail?.uiLanguage)) {
+        setLanguage(detail.uiLanguage);
+        window.localStorage.setItem("walletFindLanguage", detail.uiLanguage);
+      }
+      if (isChallengeLanguage(detail?.challengeLanguage)) {
+        setChallengeLanguage(detail.challengeLanguage);
+        window.localStorage.setItem("walletFindContestLanguage", detail.challengeLanguage);
+      }
+    };
+    window.addEventListener("wallet-find:preferences-loaded", handlePreferencesLoaded);
+    return () => window.removeEventListener("wallet-find:preferences-loaded", handlePreferencesLoaded);
   }, []);
 
   useEffect(() => {
@@ -61,9 +134,11 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       language,
       translation: getTranslation(language),
       changeLanguage,
+      challengeLanguage,
+      changeChallengeLanguage,
       isRTL: isRTL(language),
     }),
-    [language, changeLanguage],
+    [language, changeLanguage, challengeLanguage, changeChallengeLanguage],
   );
 
   return createElement(I18nContext.Provider, { value }, children);
@@ -71,10 +146,6 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
 export function useI18n(): I18nContextValue {
   const context = useContext(I18nContext);
-
-  if (!context) {
-    throw new Error("useI18n must be used within I18nProvider");
-  }
-
+  if (!context) throw new Error("useI18n must be used within I18nProvider");
   return context;
 }

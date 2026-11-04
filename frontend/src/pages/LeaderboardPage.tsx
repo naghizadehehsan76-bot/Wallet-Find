@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import BottomNav from "../components/BottomNav";
 import { getLeaderboardHistory, type LeaderboardRound } from "../services/api";
 import { useI18n } from "../i18n";
+import { getPageCopy } from "../i18n/page-overrides";
 import "./LeaderboardPage.css";
 import { localizeApiError } from "../i18n/localize";
 import LoadingIndicator from "../components/LoadingIndicator";
@@ -38,6 +39,7 @@ function formatAmount(value: string, isPersian: boolean) {
 function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
   const { language } = useI18n();
   const isPersian = language === "fa";
+  const copy = getPageCopy(language, "leaderboardPage");
   const [rounds, setRounds] = useState<LeaderboardRound[]>([]);
   const [selectedRoundId, setSelectedRoundId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -80,21 +82,21 @@ function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
       <main className="page leaderboard-page">
         <section className="comp-head">
           <div>
-            <h2 className="page-title">{isPersian ? "رتبه‌بندی" : "Leaderboard"}</h2>
-            <div className="date">{isPersian ? "نتایج هر دور و مجموع جوایز ثبت‌شده" : "Round results and total recorded prizes"}</div>
+            <h2 className="page-title">{copy.title ?? (isPersian ? "رتبه‌بندی" : "Leaderboard")}</h2>
+            <div className="date">{copy.subtitle ?? (isPersian ? "نتایج هر دور و مجموع جوایز ثبت‌شده" : "Round results and total recorded prizes")}</div>
           </div>
         </section>
 
         {loading ? (
-          <div className="inline-feedback"><LoadingIndicator label={isPersian ? "در حال دریافت رتبه‌بندی..." : "Loading leaderboard..."} /></div>
+          <div className="inline-feedback"><LoadingIndicator label={copy.loading ?? (isPersian ? "در حال دریافت رتبه‌بندی..." : "Loading leaderboard...")} /></div>
         ) : error ? (
           <div className="inline-feedback">{localizeApiError(error, language)}</div>
         ) : rounds.length === 0 ? (
-          <div className="inline-feedback">{isPersian ? "هنوز دوری برای نمایش ثبت نشده است." : "No contest rounds are available yet."}</div>
+          <div className="inline-feedback">{copy.empty ?? (isPersian ? "هنوز دوری برای نمایش ثبت نشده است." : "No contest rounds are available yet.")}</div>
         ) : (
           <>
             <section className="leaderboard-round-filter">
-              <label htmlFor="leaderboard-round-select">{isPersian ? "انتخاب شمارهٔ مسابقه" : "Select contest round"}</label>
+              <label htmlFor="leaderboard-round-select">{copy.selectRound ?? (isPersian ? "انتخاب شمارهٔ مسابقه" : "Select contest round")}</label>
               <select id="leaderboard-round-select" value={selectedRoundId} onChange={(event) => setSelectedRoundId(event.target.value)}>
                 {rounds.map((round) => (
                   <option key={round.id} value={round.id}>
@@ -104,36 +106,36 @@ function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
               </select>
               {selectedRound && (
                 <div className="leaderboard-round-dates">
-                  <div><span>{isPersian ? "تاریخ و ساعت شروع" : "Start date & time"}</span><strong>{formatDate(selectedRound.startsAt, isPersian)}</strong></div>
-                  <div><span>{isPersian ? "تاریخ و ساعت پایان" : "End date & time"}</span><strong>{formatDate(selectedRound.endsAt ?? (selectedRound.startsAt ? new Date(new Date(selectedRound.startsAt).getTime() + 15 * 60_000).toISOString() : null), isPersian)}</strong></div>
+                  <div><span>{copy.start ?? (isPersian ? "تاریخ و ساعت شروع" : "Start date & time")}</span><strong>{formatDate(selectedRound.startsAt, isPersian)}</strong></div>
+                  <div><span>{copy.end ?? (isPersian ? "تاریخ و ساعت پایان" : "End date & time")}</span><strong>{formatDate(selectedRound.endsAt ?? (selectedRound.startsAt ? new Date(new Date(selectedRound.startsAt).getTime() + 15 * 60_000).toISOString() : null), isPersian)}</strong></div>
                 </div>
               )}
             </section>
 
             {selectedRound && selectedRound.entries.length === 0 ? (
-              <div className="inline-feedback">{isPersian ? "برای این مسابقه هنوز نتیجه‌ای ثبت نشده است." : "No participant results have been recorded for this round yet."}</div>
+              <div className="inline-feedback">{copy.noResults ?? (isPersian ? "برای این مسابقه هنوز نتیجه‌ای ثبت نشده است." : "No participant results have been recorded for this round yet.")}</div>
             ) : selectedRound && (
               <section className="leaderboard-history-list" aria-label={isPersian ? "نتایج مسابقه" : "Contest results"}>
                 <div className="leaderboard-history-heading">
-                  <span>{isPersian ? "رتبه" : "Rank"}</span>
-                  <span>{isPersian ? "شرکت‌کننده" : "Participant"}</span>
-                  <span>{isPersian ? "زمان تکمیل" : "Completion time"}</span>
-                  <span>{isPersian ? "جایزه این دور" : "Round prize"}</span>
-                  <span>{isPersian ? "مجموع جوایز" : "Total prizes"}</span>
+                  <span>{copy.rank ?? (isPersian ? "رتبه" : "Rank")}</span>
+                  <span>{copy.participant ?? (isPersian ? "شرکت‌کننده" : "Participant")}</span>
+                  <span>{copy.completion ?? (isPersian ? "زمان تکمیل" : "Completion time")}</span>
+                  <span>{copy.roundPrize ?? (isPersian ? "جایزه این دور" : "Round prize")}</span>
+                  <span>{copy.totalPrizes ?? (isPersian ? "مجموع جوایز" : "Total prizes")}</span>
                 </div>
                 {selectedRound.entries.map((entry) => (
                   <article className={`leaderboard-row ${entry.completed ? "leaderboard-row--completed" : ""} ${entry.rank === 1 && entry.completed ? "leaderboard-row--top" : ""}`} key={entry.userId}>
-                    <div className="leaderboard-rank mono" data-label={isPersian ? "رتبه" : "Rank"}>{entry.rank.toLocaleString(isPersian ? "fa-IR" : "en-US")}</div>
-                    <div className="leaderboard-player-cell" data-label={isPersian ? "شرکت‌کننده" : "Participant"}>
+                    <div className="leaderboard-rank mono" data-label={copy.rank ?? (isPersian ? "رتبه" : "Rank")}>{entry.rank.toLocaleString(isPersian ? "fa-IR" : "en-US")}</div>
+                    <div className="leaderboard-player-cell" data-label={copy.participant ?? (isPersian ? "شرکت‌کننده" : "Participant")}>
                       <div className="leaderboard-avatar">{entry.username.slice(0, 1).toUpperCase()}</div>
                       <div className="leaderboard-player">
                         <strong>{entry.username}</strong>
-                        <span>{isPersian ? `${entry.solvedCount.toLocaleString("fa-IR")} از ۱۲ کلید` : `${entry.solvedCount} of 12 keys`}{entry.completed ? (isPersian ? " · تکمیل‌شده" : " · Completed") : ""}</span>
+                        <span>{isPersian ? `${entry.solvedCount.toLocaleString("fa-IR")} از ۱۲ کلید` : `${entry.solvedCount} of 12 keys`}{entry.completed ? (` · ${copy.completed ?? "Completed"}`) : ""}</span>
                       </div>
                     </div>
-                    <div className="leaderboard-time mono" data-label={isPersian ? "زمان تکمیل" : "Completion time"}>{entry.completed ? formatTime(entry.totalResponseTimeMs, isPersian) : "—"}</div>
-                    <div className="leaderboard-prize" data-label={isPersian ? "جایزه این دور" : "Round prize"}>{formatAmount(entry.prizeEarned, isPersian)} <small>USDT</small></div>
-                    <div className="leaderboard-prize leaderboard-prize--total" data-label={isPersian ? "مجموع جوایز" : "Total prizes"}>{formatAmount(entry.totalPrizeEarned, isPersian)} <small>USDT</small></div>
+                    <div className="leaderboard-time mono" data-label={copy.completion ?? (isPersian ? "زمان تکمیل" : "Completion time")}>{entry.completed ? formatTime(entry.totalResponseTimeMs, isPersian) : "—"}</div>
+                    <div className="leaderboard-prize" data-label={copy.roundPrize ?? (isPersian ? "جایزه این دور" : "Round prize")}>{formatAmount(entry.prizeEarned, isPersian)} <small>USDT</small></div>
+                    <div className="leaderboard-prize leaderboard-prize--total" data-label={copy.totalPrizes ?? (isPersian ? "مجموع جوایز" : "Total prizes")}>{formatAmount(entry.totalPrizeEarned, isPersian)} <small>USDT</small></div>
                   </article>
                 ))}
                 <p className="leaderboard-footnote">

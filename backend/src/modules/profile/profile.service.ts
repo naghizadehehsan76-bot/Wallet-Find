@@ -1,4 +1,5 @@
 import prisma from "../../config/prisma.js";
+import { isChallengeLanguage } from "../contest/supported-languages.js";
 
 export async function getProfile(userId: string) {
   const user = await prisma.user.findUnique({
@@ -10,6 +11,8 @@ export async function getProfile(userId: string) {
       role: true,
       createdAt: true,
       avatarDataUrl: true,
+      uiLanguage: true,
+      challengeLanguage: true,
       submissions: {
         select: {
           contestId: true,
@@ -48,4 +51,20 @@ export async function getProfile(userId: string) {
     incorrectAttempts: user.submissions.filter((s) => !s.isCorrect).length,
     bestRank: null,
   };
+}
+
+export async function updateLanguagePreferences(
+  userId: string,
+  uiLanguage: string,
+  challengeLanguage: string,
+) {
+  if (!isChallengeLanguage(uiLanguage) || !isChallengeLanguage(challengeLanguage)) {
+    throw new Error("UNSUPPORTED_LANGUAGE");
+  }
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { uiLanguage, challengeLanguage },
+    select: { uiLanguage: true, challengeLanguage: true },
+  });
+  return user;
 }

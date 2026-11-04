@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import BottomNav from "../components/BottomNav";
 import { useI18n } from "../i18n";
+import { getPageCopy } from "../i18n/page-overrides";
 import {
   getWallet,
   provisionOwnWallet,
@@ -207,7 +208,8 @@ export default function WalletPage({ onNavigate }: Props) {
     walletCreating: fa ? "در حال ساخت کیف پول..." : "Creating wallet...",
     walletCreateFailed: fa ? "ساخت کیف پول انجام نشد. لطفاً دوباره تلاش کنید." : "Wallet creation failed. Please try again.",
     walletEmailUnverified: fa ? "برای ساخت کیف پول ابتدا ایمیل خود را تأیید کنید." : "Verify your email before creating a wallet.",
-  }), [fa]);
+    ...getPageCopy(language, "walletPage"),
+  }), [fa, language]);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
