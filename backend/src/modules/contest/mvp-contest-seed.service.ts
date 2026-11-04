@@ -1,4 +1,5 @@
 import prisma from "../../config/prisma.js";
+import { CHALLENGE_LANGUAGE_NAMES, getWikipediaDomain, isChallengeLanguage, type ChallengeLanguage } from "./supported-languages.js";
 import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
 import { CHALLENGE_INTERVAL_MS, getChallengeNumberAt, getChallengeScheduleAnchor } from "./challenge-schedule.js";
 import {
@@ -23,7 +24,7 @@ function pinWikipediaRevision(url: string, revisionId?: number): string {
   if (!revisionId || !Number.isInteger(revisionId) || revisionId < 1) return url;
   try {
     const parsed = new URL(url);
-    if (parsed.hostname !== "fa.wikipedia.org" && parsed.hostname !== "en.wikipedia.org") return url;
+    if (!parsed.hostname.endsWith(".wikipedia.org")) return url;
     parsed.searchParams.set("oldid", String(revisionId));
     return parsed.toString();
   } catch {
@@ -41,7 +42,7 @@ type GeneratedRound = {
 
 type ScheduledSourceAssignment = {
   id: string;
-  language: "en" | "fa";
+  language: ChallengeLanguage;
   url: string;
   challengeNumber: number;
   startsAt: string;
@@ -52,6 +53,34 @@ type RoundGenerationContext = {
   challengeNumber: number;
   startsAt: Date;
 };
+
+function generatedContestCopy(language: ChallengeLanguage) {
+  const titles: Record<ChallengeLanguage, string> = {
+    fa: "چالش واژه‌یابی فارسی Wallet Find",
+    en: "Wallet Find English Word Challenge",
+    de: "Wallet Find – Deutsches Worträtsel",
+    es: "Desafío de palabras de Wallet Find en español",
+    fr: "Défi de recherche de mots en français – Wallet Find",
+    ar: "تحدي البحث عن الكلمات باللغة العربية – Wallet Find",
+    tr: "Wallet Find Türkçe Kelime Bulma Yarışması",
+    pt: "Desafio de palavras em português – Wallet Find",
+    ru: "Игра Wallet Find по поиску русских слов",
+    "zh-CN": "Wallet Find 简体中文找词挑战",
+  };
+  const descriptions: Record<ChallengeLanguage, string> = {
+    fa: "۱۲ سرنخ واژه‌یابی از منابع فارسی.",
+    en: "12 word clues from English-language sources.",
+    de: "12 Worträtsel aus deutschsprachigen Quellen.",
+    es: "12 pistas de palabras de fuentes en español.",
+    fr: "12 indices de mots issus de sources en français.",
+    ar: "12 تلميحًا للكلمات من مصادر باللغة العربية.",
+    tr: "Türkçe kaynaklardan 12 kelime ipucu.",
+    pt: "12 pistas de palavras de fontes em português.",
+    ru: "12 подсказок со словами из русскоязычных источников.",
+    "zh-CN": "来自简体中文来源的 12 条词语线索。",
+  };
+  return { title: titles[language], description: descriptions[language], language };
+}
 
 const COMMON_WORDS = new Set([
   "about", "above", "after", "again", "against", "almost", "along", "already",
@@ -136,17 +165,17 @@ function hasCurrentGeneratedClues(clues: readonly StoredGeneratedClue[]): boolea
   );
 }
 
-async function fetchWikipediaDocuments(limit: number, language: "en" | "fa" = "en"): Promise<SourceDocument[]> {
+async function fetchWikipediaDocuments(limit: number, language: ChallengeLanguage = "en"): Promise<SourceDocument[]> {
   // Use at most two API requests (random titles + one batch extract). Never
   // fan out into individual article requests when Wikipedia rate-limits us.
-  const wikiDomain = language === "fa" ? "fa.wikipedia.org" : "en.wikipedia.org";
+  const wikiDomain = getWikipediaDomain(language);
   const apiUrl = new URL(`https://${wikiDomain}/w/api.php`);
   apiUrl.searchParams.set("action", "query");
   apiUrl.searchParams.set("format", "json");
   apiUrl.searchParams.set("list", "random");
   apiUrl.searchParams.set("rnnamespace", "0");
   apiUrl.searchParams.set("rnlimit", String(Math.min(limit, 12)));
-  const headers = { "User-Agent": `WalletFind/1.0 (${language === "fa" ? "Persian" : "English"} word-round generator)` };
+  const headers = { "User-Agent": `WalletFind/1.0 (${CHALLENGE_LANGUAGE_NAMES[language]} word-round generator)` };
 
   try {
     const randomResponse = await fetch(apiUrl, {
@@ -244,7 +273,7 @@ function buildRoundFromSource(
   source: SourceDocument,
   usedAnswers: ReadonlySet<string>,
   optionWords: readonly string[],
-  language: "en" | "fa" = "en",
+  language: ChallengeLanguage = "en",
 ): GeneratedRound | null {
   let analysis = sourceAnalysisCache.get(source);
   if (!analysis) {
@@ -455,7 +484,7 @@ async function fetchConfiguredWebDocument(url: string): Promise<SourceDocument |
     // Do not scrape Wikipedia's entire HTML page: navigation, hidden labels and
     // markup boundaries can create phrases that are not searchable in the article.
     if (
-      (parsed.hostname === "fa.wikipedia.org" || parsed.hostname === "en.wikipedia.org") &&
+      parsed.hostname.endsWith(".wikipedia.org") &&
       parsed.pathname.startsWith("/wiki/")
     ) {
       return await fetchWikipediaArticleDocument(parsed);
@@ -484,7 +513,7 @@ async function fetchConfiguredWebDocument(url: string): Promise<SourceDocument |
 }
 
 async function getScheduledSourceAssignments(
-  language: "en" | "fa",
+  language: ChallengeLanguage,
   context: RoundGenerationContext,
 ): Promise<ScheduledSourceAssignment[]> {
   const setting = await prisma.systemSetting.findUnique({
@@ -514,16 +543,11 @@ async function getScheduledSourceAssignments(
 
 
 
-async function getConfiguredSourceUrls(language: "en" | "fa"): Promise<string[]> {
-  const defaults = language === "fa" ? [
-    "https://fa.wikipedia.org/w/api.php",
-    "https://fa.wikipedia.org/wiki/ایران", "https://fa.wikipedia.org/wiki/تهران",
-    "https://fa.wikipedia.org/wiki/فردوسی", "https://fa.wikipedia.org/wiki/شاهنامه",
-    "https://fa.wikipedia.org/wiki/هوش_مصنوعی",
-  ] : [
-    "https://en.wikipedia.org/w/api.php", ...GUTENBERG_BOOKS.map((book) => book.textUrl),
-    "https://en.wikipedia.org/wiki/Artificial_intelligence", "https://en.wikipedia.org/wiki/Paris",
-    "https://en.wikipedia.org/wiki/Albert_Einstein", "https://en.wikipedia.org/wiki/History_of_science",
+async function getConfiguredSourceUrls(language: ChallengeLanguage): Promise<string[]> {
+  const wikiDomain = getWikipediaDomain(language);
+  const defaults = [
+    "https://" + wikiDomain + "/w/api.php",
+    ...(language === "en" ? GUTENBERG_BOOKS.map((book) => book.textUrl) : []),
   ];
   const setting = await prisma.systemSetting.findUnique({ where: { key: `clue_sources_${language}` }, select: { value: true } });
   if (!setting) return defaults;
@@ -542,13 +566,13 @@ async function getConfiguredSourceUrls(language: "en" | "fa"): Promise<string[]>
  * playable if either external source is temporarily unavailable.
  */
 async function generateMvpRounds(
-  language: "en" | "fa" = "en",
+  language: ChallengeLanguage = "en",
   context?: RoundGenerationContext,
 ): Promise<GeneratedRound[]> {
   const configuredUrls = await getConfiguredSourceUrls(language);
   const scheduledAssignments = context ? await getScheduledSourceAssignments(language, context) : [];
   const assignedUrls = [...new Set(scheduledAssignments.map((assignment) => assignment.url))];
-  const wikiUrl = `https://${language === "fa" ? "fa" : "en"}.wikipedia.org/w/api.php`;
+  const wikiUrl = "https://" + getWikipediaDomain(language) + "/w/api.php";
   const wikipediaDocuments = configuredUrls.includes(wikiUrl) ? await fetchWikipediaDocuments(12, language) : [];
   const gutenbergResults = language === "en" ? await Promise.all(
     GUTENBERG_BOOKS.filter((book) => configuredUrls.includes(book.textUrl)).map((book) => fetchGutenbergDocument(book)),
@@ -579,7 +603,7 @@ async function generateMvpRounds(
   const usedAnswers = new Set<string>();
   const optionCorpus = sources.map((source) => source.text).join("\n");
   const optionWords = [...new Set(getSourceWordMatches(optionCorpus, language)
-    .map((match) => match.word).filter((word) => language === "fa" || !COMMON_WORDS.has(word)))];
+    .map((match) => match.word).filter((word) => language !== "en" || !COMMON_WORDS.has(word)))];
 
   // A scheduled source is pinned to its chosen cell. Fail the generation rather
   // than silently publishing a challenge that ignores an admin's assignment.
@@ -655,7 +679,7 @@ async function generateMvpRounds(
  * Safe to call on every server start: a contest is reused only when all twelve
  * rounds have a source URL, a hint anchor, and twelve word choices.
  */
-async function ensureMvpActiveContestInternal(language: "en" | "fa" = "en") {
+async function ensureMvpActiveContestInternal(language: ChallengeLanguage = "en") {
   // Persist the numbering anchor before recovery creates a replacement round;
   // otherwise an outage could make the recovered round reset the schedule.
   await getChallengeScheduleAnchor();
@@ -735,8 +759,7 @@ async function ensureMvpActiveContestInternal(language: "en" | "fa" = "en") {
   const status = "ACTIVE";
   const contest = await prisma.contest.create({
     data: {
-      title: language === "fa" ? "چالش واژه‌یابی فارسی Wallet Find" : "Wallet Find English Word Challenge",
-      description: language === "fa" ? "۱۲ سرنخ واژه‌یابی از منابع فارسی." : "12 word clues from English-language sources.",
+      ...generatedContestCopy(language),
       language,
       status,
       startsAt,
@@ -786,7 +809,7 @@ async function ensureMvpActiveContestInternal(language: "en" | "fa" = "en") {
     },
   });
 
-  console.log(`Created playable ${language === "fa" ? "Persian" : "English"} word-finding contest:`, contest.id);
+  console.log(`Created playable ${CHALLENGE_LANGUAGE_NAMES[language]} word-finding contest:`, contest.id);
   return contest.id;
 }
 
@@ -794,9 +817,9 @@ async function ensureMvpActiveContestInternal(language: "en" | "fa" = "en") {
 // Share initialization between server startup and any early request that
 // arrives before the first round is ready. This prevents duplicate source
 // downloads and duplicate contest creation during cold start.
-const activeContestEnsurePromises = new Map<"en" | "fa", Promise<string>>();
+const activeContestEnsurePromises = new Map<ChallengeLanguage, Promise<string>>();
 
-export function ensureMvpActiveContest(language: "en" | "fa" = "en"): Promise<string> {
+export function ensureMvpActiveContest(language: ChallengeLanguage = "en"): Promise<string> {
   const existing = activeContestEnsurePromises.get(language);
   if (existing) return existing;
   const pending = ensureMvpActiveContestInternal(language).finally(() => activeContestEnsurePromises.delete(language));
@@ -871,7 +894,7 @@ export async function startNextMvpContest(userId: string, completedContestId: st
   }
 
   const now = new Date();
-  const language = completedContest.language === "fa" ? "fa" : "en";
+  const language = isChallengeLanguage(completedContest.language) ? completedContest.language : "en";
   const existingScheduled = await prisma.contest.findFirst({
     where: { status: "SCHEDULED", language, startsAt: { gt: now } },
     orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
@@ -1047,15 +1070,15 @@ export async function startNextMvpContest(userId: string, completedContestId: st
 }
 
 
-const lastAutomaticRoundAttemptAt = new Map<"en" | "fa", number>();
-const lastScheduledSourceAssignmentAttemptAt = new Map<"en" | "fa", { at: number; signature: string }>();
+const lastAutomaticRoundAttemptAt = new Map<ChallengeLanguage, number>();
+const lastScheduledSourceAssignmentAttemptAt = new Map<ChallengeLanguage, { at: number; signature: string }>();
 const AUTOMATIC_ROUND_RETRY_DELAY_MS = 5 * 60_000;
 
 /**
  * Keep one future shared round queued even when nobody has completed the
  * current round yet. The generated round starts on a fixed 15-minute boundary.
  */
-export async function ensureScheduledMvpContest(now = new Date(), language: "en" | "fa" = "en") {
+export async function ensureScheduledMvpContest(now = new Date(), language: ChallengeLanguage = "en") {
   const scheduledCandidates = await prisma.contest.findMany({
     where: { status: "SCHEDULED", language, startsAt: { gt: now } },
     orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
@@ -1196,8 +1219,7 @@ export async function ensureScheduledMvpContest(now = new Date(), language: "en"
 
       const round = await tx.contest.create({
         data: {
-          title: language === "fa" ? "چالش واژه‌یابی فارسی Wallet Find" : "Wallet Find English Word Challenge",
-          description: language === "fa" ? "۱۲ سرنخ واژه‌یابی از منابع فارسی." : "12 word clues from English-language sources.",
+          ...generatedContestCopy(language),
           language,
           status: "SCHEDULED",
           startsAt,
