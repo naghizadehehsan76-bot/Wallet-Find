@@ -6,7 +6,6 @@ import { formatAssetUnitsFixed } from "../wallet/asset-amount.js";
 
 const ONLINE_WINDOW_MS = 2 * 60 * 1000;
 
-
 export async function getPublicPrizePoolStatsHandler(
   req: Request,
   res: Response,
@@ -36,13 +35,15 @@ export async function getPublicPrizePoolStatsHandler(
       prisma.prizeAward.aggregate({ _sum: { amountMicro: true } }),
     ]);
 
+    const totalPrizesAwardedAtomic = BigInt(awardedTotal._sum.amountMicro ?? 0n);
+
     return res.status(200).json({
       success: true,
       data: {
         totalPool: globalSnapshot.totalPool,
         currentRoundPool: currentPool?.pool.available ?? formatAssetUnitsFixed(0n, 6),
         totalRoundAllocations: globalSnapshot.totalRoundAllocations,
-        totalPrizesAwarded: formatAssetUnitsFixed(BigInt(awardedTotal._sum.amountMicro ?? 0n) > 0n ? BigInt(awardedTotal._sum.amountMicro ?? 0n) : 0n, 6),
+        totalPrizesAwarded: formatAssetUnitsFixed(totalPrizesAwardedAtomic > 0n ? totalPrizesAwardedAtomic : 0n, 6),
         currency: "USDT",
         updatedAt: now.toISOString(),
       },
