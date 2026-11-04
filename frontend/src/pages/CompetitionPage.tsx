@@ -254,7 +254,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           setFeedback(
             isPersian
               ? "راند بعدی هنوز آماده‌ی انتشار نیست؛ صفحه به‌صورت خودکار بررسی می‌شود."
-              : "The next round is not published yet. This page will check automatically.",
+              : (messages.waiting ?? "The next round is not published yet. This page will check automatically."),
           );
         }
       })
@@ -266,7 +266,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
             ? err.message
             : isPersian
               ? "خطا در دریافت چالش"
-              : "Unable to load the challenge.",
+              : (messages.loadError ?? "Unable to load the challenge."),
         );
       })
       .finally(() => {
@@ -277,7 +277,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       cancelled = true;
       window.clearInterval(poolRefreshId);
     };
-  }, [isPersian]);
+  }, [language, isPersian]);
 
   useEffect(() => {
     // A late joiner must not remain stuck with every answer box locked if the
@@ -299,13 +299,13 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
             setFeedback(
               isPersian
                 ? "چالش آماده است؛ از اولین کلمه‌ی حل‌نشده شروع کن."
-                : "The challenge is ready. Start with your first unsolved word.",
+                : (messages.ready ?? "The challenge is ready. Start with your first unsolved word."),
             );
           } else if (current.status === "CONTEST_COMPLETED") {
             setFeedback(
               isPersian
                 ? "تبریک! هر ۱۲ راند را کامل کردی."
-                : "Congratulations! You completed all 12 rounds.",
+                : (messages.completed ?? "Congratulations! You completed all 12 rounds."),
             );
           }
         })
@@ -344,12 +344,12 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     try {
       target = new URL(sourceUrl);
     } catch {
-      setError(isPersian ? "نشانی صفحهٔ منبع معتبر نیست." : "The source URL is invalid.");
+      setError(isPersian ? "نشانی صفحهٔ منبع معتبر نیست." : (messages.sourceInvalid ?? "The source URL is invalid."));
       return;
     }
 
     if (target.protocol !== "https:" || target.username || target.password) {
-      setError(isPersian ? "نشانی صفحهٔ منبع معتبر نیست." : "The source URL is invalid.");
+      setError(isPersian ? "نشانی صفحهٔ منبع معتبر نیست." : (messages.sourceInvalid ?? "The source URL is invalid."));
       return;
     }
 
@@ -540,7 +540,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       setFeedback(
         isPersian
           ? "واژهٔ پاسخ را در کادر مربوط به همین راند وارد کن."
-          : "Type the answer word into the box for this round.",
+          : (messages.empty ?? "Type the answer word into the box for this round."),
       );
       return;
     }
@@ -562,7 +562,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
         setFeedback(
           isPersian
             ? "پاسخ غلط است. کلمه را در همین کادر اصلاح کن و دوباره بررسی کن."
-            : "Incorrect answer. Edit the word in this box and try again.",
+            : (messages.wrong ?? "Incorrect answer. Edit the word in this box and try again."),
         );
         return;
       }
@@ -591,7 +591,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
       setFeedback(
         isPersian
           ? "پاسخ درست بود! کلمه ی بعدی رو پیدا کن ."
-          : "Correct answer! Find the next word.",
+          : (messages.correct ?? "Correct answer! Find the next word."),
       );
       await refreshCurrentClue();
     } catch (err) {
