@@ -18,7 +18,7 @@ import { getPageCopy } from "../i18n/page-overrides";
 import { localizeApiError, localizeContestTitle, localizeUiMessage } from "../i18n/localize";
 import LoadingIndicator from "../components/LoadingIndicator";
 import { ChallengeLanguagePicker } from "../components/LanguageSwitcher";
-import type { ChallengeLanguage } from "../i18n/challenge-languages.js";
+import { getChallengeLanguageName, type ChallengeLanguage } from "../i18n/challenge-languages.js";
 
 type Page =
   | "home"
