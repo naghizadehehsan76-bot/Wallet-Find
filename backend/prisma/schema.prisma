@@ -87,6 +87,8 @@ model User {
   passwordHash String
   emailVerifiedAt DateTime? @default(now())
   avatarDataUrl String? @db.Text
+  uiLanguage String @default("fa")
+  challengeLanguage String @default("en")
 
   role UserRole @default(USER)
 
