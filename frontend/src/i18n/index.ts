@@ -14,16 +14,16 @@ import { CHALLENGE_LANGUAGES, isChallengeLanguage, type ChallengeLanguage } from
 import { updateLanguagePreferences } from "../services/api";
 
 export const languages = {
-  fa: fa as Translation,
-  en: en as Translation,
-  de: en as Translation,
-  es: en as Translation,
-  fr: en as Translation,
-  ar: en as Translation,
-  tr: en as Translation,
-  pt: en as Translation,
-  ru: en as Translation,
-  "zh-CN": en as Translation,
+  fa: fa as unknown as Translation,
+  en: en as unknown as Translation,
+  de: en as unknown as Translation,
+  es: en as unknown as Translation,
+  fr: en as unknown as Translation,
+  ar: en as unknown as Translation,
+  tr: en as unknown as Translation,
+  pt: en as unknown as Translation,
+  ru: en as unknown as Translation,
+  "zh-CN": en as unknown as Translation,
 } satisfies Record<ChallengeLanguage, Translation>;
 
 export type Language = ChallengeLanguage;
