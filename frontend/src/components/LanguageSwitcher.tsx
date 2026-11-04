@@ -93,6 +93,23 @@ function LanguagePicker({
   );
 }
 
+export function ChallengeLanguagePicker({
+  onLanguageChange,
+}: {
+  onLanguageChange?: (value: ChallengeLanguage) => void;
+}) {
+  const { challengeLanguage, changeChallengeLanguage, isRTL } = useI18n();
+
+  return (
+    <LanguagePicker
+      kind="challenge"
+      value={challengeLanguage}
+      onChange={onLanguageChange ?? changeChallengeLanguage}
+      isRTL={isRTL}
+    />
+  );
+}
+
 function LanguageSwitcher() {
   const { language, changeLanguage, challengeLanguage, changeChallengeLanguage, isRTL } = useI18n();
 

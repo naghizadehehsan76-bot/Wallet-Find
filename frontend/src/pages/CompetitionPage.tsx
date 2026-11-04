@@ -17,7 +17,8 @@ import { useI18n } from "../i18n";
 import { getPageCopy } from "../i18n/page-overrides";
 import { localizeApiError, localizeContestTitle, localizeUiMessage } from "../i18n/localize";
 import LoadingIndicator from "../components/LoadingIndicator";
-import { CHALLENGE_LANGUAGES, getChallengeLanguageName, type ChallengeLanguage } from "../i18n/challenge-languages.js";
+import { ChallengeLanguagePicker } from "../components/LanguageSwitcher";
+import { getChallengeLanguageName, type ChallengeLanguage } from "../i18n/challenge-languages.js";
 
 type Page =
   | "home"
@@ -799,17 +800,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                 (isPersian ? "چالش فعال" : "Active challenge")}
             </div>
             <div className="contest-language-choice">
-              <label htmlFor="challenge-language-select">{isPersian ? "زبان چالش" : "Challenge language"}</label>
-              <select
-                id="challenge-language-select"
-                value={contestLanguage}
-                onChange={(event) => chooseContestLanguage(event.target.value as ChallengeLanguage)}
-                aria-label={isPersian ? "انتخاب زبان چالش" : "Select challenge language"}
-              >
-                {CHALLENGE_LANGUAGES.map((item) => (
-                  <option key={item.code} value={item.code}>{item.nativeName}</option>
-                ))}
-              </select>
+              <ChallengeLanguagePicker onLanguageChange={chooseContestLanguage} />
             </div>
           </div>
           <div className="clue-timer" role="timer" aria-live="off">
