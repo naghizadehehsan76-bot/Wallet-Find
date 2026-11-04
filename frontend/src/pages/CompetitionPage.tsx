@@ -16,6 +16,7 @@ import {
 import { useI18n } from "../i18n";
 import { localizeApiError, localizeContestTitle, localizeUiMessage } from "../i18n/localize";
 import LoadingIndicator from "../components/LoadingIndicator";
+import { CHALLENGE_LANGUAGES, getChallengeLanguageName, isChallengeLanguage, type ChallengeLanguage } from "../i18n/challenge-languages.js";
 
 type Page =
   | "home"
@@ -119,8 +120,11 @@ function estimateCurrentPrize(
 function CompetitionPage({ onNavigate }: CompetitionPageProps) {
   const { language } = useI18n();
   const isPersian = language === "fa";
-  const [contestLanguage, setContestLanguage] = useState<"en" | "fa">(() => localStorage.getItem("walletFindContestLanguage") === "fa" ? "fa" : "en");
-  function chooseContestLanguage(nextLanguage: "en" | "fa") {
+  const [contestLanguage, setContestLanguage] = useState<ChallengeLanguage>(() => {
+    const savedLanguage = localStorage.getItem("walletFindContestLanguage");
+    return isChallengeLanguage(savedLanguage) ? savedLanguage : language === "fa" ? "fa" : "en";
+  });
+  function chooseContestLanguage(nextLanguage: ChallengeLanguage) {
     if (nextLanguage === contestLanguage) return;
     localStorage.setItem("walletFindContestLanguage", nextLanguage);
     setContestLanguage(nextLanguage);
@@ -225,7 +229,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
     loadGlobalPrizePool();
     const poolRefreshId = window.setInterval(loadGlobalPrizePool, 30_000);
 
-    void getActiveContest()
+    void getActiveContest(contestLanguage)
       .then(async (contest) => {
         if (cancelled) return;
 
@@ -797,9 +801,18 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
               {formattedDate ||
                 (isPersian ? "چالش فعال" : "Active challenge")}
             </div>
-            <div className="contest-language-choice" role="group" aria-label={isPersian ? "زبان چالش" : "Challenge language"}>
-              <button type="button" aria-pressed={contestLanguage === "en"} className={contestLanguage === "en" ? "is-active" : ""} onClick={() => chooseContestLanguage("en")}>{isPersian ? "چالش انگلیسی" : "English challenge"}</button>
-              <button type="button" aria-pressed={contestLanguage === "fa"} className={contestLanguage === "fa" ? "is-active" : ""} onClick={() => chooseContestLanguage("fa")}>{isPersian ? "چالش فارسی" : "Persian challenge"}</button>
+            <div className="contest-language-choice">
+              <label htmlFor="challenge-language-select">{isPersian ? "زبان چالش" : "Challenge language"}</label>
+              <select
+                id="challenge-language-select"
+                value={contestLanguage}
+                onChange={(event) => chooseContestLanguage(event.target.value as ChallengeLanguage)}
+                aria-label={isPersian ? "انتخاب زبان چالش" : "Select challenge language"}
+              >
+                {CHALLENGE_LANGUAGES.map((item) => (
+                  <option key={item.code} value={item.code}>{item.nativeName}</option>
+                ))}
+              </select>
             </div>
           </div>
           <div className="clue-timer" role="timer" aria-live="off">
@@ -850,8 +863,8 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
             <h3>{isPersian ? "این دور را قبلاً در زبان دیگری تکمیل کرده‌ای" : "You already completed this round in the other language"}</h3>
             <p>
               {isPersian
-                ? "شما قبلاً چالش شمارهٔ " + formatNumber(languageBlock.challengeNumber) + " را در چالش " + (languageBlock.completedLanguage === "en" ? "انگلیسی" : "فارسی") + " تکمیل کرده‌اید. در هر دور فقط امکان تکمیل یکی از دو زبان وجود دارد."
-                : "You have already completed challenge #" + formatNumber(languageBlock.challengeNumber) + " in the " + (languageBlock.completedLanguage === "en" ? "English" : "Persian") + " challenge. You may complete only one language per round."}
+                ? "شما قبلاً چالش شمارهٔ " + formatNumber(languageBlock.challengeNumber) + " را در چالش " + (getChallengeLanguageName(languageBlock.completedLanguage)) + " تکمیل کرده‌اید. در هر دور فقط امکان تکمیل یکی از دو زبان وجود دارد."
+                : "You have already completed challenge #" + formatNumber(languageBlock.challengeNumber) + " in the " + (getChallengeLanguageName(languageBlock.completedLanguage)) + " challenge. You may complete only one language per round."}
             </p>
             <div className="language-participation-block__countdown">
               <span>{isPersian ? "زمان باقی‌مانده تا دور بعد" : "Time until the next round"}</span>
@@ -1005,25 +1018,21 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                   </div>
                   {hintAnchor ? (
                     <p>
-                      {contestLanguage === "fa"
-                        ? (isPersian
-                            ? `در صفحهٔ منبع عبارت زیر را دقیقاً پیدا کن؛ پاسخ خانهٔ (${formatNumber(displayedRound)}) نویسهٔ فارسیِ بلافاصله پس از عبارت راهنما است.`
-                            : `Find the exact phrase below on the source page. The answer for box (${formatNumber(displayedRound)}) is the Persian character immediately after the hint phrase.`)
-                        : (isPersian
-                            ? <>داخل <button
-                                type="button"
-                                onClick={() => void openTrackedSource()}
-                                disabled={!sourceUrl}
-                                style={{ display: "inline", padding: 0, border: 0, background: "none", color: "var(--accent-color, #14b8a6)", textDecoration: "underline", cursor: sourceUrl ? "pointer" : "not-allowed", font: "inherit" }}
-                              >صفحهٔ منبع</button> عبارت زیر را دقیقاً پیدا کن؛ پاسخ خانهٔ ( {formatNumber(displayedRound)} ) اولین کلمه بعد عبارت راهنما است.</>
-                            : `Find this exact phrase on the source page. The answer for box ${formatNumber(displayedRound)} is the continuous sequence of 4–12 English letters (A–Z) immediately after it. Include attached letter prefixes/suffixes; spaces, hyphens, and apostrophes separate sequences, and punctuation is not part of the answer.`)}
+                      {isPersian
+                        ? <>عبارت زیر را دقیقاً در <button
+                            type="button"
+                            onClick={() => void openTrackedSource()}
+                            disabled={!sourceUrl}
+                            style={{ display: "inline", padding: 0, border: 0, background: "none", color: "var(--accent-color, #14b8a6)", textDecoration: "underline", cursor: sourceUrl ? "pointer" : "not-allowed", font: "inherit" }}
+                          >صفحهٔ منبع</button> پیدا کن؛ پاسخ، نخستین واژه در زبان انتخاب‌شدهٔ چالش است که بلافاصله پس از عبارت می‌آید.</>
+                        : `Find this exact phrase on the source page. The answer for box ${formatNumber(displayedRound)} is the next word in the selected challenge language immediately after the phrase; do not include punctuation.`}
                     </p>
                   ) : (
                     <p>{localizeUiMessage(clueContent, language)}</p>
                   )}
                   {hintAnchor && (
                     <>
-                      <div className="round-hint-card__phrase" dir={contestLanguage === "fa" ? "rtl" : "ltr"}>
+                      <div className="round-hint-card__phrase" dir={contestLanguage === "fa" || contestLanguage === "ar" ? "rtl" : "ltr"}>
                         {hintAnchor}
                       </div>
                       <button
@@ -1036,13 +1045,9 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                     </>
                   )}
                   <div className="round-hint-card__tip">
-                    {contestLanguage === "fa"
-                      ? (isPersian
-                          ? "مثال: «می‌رود» و «کتاب‌ها» را کامل و با نیم‌فاصله وارد کن؛ نشانه‌گذاری، عبارت راهنما و واژهٔ جداشده را وارد نکن."
-                          : "Example: enter a Persian token such as “می‌رود” or “کتاب‌ها” whole, including its zero-width non-joiner; exclude punctuation and neighboring words.")
-                      : (isPersian
-                          ? "مثال: «unhelpful» یا «played» را کامل وارد کن؛ نشانه‌گذاری، عبارت راهنما و واژهٔ جداشده را وارد نکن."
-                          : "Example: enter “unhelpful” or “played” as a whole word; exclude punctuation, the hint phrase, and neighboring words.")}
+                    {isPersian
+                      ? "خود واژه را کامل وارد کن؛ عبارت راهنما و نشانه‌گذاری را ننویس."
+                      : "Enter the complete word in the selected challenge language; omit the hint phrase and punctuation."}
                   </div>
                 </section>
 
@@ -1136,13 +1141,9 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
               <div className="step-number mono">{formatNumber(2)}</div>
               <div className="step-content">
                 <p>
-                  {contestLanguage === "fa"
-                    ? (isPersian
-                        ? "پاسخ، توالی پیوستهٔ فارسیِ ۳ تا ۲۴ نویسه‌ای است که بلافاصله پس از عبارت می‌آید؛ پاسخ لزوماً بین دو فاصله نیست. نیم‌فاصله و پیشوند/پسوند چسبیده را نگه دار و نشانه‌گذاری را ننویس."
-                        : "The answer is the 3–24-character Persian-script token immediately after the phrase; it is not necessarily text between two spaces. Keep an internal zero-width non-joiner and attached affixes; omit punctuation.")
-                    : (isPersian
-                        ? "پاسخ، توالی پیوستهٔ ۴ تا ۱۲ حرف انگلیسی A–Z پس از عبارت است؛ پاسخ لزوماً بین دو فاصله نیست. بخش‌های حروفی چسبیده را کامل وارد کن؛ خط تیره و آپاستروف توالی را جدا می‌کنند."
-                        : "The answer is a continuous sequence of 4–12 English letters (A–Z) after the phrase, not necessarily text between two spaces. Include attached letter prefixes/suffixes; hyphens and apostrophes break the sequence.")}
+                  {isPersian
+                    ? "پاسخ، نخستین واژه در زبان انتخاب‌شدهٔ چالش است که بلافاصله پس از عبارت راهنما می‌آید. واژه را کامل و بدون نشانه‌گذاری وارد کن."
+                    : "The answer is the first word in the selected challenge language immediately after the hint phrase. Enter the complete word without punctuation."}
                 </p>
                 <small>
                   {isPersian
