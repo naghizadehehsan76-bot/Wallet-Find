@@ -3764,3 +3764,19 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 @media (max-width: 640px) {
   .wf-language-picker__menu { max-height: min(290px, 48vh); }
 }
+
+
+/* Keep both language filters available from the shared navigation drawer on desktop and mobile. */
+.sidebar-home-tools {
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 2px 2px;
+  padding: 12px;
+  border: 1px solid rgba(66,232,212,.18);
+  border-radius: 13px;
+  background: rgba(13,17,18,.72);
+}
+.sidebar-home-tools .wf-language-settings { width: 100%; }
