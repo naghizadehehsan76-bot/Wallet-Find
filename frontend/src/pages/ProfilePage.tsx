@@ -61,13 +61,11 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
 
   async function handleDeleteAccount() {
     if (!profile || profile.role !== "USER" || deletingAccount) return;
-    const confirmed = window.confirm(isPersian
+    const confirmed = window.confirm(copy.deleteConfirm ?? (isPersian
       ? "حذف حساب دائمی است و سوابق فعالیت مسابقه‌ای این حساب نیز پاک می‌شود. ادامه می‌دهی؟"
-      : "Account deletion is permanent and this account's challenge activity history will also be erased. Continue?");
+      : "Account deletion is permanent and this account's challenge activity history will also be erased. Continue?"));
     if (!confirmed) return;
-    const typedUsername = window.prompt(isPersian
-      ? `برای تأیید نهایی، نام کاربری «${profile.username}» را دقیقاً وارد کن:`
-      : `For final confirmation, type the username exactly: ${profile.username}`);
+    const typedUsername = window.prompt((copy.deletePrompt ?? (isPersian ? "برای تأیید نهایی، نام کاربری را وارد کن: " : "For final confirmation, type the username exactly: ")) + profile.username);
     if (typedUsername !== profile.username) {
       if (typedUsername !== null) setDeleteError(copy.deleteMismatch ?? (isPersian ? "نام کاربری مطابقت نداشت؛ حساب حذف نشد." : "The username did not match. The account was not deleted."));
       return;
