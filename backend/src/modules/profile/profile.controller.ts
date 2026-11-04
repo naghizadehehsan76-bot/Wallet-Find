@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import type { AuthenticatedRequest } from "../../middleware/auth.middleware.js";
-import { getProfile } from "./profile.service.js";
+import { getProfile, updateLanguagePreferences } from "./profile.service.js";
 import prisma from "../../config/prisma.js";
 
 export async function getProfileHandler(
@@ -142,5 +142,29 @@ export async function deleteOwnAccountHandler(
     }
     console.error("Account deletion failed", error);
     return res.status(500).json({ success: false, error: "ACCOUNT_DELETION_FAILED" });
+  }
+}
+
+export async function updateLanguagePreferencesHandler(
+  req: AuthenticatedRequest,
+  res: Response,
+) {
+  if (!req.user) {
+    return res.status(401).json({ success: false, error: "AUTHENTICATION_REQUIRED" });
+  }
+  const uiLanguage = req.body?.uiLanguage;
+  const challengeLanguage = req.body?.challengeLanguage;
+  if (typeof uiLanguage !== "string" || typeof challengeLanguage !== "string") {
+    return res.status(400).json({ success: false, error: "INVALID_LANGUAGE_PREFERENCES" });
+  }
+  try {
+    const preferences = await updateLanguagePreferences(req.user.userId, uiLanguage, challengeLanguage);
+    return res.status(200).json({ success: true, data: preferences });
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNSUPPORTED_LANGUAGE") {
+      return res.status(400).json({ success: false, error: error.message });
+    }
+    console.error("Language preference update failed", error);
+    return res.status(500).json({ success: false, error: "LANGUAGE_PREFERENCE_UPDATE_FAILED" });
   }
 }
