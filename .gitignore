@@ -37,3 +37,9 @@ backend/skills-lock.json
 /backend/src/**/*.js.map
 /backend/src/**/*.d.ts
 /backend/src/**/*.d.ts.map
+
+# Generated Prisma config compiler output (prisma.config.ts is the source of truth)
+/backend/prisma.config.js
+/backend/prisma.config.js.map
+/backend/prisma.config.d.ts
+/backend/prisma.config.d.ts.map
