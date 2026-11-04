@@ -206,7 +206,7 @@ export function sourceUrlMatchesAssignment(
     const assigned = new URL(assignedUrl);
     if (actual.origin !== assigned.origin) return false;
 
-    if (actual.hostname === "en.wikipedia.org" || actual.hostname === "fa.wikipedia.org") {
+    if (actual.hostname.endsWith(".wikipedia.org")) {
       if (actual.pathname !== assigned.pathname) return false;
       const assignedRevision = assigned.searchParams.get("oldid");
       return !assignedRevision || actual.searchParams.get("oldid") === assignedRevision;
