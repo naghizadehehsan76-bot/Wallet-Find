@@ -748,8 +748,6 @@ function App() {
     let cancelled = false;
     getProfile().then((profile) => {
       if (cancelled) return;
-      localStorage.setItem("walletFindLanguage", profile.uiLanguage);
-      localStorage.setItem("walletFindContestLanguage", profile.challengeLanguage);
       window.dispatchEvent(new CustomEvent("wallet-find:preferences-loaded", {
         detail: { uiLanguage: profile.uiLanguage, challengeLanguage: profile.challengeLanguage },
       }));
