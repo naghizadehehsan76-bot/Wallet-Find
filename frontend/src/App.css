@@ -2069,9 +2069,9 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 .wallet-error { color: #ff8c8c !important; }
 
 
-.contest-language-choice { display:flex; flex-wrap:wrap; align-items:center; gap:9px; margin-top:10px; }
-.contest-language-choice label { color:var(--muted); font-size:11px; }
-.contest-language-choice select { min-width:150px; max-width:100%; border:1px solid var(--line); border-radius:9px; padding:8px 12px; background:var(--ink-2); color:var(--text); font:inherit; font-size:12px; }
+.contest-language-choice { display:flex; flex-wrap:wrap; align-items:flex-start; gap:9px; width:min(100%,260px); margin-top:10px; }
+.contest-language-choice .wf-language-picker { width:100%; }
+.contest-language-choice .wf-language-picker__menu { max-height:min(300px,48vh); }
 
 
 /* Required terms acceptance shown on registration only. */
