@@ -745,6 +745,22 @@ function App() {
 
   useEffect(() => {
     if (authStatus !== "authenticated") return;
+    let cancelled = false;
+    getProfile().then((profile) => {
+      if (cancelled) return;
+      localStorage.setItem("walletFindLanguage", profile.uiLanguage);
+      localStorage.setItem("walletFindContestLanguage", profile.challengeLanguage);
+      window.dispatchEvent(new CustomEvent("wallet-find:preferences-loaded", {
+        detail: { uiLanguage: profile.uiLanguage, challengeLanguage: profile.challengeLanguage },
+      }));
+    }).catch(() => {
+      // Keep the device's saved locale if the preference endpoint is temporarily unavailable.
+    });
+    return () => { cancelled = true; };
+  }, [authStatus]);
+
+  useEffect(() => {
+    if (authStatus !== "authenticated") return;
 
     let cancelled = false;
     let inFlight = false;
