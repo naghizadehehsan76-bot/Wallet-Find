@@ -2,17 +2,10 @@ import type { Request, Response } from "express";
 import prisma from "../../config/prisma.js";
 import type { AuthenticatedRequest } from "../../middleware/auth.middleware.js";
 import { getGlobalPrizePoolSnapshot, getPublicPrizePool } from "../contest/prize-pool.service.js";
+import { formatAssetUnitsFixed } from "../wallet/asset-amount.js";
 
 const ONLINE_WINDOW_MS = 2 * 60 * 1000;
 
-const MICRO_USDT = 1_000_000n;
-
-function formatMicroUsdt(value: bigint): string {
-  const safeValue = value > 0n ? value : 0n;
-  const whole = safeValue / MICRO_USDT;
-  const fraction = (safeValue % MICRO_USDT).toString().padStart(6, "0");
-  return `${whole}.${fraction}`;
-}
 
 export async function getPublicPrizePoolStatsHandler(
   req: Request,
@@ -47,9 +40,9 @@ export async function getPublicPrizePoolStatsHandler(
       success: true,
       data: {
         totalPool: globalSnapshot.totalPool,
-        currentRoundPool: currentPool?.pool.available ?? formatMicroUsdt(0n),
+        currentRoundPool: currentPool?.pool.available ?? formatAssetUnitsFixed(0n, 6),
         totalRoundAllocations: globalSnapshot.totalRoundAllocations,
-        totalPrizesAwarded: formatMicroUsdt(BigInt(awardedTotal._sum.amountMicro ?? 0n)),
+        totalPrizesAwarded: formatAssetUnitsFixed(BigInt(awardedTotal._sum.amountMicro ?? 0n) > 0n ? BigInt(awardedTotal._sum.amountMicro ?? 0n) : 0n, 6),
         currency: "USDT",
         updatedAt: now.toISOString(),
       },
