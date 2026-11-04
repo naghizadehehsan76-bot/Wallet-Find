@@ -54,7 +54,7 @@ function toIsoOrUndefined(value: string) {
 function AdminPage(_props: AdminPageProps) {
   const { language, translation: t } = useI18n();
   const isPersian = language === "fa";
-  const adminCopy = { ...t.admin, ...getAdminBuilderCopy(language), status: adminCopy.status };
+  const adminCopy = { ...t.admin, ...getAdminBuilderCopy(language), status: t.admin.status };
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [startsAt, setStartsAt] = useState("");
