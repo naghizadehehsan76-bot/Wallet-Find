@@ -1,6 +1,7 @@
 import prisma from "../../config/prisma.js";
 import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
 import { ensureMvpActiveContest, ensureScheduledMvpContest } from "./mvp-contest-seed.service.js";
+import { CHALLENGE_LANGUAGES } from "./supported-languages.js";
 
 /**
  * The scheduler manages round activation/expiry only. Clues are no longer
@@ -76,20 +77,22 @@ export async function runContestScheduler(now = new Date()) {
     });
   }
 
-  const nextRound = await ensureScheduledMvpContest(now, "en");
-  let persianActiveReady = false;
-  try {
-    await ensureMvpActiveContest("fa");
-    persianActiveReady = true;
-  } catch (error) {
-    console.warn("Persian active challenge could not be initialized; scheduler will retry.", error);
+  const languageResults: Record<string, { activeReady: boolean; scheduled: unknown }> = {};
+  for (const language of CHALLENGE_LANGUAGES) {
+    let activeReady = false;
+    try {
+      await ensureMvpActiveContest(language);
+      activeReady = true;
+    } catch (error) {
+      console.warn(`The ${language} challenge could not be initialized; scheduler will retry.`, error);
+    }
+    const scheduledRound = await ensureScheduledMvpContest(now, language);
+    languageResults[language] = { activeReady, scheduled: scheduledRound };
   }
-  const nextPersianRound = await ensureScheduledMvpContest(now, "fa");
+
   return {
     scheduledChecked: scheduled.length,
-    nextRound,
-    nextPersianRound,
-    persianActiveReady,
+    languageResults,
     now: now.toISOString(),
   };
 }
