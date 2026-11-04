@@ -1,11 +1,12 @@
 import prisma from "../../config/prisma.js";
+import { formatAssetUnitsFixed } from "../wallet/asset-amount.js";
 
 const MICRO = 1_000_000n;
 const ROUND_ALLOCATION_MICRO = MICRO;
 
 function formatMicro(value: bigint) {
   const safe = value > 0n ? value : 0n;
-  return `${safe / MICRO}.${(safe % MICRO).toString().padStart(6, "0")}`;
+  return formatAssetUnitsFixed(safe, 6);
 }
 
 /**
