@@ -193,3 +193,26 @@ test("generated clues carry a version marker used to retire old unreliable round
   assert.equal(generatedClueInstruction("fa").startsWith(CLUE_GENERATOR_VERSION), true);
   assert.equal(generatedClueInstruction("en").startsWith(CLUE_GENERATOR_VERSION), true);
 });
+
+
+test("clue generation supports word tokenization in every enabled challenge language", () => {
+  const samples = [
+    ["fa", "پژوهش‌های علمی می‌توانند کیفیت زندگی انسان‌ها را بهبود دهند."],
+    ["en", "Scientific research can improve the quality of modern life."],
+    ["de", "Wissenschaftliche Forschung verbessert die Lebensqualität moderner Gesellschaften."],
+    ["es", "La investigación científica mejora la calidad de vida de las sociedades modernas."],
+    ["fr", "La recherche scientifique améliore la qualité de vie des sociétés modernes."],
+    ["ar", "تساعد الأبحاث العلمية على تحسين جودة الحياة في المجتمعات الحديثة."],
+    ["tr", "Bilimsel araştırmalar modern toplumlarda yaşam kalitesini artırabilir."],
+    ["pt", "A investigação científica pode melhorar a qualidade de vida das sociedades modernas."],
+    ["ru", "Научные исследования могут улучшить качество жизни современного общества."],
+    ["zh-CN", "科学研究能够改善现代社会人们的生活质量。"],
+  ] as const;
+
+  for (const [language, sourceText] of samples) {
+    const matches = getSourceWordMatches(sourceText, language);
+    assert.ok(matches.length >= 3, `Expected at least three tokens for ${language}`);
+    assert.ok(matches.every((match) => match.word.length > 0 && match.raw.length > 0));
+    assert.ok(generatedClueInstruction(language).startsWith(CLUE_GENERATOR_VERSION));
+  }
+});
