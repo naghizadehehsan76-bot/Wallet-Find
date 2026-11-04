@@ -188,8 +188,7 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
               {avatarError && <p className="inline-feedback round-error" role="alert">{avatarError}</p>}
               <h2>{profile.username}</h2>
               <span>
-                {isPersian
-                  ? `${copy.memberSince ?? "Member since"} ${new Intl.DateTimeFormat(language === "zh-CN" ? "zh-CN" : language, { dateStyle: "medium" }).format(new Date(profile.createdAt))}`}
+                {`${copy.memberSince ?? (isPersian ? "عضو از" : "Member since")} ${new Intl.DateTimeFormat(language === "fa" ? "fa-IR" : language, { dateStyle: "medium" }).format(new Date(profile.createdAt))}`}
               </span>
             </section>
 
