@@ -100,8 +100,14 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handlePreferencesLoaded = (event: Event) => {
       const detail = (event as CustomEvent<{ uiLanguage?: string; challengeLanguage?: string }>).detail;
-      if (isChallengeLanguage(detail?.uiLanguage)) setLanguage(detail.uiLanguage);
-      if (isChallengeLanguage(detail?.challengeLanguage)) setChallengeLanguage(detail.challengeLanguage);
+      if (isChallengeLanguage(detail?.uiLanguage)) {
+        setLanguage(detail.uiLanguage);
+        window.localStorage.setItem("walletFindLanguage", detail.uiLanguage);
+      }
+      if (isChallengeLanguage(detail?.challengeLanguage)) {
+        setChallengeLanguage(detail.challengeLanguage);
+        window.localStorage.setItem("walletFindContestLanguage", detail.challengeLanguage);
+      }
     };
     window.addEventListener("wallet-find:preferences-loaded", handlePreferencesLoaded);
     return () => window.removeEventListener("wallet-find:preferences-loaded", handlePreferencesLoaded);
