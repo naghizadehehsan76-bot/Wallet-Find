@@ -31,6 +31,7 @@ import LoadingIndicator from "../components/LoadingIndicator";
 import WalletWithdrawalReview from "../components/WalletWithdrawalReview";
 import WalletNetworkAdmin from "../components/WalletNetworkAdmin";
 import WalletChainWithdrawalReview from "../components/WalletChainWithdrawalReview";
+import { CHALLENGE_LANGUAGES, getChallengeLanguageName, isChallengeLanguage, type ChallengeLanguage } from "../i18n/challenge-languages";
 
 type AdminDestination = "home" | "admin-manage";
 
@@ -39,6 +40,7 @@ type Section = "overview" | "users" | "finance" | "prizes" | "ads" | "security" 
 
 const DEFAULT_EN_SOURCES = ["https://en.wikipedia.org/w/api.php", "https://www.gutenberg.org/cache/epub/11/pg11.txt", "https://www.gutenberg.org/cache/epub/1342/pg1342.txt", "https://www.gutenberg.org/cache/epub/84/pg84.txt", "https://www.gutenberg.org/cache/epub/1661/pg1661.txt", "https://en.wikipedia.org/wiki/Artificial_intelligence", "https://en.wikipedia.org/wiki/Paris", "https://en.wikipedia.org/wiki/Albert_Einstein", "https://en.wikipedia.org/wiki/History_of_science"];
 const DEFAULT_FA_SOURCES = ["https://fa.wikipedia.org/w/api.php", "https://fa.wikipedia.org/wiki/ایران", "https://fa.wikipedia.org/wiki/تهران", "https://fa.wikipedia.org/wiki/فردوسی", "https://fa.wikipedia.org/wiki/شاهنامه", "https://fa.wikipedia.org/wiki/هوش_مصنوعی"];
+const DEFAULT_OTHER_SOURCES: Partial<Record<ChallengeLanguage, string[]>> = Object.fromEntries(CHALLENGE_LANGUAGES.filter(({ code }) => code !== "fa" && code !== "en").map(({ code }) => [code, ["https://" + (code === "zh-CN" ? "zh" : code) + ".wikipedia.org/w/api.php"]]));
 function sourceHostname(value: string): string {
   try { return new URL(value).hostname; } catch { return value; }
 }
@@ -83,7 +85,7 @@ function dateTimeForChallengeNumber(
 
 type ScheduledSourceAssignment = {
   id: string;
-  language: "en" | "fa";
+  language: ChallengeLanguage;
   url: string;
   challengeNumber: number;
   startsAt: string;
@@ -100,7 +102,7 @@ function parseScheduledSourceAssignments(value: string | undefined): ScheduledSo
       const row = item as Partial<ScheduledSourceAssignment>;
       const start = typeof row.startsAt === "string" ? Date.parse(row.startsAt) : Number.NaN;
       return typeof row.id === "string" &&
-        (row.language === "en" || row.language === "fa") &&
+        isChallengeLanguage(row.language) &&
         typeof row.url === "string" && row.url.startsWith("https://") &&
         Number.isInteger(row.challengeNumber) && Number(row.challengeNumber) > 0 &&
         Number.isFinite(start) && Number.isInteger(row.sequence) &&
@@ -160,9 +162,11 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [sourceUrlsFa, setSourceUrlsFa] = useState<string[]>(DEFAULT_FA_SOURCES);
   const [sourceDraftEn, setSourceDraftEn] = useState("");
   const [sourceDraftFa, setSourceDraftFa] = useState("");
+  const [sourceUrlsOther, setSourceUrlsOther] = useState<Partial<Record<ChallengeLanguage, string[]>>>({});
+  const [sourceDraftOther, setSourceDraftOther] = useState<Partial<Record<ChallengeLanguage, string>>>({});
   const [scheduledSources, setScheduledSources] = useState<ScheduledSourceAssignment[]>([]);
   const [scheduledSourceUrl, setScheduledSourceUrl] = useState("");
-  const [scheduledSourceLanguage, setScheduledSourceLanguage] = useState<"en" | "fa">("en");
+  const [scheduledSourceLanguage, setScheduledSourceLanguage] = useState<ChallengeLanguage>("en");
   const [scheduledChallengeNumber, setScheduledChallengeNumber] = useState("");
   const [scheduledChallengeStart, setScheduledChallengeStart] = useState("");
   const [scheduledClueSequence, setScheduledClueSequence] = useState("1");
@@ -392,6 +396,10 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       setSettings(settingRows);
       setSourceUrlsEn(parseSourceUrls(settingRows.find((setting) => setting.key === "clue_sources_en")?.value, DEFAULT_EN_SOURCES));
       setSourceUrlsFa(parseSourceUrls(settingRows.find((setting) => setting.key === "clue_sources_fa")?.value, DEFAULT_FA_SOURCES));
+      setSourceUrlsOther(Object.fromEntries(CHALLENGE_LANGUAGES.filter(({ code }) => code !== "fa" && code !== "en").map(({ code }) => [
+        code,
+        parseSourceUrls(settingRows.find((setting) => setting.key === ("clue_sources_" + code))?.value, DEFAULT_OTHER_SOURCES[code] ?? []),
+      ])));
       setScheduledSources(parseScheduledSourceAssignments(settingRows.find((setting) => setting.key === "scheduled_clue_sources")?.value));
       setLogs(auditRows);
       setUsers(userRows);
@@ -582,8 +590,24 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     }
   }
 
-  function addSource(language: "en" | "fa") {
-    const draft = (language === "fa" ? sourceDraftFa : sourceDraftEn).trim();
+  function updateSourceDraft(language: ChallengeLanguage, draft: string) {
+    if (language === "fa") setSourceDraftFa(draft);
+    else if (language === "en") setSourceDraftEn(draft);
+    else setSourceDraftOther((current) => ({ ...current, [language]: draft }));
+  }
+
+  function removeSource(language: ChallengeLanguage, url: string) {
+    if (language === "fa") setSourceUrlsFa((current) => current.filter((item) => item !== url));
+    else if (language === "en") setSourceUrlsEn((current) => current.filter((item) => item !== url));
+    else setSourceUrlsOther((current) => ({ ...current, [language]: (current[language] ?? []).filter((item) => item !== url) }));
+  }
+
+  function addSource(language: ChallengeLanguage) {
+    const draft = (language === "fa"
+      ? sourceDraftFa
+      : language === "en"
+        ? sourceDraftEn
+        : sourceDraftOther[language] ?? "").trim();
     try {
       const parsed = new URL(draft);
       if (parsed.protocol !== "https:" || draft.length > 500) throw new Error("invalid");
@@ -593,11 +617,12 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     }
     if (language === "fa") {
       if (!sourceUrlsFa.includes(draft)) setSourceUrlsFa((current) => [...current, draft]);
-      setSourceDraftFa("");
-    } else {
+    } else if (language === "en") {
       if (!sourceUrlsEn.includes(draft)) setSourceUrlsEn((current) => [...current, draft]);
-      setSourceDraftEn("");
+    } else {
+      setSourceUrlsOther((current) => ({ ...current, [language]: [...(current[language] ?? DEFAULT_OTHER_SOURCES[language] ?? []), draft].filter((url, index, all) => all.indexOf(url) === index) }));
     }
+    updateSourceDraft(language, "");
     setError("");
     setNotice("");
   }
@@ -680,12 +705,17 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     }
   }
 
-  async function saveSources(language: "en" | "fa") {
+  async function saveSources(language: ChallengeLanguage) {
     setSaving(true);
     setError("");
     setNotice("");
     try {
-      await saveSystemSetting(language === "fa" ? "clue_sources_fa" : "clue_sources_en", JSON.stringify(language === "fa" ? sourceUrlsFa : sourceUrlsEn));
+      const urls = language === "fa"
+        ? sourceUrlsFa
+        : language === "en"
+          ? sourceUrlsEn
+          : sourceUrlsOther[language] ?? DEFAULT_OTHER_SOURCES[language] ?? [];
+      await saveSystemSetting("clue_sources_" + language, JSON.stringify(urls));
       setNotice(copy.sourceSaved);
       await load();
     } catch {
@@ -866,9 +896,11 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                   <input type="url" value={scheduledSourceUrl} onChange={(event) => setScheduledSourceUrl(event.target.value)} placeholder="https://..." required />
                 </label>
                 <label>{copy.scheduledSourceLanguage}
-                  <select value={scheduledSourceLanguage} onChange={(event) => setScheduledSourceLanguage(event.target.value as "en" | "fa")}>
-                    <option value="en">{copy.sourceEn}</option>
-                    <option value="fa">{copy.sourceFa}</option>
+                  <select value={scheduledSourceLanguage} onChange={(event) => {
+                    const selected = event.target.value;
+                    if (isChallengeLanguage(selected)) setScheduledSourceLanguage(selected);
+                  }}>
+                    {CHALLENGE_LANGUAGES.map(({ code, nativeName }) => <option key={code} value={code}>{nativeName}</option>)}
                   </select>
                 </label>
                 <p className="admin-footnote">{copy.challengeScheduleHelp}</p>
@@ -915,7 +947,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                   {scheduledSources.map((item) => (
                     <article className="admin-setting-row" key={item.id}>
                       <div>
-                        <strong>{item.language === "fa" ? copy.sourceFa : copy.sourceEn} · {fa ? "چالش" : "Challenge"} {item.challengeNumber.toLocaleString(fa ? "fa-IR" : "en-US")} · {fa ? "خانه" : "Cell"} {item.sequence.toLocaleString(fa ? "fa-IR" : "en-US")}</strong>
+                        <strong>{getChallengeLanguageName(item.language)} · {fa ? "چالش" : "Challenge"} {item.challengeNumber.toLocaleString(fa ? "fa-IR" : "en-US")} · {fa ? "خانه" : "Cell"} {item.sequence.toLocaleString(fa ? "fa-IR" : "en-US")}</strong>
                         <small>{new Date(item.startsAt).toLocaleString(fa ? "fa-IR" : "en-GB", { dateStyle: "medium", timeStyle: "short" })}</small>
                         <code>{item.url}</code>
                       </div>
@@ -926,29 +958,38 @@ export default function AdminControlCenter({ onNavigate }: Props) {
               )}
               <button className="cta-button" type="button" onClick={() => void saveScheduledSources()} disabled={saving}>{saving ? copy.saving : copy.saveScheduledSources}</button>
             </div>
-            {([
-              { language: "en" as const, title: copy.sourceEn, urls: sourceUrlsEn, setUrls: setSourceUrlsEn, draft: sourceDraftEn, setDraft: setSourceDraftEn },
-              { language: "fa" as const, title: copy.sourceFa, urls: sourceUrlsFa, setUrls: setSourceUrlsFa, draft: sourceDraftFa, setDraft: setSourceDraftFa },
-            ]).map((sourceGroup) => (
-              <div className="admin-setting-form" key={sourceGroup.language}>
-                <h3>{sourceGroup.title}</h3>
-                <form onSubmit={(event) => { event.preventDefault(); addSource(sourceGroup.language); }}>
-                  <label>{copy.sourceUrl}<input type="url" value={sourceGroup.draft} onChange={(event) => sourceGroup.setDraft(event.target.value)} placeholder="https://..." /></label>
-                  <button className="cta-button" type="submit" disabled={saving}>{copy.addSource}</button>
-                </form>
-                {sourceGroup.urls.length === 0 ? <p className="admin-empty">{copy.noSources}</p> : (
-                  <div className="admin-settings-list">
-                    {sourceGroup.urls.map((url) => (
-                      <article className="admin-setting-row" key={url}>
-                        <div><strong>{sourceHostname(url)}</strong><code>{url}</code></div>
-                        <button type="button" onClick={() => sourceGroup.setUrls((current) => current.filter((item) => item !== url))} disabled={saving}>{copy.removeSource}</button>
-                      </article>
-                    ))}
-                  </div>
-                )}
-                <button className="cta-button" type="button" onClick={() => void saveSources(sourceGroup.language)} disabled={saving}>{saving ? copy.saving : copy.saveSources}</button>
-              </div>
-            ))}
+            {CHALLENGE_LANGUAGES.map(({ code, nativeName }) => {
+              const urls = code === "en"
+                ? sourceUrlsEn
+                : code === "fa"
+                  ? sourceUrlsFa
+                  : sourceUrlsOther[code] ?? DEFAULT_OTHER_SOURCES[code] ?? [];
+              const draft = code === "en"
+                ? sourceDraftEn
+                : code === "fa"
+                  ? sourceDraftFa
+                  : sourceDraftOther[code] ?? "";
+              return (
+                <div className="admin-setting-form" key={code}>
+                  <h3>{nativeName}</h3>
+                  <form onSubmit={(event) => { event.preventDefault(); addSource(code); }}>
+                    <label>{copy.sourceUrl}<input type="url" value={draft} onChange={(event) => updateSourceDraft(code, event.target.value)} placeholder="https://..." /></label>
+                    <button className="cta-button" type="submit" disabled={saving}>{copy.addSource}</button>
+                  </form>
+                  {urls.length === 0 ? <p className="admin-empty">{copy.noSources}</p> : (
+                    <div className="admin-settings-list">
+                      {urls.map((url) => (
+                        <article className="admin-setting-row" key={url}>
+                          <div><strong>{sourceHostname(url)}</strong><code>{url}</code></div>
+                          <button type="button" onClick={() => removeSource(code, url)} disabled={saving}>{copy.removeSource}</button>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                  <button className="cta-button" type="button" onClick={() => void saveSources(code)} disabled={saving}>{saving ? copy.saving : copy.saveSources}</button>
+                </div>
+              );
+            })}
           </section>
         )}
 
