@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import prisma from "../../config/prisma.js";
+import type { ChallengeLanguage } from "../contest/supported-languages.js";
 import type {
   RegisterInput,
   LoginInput,
@@ -49,7 +50,7 @@ async function sendAuthEmail(
   email: string,
   code: string,
   purpose: "EMAIL_VERIFICATION" | "PASSWORD_RESET",
-  language: "fa" | "en" = "en",
+  language: ChallengeLanguage = "en",
 ) {
   const apiKey = process.env.EPOSTIX_API_KEY;
   if (!apiKey) throw new Error("EMAIL_PROVIDER_NOT_CONFIGURED");
@@ -108,7 +109,7 @@ async function sendAuthEmail(
   }
 }
 
-async function issueCode(email: string, purpose: "EMAIL_VERIFICATION" | "PASSWORD_RESET", language: "fa" | "en" = "en") {
+async function issueCode(email: string, purpose: "EMAIL_VERIFICATION" | "PASSWORD_RESET", language: ChallengeLanguage = "en") {
   const now = new Date();
   const sinceDay = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const recentCount = await prisma.authChallenge.count({
@@ -186,6 +187,8 @@ export async function registerUser(input: RegisterInput) {
       username: input.username,
       passwordHash,
       emailVerifiedAt: null,
+      uiLanguage: input.language ?? "fa",
+      challengeLanguage: input.language ?? "fa",
     },
     select: { id: true },
   });
