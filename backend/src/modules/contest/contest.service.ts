@@ -1,6 +1,7 @@
 import prisma from "../../config/prisma.js";
 import { CHALLENGE_INTERVAL_MS, getChallengeNumberAt } from "./challenge-schedule.js";
 import { getLanguageParticipationBlock } from "./language-participation.js";
+import type { ChallengeLanguage } from "./supported-languages.js";
 
 import type {
   CreateContestInput,
@@ -112,7 +113,7 @@ export async function createClue(
   });
 }
 
-export async function getActiveContest(language: "en" | "fa" = "en") {
+export async function getActiveContest(language: ChallengeLanguage = "en") {
   const now = new Date();
   const active = await prisma.contest.findFirst({
     where: {
