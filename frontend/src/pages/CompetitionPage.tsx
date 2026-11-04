@@ -16,7 +16,7 @@ import {
 import { useI18n } from "../i18n";
 import { localizeApiError, localizeContestTitle, localizeUiMessage } from "../i18n/localize";
 import LoadingIndicator from "../components/LoadingIndicator";
-import { CHALLENGE_LANGUAGES, getChallengeLanguageName, isChallengeLanguage, type ChallengeLanguage } from "../i18n/challenge-languages.js";
+import { CHALLENGE_LANGUAGES, getChallengeLanguageName, type ChallengeLanguage } from "../i18n/challenge-languages.js";
 
 type Page =
   | "home"
@@ -118,16 +118,11 @@ function estimateCurrentPrize(
 }
 
 function CompetitionPage({ onNavigate }: CompetitionPageProps) {
-  const { language } = useI18n();
+  const { language, challengeLanguage: contestLanguage, changeChallengeLanguage } = useI18n();
   const isPersian = language === "fa";
-  const [contestLanguage, setContestLanguage] = useState<ChallengeLanguage>(() => {
-    const savedLanguage = localStorage.getItem("walletFindContestLanguage");
-    return isChallengeLanguage(savedLanguage) ? savedLanguage : language === "fa" ? "fa" : "en";
-  });
   function chooseContestLanguage(nextLanguage: ChallengeLanguage) {
     if (nextLanguage === contestLanguage) return;
-    localStorage.setItem("walletFindContestLanguage", nextLanguage);
-    setContestLanguage(nextLanguage);
+    changeChallengeLanguage(nextLanguage);
     window.location.reload();
   }
 
