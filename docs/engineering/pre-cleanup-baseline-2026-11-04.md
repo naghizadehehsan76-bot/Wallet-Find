@@ -57,3 +57,10 @@ Captured read-only from production at 2026-11-04 07:06 UTC:
 ## Database backup status
 A previously downloaded 2.5 MB export was reported on 2026-11-02, but it predates later database migrations and production activity observed on 2026-11-03/04. It is not accepted as a current pre-cleanup restore point.
 The available Render connector supports read-only SQL inspection but does not expose a database export/backup operation. A fresh Render dashboard export must be created and verified before production rollout.
+
+## Pre-existing production error signals (read-only observation)
+Observed in Render application error logs on 2026-11-04 between 06:00 and 07:07 UTC:
+- MVP round generation retries: `MVP_ROUND_GENERATION_FAILED` at approximately 06:00, 06:30, and 07:00 UTC.
+- Project Gutenberg fetch failure: external `fetch failed` at 06:15 UTC.
+- Public prize pool statistics: Prisma transaction could not start at 06:28 UTC.
+These are pre-existing baseline observations, not introduced by this refactor. Preserve this distinction when evaluating post-change logs.
