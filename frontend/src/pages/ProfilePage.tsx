@@ -69,7 +69,7 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
       ? `برای تأیید نهایی، نام کاربری «${profile.username}» را دقیقاً وارد کن:`
       : `For final confirmation, type the username exactly: ${profile.username}`);
     if (typedUsername !== profile.username) {
-      if (typedUsername !== null) setDeleteError(isPersian ? "نام کاربری مطابقت نداشت؛ حساب حذف نشد." : "The username did not match. The account was not deleted.");
+      if (typedUsername !== null) setDeleteError(copy.deleteMismatch ?? (isPersian ? "نام کاربری مطابقت نداشت؛ حساب حذف نشد." : "The username did not match. The account was not deleted."));
       return;
     }
     setDeleteError("");
@@ -102,11 +102,11 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
     if (!file) return;
 
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setAvatarError(isPersian ? "فقط تصویر JPG، PNG یا WebP قابل قبول است." : "Please choose a JPG, PNG, or WebP image.");
+      setAvatarError(copy.avatarFormat ?? (isPersian ? "فقط تصویر JPG، PNG یا WebP قابل قبول است." : "Please choose a JPG, PNG, or WebP image."));
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      setAvatarError(isPersian ? "حجم تصویر باید کمتر از ۵ مگابایت باشد." : "The image must be smaller than 5 MB.");
+      setAvatarError(copy.avatarSize ?? (isPersian ? "حجم تصویر باید کمتر از ۵ مگابایت باشد." : "The image must be smaller than 5 MB."));
       return;
     }
 
@@ -141,7 +141,7 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
       const code = err instanceof Error ? err.message : "AVATAR_SAVE_FAILED";
       setAvatarError(code === "AVATAR_TOO_LARGE"
         ? (isPersian ? "حجم تصویر پس از پردازش همچنان زیاد است؛ تصویر دیگری انتخاب کن." : "The processed image is still too large. Please choose another image.")
-        : (isPersian ? "ذخیرهٔ عکس پروفایل ناموفق بود؛ دوباره تلاش کن." : "Could not save the profile photo. Please try again."));
+        : (copy.avatarSaveError ?? (isPersian ? "ذخیرهٔ عکس پروفایل ناموفق بود؛ دوباره تلاش کن." : "Could not save the profile photo. Please try again.")));
     } finally {
       setAvatarSaving(false);
     }
