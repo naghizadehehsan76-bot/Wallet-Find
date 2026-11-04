@@ -163,6 +163,8 @@ export type ProfileResult = {
   role: string;
   createdAt: string;
   avatarDataUrl: string | null;
+  uiLanguage: ChallengeLanguage;
+  challengeLanguage: ChallengeLanguage;
   contestsParticipated: number;
   completedContests: number;
   solvedKeys: number;
@@ -355,6 +357,16 @@ export async function getLeaderboard(
 
 export async function getProfile(): Promise<ProfileResult> {
   return request<ProfileResult>("/profile/me", {}, true);
+}
+
+export async function updateLanguagePreferences(
+  uiLanguage: ChallengeLanguage,
+  challengeLanguage: ChallengeLanguage,
+): Promise<{ uiLanguage: ChallengeLanguage; challengeLanguage: ChallengeLanguage }> {
+  return request("/profile/preferences/language", {
+    method: "PUT",
+    body: JSON.stringify({ uiLanguage, challengeLanguage }),
+  }, true);
 }
 
 export async function deleteOwnAccount(): Promise<{ deleted: boolean }> {
