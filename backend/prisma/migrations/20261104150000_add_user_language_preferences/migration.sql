@@ -1,3 +1,3 @@
 ALTER TABLE "users"
-ADD COLUMN "uiLanguage" TEXT NOT NULL DEFAULT 'fa',
-ADD COLUMN "challengeLanguage" TEXT NOT NULL DEFAULT 'en';
+ADD COLUMN "uiLanguage" TEXT,
+ADD COLUMN "challengeLanguage" TEXT;
