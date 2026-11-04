@@ -3634,3 +3634,149 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   .wallet-custom-select__menu { max-height:235px; }
   .wallet-custom-select__trigger { min-height:50px; padding-inline:11px; }
 }
+
+
+/* Dual language selectors: flag-based, Wallet-Find teal glass dropdowns */
+.wf-language-settings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 11px;
+  width: 100%;
+}
+.wf-language-picker {
+  position: relative;
+  z-index: 5;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.wf-language-picker:has(.wf-language-picker__menu) { z-index: 40; }
+.wf-language-picker__label {
+  color: #83aebd;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .025em;
+}
+.wf-language-picker__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 11px;
+  border: 1px solid rgba(66,232,212,.22);
+  border-radius: 11px;
+  background: linear-gradient(145deg,rgba(8,43,61,.96),rgba(3,22,37,.98));
+  color: #e8fbff;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+.wf-language-picker__trigger:hover,
+.wf-language-picker__trigger[aria-expanded="true"] {
+  border-color: rgba(66,232,212,.7);
+  background: linear-gradient(145deg,rgba(9,57,70,.98),rgba(3,25,42,.99));
+  box-shadow: 0 0 0 3px rgba(66,232,212,.07), 0 8px 22px rgba(0,0,0,.18);
+}
+.wf-language-picker__current {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.wf-language-picker__flag {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 25px;
+  width: 25px;
+  height: 20px;
+  font-size: 19px;
+  line-height: 1;
+  overflow: hidden;
+}
+.wf-language-picker__name {
+  overflow: hidden;
+  color: #eafaff;
+  font-size: 12px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-language-picker__chevron {
+  flex: 0 0 auto;
+  color: #48e6d5;
+  font-size: 22px;
+  line-height: 16px;
+  transform: translateY(-3px);
+  transition: transform .18s ease;
+}
+.wf-language-picker__chevron.is-open { transform: rotate(180deg) translateY(3px); }
+.wf-language-picker__menu {
+  position: absolute;
+  inset-inline: 0;
+  top: calc(100% + 6px);
+  z-index: 70;
+  max-height: min(330px, 55vh);
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid rgba(66,232,212,.3);
+  border-radius: 13px;
+  background: linear-gradient(155deg,#092d43 0%,#041a2b 72%,#031321 100%);
+  box-shadow: 0 18px 42px rgba(0,0,0,.5), 0 0 20px rgba(0,225,207,.08);
+  scrollbar-width: thin;
+  scrollbar-color: #087f89 transparent;
+}
+.wf-language-picker__option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 40px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #dff5ff;
+  font: inherit;
+  font-size: 12px;
+  text-align: start;
+  cursor: pointer;
+}
+.wf-language-picker__option + .wf-language-picker__option { margin-top: 2px; }
+.wf-language-picker__option:hover,
+.wf-language-picker__option:focus-visible {
+  outline: none;
+  border-color: rgba(66,232,212,.2);
+  background: rgba(66,232,212,.09);
+}
+.wf-language-picker__option.is-selected {
+  border-color: rgba(66,232,212,.26);
+  background: linear-gradient(90deg,rgba(0,225,207,.17),rgba(0,174,255,.08));
+  color: #fff;
+}
+.wf-language-picker__check {
+  margin-inline-start: auto;
+  color: #50ead8;
+  font-weight: 900;
+}
+@media (max-width: 640px) {
+  .wf-language-picker__menu { max-height: min(290px, 48vh); }
+}
+
+
+/* Keep both language filters available from the shared navigation drawer on desktop and mobile. */
+.sidebar-home-tools {
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 2px 2px;
+  padding: 12px;
+  border: 1px solid rgba(66,232,212,.18);
+  border-radius: 13px;
+  background: rgba(13,17,18,.72);
+}
+.sidebar-home-tools .wf-language-settings { width: 100%; }
