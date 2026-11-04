@@ -165,6 +165,49 @@ function hasCurrentGeneratedClues(clues: readonly StoredGeneratedClue[]): boolea
   );
 }
 
+// Wikimedia can apply rate limits across language subdomains. Serialize all API
+// requests from this process, leave a small gap between them, and honor 429 retries.
+let wikipediaRequestQueue: Promise<void> = Promise.resolve();
+let lastWikipediaRequestAt = 0;
+
+function waitForWikipediaRetry(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function fetchWikipediaResponse(
+  url: URL,
+  headers: Record<string, string>,
+  timeoutMs: number,
+): Promise<Response> {
+  const request = wikipediaRequestQueue.then(async () => {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const spacing = Math.max(0, 900 - (Date.now() - lastWikipediaRequestAt));
+      if (spacing > 0) await waitForWikipediaRetry(spacing);
+      lastWikipediaRequestAt = Date.now();
+
+      const response = await fetch(url, {
+        headers,
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (response.status !== 429 || attempt === 2) return response;
+
+      const retryAfter = Number(response.headers.get("retry-after"));
+      const retryDelay = Number.isFinite(retryAfter) && retryAfter > 0
+        ? Math.min(8_000, retryAfter * 1_000)
+        : 1_500 * (attempt + 1);
+      console.warn("Wikipedia rate limit received; retrying after a short delay.", {
+        status: response.status,
+        retryDelay,
+      });
+      await waitForWikipediaRetry(retryDelay);
+    }
+    throw new Error("WIKIPEDIA_REQUEST_RETRIES_EXHAUSTED");
+  });
+
+  wikipediaRequestQueue = request.then(() => undefined, () => undefined);
+  return request;
+}
+
 async function fetchWikipediaDocuments(limit: number, language: ChallengeLanguage = "en"): Promise<SourceDocument[]> {
   // Use at most two API requests (random titles + one batch extract). Never
   // fan out into individual article requests when Wikipedia rate-limits us.
@@ -179,10 +222,7 @@ async function fetchWikipediaDocuments(limit: number, language: ChallengeLanguag
   const headers = { "User-Agent": "WalletFind/1.0 (multilingual word-round generator)" };
 
   try {
-    const randomResponse = await fetch(apiUrl, {
-      headers,
-      signal: AbortSignal.timeout(5_000),
-    });
+    const randomResponse = await fetchWikipediaResponse(apiUrl, headers, 5_000);
     if (!randomResponse.ok) {
       console.warn("Wikipedia random-page request skipped", { status: randomResponse.status });
       return [];
@@ -214,10 +254,7 @@ async function fetchWikipediaDocuments(limit: number, language: ChallengeLanguag
     extractUrl.searchParams.set("exchars", "9000");
     extractUrl.searchParams.set("redirects", "1");
 
-    const extractResponse = await fetch(extractUrl, {
-      headers,
-      signal: AbortSignal.timeout(5_000),
-    });
+    const extractResponse = await fetchWikipediaResponse(extractUrl, headers, 5_000);
     if (!extractResponse.ok) {
       console.warn("Wikipedia batch extract skipped", { status: extractResponse.status });
       return [];
@@ -396,10 +433,11 @@ async function fetchWikipediaArticleDocument(parsed: URL): Promise<SourceDocumen
   }
 
   try {
-    const response = await fetch(apiUrl, {
-      headers: { "User-Agent": "WalletFind/1.0 (visible Wikipedia revision clue generator)" },
-      signal: AbortSignal.timeout(8_000),
-    });
+    const response = await fetchWikipediaResponse(
+      apiUrl,
+      { "User-Agent": "WalletFind/1.0 (visible Wikipedia revision clue generator)" },
+      8_000,
+    );
     if (!response.ok) {
       console.warn("Wikipedia revision parse failed", {
         url: parsed.toString(),
