@@ -24,7 +24,7 @@ function pinWikipediaRevision(url: string, revisionId?: number): string {
   if (!revisionId || !Number.isInteger(revisionId) || revisionId < 1) return url;
   try {
     const parsed = new URL(url);
-    if (!parsed.hostname.endsWith(".wikipedia.org")) return url;
+    if (!parsed.hostname.endsWith(".wikipedia.org") && !parsed.hostname.endsWith(".wikisource.org")) return url;
     parsed.searchParams.set("oldid", String(revisionId));
     return parsed.toString();
   } catch {
@@ -181,7 +181,7 @@ async function fetchWikipediaResponse(
 ): Promise<Response> {
   const request = wikipediaRequestQueue.then(async () => {
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      const spacing = Math.max(0, 900 - (Date.now() - lastWikipediaRequestAt));
+      const spacing = Math.max(0, 1_500 - (Date.now() - lastWikipediaRequestAt));
       if (spacing > 0) await waitForWikipediaRetry(spacing);
       lastWikipediaRequestAt = Date.now();
 
@@ -193,8 +193,8 @@ async function fetchWikipediaResponse(
 
       const retryAfter = Number(response.headers.get("retry-after"));
       const retryDelay = Number.isFinite(retryAfter) && retryAfter > 0
-        ? Math.min(8_000, retryAfter * 1_000)
-        : 1_500 * (attempt + 1);
+        ? Math.min(30_000, retryAfter * 1_000)
+        : 2_000 * (attempt + 1);
       console.warn("Wikipedia rate limit received; retrying after a short delay.", {
         status: response.status,
         retryDelay,
@@ -292,6 +292,96 @@ async function fetchWikipediaDocuments(limit: number, language: ChallengeLanguag
       });
   } catch (error) {
     console.warn("Wikipedia source unavailable; continuing with public-domain books.", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
+}
+
+async function fetchWikisourceDocuments(limit: number, language: ChallengeLanguage = "en"): Promise<SourceDocument[]> {
+  // Use at most two API requests (random titles + one batch extract). Never
+  // fan out into individual article requests when Wikisource rate-limits us.
+  const wikiDomain = getWikisourceDomain(language);
+  const apiUrl = new URL(`https://${wikiDomain}/w/api.php`);
+  apiUrl.searchParams.set("action", "query");
+  apiUrl.searchParams.set("format", "json");
+  apiUrl.searchParams.set("list", "random");
+  apiUrl.searchParams.set("rnnamespace", "0");
+  apiUrl.searchParams.set("rnlimit", String(Math.min(limit, 12)));
+  // HTTP header values must be ByteString-safe. Keep localized language names out of User-Agent.
+  const headers = { "User-Agent": "WalletFind/1.0 (multilingual word-round generator)" };
+
+  try {
+    const randomResponse = await fetchWikisourceResponse(apiUrl, headers, 5_000);
+    if (!randomResponse.ok) {
+      console.warn("Wikisource random-page request skipped", { status: randomResponse.status });
+      return [];
+    }
+
+    const randomData = await randomResponse.json() as {
+      query?: { random?: Array<{ title?: string }> };
+      error?: { code?: string; info?: string };
+    };
+    if (randomData.error) {
+      console.warn("Wikisource random-page API error", randomData.error);
+      return [];
+    }
+
+    const titles = [...new Set(
+      (randomData.query?.random ?? [])
+        .map((page) => page.title)
+        .filter((title): title is string => Boolean(title)),
+    )];
+    if (titles.length === 0) return [];
+
+    const extractUrl = new URL(`https://${wikiDomain}/w/api.php`);
+    extractUrl.searchParams.set("action", "query");
+    extractUrl.searchParams.set("format", "json");
+    extractUrl.searchParams.set("titles", titles.join("|"));
+    extractUrl.searchParams.set("prop", "extracts|info");
+    extractUrl.searchParams.set("inprop", "url");
+    extractUrl.searchParams.set("explaintext", "1");
+    extractUrl.searchParams.set("exchars", "9000");
+    extractUrl.searchParams.set("redirects", "1");
+
+    const extractResponse = await fetchWikisourceResponse(extractUrl, headers, 5_000);
+    if (!extractResponse.ok) {
+      console.warn("Wikisource batch extract skipped", { status: extractResponse.status });
+      return [];
+    }
+
+    const data = await extractResponse.json() as {
+      query?: { pages?: Record<string, { title?: string; fullurl?: string; extract?: string; lastrevid?: number }> };
+      error?: { code?: string; info?: string };
+    };
+    if (data.error) {
+      console.warn("Wikisource batch extract API error", data.error);
+      return [];
+    }
+
+    return Object.values(data.query?.pages ?? {})
+      // The link is pinned to the same revision that supplied the extracted
+      // text. If MediaWiki omitted a revision id, skip the page instead of
+      // publishing a link whose contents can drift after generation.
+      .filter((page) =>
+        typeof page.extract === "string" &&
+        page.extract.length > 300 &&
+        Number.isSafeInteger(page.lastrevid) &&
+        Number(page.lastrevid) > 0
+      )
+      .map((page) => {
+        const title = page.title ?? "Wikisource page";
+        return {
+          title,
+          url: pinWikisourceRevision(
+            page.fullurl ?? `https://${wikiDomain}/wiki/` + encodeURIComponent(title.replace(/ /g, "_")),
+            page.lastrevid,
+          ),
+          text: normalizeSourceText(page.extract ?? ""),
+        };
+      });
+  } catch (error) {
+    console.warn("Wikisource source unavailable; continuing with public-domain books.", {
       error: error instanceof Error ? error.message : String(error),
     });
     return [];
@@ -613,6 +703,13 @@ async function generateMvpRounds(
   const assignedUrls = [...new Set(scheduledAssignments.map((assignment) => assignment.url))];
   const wikiUrl = "https://" + getWikipediaDomain(language) + "/w/api.php";
   const wikipediaDocuments = configuredUrls.includes(wikiUrl) ? await fetchWikipediaDocuments(12, language) : [];
+  // If Wikipedia is rate-limited or returns too few usable pages, use the
+  // language-matched Wikisource corpus as a second independent MediaWiki project.
+  // This is especially important for non-English languages, which have no
+  // Project Gutenberg fallback configured.
+  const wikisourceDocuments = configuredUrls.includes(wikiUrl) && wikipediaDocuments.length < 3
+    ? await fetchWikisourceDocuments(12, language)
+    : [];
   const gutenbergResults = language === "en" ? await Promise.all(
     GUTENBERG_BOOKS.filter((book) => configuredUrls.includes(book.textUrl)).map((book) => fetchGutenbergDocument(book)),
   ) : [];
@@ -636,6 +733,7 @@ async function generateMvpRounds(
   const sources = [
     ...gutenbergResults.filter((source): source is SourceDocument => source !== null),
     ...wikipediaDocuments,
+    ...wikisourceDocuments,
     ...customDocuments.filter((source): source is SourceDocument => source !== null),
     ...plannedDocuments.flatMap(({ source }) => source ? [source] : []),
   ];
@@ -692,6 +790,7 @@ async function generateMvpRounds(
   console.info("MVP clue generation summary", {
     language, configuredSourceCount: configuredUrls.length, sourceCount: sources.length,
     wikipediaSourceCount: wikipediaDocuments.length,
+    wikisourceSourceCount: wikisourceDocuments.length,
     gutenbergSourceCount: gutenbergResults.filter((source) => source !== null).length,
     customSourceCount: customDocuments.filter((source) => source !== null).length,
     scheduledAssignments: scheduledAssignments.map(({ sequence, url }) => ({ sequence, hostname: new URL(url).hostname })),
