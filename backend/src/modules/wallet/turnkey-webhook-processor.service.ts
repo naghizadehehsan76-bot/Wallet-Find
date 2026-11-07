@@ -365,7 +365,27 @@ async function processOneEvent(event: {
   id: string;
   organizationId: string | null;
   payload: unknown;
+  status: string;
+  processingError: string | null;
 }) {
+  const isTreasuryWalletReview = event.status === "REVIEW_REQUIRED"
+    && event.processingError === "TURNKEY_DEPOSIT_WALLET_NOT_ACTIVE";
+  if (isTreasuryWalletReview) {
+    const hint = parseDepositMessage(event.payload);
+    const treasury = await prisma.treasuryWallet.findFirst({
+      where: {
+        chainId: hint.chainId,
+        networkKey: hint.chainId === 137 ? "polygon" : "__unsupported_network__",
+        status: "ACTIVE",
+        address: { equals: hint.address, mode: "insensitive" },
+      },
+      select: { id: true },
+    });
+    // Only retry the previously misclassified event when it really belongs
+    // to an active treasury. Other inactive user wallets remain in review.
+    if (!treasury) return;
+  }
+
   const staleBefore = new Date(Date.now() - STALE_PROCESSING_MS);
   const claim = await prisma.turnkeyWebhookEvent.updateMany({
     where: {
@@ -374,6 +394,7 @@ async function processOneEvent(event: {
         { status: "RECEIVED" },
         { status: "RETRY" },
         { status: "PROCESSING", updatedAt: { lt: staleBefore } },
+        { status: "REVIEW_REQUIRED", processingError: "TURNKEY_DEPOSIT_WALLET_NOT_ACTIVE" },
       ],
     },
     data: { status: "PROCESSING", processingError: null },
@@ -443,11 +464,12 @@ export function startTurnkeyWebhookDepositProcessor() {
             { status: "RECEIVED" },
             { status: "RETRY" },
             { status: "PROCESSING", updatedAt: { lt: staleBefore } },
+            { status: "REVIEW_REQUIRED", processingError: "TURNKEY_DEPOSIT_WALLET_NOT_ACTIVE" },
           ],
         },
         orderBy: { receivedAt: "asc" },
         take: MAX_EVENTS_PER_TICK,
-        select: { id: true, organizationId: true, payload: true },
+        select: { id: true, organizationId: true, payload: true, status: true, processingError: true },
       });
       for (const event of events) {
         await processOneEvent(event);
