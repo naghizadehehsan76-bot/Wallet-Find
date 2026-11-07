@@ -589,6 +589,7 @@ export async function reviewChainWalletWithdrawal(
         amount: atomic(withdrawal.amountAtomic),
         suffix: "amount-rejected-release",
         note: "Release withdrawal amount after admin rejection",
+        availableAccountReference: withdrawal.fundingSource === "PRIZE_TREASURY" ? PRIZE_TREASURY_ACCOUNT_REFERENCE : withdrawal.userId,
       });
       if (withdrawal.feeAssetId && withdrawal.feeAtomic) {
         await releaseReservation(tx, {
@@ -1115,10 +1116,24 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
             account: "CUSTODY_ASSET",
             direction: "CREDIT",
             amountAtomic: current.amountAtomic.toFixed(0),
-            accountReference: current.walletAccountId,
+            accountReference: withdrawal.fundingSource === "PRIZE_TREASURY" ? PRIZE_TREASURY_ID : current.walletAccountId,
           },
         ],
       });
+      if (withdrawal.fundingSource === "PRIZE_TREASURY") {
+        await tx.treasuryLedger.create({
+          data: {
+            treasuryWalletId: PRIZE_TREASURY_ID,
+            type: "WITHDRAWAL_DEBIT",
+            amountMicro: -atomic(current.amountAtomic),
+            currency: "USDT0",
+            transactionHash: withdrawal.transactionReference,
+            referenceKey: "prize-wallet-withdrawal:" + withdrawalId,
+            note: "Confirmed user withdrawal paid from internally credited prize balance",
+            effectiveAt: new Date(),
+          },
+        });
+      }
     } else {
       await releaseReservation(tx, {
         id: withdrawalId,
@@ -1128,6 +1143,7 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
         amount: atomic(current.amountAtomic),
         suffix: "amount-failed-release",
         note: "Release withdrawal amount after canonical reverted transaction",
+        availableAccountReference: withdrawal.fundingSource === "PRIZE_TREASURY" ? PRIZE_TREASURY_ACCOUNT_REFERENCE : withdrawal.userId,
       });
     }
 
@@ -1188,6 +1204,7 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
         metadata: {
           transactionHash: withdrawal.transactionReference,
           actualFeeAtomic: actualFee.toString(),
+          fundingSource: withdrawal.fundingSource,
           confirmations,
         },
       },
