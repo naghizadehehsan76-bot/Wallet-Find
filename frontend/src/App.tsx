@@ -229,6 +229,11 @@ function HomePage({
           </p>
         </section>
 
+        <section className="cta-group">
+          <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>{homeCopy.enterChallenge ?? (isPersian ? "ورود به چالش امشب" : "Enter Challenge")}</button>
+          <button className="cta-button cta-button--ghost" type="button" onClick={() => onNavigate("rules")}>{homeCopy.rules ?? (isPersian ? "روش و قوانین چالش" : "How to Play & Challenge Rules")}</button>
+        </section>
+
         <section className="home-key-grid" aria-label={homeCopy.challengeKeys ?? (isPersian ? "۱۲ خانهٔ چالش" : "12 challenge keys")}>
           {Array.from({ length: 12 }).map((_, index) => (
             <button
@@ -241,11 +246,6 @@ function HomePage({
               {index < 3 ? <span className="home-key-tile__word">{(isPersian ? ["چالش", "تو", "سرعت"] : ["Challenge", "Your", "Speed"])[index]}</span> : <><span className="home-key-tile__lock" aria-hidden="true"><i /></span><span className="home-key-tile__number">{(index + 1).toLocaleString(isPersian ? "fa-IR" : "en-US")}</span></>}
             </button>
           ))}
-        </section>
-
-        <section className="cta-group">
-          <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>{homeCopy.enterChallenge ?? (isPersian ? "ورود به چالش امشب" : "Enter Challenge")}</button>
-          <button className="cta-button cta-button--ghost" type="button" onClick={() => onNavigate("rules")}>{homeCopy.rules ?? (isPersian ? "روش و قوانین چالش" : "How to Play & Challenge Rules")}</button>
         </section>
 
         <section className="stat-row">
