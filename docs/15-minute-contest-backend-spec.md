@@ -60,7 +60,7 @@ For each authenticated submission:
 - The reservation must be atomic and idempotent. Use integer micro-USDT units and database uniqueness constraints.
 - If the global fund has less than 1 USDT, reserve only the available amount. If it has no confirmed funds, the round allocation and prize are zero.
 - Ranking and contest completion must never depend on successful prize allocation, settlement, or transfer.
-- No participant prize or wallet credit is recorded until an actual on-chain transfer is successfully confirmed and reconciled.
+- The system may store a pending award instruction after ranking, but no user wallet balance is credited and no award is marked paid until the actual on-chain transfer is confirmed and reconciled.
 
 ## 7. Round lifecycle and scheduling
 
@@ -68,16 +68,16 @@ Recommended lifecycle: `SCHEDULED -> ACTIVE -> FINISHED`.
 
 - Prepare the next round before its start boundary with 12 complete, ordered clues.
 - At `startsAt`, initialize that round's fixed 1 USDT allocation from the global fund exactly once.
-- At `endsAt`, submissions are rejected immediately. The scheduler marks the round finished, snapshots ranking, computes awards, records the project contribution, and marks settlement complete.
+- At `endsAt`, submissions are rejected immediately. The scheduler marks the round finished, snapshots ranking, computes pending awards, and lets the payout worker process them independently.
 - Simulated daily funding is disabled. The global fund can increase only through an administrator allocation backed by a reconciled real Polygon treasury balance.
 - No unused round balance is rolled into a later round.
 - Use database constraints and transactions to prevent duplicate round allocations or duplicate round creation. Reconcile transitions chronologically if the application restarts.
 
 ## 8. Data model
 
-- `GlobalPrizeFund` stores the currently available global balance and cumulative daily funding and round allocations.
+- `GlobalPrizeFund` stores the currently available real balance and cumulative funding and round allocations.
 - `GlobalPrizeLedger` records real treasury funding and each round's fixed allocation with unique reference keys.
-- `PrizePool` stores the amount allocated to each round, awards, project contribution, and settlement status. Legacy rollover fields remain for compatibility but the new test settlement sets rollover to zero.
+- `PrizePool` stores the amount allocated to each round, pending/confirmed awards, project contribution, and payout status. Legacy rollover fields remain for compatibility but new allocations set rollover to zero.
 - `PrizeLedger` records the round's global allocation, participant awards, and project contribution.
 - The global project dividend total is calculated from settled `projectProfitMicro` values. It is not a participant wallet balance or a real asset.
 - Repeated requests must not add duplicate daily funding, duplicate round allocations, or duplicate awards.
@@ -118,6 +118,10 @@ Recommended lifecycle: `SCHEDULED -> ACTIVE -> FINISHED`.
 ## 11. Prize pool and payment status
 
 - Simulated funding, simulated awards, and test wallet credits are retired.
-- Real deposits are not credited until the chain scanner verifies token contract, destination, amount, block confirmations, and reorg safety.
-- Real payouts are not enabled until transaction signing, broadcast, confirmation, idempotency, and reconciliation are implemented.
-- The scheduler has no dependency on prize-pool services. Prize allocation is a separate operation and must not delay or prevent a challenge from starting or finishing.
+- The settlement job stores pending award instructions only after the round is finished and the ranking is frozen.
+- The payout worker sends Polygon USDT0 from the dedicated parent-owned Turnkey prize treasury to the winner's active Turnkey wallet address.
+- A payout is marked `PAID` only after a canonical successful receipt, the exact USDT0 Transfer event, and the configured confirmation depth are verified. The corresponding negative treasury-ledger entry is written in the same database transaction.
+- The existing Polygon deposit scanner recognizes the payout transfer as a wallet credit, including awards below the ordinary minimum-deposit threshold.
+- A failed or uncertain signing/broadcast result is never automatically resent. It is quarantined for manual review.
+- The payout worker requires both `PRIZE_PAYOUTS_ENABLED=true` and `PRIZE_PAYOUTS_PRODUCTION_READY=true`; it also checks the global emergency pause, current treasury reconciliation, all outstanding round reservations, the USDT0 token balance, and POL gas balance.
+- The scheduler reserves and settles prizes independently of challenge activation and answer validation. A payout delay cannot delay or prevent a challenge from starting or finishing.
