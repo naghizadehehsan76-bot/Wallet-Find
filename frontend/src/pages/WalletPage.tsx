@@ -306,6 +306,15 @@ export default function WalletPage({ onNavigate }: Props) {
     setRefreshing(true);
     try {
       const walletResult = await getWallet();
+      const preferredDeposit = walletResult.networks
+        .filter((network) => network.chainId === 137)
+        .flatMap((network) => network.assets.map((asset) => ({ ...asset, networkId: network.id })))
+        .filter((asset) => ["USDT0", "POL"].includes(asset.symbol.toUpperCase()) && asset.verificationStatus === "VERIFIED")
+        .sort((a, b) => Number(b.symbol.toUpperCase() === "USDT0") - Number(a.symbol.toUpperCase() === "USDT0"))[0];
+      if (preferredDeposit) {
+        setDepositAssetId((current) => current || preferredDeposit.id);
+        setDepositNetworkId((current) => current || preferredDeposit.networkId);
+      }
       setWallet(walletResult);
       saveWalletSnapshot(walletResult, snapshotKey);
       setWalletLoadedFromCache(false);
@@ -370,14 +379,6 @@ export default function WalletPage({ onNavigate }: Props) {
   const selectedWithdrawAsset = withdrawalAssets.find((asset) => asset.id === withdrawAssetId) ?? null;
   const selectedWithdrawNetwork = wallet?.networks.find((network) => network.id === withdrawNetworkId) ?? null;
   const feeAsset = selectedWithdrawNetwork?.assets.find((asset) => asset.assetType === "NATIVE" && asset.verificationStatus === "VERIFIED") ?? null;
-
-  useEffect(() => {
-    if (view !== "deposit" || depositAssetId || depositOptions.length === 0) return;
-    const preferred = depositOptions.find((asset) => asset.symbol.toUpperCase() === "USDT0") ?? depositOptions[0];
-    if (!preferred) return;
-    setDepositAssetId(preferred.id);
-    setDepositNetworkId(preferred.networkId);
-  }, [view, depositAssetId, depositOptions]);
 
   const fmt = (value: string, decimals = 6) => formatAmount(value, decimals, locale);
   const apiErrorCopy = {
