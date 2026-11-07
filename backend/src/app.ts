@@ -218,7 +218,7 @@ app.get("/api/market/prices", marketPriceLimiter, async (_req, res) => {
   }
 
   if (Object.keys(freshPrices).length > 0) {
-    const mergedPrices = { ...(cachedMarketPrices ?? {}), ...freshPrices };
+    const mergedPrices = freshPrices;
     const updatedAt = Date.now();
     cachedMarketPrices = mergedPrices;
     marketPricesUpdatedAt = updatedAt;
