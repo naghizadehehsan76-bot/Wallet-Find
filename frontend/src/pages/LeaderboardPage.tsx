@@ -149,7 +149,7 @@ function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
                 <p className="leaderboard-footnote">
                   {isPersian
                     ? "زمان تکمیل فقط برای کسانی نمایش داده می‌شود که هر ۱۲ کلید را در مهلت رسمی حل کرده‌اند؛ رتبهٔ سایر شرکت‌کنندگان بر اساس تعداد کلیدهای حل‌شده و سپس زمان ثبت فعالیت محاسبه می‌شود. مبلغ جایزه تا زمان تأیید تراکنش در وضعیت انتظار پرداخت نمایش داده می‌شود؛ مجموع جوایز فقط مبالغ پرداخت‌شده را محاسبه می‌کند."
-                    : "Completion time is shown only for participants who solved all 12 keys within the official round. Other participants are ranked by solved keys, then recorded activity time. Prizes are payable only after real prize-fund verification and on-chain payout processing are operational."}
+                    : "Completion time is shown only for participants who solved all 12 keys within the official round. Other participants are ranked by solved keys, then recorded activity time. The round prize shows pending or confirmed payment status; total prizes include only payouts confirmed on-chain."}
                 </p>
               </section>
             )}
