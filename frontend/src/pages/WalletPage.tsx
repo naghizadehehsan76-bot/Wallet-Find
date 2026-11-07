@@ -89,11 +89,74 @@ function errorMessage(error: unknown, copy: {
   return message || copy.error;
 }
 
+
+type WalletSnapshot = { wallet: WalletResult; savedAt: number };
+
+function getWalletSnapshotKey(): string | null {
+  try {
+    if (!localStorage.getItem("walletFindToken")) return null;
+    const rawUser = localStorage.getItem("walletFindUser");
+    if (!rawUser) return null;
+    const user = JSON.parse(rawUser) as { id?: unknown };
+    if (typeof user.id !== "string" || !user.id) return null;
+    return `walletFindWalletSnapshot:v1:${user.id}`;
+  } catch {
+    return null;
+  }
+}
+
+function readWalletSnapshot(): WalletSnapshot | null {
+  const key = getWalletSnapshotKey();
+  if (!key) return null;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<WalletSnapshot>;
+    const wallet = parsed.wallet as WalletResult | undefined;
+    if (
+      parsed.savedAt === undefined ||
+      typeof parsed.savedAt !== "number" ||
+      !Number.isFinite(parsed.savedAt) ||
+      !wallet ||
+      !Array.isArray(wallet.networks) ||
+      !Array.isArray(wallet.transactions) ||
+      !Array.isArray(wallet.onChainDeposits) ||
+      !Array.isArray(wallet.onChainWithdrawals)
+    ) return null;
+    return { wallet, savedAt: parsed.savedAt };
+  } catch {
+    return null;
+  }
+}
+
+function saveWalletSnapshot(wallet: WalletResult, key = getWalletSnapshotKey()): number | null {
+  if (!key) return null;
+  const savedAt = Date.now();
+  try {
+    // Keep the fast-start snapshot focused on balances; history is fetched fresh from the server.
+    const snapshot: WalletResult = {
+      ...wallet,
+      transactions: [],
+      onChainDeposits: [],
+      onChainWithdrawals: [],
+    };
+    localStorage.setItem(key, JSON.stringify({ wallet: snapshot, savedAt }));
+    return savedAt;
+  } catch {
+    // Storage may be unavailable or full; live wallet loading must still work.
+    return null;
+  }
+}
+
 export default function WalletPage({ onNavigate }: Props) {
   const { language } = useI18n();
   const fa = language === "fa";
   const locale = fa ? "fa-IR" : "en-US";
-  const [wallet, setWallet] = useState<WalletResult | null>(null);
+  const [cachedWalletSnapshot] = useState<WalletSnapshot | null>(() => readWalletSnapshot());
+  const [wallet, setWallet] = useState<WalletResult | null>(() => cachedWalletSnapshot?.wallet ?? null);
+  const [walletLoadedFromCache, setWalletLoadedFromCache] = useState(() => cachedWalletSnapshot !== null);
+  const [walletCacheTimestamp, setWalletCacheTimestamp] = useState<number | null>(() => cachedWalletSnapshot?.savedAt ?? null);
+  const refreshInFlight = useRef(false);
   const [error, setError] = useState("");
   const [view, setView] = useState<WalletView>("overview");
   const [depositAssetId, setDepositAssetId] = useState("");
@@ -144,6 +207,8 @@ export default function WalletPage({ onNavigate }: Props) {
     history: fa ? "تاریخچه تراکنش‌ها" : "Transaction history",
     empty: fa ? "هنوز تراکنشی ثبت نشده است." : "No transactions yet.",
     loading: fa ? "در حال دریافت کیف پول..." : "Loading wallet...",
+    cachedWalletNotice: fa ? "آخرین موجودی ذخیره‌شده نمایش داده می‌شود؛ ممکن است هنوز به‌روز نباشد." : "Showing the last saved balances; they may not be up to date.",
+    cachedWalletTime: fa ? "آخرین دریافت موفق:" : "Last successful update:",
     error: fa ? "دریافت اطلاعات کیف پول ناموفق بود." : "Unable to load wallet information.",
     refresh: fa ? "به‌روزرسانی" : "Refresh",
     network: fa ? "شبکه" : "Network",
@@ -212,14 +277,21 @@ export default function WalletPage({ onNavigate }: Props) {
   }), [fa, language]);
 
   const refresh = useCallback(async () => {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    const snapshotKey = getWalletSnapshotKey();
     setRefreshing(true);
     try {
       const walletResult = await getWallet();
       setWallet(walletResult);
+      const savedAt = saveWalletSnapshot(walletResult, snapshotKey);
+      setWalletCacheTimestamp(savedAt);
+      setWalletLoadedFromCache(false);
       setError("");
     } catch {
       setError(copy.error);
     } finally {
+      refreshInFlight.current = false;
       setRefreshing(false);
     }
   }, [copy.error]);
@@ -289,7 +361,11 @@ export default function WalletPage({ onNavigate }: Props) {
     setProvisioningWallet(true);
     setProvisionWalletError("");
     try {
-      setWallet(await provisionOwnWallet());
+      const walletResult = await provisionOwnWallet();
+      setWallet(walletResult);
+      const savedAt = saveWalletSnapshot(walletResult);
+      setWalletCacheTimestamp(savedAt);
+      setWalletLoadedFromCache(false);
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : "";
       setProvisionWalletError(
@@ -412,6 +488,10 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
 
       {!wallet && !error && <div className="inline-feedback"><LoadingIndicator label={copy.loading} /></div>}
       {error && <p className="inline-feedback wallet-error" role="alert">{error}</p>}
+      {walletLoadedFromCache && wallet && <p className="inline-feedback" role="status">
+        {copy.cachedWalletNotice}
+        {walletCacheTimestamp ? ` ${copy.cachedWalletTime} ${new Date(walletCacheTimestamp).toLocaleString(locale)}` : ""}
+      </p>}
 
       {wallet && view === "overview" && !wallet.walletAddress && wallet.turnkeyConfigured && !wallet.walletProvisioningReviewRequired && <>
         <section className="wallet-exchange-balance" id="wallet-create">
@@ -485,7 +565,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
       {wallet && view === "history" && <section className="wallet-flow-card wallet-history-card">
         <button type="button" className="wallet-back" onClick={() => setView("overview")}>← {copy.back}</button>
         <h1>{copy.history}</h1>
-        {wallet.transactions.length === 0 ? <p className="wallet-asset-empty">{copy.empty}</p> : <div className="wallet-activity-list">
+        {walletLoadedFromCache ? <div className="inline-feedback"><LoadingIndicator label={copy.loading} /></div> : wallet.transactions.length === 0 ? <p className="wallet-asset-empty">{copy.empty}</p> : <div className="wallet-activity-list">
           {[...wallet.transactions].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((transaction) => (
             <div className="wallet-network-row wallet-activity-row" key={transaction.id}>
               <div><strong>{transaction.type}</strong><small>{new Date(transaction.createdAt).toLocaleString(locale)}</small><small>{transaction.status}{transaction.note ? " · " + transaction.note : ""}</small></div>
