@@ -887,7 +887,7 @@ async function readTreasuryChainSnapshot(address: string) {
 }
 
 
-export async function reconcileTreasuryAccounting(adminUserId: string) {
+export async function reconcileTreasuryAccounting(adminUserId: string | null) {
   const treasury = await prisma.treasuryWallet.findUnique({ where: { id: TREASURY_ID } });
   if (!treasury || treasury.status !== "ACTIVE" || !treasury.address) throw new Error("TREASURY_NOT_READY");
 
@@ -919,10 +919,13 @@ export async function reconcileTreasuryAccounting(adminUserId: string) {
     await tx.auditLog.create({
       data: {
         userId: adminUserId,
-        action: "TREASURY_ACCOUNTING_RECONCILIATION",
+        action: adminUserId
+          ? "TREASURY_ACCOUNTING_RECONCILIATION"
+          : "TREASURY_ACCOUNTING_RECONCILIATION_AUTOMATIC",
         entity: "TreasuryReconciliation",
         entityId: created.id,
         metadata: {
+          source: adminUserId ? "ADMIN_MANUAL" : "SYSTEM_AFTER_TREASURY_DEPOSIT",
           chainId: 137,
           asset: "USDT0",
           blockNumber: chain.blockNumber.toString(),
