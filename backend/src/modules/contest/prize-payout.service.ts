@@ -218,6 +218,18 @@ async function executePendingAward(awardId: string) {
     }
     const destinationAddress = userWallet.address.toLowerCase() as Address;
     knownDestinationAddress = destinationAddress;
+    const polygonWalletNetwork = await prisma.walletNetworkAccount.findUnique({
+      where: { walletAccountId_chainId: { walletAccountId: userWallet.id, chainId: 137 } },
+      select: { depositEnabled: true },
+    });
+    if (!polygonWalletNetwork?.depositEnabled) throw new Error("WINNER_POLYGON_DEPOSITS_NOT_ENABLED");
+    const usdt0Asset = await prisma.chainAsset.findUnique({
+      where: { chainId_contractAddress: { chainId: 137, contractAddress: USDT0_ADDRESS } },
+      select: { depositEnabled: true, canonicalStatus: true, decimals: true },
+    });
+    if (!usdt0Asset?.depositEnabled || usdt0Asset.canonicalStatus !== "ONCHAIN_VERIFIED" || usdt0Asset.decimals !== 6) {
+      throw new Error("POLYGON_USDT0_DEPOSIT_SCANNER_NOT_READY");
+    }
 
     const treasury = await prisma.treasuryWallet.findUnique({ where: { id: TREASURY_ID } });
     if (!treasury || treasury.status !== "ACTIVE" || !treasury.address || !treasury.turnkeyWalletId) {
