@@ -9,11 +9,9 @@ import {
   provisionPrizeTreasuryWallet,
   getPrizeTreasuryWallet,
   getTreasuryPrizeFunding,
-  getAdminTreasuryDeposits,
   getAdminTreasuryLedgerHistory,
   reconcileTreasuryAccounting,
   type TreasuryPrizeFundingSnapshot,
-  type AdminTreasuryDeposit,
   type AdminTreasuryLedgerEntry,
   type PrizeTreasuryProvisionResult,
   getAdminUsers,
@@ -137,9 +135,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [treasuryFunding, setTreasuryFunding] = useState<TreasuryPrizeFundingSnapshot | null>(null);
   const [treasuryFundingLoading, setTreasuryFundingLoading] = useState(false);
   const [treasuryFundingError, setTreasuryFundingError] = useState(false);
-  const [treasuryDeposits, setTreasuryDeposits] = useState<AdminTreasuryDeposit[]>([]);
-  const [treasuryDepositsLoading, setTreasuryDepositsLoading] = useState(false);
-  const [treasuryDepositsError, setTreasuryDepositsError] = useState(false);
   const [treasuryLedgerEntries, setTreasuryLedgerEntries] = useState<AdminTreasuryLedgerEntry[]>([]);
   const [treasuryLedgerLoading, setTreasuryLedgerLoading] = useState(false);
   const [treasuryLedgerError, setTreasuryLedgerError] = useState(false);
@@ -422,17 +417,15 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     const refresh = async () => {
       setTreasuryFundingLoading(true);
       try {
-        const [snapshot, depositResult, ledgerResult] = await Promise.all([getTreasuryPrizeFunding(), getAdminTreasuryDeposits(), getAdminTreasuryLedgerHistory()]);
+        const [snapshot, ledgerResult] = await Promise.all([getTreasuryPrizeFunding(), getAdminTreasuryLedgerHistory()]);
         if (!cancelled) {
           setTreasuryFunding(snapshot);
           setTreasuryFundingError(false);
-          setTreasuryDeposits(depositResult.deposits);
-          setTreasuryDepositsError(false);
           setTreasuryLedgerEntries(ledgerResult.transactions);
           setTreasuryLedgerError(false);
         }
       } catch {
-        if (!cancelled) { setTreasuryFundingError(true); setTreasuryDepositsError(true); setTreasuryLedgerError(true); }
+        if (!cancelled) { setTreasuryFundingError(true); setTreasuryLedgerError(true); }
       } finally {
         if (!cancelled) setTreasuryFundingLoading(false);
       }
@@ -1200,41 +1193,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
               </div>
             )}
           </section>
-          {treasury && (
-            <section className="admin-panel admin-treasury-deposits">
-              <div className="admin-treasury-deposits__heading">
-                <div><h2>{copy.treasuryDepositTitle}</h2><p className="admin-footnote">{copy.treasuryDepositHelp}</p></div>
-                <button type="button" onClick={() => {
-                  setTreasuryDepositsLoading(true);
-                  void getAdminTreasuryDeposits().then((result) => { setTreasuryDeposits(result.deposits); setTreasuryDepositsError(false); })
-                    .catch(() => setTreasuryDepositsError(true)).finally(() => setTreasuryDepositsLoading(false));
-                }} disabled={treasuryDepositsLoading}>{treasuryDepositsLoading ? "…" : copy.treasuryDepositRefresh}</button>
-              </div>
-              <div className="admin-treasury-instructions">
-                <p>{copy.treasuryNetworkInstruction}</p>
-                <small>{copy.treasuryContract}: <code>0xc2132d05d31c914a87c6611c10748aeb04b58e8f</code></small>
-              </div>
-              {treasuryDepositsError ? <p className="admin-empty">{copy.treasuryDepositError}</p> :
-                treasuryDeposits.length === 0 ? <p className="admin-empty">{copy.treasuryNoDeposits}</p> :
-                <div className="admin-settings-list admin-treasury-deposit-list">
-                  {treasuryDeposits.map((deposit) => (
-                    <article className="admin-setting-row admin-wallet-row admin-treasury-deposit-card" key={deposit.id}>
-                      <div className="admin-treasury-deposit-card__content">
-                        <div className="admin-treasury-deposit-row__top">
-                          <strong>{deposit.amount ?? "—"} USDT0</strong>
-                          <span className={deposit.status === "CREDITED" ? "wallet-network-status wallet-network-status--active" : "wallet-network-status"}>{deposit.status}</span>
-                        </div>
-                        <small>{copy.treasuryDepositConfirmations}: {deposit.confirmationCount.toLocaleString(fa ? "fa-IR" : "en-US")} / 128</small>
-                        <small>{copy.treasuryDepositDate}: {new Date(deposit.detectedAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>
-                        <code>{deposit.transactionHash}</code>
-                      </div>
-                      <a href={"https://polygonscan.com/tx/" + deposit.transactionHash} target="_blank" rel="noreferrer">{fa ? "مشاهده تراکنش در PolygonScan" : "View on PolygonScan"}</a>
-                    </article>
-                  ))}
-                </div>
-              }
-            </section>
-          )}
           {treasury && (
             <section className="admin-panel admin-treasury-deposits">
               <div className="admin-treasury-deposits__heading">
