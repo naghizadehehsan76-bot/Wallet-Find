@@ -43,6 +43,8 @@ router.post("/contests/:contestId/finish", finishContestHandler);
 router.get("/audit-logs", getAuditLogsHandler);
 router.get("/source-visit-report", getContestSourceVisitReportHandler);
 router.get("/wallets", getAdminWalletsHandler);
+router.get("/wallet-accounts", getAdminWalletAccountsHandler);
+router.get("/wallet-accounts/:walletAccountId/transactions", getAdminWalletAccountTransactionsHandler);
 router.get("/wallet-networks", getAdminWalletNetworkRegistryHandler);
 router.post("/wallet-emergency-pause", emergencyPauseWalletOperationsHandler);
 router.post("/wallet-emergency-resume", resumeWalletOperationsHandler);
