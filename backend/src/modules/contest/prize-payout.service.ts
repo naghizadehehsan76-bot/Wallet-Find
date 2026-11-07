@@ -406,7 +406,7 @@ export async function runPrizePayoutProcessorOnce() {
 }
 
 export function startPrizePayoutProcessor() {
-  const intervalMs = Math.max(15_000, Number.parseInt(process.env.PRIZE_PAYOUT_INTERVAL_MS ?? "30_000", 10) || 30_000);
+  const intervalMs = Math.max(15_000, Number.parseInt(process.env.PRIZE_PAYOUT_INTERVAL_MS ?? "30000", 10) || 30_000);
   let running = false;
   const tick = async () => {
     if (running) return;
