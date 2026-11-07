@@ -8,7 +8,11 @@ import {
   isEvmWithdrawalFeeModelSupported,
 } from "./chain-adapters/evm.adapter.js";
 import { postWalletJournalInTransaction } from "./wallet-journal.service.js";
-import { createTurnkeySigner, provisionTurnkeyWallet, sendSponsoredEvmTransaction } from "./turnkey.service.js";
+import { createParentTurnkeySigner, createTurnkeySigner, provisionTurnkeyWallet, sendSponsoredEvmTransaction } from "./turnkey.service.js";
+
+const PRIZE_TREASURY_ID = "polygon-prize-treasury";
+const PRIZE_TREASURY_ACCOUNT_REFERENCE = "PRIZE_TREASURY";
+const POLYGON_USDT0_CONTRACT = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f";
 
 const TOKEN_TRANSFER_ABI = [
   {
@@ -41,6 +45,7 @@ type WithdrawalSnapshot = {
   networkId: string;
   walletAssetId: string;
   feeAssetId: string | null;
+  fundingSource: string;
   destinationAddress: string;
   amountAtomic: { toFixed(decimalPlaces?: number): string };
   feeAtomic: { toFixed(decimalPlaces?: number): string } | null;
@@ -93,6 +98,19 @@ async function readAvailableBalance(
   }, 0n);
 }
 
+async function readAvailableBalanceByReference(
+  tx: any, userId: string, networkId: string, walletAssetId: string, accountReference: string,
+): Promise<bigint> {
+  const postings = await tx.walletJournalPosting.findMany({
+    where: { account: "USER_AVAILABLE", accountReference, journal: { userId, networkId, walletAssetId } },
+    select: { direction: true, amountAtomic: true },
+  });
+  return postings.reduce((total: bigint, posting: any) => {
+    const amount = BigInt(posting.amountAtomic.toFixed(0));
+    return total + (posting.direction === "CREDIT" ? amount : -amount);
+  }, 0n);
+}
+
 async function postReservation(
   tx: any,
   input: {
@@ -103,6 +121,7 @@ async function postReservation(
     amount: bigint;
     suffix: string;
     note: string;
+    availableAccountReference?: string;
   },
 ) {
   return postWalletJournalInTransaction(tx, {
@@ -117,7 +136,7 @@ async function postReservation(
         account: "USER_AVAILABLE",
         direction: "DEBIT",
         amountAtomic: input.amount.toString(),
-        accountReference: input.userId,
+        accountReference: input.availableAccountReference ?? input.userId,
       },
       {
         account: "USER_RESERVED",
@@ -139,6 +158,7 @@ async function releaseReservation(
     amount: bigint;
     suffix: string;
     note: string;
+    availableAccountReference?: string;
   },
 ) {
   if (input.amount <= 0n) return null;
@@ -160,7 +180,7 @@ async function releaseReservation(
         account: "USER_AVAILABLE",
         direction: "CREDIT",
         amountAtomic: input.amount.toString(),
-        accountReference: input.userId,
+        accountReference: input.availableAccountReference ?? input.userId,
       },
     ],
   });
@@ -320,9 +340,38 @@ export async function requestChainWalletWithdrawal(input: {
   });
   if (!feeAsset) throw new Error("WALLET_NATIVE_FEE_ASSET_NOT_CONFIGURED");
 
+  const isPolygonUsdt0 = network.chainId === 137
+    && asset.symbol === "USDT0"
+    && asset.contractAddress?.toLowerCase() === POLYGON_USDT0_CONTRACT;
+  const [totalAvailableBefore, prizeAvailableBefore, prizeTreasury] = await Promise.all([
+    prisma.$transaction((tx) => readAvailableBalance(tx, input.userId, networkId, asset.id)),
+    isPolygonUsdt0
+      ? prisma.$transaction((tx) => readAvailableBalanceByReference(tx, input.userId, networkId, asset.id, PRIZE_TREASURY_ACCOUNT_REFERENCE))
+      : Promise.resolve(0n),
+    isPolygonUsdt0
+      ? prisma.treasuryWallet.findUnique({ where: { id: PRIZE_TREASURY_ID }, select: { id: true, address: true, status: true, turnkeyWalletId: true } })
+      : Promise.resolve(null),
+  ]);
+  const regularWalletAvailable = totalAvailableBefore - prizeAvailableBefore;
+  let fundingSource: "USER_WALLET" | "PRIZE_TREASURY" = "USER_WALLET";
+  if (isPolygonUsdt0 && prizeAvailableBefore >= amount) {
+    if (!prizeTreasury || prizeTreasury.status !== "ACTIVE" || !prizeTreasury.address || !prizeTreasury.turnkeyWalletId) {
+      throw new Error("PRIZE_TREASURY_NOT_READY");
+    }
+    fundingSource = "PRIZE_TREASURY";
+  } else if (regularWalletAvailable < amount) {
+    if (isPolygonUsdt0 && totalAvailableBefore >= amount) {
+      throw new Error("WITHDRAWAL_AMOUNT_EXCEEDS_EITHER_FUNDING_SOURCE");
+    }
+    throw new Error("INSUFFICIENT_WALLET_BALANCE");
+  }
+
+  const transactionSender = fundingSource === "PRIZE_TREASURY"
+    ? prizeTreasury!.address as Address
+    : address.address as Address;
   const feeQuote = await quoteEvmFee({
     chainId: network.chainId,
-    from: address.address as Address,
+    from: transactionSender,
     to: destinationAddress as Address,
     assetType: asset.assetType,
     contractAddress: asset.contractAddress,
@@ -333,7 +382,7 @@ export async function requestChainWalletWithdrawal(input: {
   }
   const useTurnkeySponsorship = process.env.TURNKEY_GAS_SPONSORSHIP_ENABLED === "true"
     && network.chainId === 137;
-  const reservedFeeAmount = useTurnkeySponsorship ? 0n : feeQuote.feeAtomic;
+  const reservedFeeAmount = fundingSource === "PRIZE_TREASURY" || useTurnkeySponsorship ? 0n : feeQuote.feeAtomic;
 
   const id = randomUUID();
   return prisma.$transaction(async (tx) => {
@@ -373,18 +422,23 @@ export async function requestChainWalletWithdrawal(input: {
 
     const feeAndAmountSameAsset = asset.id === feeAsset.id;
     const availableAmount = await readAvailableBalance(tx, input.userId, networkId, asset.id);
+    const prizeAvailable = isPolygonUsdt0
+      ? await readAvailableBalanceByReference(tx, input.userId, networkId, asset.id, PRIZE_TREASURY_ACCOUNT_REFERENCE)
+      : 0n;
+    const sourceAvailable = fundingSource === "PRIZE_TREASURY" ? prizeAvailable : availableAmount - prizeAvailable;
     const availableFee = feeAndAmountSameAsset
       ? availableAmount
-      : useTurnkeySponsorship
+      : useTurnkeySponsorship || fundingSource === "PRIZE_TREASURY"
         ? 0n
         : await readAvailableBalance(tx, input.userId, networkId, feeAsset.id);
+    if (sourceAvailable < amount) throw new Error("INSUFFICIENT_WALLET_BALANCE");
     if (feeAndAmountSameAsset) {
       if (availableAmount < amount + reservedFeeAmount) {
         throw new Error("INSUFFICIENT_WALLET_BALANCE_FOR_AMOUNT_AND_NETWORK_FEE");
       }
     } else {
       if (availableAmount < amount) throw new Error("INSUFFICIENT_WALLET_BALANCE");
-      if (!useTurnkeySponsorship && availableFee < feeQuote.feeAtomic) throw new Error("INSUFFICIENT_NATIVE_FEE_BALANCE");
+      if (!useTurnkeySponsorship && fundingSource === "USER_WALLET" && availableFee < feeQuote.feeAtomic) throw new Error("INSUFFICIENT_NATIVE_FEE_BALANCE");
     }
 
     const withdrawal = await tx.walletChainWithdrawal.create({
@@ -396,6 +450,7 @@ export async function requestChainWalletWithdrawal(input: {
         networkId,
         walletAssetId: asset.id,
         feeAssetId: feeAsset.id,
+        fundingSource,
         destinationAddress,
         amountAtomic: amount.toString(),
         feeAtomic: reservedFeeAmount.toString(),
@@ -416,6 +471,7 @@ export async function requestChainWalletWithdrawal(input: {
       amount,
       suffix: "amount-reserve",
       note: "Reserve wallet balance for approved on-chain withdrawal",
+      availableAccountReference: fundingSource === "PRIZE_TREASURY" ? PRIZE_TREASURY_ACCOUNT_REFERENCE : input.userId,
     });
     if (reservedFeeAmount > 0n) {
       await postReservation(tx, {
@@ -442,6 +498,7 @@ export async function requestChainWalletWithdrawal(input: {
           feeAssetId: feeAsset.id,
           reservedFeeAtomic: reservedFeeAmount.toString(),
           gasSponsorship: useTurnkeySponsorship,
+          fundingSource,
           idempotencyKey,
           approvalMode: "AUTOMATIC_NO_ADMIN_REVIEW",
         },
@@ -482,6 +539,7 @@ export async function getAdminChainWalletWithdrawals() {
     asset: row.asset.symbol,
     decimals: row.asset.decimals,
     feeAsset: row.feeAsset?.symbol ?? null,
+    fundingSource: row.fundingSource,
     feeDecimals: row.feeAsset?.decimals ?? null,
     destinationAddress: row.destinationAddress,
     amount: formatAssetUnits(BigInt(row.amountAtomic.toFixed(0)), row.asset.decimals),
