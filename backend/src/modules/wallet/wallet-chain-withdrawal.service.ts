@@ -979,8 +979,10 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
   const confirmationsBig = latest >= receipt.blockNumber ? latest - receipt.blockNumber + 1n : 0n;
   const confirmations = Number(confirmationsBig > 1_000_000n ? 1_000_000n : confirmationsBig);
   const required = withdrawal.network.finalityDepth;
-  const actualFee = receipt.gasUsed * receipt.effectiveGasPrice;
   const reservedFee = atomic(withdrawal.feeAtomic);
+  // A zero reserved fee identifies a Turnkey-sponsored request: its gas is
+  // billed to the parent organization, never debited from the user's POL ledger.
+  const actualFee = reservedFee === 0n ? 0n : receipt.gasUsed * receipt.effectiveGasPrice;
 
   await prisma.walletChainWithdrawal.updateMany({
     where: { id: withdrawalId, status: "BROADCAST" },
