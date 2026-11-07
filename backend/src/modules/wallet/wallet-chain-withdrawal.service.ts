@@ -1037,7 +1037,7 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
   if (treasuryFunding && (!prizeTreasury || prizeTreasury.status !== "ACTIVE" || !prizeTreasury.address)) {
     throw new Error("PRIZE_TREASURY_NOT_READY");
   }
-  const expectedFrom = (treasuryFunding ? prizeTreasury!.address : withdrawal.walletAddress.address).toLowerCase();
+  const expectedFrom = (treasuryFunding ? prizeTreasury!.address! : withdrawal.walletAddress.address).toLowerCase();
   const expectedTo = withdrawal.destinationAddress.toLowerCase();
   let transactionMatches = transaction.from.toLowerCase() === expectedFrom;
   if (withdrawal.asset.assetType === "NATIVE") {
