@@ -13,6 +13,7 @@ import profileRoutes from "./modules/profile/profile.routes.js";
 import walletRoutes from "./modules/wallet/wallet.routes.js";
 import { receiveTurnkeyWebhook } from "./modules/wallet/turnkey-webhook.service.js";
 import statsRoutes from "./modules/stats/stats.routes.js";
+import prisma from "./config/prisma.js";
 
 const app = express();
 
@@ -94,9 +95,90 @@ const marketPriceIds = [
   "binancecoin", "tron", "ripple", "dogecoin", "cardano",
   "avalanche-2", "chainlink", "dai", "litecoin", "polkadot", "stellar",
 ];
+const marketPriceCacheSettingKey = "market_prices_cache_v1";
+const marketPriceCacheMaxAgeMs = 24 * 60 * 60 * 1000;
 let cachedMarketPrices: Record<string, number> | null = null;
 let marketPricesUpdatedAt: number | null = null;
 let marketPricesCacheExpiresAt = 0;
+let marketPriceCacheRestore: Promise<void> | null = null;
+
+async function restoreMarketPriceCache(): Promise<void> {
+  if (!marketPriceCacheRestore) {
+    marketPriceCacheRestore = (async () => {
+      try {
+        const setting = await prisma.systemSetting.findUnique({
+          where: { key: marketPriceCacheSettingKey },
+        });
+        if (!setting) return;
+        const parsed = JSON.parse(setting.value) as {
+          prices?: unknown;
+          updatedAt?: unknown;
+        };
+        if (!parsed.prices || typeof parsed.prices !== "object" || Array.isArray(parsed.prices)) return;
+        const prices: Record<string, number> = {};
+        for (const [id, value] of Object.entries(parsed.prices)) {
+          if (marketPriceIds.includes(id) && typeof value === "number" && Number.isFinite(value) && value > 0) {
+            prices[id] = value;
+          }
+        }
+        if (Object.keys(prices).length > 0 && typeof parsed.updatedAt === "number" && Number.isFinite(parsed.updatedAt)) {
+          cachedMarketPrices = prices;
+          marketPricesUpdatedAt = parsed.updatedAt;
+          marketPricesCacheExpiresAt = 0;
+        }
+      } catch (error) {
+        console.warn("Unable to restore persisted market price cache", error);
+      }
+    })();
+  }
+  await marketPriceCacheRestore;
+}
+
+async function fetchCoinGeckoMarketPrices(): Promise<Record<string, number>> {
+  const upstream = await fetch(
+    "https://api.coingecko.com/api/v3/simple/price?ids=" +
+      marketPriceIds.join(",") + "&vs_currencies=usd",
+    { headers: { accept: "application/json" }, signal: AbortSignal.timeout(8000) },
+  );
+  if (!upstream.ok) throw new Error("COINGECKO_HTTP_" + upstream.status);
+
+  const payload: unknown = await upstream.json();
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new Error("INVALID_COINGECKO_RESPONSE");
+  }
+
+  const prices: Record<string, number> = {};
+  for (const id of marketPriceIds) {
+    const quote = (payload as Record<string, unknown>)[id];
+    if (quote && typeof quote === "object" && !Array.isArray(quote)) {
+      const usd = (quote as Record<string, unknown>).usd;
+      if (typeof usd === "number" && Number.isFinite(usd) && usd > 0) prices[id] = usd;
+    }
+  }
+  if (Object.keys(prices).length === 0) throw new Error("EMPTY_COINGECKO_RESPONSE");
+  return prices;
+}
+
+// Independent fallback for POL. Binance's POL/USDT spot quote is used as an
+// estimated USD quote (USDT is treated at its USD peg); it is never used for
+// wallet accounting, deposits, withdrawals, or settlement.
+async function fetchBinancePolFallback(): Promise<number> {
+  const upstream = await fetch(
+    "https://api.binance.com/api/v3/ticker/price?symbol=POLUSDT",
+    { headers: { accept: "application/json" }, signal: AbortSignal.timeout(6000) },
+  );
+  if (!upstream.ok) throw new Error("BINANCE_HTTP_" + upstream.status);
+  const payload: unknown = await upstream.json();
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new Error("INVALID_BINANCE_RESPONSE");
+  }
+  const rawPrice = (payload as Record<string, unknown>).price;
+  const price = typeof rawPrice === "string" ? Number(rawPrice) : rawPrice;
+  if (typeof price !== "number" || !Number.isFinite(price) || price <= 0) {
+    throw new Error("INVALID_BINANCE_POL_PRICE");
+  }
+  return price;
+}
 
 const marketPriceLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -107,44 +189,81 @@ const marketPriceLimiter = rateLimit({
 });
 
 app.get("/api/market/prices", marketPriceLimiter, async (_req, res) => {
+  await restoreMarketPriceCache();
   const now = Date.now();
   if (cachedMarketPrices && now < marketPricesCacheExpiresAt) {
-    return res.json({ success: true, data: { prices: cachedMarketPrices, updatedAt: marketPricesUpdatedAt } });
+    return res.json({
+      success: true,
+      data: { prices: cachedMarketPrices, updatedAt: marketPricesUpdatedAt, source: "server-cache" },
+    });
   }
+
+  const freshPrices: Record<string, number> = {};
+  const sources: string[] = [];
 
   try {
-    const upstream = await fetch(
-      "https://api.coingecko.com/api/v3/simple/price?ids=" +
-        marketPriceIds.join(",") + "&vs_currencies=usd",
-      { headers: { accept: "application/json" }, signal: AbortSignal.timeout(8000) },
-    );
-    if (!upstream.ok) throw new Error("PRICE_PROVIDER_UNAVAILABLE");
-
-    const payload: unknown = await upstream.json();
-    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-      throw new Error("INVALID_PRICE_PROVIDER_RESPONSE");
-    }
-
-    const prices: Record<string, number> = {};
-    for (const id of marketPriceIds) {
-      const quote = (payload as Record<string, unknown>)[id];
-      if (quote && typeof quote === "object" && !Array.isArray(quote)) {
-        const usd = (quote as Record<string, unknown>).usd;
-        if (typeof usd === "number" && Number.isFinite(usd) && usd > 0) prices[id] = usd;
-      }
-    }
-    if (Object.keys(prices).length === 0) throw new Error("EMPTY_PRICE_PROVIDER_RESPONSE");
-
-    cachedMarketPrices = prices;
-    marketPricesUpdatedAt = Date.now();
-    marketPricesCacheExpiresAt = marketPricesUpdatedAt + 60_000;
-    return res.json({ success: true, data: { prices, updatedAt: marketPricesUpdatedAt } });
-  } catch {
-    if (cachedMarketPrices && marketPricesUpdatedAt !== null) {
-      return res.json({ success: true, data: { prices: cachedMarketPrices, updatedAt: marketPricesUpdatedAt, stale: true } });
-    }
-    return res.status(503).json({ success: false, error: "PRICE_FEED_UNAVAILABLE" });
+    Object.assign(freshPrices, await fetchCoinGeckoMarketPrices());
+    sources.push("coingecko");
+  } catch (error) {
+    console.warn("CoinGecko market price provider failed", error);
   }
+
+  if (freshPrices["polygon-ecosystem-token"] === undefined) {
+    try {
+      freshPrices["polygon-ecosystem-token"] = await fetchBinancePolFallback();
+      sources.push("binance-pol-fallback");
+    } catch (error) {
+      console.warn("Binance POL fallback provider failed", error);
+    }
+  }
+
+  if (Object.keys(freshPrices).length > 0) {
+    const mergedPrices = freshPrices;
+    const updatedAt = Date.now();
+    cachedMarketPrices = mergedPrices;
+    marketPricesUpdatedAt = updatedAt;
+    marketPricesCacheExpiresAt = updatedAt + 60_000;
+
+    try {
+      await prisma.systemSetting.upsert({
+        where: { key: marketPriceCacheSettingKey },
+        update: { value: JSON.stringify({ prices: mergedPrices, updatedAt }) },
+        create: {
+          key: marketPriceCacheSettingKey,
+          value: JSON.stringify({ prices: mergedPrices, updatedAt }),
+        },
+      });
+    } catch (error) {
+      console.warn("Unable to persist market price cache", error);
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        prices: mergedPrices,
+        updatedAt,
+        source: sources.join("+") || "server-cache",
+      },
+    });
+  }
+
+  if (
+    cachedMarketPrices &&
+    marketPricesUpdatedAt !== null &&
+    now - marketPricesUpdatedAt <= marketPriceCacheMaxAgeMs
+  ) {
+    return res.json({
+      success: true,
+      data: {
+        prices: cachedMarketPrices,
+        updatedAt: marketPricesUpdatedAt,
+        source: "persistent-cache",
+        stale: true,
+      },
+    });
+  }
+
+  return res.status(503).json({ success: false, error: "PRICE_FEED_UNAVAILABLE" });
 });
 
 app.get("/health", (_req, res) => {

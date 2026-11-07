@@ -180,6 +180,9 @@ export default function WalletPage({ onNavigate }: Props) {
   const [provisionWalletError, setProvisionWalletError] = useState("");
   const [usdPrices, setUsdPrices] = useState<Record<string, number>>({});
   const [priceStatus, setPriceStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [priceUpdatedAt, setPriceUpdatedAt] = useState<number | null>(null);
+  const [priceSource, setPriceSource] = useState("");
+  const [priceIsStale, setPriceIsStale] = useState(false);
 
 
   const copy = useMemo(() => ({
@@ -199,6 +202,8 @@ export default function WalletPage({ onNavigate }: Props) {
     balance: fa ? "ارزش تخمینی دارایی‌های ثبت‌شده" : "Estimated portfolio value",
     partialPriceNote: fa ? "قیمت بعضی دارایی‌ها موجود نیست؛ این عدد ممکن است کامل نباشد." : "Some asset prices are unavailable, so this estimate may be incomplete.",
     priceLoading: fa ? "در حال دریافت قیمت لحظه‌ای ارزها..." : "Loading live market prices...",
+    priceUpdated: fa ? "آخرین به‌روزرسانی قیمت" : "Price data updated",
+    priceStale: fa ? "استفاده از آخرین قیمت ذخیره‌شده" : "Using the last saved market prices",
     priceUnavailable: fa ? "در حال حاضر دریافت قیمت بازار ممکن نیست؛ موجودی دلاری موقتاً نمایش داده نمی‌شود." : "Market prices are temporarily unavailable; the USD total cannot be displayed.",
     available: fa ? "موجودی قابل استفاده" : "Available balance",
     deposit: fa ? "واریز" : "Deposit",
@@ -313,6 +318,9 @@ export default function WalletPage({ onNavigate }: Props) {
         if (Object.keys(validPrices).length === 0) throw new Error("PRICE_FEED_UNAVAILABLE");
         if (!cancelled) {
           setUsdPrices(validPrices);
+          setPriceUpdatedAt(typeof result.updatedAt === "number" ? result.updatedAt : null);
+          setPriceSource(typeof result.source === "string" ? result.source : "");
+          setPriceIsStale(Boolean(result.stale));
           setPriceStatus("ready");
         }
       } catch {
@@ -502,6 +510,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
           <div className="wallet-exchange-balance__value">{unpricedAssetCount > 0 ? "—" : usdFormatter.format(usdBalance)}</div>
           {priceStatus === "loading" && <div className="wallet-exchange-balance__available">{copy.priceLoading}</div>}
           {unpricedAssetCount > 0 && <div className="wallet-exchange-balance__available">{copy.partialPriceNote}</div>}
+          {priceUpdatedAt !== null && <div className="wallet-exchange-balance__available">{priceIsStale ? copy.priceStale : copy.priceUpdated}: {new Date(priceUpdatedAt).toLocaleString(locale)}{priceSource ? " · " + priceSource : ""}</div>}
 
           <div className="wallet-exchange-actions">
             <button type="button" className="wallet-action wallet-action--deposit" onClick={() => void openDeposit()}><span aria-hidden="true">↓</span>{copy.deposit}</button>
