@@ -29,7 +29,6 @@ import {
   type SystemSettingRecord,
 } from "../services/api";
 import LoadingIndicator from "../components/LoadingIndicator";
-import WalletWithdrawalReview from "../components/WalletWithdrawalReview";
 import WalletNetworkAdmin from "../components/WalletNetworkAdmin";
 import WalletChainWithdrawalReview from "../components/WalletChainWithdrawalReview";
 import { CHALLENGE_LANGUAGES, getChallengeLanguageName, isChallengeLanguage, type ChallengeLanguage } from "../i18n/challenge-languages";
@@ -1040,7 +1039,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
               } as Record<string, string>)[section]}</p>
               <p className="admin-footnote">{copy.conceptBody}</p>
             </section>
-            {section === "finance" && <WalletWithdrawalReview fa={fa} />}
           </>
         )}
 
