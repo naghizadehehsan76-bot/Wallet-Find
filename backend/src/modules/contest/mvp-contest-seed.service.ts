@@ -393,6 +393,87 @@ async function fetchWikisourceDocuments(limit: number, language: ChallengeLangua
   }
 }
 
+async function fetchGanjoorDocuments(limit: number): Promise<SourceDocument[]> {
+  // Ganjoor's Persian Wikisource counterpart is empty. Use only classical
+  // poets whose works are public domain, and preserve a direct source link.
+  const publicDomainPoetIds = [2, 7, 5, 3, 4]; // Hafez, Saadi, Rumi, Khayyam, Ferdowsi
+  const sources: SourceDocument[] = [];
+  const seenUrls = new Set<string>();
+
+  for (const poetId of publicDomainPoetIds.slice(0, limit)) {
+    const url = new URL("https://api.ganjoor.net/api/ganjoor/poem/random");
+    url.searchParams.set("poetId", String(poetId));
+    let response: Response | null = null;
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      if (sources.length > 0 || attempt > 0) await waitForWikipediaRetry(1_500);
+      try {
+        response = await fetch(url, {
+          headers: {
+            Accept: "application/json",
+            "User-Agent": "WalletFind/1.0 (Persian public-domain clue source; https://wallet-find.com)",
+          },
+          signal: AbortSignal.timeout(10_000),
+        });
+      } catch (error) {
+        console.warn("Ganjoor source request failed", {
+          poetId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        response = null;
+        break;
+      }
+
+      if (response.status !== 429 || attempt === 1) break;
+      const retryAfter = Number(response.headers.get("retry-after"));
+      const retryDelay = Number.isFinite(retryAfter) && retryAfter > 0
+        ? Math.min(30_000, retryAfter * 1_000)
+        : 5_000;
+      console.warn("Ganjoor rate limit received; retrying after a short delay.", {
+        poetId,
+        retryDelay,
+      });
+      await waitForWikipediaRetry(retryDelay);
+    }
+
+    if (!response?.ok) {
+      console.warn("Ganjoor random poem skipped", {
+        poetId,
+        status: response?.status ?? "network_error",
+      });
+      continue;
+    }
+
+    try {
+      const poem = await response.json() as {
+        title?: string;
+        fullTitle?: string;
+        fullUrl?: string;
+        plainText?: string;
+        published?: boolean;
+      };
+      const text = normalizeSourceText(poem.plainText ?? "");
+      if (poem.published === false || text.length < 300 || !poem.fullUrl) continue;
+
+      const sourceUrl = new URL(poem.fullUrl, "https://ganjoor.net").toString();
+      if (seenUrls.has(sourceUrl)) continue;
+      seenUrls.add(sourceUrl);
+      sources.push({
+        title: poem.fullTitle ?? poem.title ?? "Ganjoor classical poem",
+        url: sourceUrl,
+        text,
+      });
+    } catch (error) {
+      console.warn("Ganjoor poem response could not be parsed", {
+        poetId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return sources;
+}
+
 // Source texts can contain hundreds of thousands of characters. Cache tokenization
 // and normalization across attempts so the round generator does not repeatedly
 // perform expensive synchronous work on the event loop while Render is checking
@@ -712,8 +793,13 @@ async function generateMvpRounds(
   // language-matched Wikisource corpus as a second independent MediaWiki project.
   // This is especially important for non-English languages, which have no
   // Project Gutenberg fallback configured.
-  const wikisourceDocuments = configuredUrls.includes(wikiUrl) && wikipediaDocuments.length < 3
+  const wikisourceDocuments = language !== "fa" && configuredUrls.includes(wikiUrl) && wikipediaDocuments.length < 3
     ? await fetchWikisourceDocuments(12, language)
+    : [];
+  // Persian Wikisource currently has no published text corpus. Use five
+  // public-domain classical poets from Ganjoor instead when Wikipedia is unavailable.
+  const ganjoorDocuments = language === "fa" && wikipediaDocuments.length < 3
+    ? await fetchGanjoorDocuments(5)
     : [];
   const gutenbergResults = language === "en" ? await Promise.all(
     GUTENBERG_BOOKS.filter((book) => configuredUrls.includes(book.textUrl)).map((book) => fetchGutenbergDocument(book)),
@@ -739,6 +825,7 @@ async function generateMvpRounds(
     ...gutenbergResults.filter((source): source is SourceDocument => source !== null),
     ...wikipediaDocuments,
     ...wikisourceDocuments,
+    ...ganjoorDocuments,
     ...customDocuments.filter((source): source is SourceDocument => source !== null),
     ...plannedDocuments.flatMap(({ source }) => source ? [source] : []),
   ];
@@ -796,6 +883,7 @@ async function generateMvpRounds(
     language, configuredSourceCount: configuredUrls.length, sourceCount: sources.length,
     wikipediaSourceCount: wikipediaDocuments.length,
     wikisourceSourceCount: wikisourceDocuments.length,
+    ganjoorSourceCount: ganjoorDocuments.length,
     gutenbergSourceCount: gutenbergResults.filter((source) => source !== null).length,
     customSourceCount: customDocuments.filter((source) => source !== null).length,
     scheduledAssignments: scheduledAssignments.map(({ sequence, url }) => ({ sequence, hostname: new URL(url).hostname })),
