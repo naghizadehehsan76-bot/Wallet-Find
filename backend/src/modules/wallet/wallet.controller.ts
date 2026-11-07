@@ -138,6 +138,35 @@ export async function getAdminWalletsHandler(_req: AuthenticatedRequest, res: Re
 }
 
 
+
+export async function getAdminWalletAccountsHandler(_req: AuthenticatedRequest, res: Response) {
+  try {
+    const { getAdminWalletAccounts } = await import("./wallet-admin.service.js");
+    return res.json({ success: true, data: await getAdminWalletAccounts() });
+  } catch (error) {
+    console.error("Admin wallet account listing failed", error);
+    return res.status(500).json({ success: false, error: "WALLET_ACCOUNTS_UNAVAILABLE" });
+  }
+}
+
+export async function getAdminWalletAccountTransactionsHandler(req: AuthenticatedRequest, res: Response) {
+  try {
+    const walletAccountId = req.params.walletAccountId;
+    if (typeof walletAccountId !== "string" || !walletAccountId || walletAccountId.length > 128) {
+      return res.status(400).json({ success: false, error: "INVALID_WALLET_ACCOUNT_ID" });
+    }
+    const { getAdminWalletAccountTransactions } = await import("./wallet-admin.service.js");
+    const data = await getAdminWalletAccountTransactions(walletAccountId);
+    return res.json({ success: true, data });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+    if (message === "WALLET_ACCOUNT_NOT_FOUND") return res.status(404).json({ success: false, error: message });
+    if (message === "INVALID_WALLET_ACCOUNT_ID") return res.status(400).json({ success: false, error: message });
+    console.error("Admin wallet transaction history lookup failed", error);
+    return res.status(500).json({ success: false, error: "WALLET_TRANSACTIONS_UNAVAILABLE" });
+  }
+}
+
 export async function getPrizeTreasuryWalletHandler(_req: AuthenticatedRequest, res: Response) {
   try {
     const { getPrizeTreasuryWallet } = await import("./turnkey.service.js");

@@ -474,3 +474,286 @@ export async function resumeWalletOperationsByAdmin(
     };
   }, { isolationLevel: "Serializable" });
 }
+
+
+/**
+ * Read-only admin view of provisioned user wallets. Only public wallet metadata
+ * and posted ledger balances are returned; Turnkey signing credentials are never selected.
+ */
+function formatWalletAtomic(value: bigint, decimals: number): string {
+  const safeDecimals = Math.max(0, Math.min(36, decimals));
+  const negative = value < 0n;
+  const absolute = negative ? -value : value;
+  const base = 10n ** BigInt(safeDecimals);
+  const whole = absolute / base;
+  const fraction = safeDecimals ? (absolute % base).toString().padStart(safeDecimals, "0").replace(/0+$/, "") : "";
+  return (negative ? "-" : "") + whole.toString() + (fraction ? "." + fraction : "");
+}
+
+function walletBalanceByAsset(journals: Array<{
+  networkId: string;
+  walletAssetId: string;
+  network: { displayName: string; networkKey: string; chainId: number | null };
+  asset: { symbol: string; displayName: string; decimals: number };
+  postings: Array<{ account: string; direction: string; amountAtomic: { toFixed(scale?: number): string } }>;
+}>) {
+  const balances = new Map<string, {
+    networkId: string; network: string; networkKey: string; chainId: number | null;
+    assetId: string; asset: string; assetName: string; decimals: number;
+    availableAtomic: bigint; reservedAtomic: bigint;
+  }>();
+  for (const journal of journals) {
+    const key = journal.networkId + ":" + journal.walletAssetId;
+    const row = balances.get(key) ?? {
+      networkId: journal.networkId,
+      network: journal.network.displayName,
+      networkKey: journal.network.networkKey,
+      chainId: journal.network.chainId,
+      assetId: journal.walletAssetId,
+      asset: journal.asset.symbol,
+      assetName: journal.asset.displayName,
+      decimals: journal.asset.decimals,
+      availableAtomic: 0n,
+      reservedAtomic: 0n,
+    };
+    for (const posting of journal.postings) {
+      if (posting.account !== "USER_AVAILABLE" && posting.account !== "USER_RESERVED") continue;
+      const amount = BigInt(posting.amountAtomic.toFixed(0));
+      const signed = posting.direction === "CREDIT" ? amount : -amount;
+      if (posting.account === "USER_AVAILABLE") row.availableAtomic += signed;
+      else row.reservedAtomic += signed;
+    }
+    balances.set(key, row);
+  }
+  return [...balances.values()].map((row) => ({
+    networkId: row.networkId,
+    network: row.network,
+    networkKey: row.networkKey,
+    chainId: row.chainId,
+    assetId: row.assetId,
+    asset: row.asset,
+    assetName: row.assetName,
+    decimals: row.decimals,
+    available: formatWalletAtomic(row.availableAtomic, row.decimals),
+    reserved: formatWalletAtomic(row.reservedAtomic, row.decimals),
+    total: formatWalletAtomic(row.availableAtomic + row.reservedAtomic, row.decimals),
+  }));
+}
+
+export async function getAdminWalletAccounts() {
+  const accounts = await prisma.walletAccount.findMany({
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      userId: true,
+      address: true,
+      status: true,
+      derivationPath: true,
+      createdAt: true,
+      updatedAt: true,
+      user: { select: { id: true, username: true, email: true } },
+      walletAddresses: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true, address: true, addressType: true, isPrimary: true, status: true, createdAt: true,
+          network: { select: { id: true, displayName: true, networkKey: true, chainId: true, nativeAssetSymbol: true } },
+        },
+      },
+      networkAccounts: {
+        orderBy: { chainId: "asc" },
+        select: {
+          id: true, chainId: true, networkKey: true, depositEnabled: true, withdrawalEnabled: true,
+          createdAt: true,
+        },
+      },
+      _count: { select: { deposits: true, withdrawals: true, chainDeposits: true, chainWithdrawals: true } },
+    },
+  });
+  if (accounts.length === 0) return [];
+
+  const userIds = [...new Set(accounts.map((account) => account.userId))];
+  const journals = await prisma.walletJournal.findMany({
+    where: { userId: { in: userIds } },
+    include: {
+      network: { select: { displayName: true, networkKey: true, chainId: true } },
+      asset: { select: { symbol: true, displayName: true, decimals: true } },
+      postings: { select: { account: true, direction: true, amountAtomic: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  const byUser = new Map<string, typeof journals>();
+  for (const journal of journals) {
+    const rows = byUser.get(journal.userId ?? "") ?? [];
+    rows.push(journal);
+    byUser.set(journal.userId ?? "", rows);
+  }
+
+  return accounts.map((account) => ({
+    id: account.id,
+    userId: account.userId,
+    username: account.user.username,
+    email: account.user.email,
+    address: account.address,
+    status: account.status,
+    derivationPath: account.derivationPath,
+    createdAt: account.createdAt,
+    updatedAt: account.updatedAt,
+    addresses: account.walletAddresses,
+    networkAccounts: account.networkAccounts,
+    counts: account._count,
+    balances: walletBalanceByAsset(byUser.get(account.userId) ?? []),
+  }));
+}
+
+/**
+ * Detailed, read-only transaction history scoped to one wallet account and its owner.
+ * Both the current generic wallet ledger and older wallet records are included.
+ */
+export async function getAdminWalletAccountTransactions(walletAccountId: string) {
+  if (!walletAccountId || walletAccountId.length > 128) throw new Error("INVALID_WALLET_ACCOUNT_ID");
+  const account = await prisma.walletAccount.findUnique({
+    where: { id: walletAccountId },
+    select: {
+      id: true, userId: true, address: true, status: true, createdAt: true,
+      user: { select: { id: true, username: true, email: true } },
+      walletAddresses: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true, address: true, addressType: true, isPrimary: true, status: true,
+          network: { select: { id: true, displayName: true, networkKey: true, chainId: true } },
+        },
+      },
+      networkAccounts: {
+        orderBy: { chainId: "asc" },
+        select: { id: true, chainId: true, networkKey: true, depositEnabled: true, withdrawalEnabled: true },
+      },
+    },
+  });
+  if (!account) throw new Error("WALLET_ACCOUNT_NOT_FOUND");
+
+  const [chainDeposits, chainWithdrawals, legacyDeposits, legacyWithdrawals, journals, legacyTransactions] = await Promise.all([
+    prisma.walletChainDeposit.findMany({
+      where: { walletAccountId },
+      include: {
+        network: { select: { id: true, displayName: true, networkKey: true, chainId: true, explorerTransactionUrlTemplate: true } },
+        asset: { select: { id: true, symbol: true, displayName: true, decimals: true } },
+        walletAddress: { select: { address: true } },
+      },
+      orderBy: { detectedAt: "desc" },
+    }),
+    prisma.walletChainWithdrawal.findMany({
+      where: { walletAccountId },
+      include: {
+        network: { select: { id: true, displayName: true, networkKey: true, chainId: true, explorerTransactionUrlTemplate: true } },
+        asset: { select: { id: true, symbol: true, displayName: true, decimals: true } },
+        feeAsset: { select: { symbol: true, decimals: true } },
+        walletAddress: { select: { address: true } },
+      },
+      orderBy: { requestedAt: "desc" },
+    }),
+    prisma.walletDeposit.findMany({
+      where: { walletAccountId },
+      include: {
+        asset: { select: { symbol: true, displayName: true, decimals: true } },
+        networkAccount: { select: { networkKey: true, chainId: true } },
+      },
+      orderBy: { detectedAt: "desc" },
+    }),
+    prisma.walletWithdrawal.findMany({
+      where: { walletAccountId },
+      include: {
+        asset: { select: { symbol: true, displayName: true, decimals: true } },
+        networkAccount: { select: { networkKey: true, chainId: true } },
+      },
+      orderBy: { requestedAt: "desc" },
+    }),
+    prisma.walletJournal.findMany({
+      where: { userId: account.userId },
+      include: {
+        network: { select: { displayName: true, networkKey: true, chainId: true } },
+        asset: { select: { symbol: true, displayName: true, decimals: true } },
+        postings: { select: { account: true, direction: true, amountAtomic: true, accountReference: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.walletTransaction.findMany({
+      where: { userId: account.userId },
+      select: { id: true, type: true, status: true, amountMicro: true, currency: true, note: true, createdAt: true, updatedAt: true },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  const balances = walletBalanceByAsset(journals);
+  const transactions = [
+    ...chainDeposits.map((row) => ({
+      id: "chain-deposit:" + row.id, source: "ONCHAIN_DEPOSIT", type: "DEPOSIT", status: row.status,
+      network: row.network.displayName, networkKey: row.network.networkKey, chainId: row.network.chainId,
+      asset: row.asset.symbol, amount: formatWalletAtomic(BigInt(row.amountAtomic.toFixed(0)), row.asset.decimals),
+      fee: null, transactionHash: row.transactionReference, fromAddress: row.fromAddress,
+      toAddress: row.toAddress, destinationAddress: null, confirmations: row.confirmationCount,
+      position: row.position, note: row.reviewReason, createdAt: row.detectedAt, confirmedAt: row.confirmedAt,
+      explorerUrl: row.network.explorerTransactionUrlTemplate?.replace("{hash}", row.transactionReference) ?? null,
+    })),
+    ...chainWithdrawals.map((row) => ({
+      id: "chain-withdrawal:" + row.id, source: "ONCHAIN_WITHDRAWAL", type: "WITHDRAWAL", status: row.status,
+      network: row.network.displayName, networkKey: row.network.networkKey, chainId: row.network.chainId,
+      asset: row.asset.symbol, amount: formatWalletAtomic(BigInt(row.amountAtomic.toFixed(0)), row.asset.decimals),
+      fee: row.feeAtomic === null ? null : formatWalletAtomic(BigInt(row.feeAtomic.toFixed(0)), row.feeAsset?.decimals ?? row.asset.decimals) + " " + (row.feeAsset?.symbol ?? row.asset.symbol),
+      transactionHash: row.transactionReference, fromAddress: row.walletAddress.address,
+      toAddress: row.destinationAddress, destinationAddress: row.destinationAddress, confirmations: row.confirmationCount,
+      position: row.blockPosition, note: row.failureCode ?? row.reviewReason, createdAt: row.requestedAt, confirmedAt: row.confirmedAt,
+      explorerUrl: row.transactionReference ? row.network.explorerTransactionUrlTemplate?.replace("{hash}", row.transactionReference) ?? null : null,
+    })),
+    ...legacyDeposits.map((row) => ({
+      id: "legacy-deposit:" + row.id, source: "LEGACY_ONCHAIN_DEPOSIT", type: "DEPOSIT", status: row.status,
+      network: row.networkAccount.networkKey, networkKey: row.networkAccount.networkKey, chainId: row.chainId,
+      asset: row.asset.symbol, amount: row.amountMicro === null ? row.rawAmount : formatWalletAtomic(BigInt(row.amountMicro), row.asset.decimals),
+      fee: null, transactionHash: row.transactionHash, fromAddress: row.fromAddress, toAddress: row.toAddress,
+      destinationAddress: null, confirmations: row.confirmationCount, position: row.blockNumber.toString(),
+      note: null, createdAt: row.detectedAt, confirmedAt: row.confirmedAt, explorerUrl: null,
+    })),
+    ...legacyWithdrawals.map((row) => ({
+      id: "legacy-withdrawal:" + row.id, source: "LEGACY_ONCHAIN_WITHDRAWAL", type: "WITHDRAWAL", status: row.status,
+      network: row.networkAccount.networkKey, networkKey: row.networkAccount.networkKey, chainId: row.chainId,
+      asset: row.asset.symbol, amount: formatWalletAtomic(BigInt(row.amountMicro), row.asset.decimals),
+      fee: formatWalletAtomic(BigInt(row.feeMicro), row.asset.decimals) + " " + row.asset.symbol,
+      transactionHash: row.transactionHash, fromAddress: null, toAddress: row.destinationAddress,
+      destinationAddress: row.destinationAddress, confirmations: null, position: null,
+      note: row.failureCode, createdAt: row.requestedAt, confirmedAt: row.confirmedAt, explorerUrl: null,
+    })),
+    ...legacyTransactions.map((row) => ({
+      id: "legacy-ledger:" + row.id, source: "INTERNAL_LEDGER", type: row.type, status: row.status,
+      network: null, networkKey: null, chainId: null, asset: row.currency,
+      amount: formatWalletAtomic(BigInt(row.amountMicro), 6), fee: null, transactionHash: null,
+      fromAddress: null, toAddress: null, destinationAddress: null, confirmations: null, position: null,
+      note: row.note, createdAt: row.createdAt, confirmedAt: null, explorerUrl: null,
+    })),
+    ...journals.map((row) => ({
+      id: "journal:" + row.id, source: "WALLET_JOURNAL", type: row.entryType, status: "POSTED",
+      network: row.network.displayName, networkKey: row.network.networkKey, chainId: row.network.chainId,
+      asset: row.asset.symbol,
+      amount: (() => {
+        const available = row.postings.filter((posting) => posting.account === "USER_AVAILABLE");
+        if (available.length === 0) return "—";
+        const amount = available.reduce((sum, posting) => sum + (posting.direction === "CREDIT" ? 1n : -1n) * BigInt(posting.amountAtomic.toFixed(0)), 0n);
+        return formatWalletAtomic(amount, row.asset.decimals);
+      })(),
+      fee: null, transactionHash: null, fromAddress: null, toAddress: null, destinationAddress: null,
+      confirmations: null, position: null,
+      note: row.note + " · " + row.postings.map((posting) => posting.account + " " + posting.direction + " " + posting.amountAtomic.toFixed(0)).join("; "),
+      createdAt: row.createdAt, confirmedAt: null, explorerUrl: null,
+    })),
+  ].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+
+  return {
+    wallet: {
+      id: account.id, userId: account.userId, username: account.user.username, email: account.user.email,
+      address: account.address, status: account.status, createdAt: account.createdAt,
+      addresses: account.walletAddresses, networkAccounts: account.networkAccounts,
+    },
+    balances,
+    transactionCount: transactions.length,
+    transactions,
+    generatedAt: new Date().toISOString(),
+  };
+}

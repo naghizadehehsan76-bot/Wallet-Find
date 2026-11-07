@@ -14,6 +14,10 @@ import {
   type TreasuryPrizeFundingSnapshot,
   type PrizeTreasuryProvisionResult,
   getAdminUsers,
+  getAdminWalletAccounts,
+  getAdminWalletAccountTransactions,
+  type AdminWalletAccount,
+  type AdminWalletAccountHistory,
   getAdminSourceVisitReport,
   getActiveContest,
   getSystemSettings,
@@ -139,6 +143,14 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [treasuryAllocating, setTreasuryAllocating] = useState(false);
   const [users, setUsers] = useState<AdminUserSummary[]>([]);
   const [userSearch, setUserSearch] = useState("");
+  const [walletAccounts, setWalletAccounts] = useState<AdminWalletAccount[]>([]);
+  const [walletAccountsLoading, setWalletAccountsLoading] = useState(false);
+  const [walletAccountsError, setWalletAccountsError] = useState("");
+  const [walletAccountSearch, setWalletAccountSearch] = useState("");
+  const [selectedWalletId, setSelectedWalletId] = useState("");
+  const [walletHistory, setWalletHistory] = useState<AdminWalletAccountHistory | null>(null);
+  const [walletHistoryLoading, setWalletHistoryLoading] = useState(false);
+  const [walletHistoryError, setWalletHistoryError] = useState("");
   const [logs, setLogs] = useState<AdminAuditLog[]>([]);
   const [sourceVisitReport, setSourceVisitReport] = useState<AdminSourceVisitReport | null>(null);
   const [sourceVisitLoading, setSourceVisitLoading] = useState(false);
@@ -402,6 +414,34 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     const timer = window.setTimeout(() => { void load(); }, 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+
+  const loadWalletAccounts = useCallback(async () => {
+    setWalletAccountsLoading(true);
+    setWalletAccountsError("");
+    try {
+      const rows = await getAdminWalletAccounts();
+      setWalletAccounts(rows);
+    } catch {
+      setWalletAccountsError(fa ? "دریافت فهرست کیف پول‌ها ناموفق بود. دوباره تلاش کنید." : "Could not load wallet accounts. Please try again.");
+    } finally {
+      setWalletAccountsLoading(false);
+    }
+  }, [fa]);
+
+  const openWalletHistory = useCallback(async (walletAccountId: string) => {
+    setSelectedWalletId(walletAccountId);
+    setWalletHistory(null);
+    setWalletHistoryError("");
+    setWalletHistoryLoading(true);
+    try {
+      const result = await getAdminWalletAccountTransactions(walletAccountId);
+      setWalletHistory(result);
+    } catch {
+      setWalletHistoryError(fa ? "دریافت سوابق این کیف پول ناموفق بود." : "Could not load this wallet's transaction history.");
+    } finally {
+      setWalletHistoryLoading(false);
+    }
+  }, [fa]);
 
   useEffect(() => {
     if (section !== "wallets") return;
@@ -1047,21 +1087,161 @@ export default function AdminControlCenter({ onNavigate }: Props) {
           </section>
         )}
 
-        {(["finance", "security"] as Section[]).includes(section) && (
-          <>
-            <section className="admin-panel">
-              <h2>{({
-                finance: copy.finance,
-                security: copy.security,
-              } as Record<string, string>)[section]}</h2>
-              <p>{copy.conceptTitle}</p>
-              <p className="admin-footnote">{({
-                finance: copy.financeBody,
-                security: copy.securityBody,
-              } as Record<string, string>)[section]}</p>
-              <p className="admin-footnote">{copy.conceptBody}</p>
-            </section>
-          </>
+        {section === "finance" && (
+          <section className="admin-panel admin-user-wallets">
+            <div className="admin-user-wallets__heading">
+              <div>
+                <h2>{fa ? "کیف پول‌های کاربران" : "User Wallets"}</h2>
+                <p className="admin-footnote">{fa ? "کیف پول‌های ایجادشده برای کاربران و سوابق واقعی ثبت‌شده در دفترکل و شبکه‌ها." : "Provisioned user wallets and their recorded ledger and on-chain activity."}</p>
+              </div>
+              <button type="button" onClick={() => { setSelectedWalletId(""); setWalletHistory(null); void loadWalletAccounts(); }} disabled={walletAccountsLoading}>
+                {walletAccountsLoading ? (fa ? "در حال دریافت…" : "Loading…") : (fa ? "به‌روزرسانی" : "Refresh")}
+              </button>
+            </div>
+
+            <input
+              className="admin-user-search"
+              type="search"
+              value={walletAccountSearch}
+              onChange={(event) => setWalletAccountSearch(event.target.value)}
+              placeholder={fa ? "جست‌وجوی نام، ایمیل یا آدرس کیف پول" : "Search username, email, or wallet address"}
+              aria-label={fa ? "جست‌وجوی کیف پول کاربران" : "Search user wallets"}
+            />
+
+            {walletAccountsLoading && walletAccounts.length === 0 && <div className="admin-empty"><LoadingIndicator label={fa ? "در حال دریافت کیف پول‌ها…" : "Loading wallets…"} /></div>}
+            {walletAccountsError && <div className="admin-message admin-message--error" role="alert">{walletAccountsError}</div>}
+            {!walletAccountsLoading && !walletAccountsError && walletAccounts.length === 0 && (
+              <p className="admin-empty">{fa ? "هنوز کیف پولی برای کاربران ایجاد نشده است." : "No user wallets have been created yet."}</p>
+            )}
+
+            {walletAccounts.filter((wallet) => {
+              const query = walletAccountSearch.trim().toLocaleLowerCase();
+              return !query || wallet.username.toLocaleLowerCase().includes(query) ||
+                wallet.email.toLocaleLowerCase().includes(query) || wallet.address.toLocaleLowerCase().includes(query) ||
+                wallet.addresses.some((address) => address.address.toLocaleLowerCase().includes(query));
+            }).map((wallet) => (
+              <article className="admin-user-wallet-card" key={wallet.id}>
+                <div className="admin-user-wallet-card__top">
+                  <div className="admin-user-wallet-card__owner">
+                    <strong>{wallet.username}</strong>
+                    <small>{wallet.email}</small>
+                  </div>
+                  <span className={wallet.status === "ACTIVE" ? "is-active" : "is-inactive"}>{wallet.status}</span>
+                </div>
+                <div className="admin-user-wallet-card__address">
+                  <span>{fa ? "آدرس اصلی کیف پول" : "Primary wallet address"}</span>
+                  <code>{wallet.address}</code>
+                </div>
+                {wallet.addresses.length > 0 && (
+                  <div className="admin-user-wallet-card__networks">
+                    {wallet.addresses.map((address) => (
+                      <div key={address.id}>
+                        <span>{address.network.displayName}{address.network.chainId ? " · " + address.network.chainId : ""}</span>
+                        <code>{address.address}</code>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="admin-user-wallet-card__metrics">
+                  <span>{fa ? "شبکه‌ها" : "Networks"}: {wallet.networkAccounts.length}</span>
+                  <span>{fa ? "واریزها" : "Deposits"}: {wallet.counts.chainDeposits + wallet.counts.deposits}</span>
+                  <span>{fa ? "برداشت‌ها" : "Withdrawals"}: {wallet.counts.chainWithdrawals + wallet.counts.withdrawals}</span>
+                </div>
+                {wallet.balances.length > 0 ? (
+                  <div className="admin-user-wallet-card__balances">
+                    {wallet.balances.map((balance) => (
+                      <div key={balance.networkId + ":" + balance.assetId}>
+                        <span>{balance.network} · {balance.asset}</span>
+                        <strong>{Number(balance.total).toLocaleString(fa ? "fa-IR" : "en-US", { maximumFractionDigits: 8 })}</strong>
+                        <small>{fa ? "قابل برداشت" : "Available"}: {balance.available} · {fa ? "رزرو" : "Reserved"}: {balance.reserved}</small>
+                      </div>
+                    ))}
+                  </div>
+                ) : <p className="admin-footnote">{fa ? "برای این کیف پول هنوز موجودی در دفترکل جدید ثبت نشده است." : "No posted balance is recorded in the current wallet ledger yet."}</p>}
+                <button className="admin-user-wallet-card__history-button" type="button" onClick={() => void openWalletHistory(wallet.id)}>
+                  {fa ? "مشاهده تراکنش‌های این کیف پول" : "View this wallet's transactions"}
+                </button>
+              </article>
+            ))}
+
+            {selectedWalletId && (
+              <section className="admin-wallet-history">
+                <div className="admin-user-wallets__heading">
+                  <div>
+                    <h3>{fa ? "سوابق اختصاصی کیف پول" : "Wallet Transaction History"}</h3>
+                    {walletHistory && <p className="admin-footnote">{walletHistory.wallet.username} · {walletHistory.wallet.email}</p>}
+                  </div>
+                  <button type="button" onClick={() => { setSelectedWalletId(""); setWalletHistory(null); setWalletHistoryError(""); }}>
+                    {fa ? "بستن سوابق" : "Close history"}
+                  </button>
+                </div>
+                {walletHistoryLoading && <div className="admin-empty"><LoadingIndicator label={fa ? "در حال دریافت سوابق تراکنش‌ها…" : "Loading transaction history…"} /></div>}
+                {walletHistoryError && <div className="admin-message admin-message--error" role="alert">{walletHistoryError}</div>}
+                {walletHistory && (
+                  <>
+                    <div className="admin-user-wallet-card__address">
+                      <span>{fa ? "آدرس کیف پول" : "Wallet address"}</span>
+                      <code>{walletHistory.wallet.address}</code>
+                    </div>
+                    {walletHistory.balances.length > 0 && (
+                      <div className="admin-user-wallet-card__balances">
+                        {walletHistory.balances.map((balance) => (
+                          <div key={balance.networkId + ":" + balance.assetId}>
+                            <span>{balance.network} · {balance.asset}</span>
+                            <strong>{balance.total}</strong>
+                            <small>{fa ? "قابل استفاده" : "Available"}: {balance.available} · {fa ? "رزرو" : "Reserved"}: {balance.reserved}</small>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <p className="admin-footnote">{fa ? "تعداد رکوردهای نمایش‌داده‌شده: " : "Records shown: "}{walletHistory.transactionCount.toLocaleString(fa ? "fa-IR" : "en-US")} · {fa ? "شامل رویدادهای زنجیره‌ای و دفترکل داخلی." : "Includes on-chain events and internal ledger entries."}</p>
+                    {walletHistory.transactions.length === 0 ? (
+                      <p className="admin-empty">{fa ? "برای این کیف پول هنوز تراکنشی ثبت نشده است." : "No transactions are recorded for this wallet yet."}</p>
+                    ) : (
+                      <div className="admin-wallet-history__list">
+                        {walletHistory.transactions.map((transaction) => (
+                          <article className="admin-wallet-history__item" key={transaction.id}>
+                            <div className="admin-wallet-history__item-heading">
+                              <strong>{transaction.type} · {transaction.asset}</strong>
+                              <span>{transaction.status}</span>
+                            </div>
+                            <div className="admin-wallet-history__item-meta">
+                              <span>{transaction.network ?? (fa ? "دفترکل داخلی" : "Internal ledger")}</span>
+                              <span>{new Date(transaction.createdAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</span>
+                            </div>
+                            <strong className="admin-wallet-history__amount">{transaction.amount} {transaction.asset}</strong>
+                            {transaction.fee && <small>{fa ? "کارمزد" : "Fee"}: {transaction.fee}</small>}
+                            {transaction.transactionHash && (
+                              <div className="admin-wallet-history__hash">
+                                <small>{fa ? "هش تراکنش" : "Transaction hash"}</small>
+                                {transaction.explorerUrl
+                                  ? <a href={transaction.explorerUrl} target="_blank" rel="noreferrer">{transaction.transactionHash}</a>
+                                  : <code>{transaction.transactionHash}</code>}
+                              </div>
+                            )}
+                            {transaction.destinationAddress && <small>{fa ? "مقصد" : "Destination"}: <code>{transaction.destinationAddress}</code></small>}
+                            {transaction.confirmations !== null && <small>{fa ? "تأییدیه‌ها" : "Confirmations"}: {transaction.confirmations}</small>}
+                            {transaction.note && <small className="admin-wallet-history__note">{transaction.note}</small>}
+                            <small>{fa ? "منبع رکورد" : "Record source"}: {transaction.source}</small>
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                    <p className="admin-footnote">{fa ? "آخرین به‌روزرسانی: " : "Last updated: "}{new Date(walletHistory.generatedAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</p>
+                  </>
+                )}
+              </section>
+            )}
+          </section>
+        )}
+
+        {section === "security" && (
+          <section className="admin-panel">
+            <h2>{copy.security}</h2>
+            <p>{copy.conceptTitle}</p>
+            <p className="admin-footnote">{copy.securityBody}</p>
+            <p className="admin-footnote">{copy.conceptBody}</p>
+          </section>
         )}
 
         {section === "support" && (

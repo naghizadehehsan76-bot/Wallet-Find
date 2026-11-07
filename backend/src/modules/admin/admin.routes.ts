@@ -20,7 +20,7 @@ import {
   activateContestHandler,
   finishContestHandler,
 } from "./contest-management.controller.js";
-import { getAdminWalletsHandler, getAdminWithdrawalRequestsHandler, reviewAdminWithdrawalHandler, provisionPrizeTreasuryWalletHandler, getPrizeTreasuryWalletHandler, getTreasuryPrizeFundingHandler, getAdminTreasuryDepositsHandler, getAdminTreasuryLedgerHistoryHandler, allocateTreasuryPrizeFundHandler, reconcileTreasuryAccountingHandler, getLatestTreasuryReconciliationHandler, executeAdminWalletWithdrawalHandler, reconcileAdminWalletWithdrawalHandler, getAdminWalletNetworkRegistryHandler, updateAdminWalletNetworkHandler, updateAdminWalletAssetHandler, getAdminChainWithdrawalRequestsHandler, reviewAdminChainWithdrawalHandler, executeAdminChainWithdrawalHandler, recoverAdminChainWithdrawalHandler, reconcileAdminChainWithdrawalHandler, emergencyPauseWalletOperationsHandler, resumeWalletOperationsHandler } from "../wallet/wallet.controller.js";
+import { getAdminWalletAccountsHandler, getAdminWalletAccountTransactionsHandler, getAdminWalletsHandler, getAdminWithdrawalRequestsHandler, reviewAdminWithdrawalHandler, provisionPrizeTreasuryWalletHandler, getPrizeTreasuryWalletHandler, getTreasuryPrizeFundingHandler, getAdminTreasuryDepositsHandler, getAdminTreasuryLedgerHistoryHandler, allocateTreasuryPrizeFundHandler, reconcileTreasuryAccountingHandler, getLatestTreasuryReconciliationHandler, executeAdminWalletWithdrawalHandler, reconcileAdminWalletWithdrawalHandler, getAdminWalletNetworkRegistryHandler, updateAdminWalletNetworkHandler, updateAdminWalletAssetHandler, getAdminChainWithdrawalRequestsHandler, reviewAdminChainWithdrawalHandler, executeAdminChainWithdrawalHandler, recoverAdminChainWithdrawalHandler, reconcileAdminChainWithdrawalHandler, emergencyPauseWalletOperationsHandler, resumeWalletOperationsHandler } from "../wallet/wallet.controller.js";
 import {
   getPrizePoolHandler,
 } from "../contest/prize-pool.controller.js";
@@ -43,6 +43,8 @@ router.post("/contests/:contestId/finish", finishContestHandler);
 router.get("/audit-logs", getAuditLogsHandler);
 router.get("/source-visit-report", getContestSourceVisitReportHandler);
 router.get("/wallets", getAdminWalletsHandler);
+router.get("/wallet-accounts", getAdminWalletAccountsHandler);
+router.get("/wallet-accounts/:walletAccountId/transactions", getAdminWalletAccountTransactionsHandler);
 router.get("/wallet-networks", getAdminWalletNetworkRegistryHandler);
 router.post("/wallet-emergency-pause", emergencyPauseWalletOperationsHandler);
 router.post("/wallet-emergency-resume", resumeWalletOperationsHandler);
