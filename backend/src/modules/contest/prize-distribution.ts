@@ -10,8 +10,9 @@ export type PrizeAllocation = {
   amountMicro: bigint;
 };
 
-const PODIUM_PERCENTAGES = [50n, 20n, 10n] as const;
-const FOURTH_AND_BELOW_PERCENTAGE = 20n;
+const PODIUM_BASIS_POINTS = [5_000n, 2_500n, 1_250n] as const;
+const FOURTH_AND_BELOW_BASIS_POINTS = 1_250n;
+const BASIS_POINTS_DENOMINATOR = 10_000n;
 const WEIGHT_SCALE = 1_000_000_000_000_000_000n;
 
 function distribute(
@@ -51,9 +52,10 @@ function distribute(
 }
 
 /**
- * Allocates 50% / 20% / 10% to the podium and 20% to rank 4+,
- * weighted by inverse server-measured completion time. Unfilled shares remain
- * unused. Exact ties share the occupied podium slots equally.
+ * Allocates fixed 50% / 25% / 12.5% shares to ranks 1 / 2 / 3.
+ * The remaining 12.5% is distributed among rank 4+ finishers by inverse
+ * server-measured completion time. Missing podium shares remain unused.
+ * Exact ties at a podium rank split that rank's fixed share equally.
  */
 export function calculatePrizeAllocations(
   poolMicro: bigint,
@@ -77,17 +79,10 @@ export function calculatePrizeAllocations(
     podiumGroups.set(entry.rank, group);
   }
 
-  const podiumRanks = [...podiumGroups.keys()].sort((a, b) => a - b);
-  for (let index = 0; index < podiumRanks.length; index++) {
-    const rank = podiumRanks[index]!;
-    const nextRank = podiumRanks[index + 1] ?? 4;
-    const group = podiumGroups.get(rank)!;
-    let percentage = 0n;
-    for (let slot = rank; slot < nextRank && slot <= 3; slot++) {
-      percentage += PODIUM_PERCENTAGES[slot - 1] ?? 0n;
-    }
-    if (percentage === 0n) continue;
-    const share = poolMicro * percentage / 100n;
+  for (const [rank, group] of podiumGroups) {
+    const basisPoints = PODIUM_BASIS_POINTS[rank - 1];
+    if (basisPoints === undefined) continue;
+    const share = poolMicro * basisPoints / BASIS_POINTS_DENOMINATOR;
     const equalShares = distribute(share, group, group.map(() => 1n));
     for (const [userId, amount] of equalShares) {
       amounts.set(userId, (amounts.get(userId) ?? 0n) + amount);
@@ -96,7 +91,7 @@ export function calculatePrizeAllocations(
 
   const fourthAndBelow = completed.filter((entry) => entry.rank >= 4);
   if (fourthAndBelow.length > 0) {
-    const weightedPool = poolMicro * FOURTH_AND_BELOW_PERCENTAGE / 100n;
+    const weightedPool = poolMicro * FOURTH_AND_BELOW_BASIS_POINTS / BASIS_POINTS_DENOMINATOR;
     const weights = fourthAndBelow.map((entry) => WEIGHT_SCALE / BigInt(Math.max(1, Math.trunc(entry.elapsedMs))));
     const weightedShares = distribute(weightedPool, fourthAndBelow, weights);
     for (const [userId, amount] of weightedShares) {
