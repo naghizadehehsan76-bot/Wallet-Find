@@ -298,6 +298,11 @@ async function fetchWikipediaDocuments(limit: number, language: ChallengeLanguag
   }
 }
 
+function getWikisourceDomain(language: ChallengeLanguage): string {
+  // Wikisource uses the base language subdomain (zh, not zh-CN).
+  return `${language.split("-")[0]}.wikisource.org`;
+}
+
 async function fetchWikisourceDocuments(limit: number, language: ChallengeLanguage = "en"): Promise<SourceDocument[]> {
   // Use at most two API requests (random titles + one batch extract). Never
   // fan out into individual article requests when Wikisource rate-limits us.
@@ -312,7 +317,7 @@ async function fetchWikisourceDocuments(limit: number, language: ChallengeLangua
   const headers = { "User-Agent": "WalletFind/1.0 (multilingual word-round generator)" };
 
   try {
-    const randomResponse = await fetchWikisourceResponse(apiUrl, headers, 5_000);
+    const randomResponse = await fetchWikipediaResponse(apiUrl, headers, 5_000);
     if (!randomResponse.ok) {
       console.warn("Wikisource random-page request skipped", { status: randomResponse.status });
       return [];
@@ -344,7 +349,7 @@ async function fetchWikisourceDocuments(limit: number, language: ChallengeLangua
     extractUrl.searchParams.set("exchars", "9000");
     extractUrl.searchParams.set("redirects", "1");
 
-    const extractResponse = await fetchWikisourceResponse(extractUrl, headers, 5_000);
+    const extractResponse = await fetchWikipediaResponse(extractUrl, headers, 5_000);
     if (!extractResponse.ok) {
       console.warn("Wikisource batch extract skipped", { status: extractResponse.status });
       return [];
@@ -373,7 +378,7 @@ async function fetchWikisourceDocuments(limit: number, language: ChallengeLangua
         const title = page.title ?? "Wikisource page";
         return {
           title,
-          url: pinWikisourceRevision(
+          url: pinWikipediaRevision(
             page.fullurl ?? `https://${wikiDomain}/wiki/` + encodeURIComponent(title.replace(/ /g, "_")),
             page.lastrevid,
           ),
