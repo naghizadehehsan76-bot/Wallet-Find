@@ -726,10 +726,18 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
     throw new Error("WALLET_WITHDRAWAL_FEE_QUOTE_MISSING");
   }
 
+  const treasuryFunding = withdrawal.fundingSource === "PRIZE_TREASURY";
+  const prizeTreasury = treasuryFunding
+    ? await prisma.treasuryWallet.findUnique({ where: { id: PRIZE_TREASURY_ID }, select: { address: true, status: true, turnkeyWalletId: true } })
+    : null;
+  if (treasuryFunding && (!prizeTreasury || prizeTreasury.status !== "ACTIVE" || !prizeTreasury.address || !prizeTreasury.turnkeyWalletId)) {
+    throw new Error("PRIZE_TREASURY_NOT_READY");
+  }
+  const fromAddress = (treasuryFunding ? prizeTreasury!.address : withdrawal.walletAddress.address) as Address;
   const client = getEvmPublicClient(withdrawal.network.chainId);
   const freshQuote = await quoteEvmFee({
     chainId: withdrawal.network.chainId,
-    from: withdrawal.walletAddress.address as Address,
+    from: fromAddress,
     to: withdrawal.destinationAddress as Address,
     assetType: withdrawal.asset.assetType,
     contractAddress: withdrawal.asset.contractAddress,
@@ -738,7 +746,7 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
   const useTurnkeySponsorship = process.env.TURNKEY_GAS_SPONSORSHIP_ENABLED === "true"
     && withdrawal.network.chainId === 137
     && atomic(withdrawal.feeAtomic) === 0n;
-  const reservedFee = useTurnkeySponsorship ? 0n : await refreshWithdrawalFeeReservation({
+  const reservedFee = treasuryFunding || useTurnkeySponsorship ? 0n : await refreshWithdrawalFeeReservation({
     withdrawal,
     newQuote: freshQuote,
   });
@@ -757,7 +765,6 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
   if (updated.count !== 1) throw new Error("WALLET_WITHDRAWAL_ALREADY_PROCESSING");
 
   try {
-    const fromAddress = withdrawal.walletAddress.address as Address;
     const destination = withdrawal.destinationAddress as Address;
     let hash: `0x${string}`;
 
@@ -775,7 +782,8 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
       if (tokenBalance < amount) throw new Error("ONCHAIN_TOKEN_BALANCE_INSUFFICIENT");
       if (!useTurnkeySponsorship) {
         const nativeBalance = await client.getBalance({ address: fromAddress });
-        if (nativeBalance < reservedFee) throw new Error("ONCHAIN_NATIVE_FEE_BALANCE_INSUFFICIENT");
+        const requiredNative = treasuryFunding ? gasLimit * maxFeePerGas : reservedFee;
+        if (nativeBalance < requiredNative) throw new Error(treasuryFunding ? "PRIZE_TREASURY_POL_BALANCE_INSUFFICIENT" : "ONCHAIN_NATIVE_FEE_BALANCE_INSUFFICIENT");
       }
     }
 
@@ -791,6 +799,7 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
         to: withdrawal.asset.assetType === "NATIVE" ? destination : withdrawal.asset.contractAddress!,
         value: withdrawal.asset.assetType === "NATIVE" ? amount : 0n,
         data,
+        parentOrganization: treasuryFunding,
         onStatusId: async (statusId) => {
           await prisma.walletChainWithdrawal.updateMany({
             where: { id: withdrawalId, status: "SIGNING", transactionReference: null },
@@ -799,10 +808,9 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
         },
       });
     } else {
-      const walletClient = await createTurnkeySigner(
-        withdrawal.walletAddress.address,
-        withdrawal.network.chainId,
-      );
+      const walletClient = treasuryFunding
+        ? await createParentTurnkeySigner(fromAddress, withdrawal.network.chainId)
+        : await createTurnkeySigner(withdrawal.walletAddress.address, withdrawal.network.chainId);
       if (!walletClient.account ||
           walletClient.account.address.toLowerCase() !== fromAddress.toLowerCase()) {
         throw new Error("TURNKEY_SIGNER_ADDRESS_MISMATCH");
