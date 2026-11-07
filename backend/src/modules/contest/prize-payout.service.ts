@@ -378,10 +378,18 @@ async function executePendingAward(awardId: string) {
       }
       console.error("Prize payout broadcast persistence recovery attempted", { awardId, recovered: recovered.count });
     } else {
-      await setNeedsReview(awardId, "BROADCAST_OUTCOME_UNCERTAIN");
+      const current = await prisma.prizeAward.findUnique({
+        where: { id: awardId },
+        select: { failureCode: true },
+      });
+      const reviewCode = current?.failureCode?.startsWith("TURNKEY_STATUS_ID:")
+        ? current.failureCode
+        : "BROADCAST_OUTCOME_UNCERTAIN";
+      await setNeedsReview(awardId, reviewCode);
       console.error("Prize payout broadcast outcome is uncertain; automatic retry is disabled", {
         awardId,
         error,
+        hasTurnkeyStatusId: reviewCode.startsWith("TURNKEY_STATUS_ID:"),
       });
     }
   }
