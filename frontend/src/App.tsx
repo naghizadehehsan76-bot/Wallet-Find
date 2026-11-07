@@ -11,7 +11,7 @@ import { useI18n, type Language } from "./i18n";
 import { getPageCopy } from "./i18n/page-overrides";
 import SharedLanguageSwitcher from "./components/LanguageSwitcher";
 import LoadingIndicator from "./components/LoadingIndicator";
-import { getActiveContest, getCurrentClue, getProfile, getPublicPrizePoolStats, getPublicSiteStats, sendOnlineHeartbeat, type PublicPrizePoolStats, type PublicSiteStats } from "./services/api";
+import { getProfile, getPublicPrizePoolStats, getPublicSiteStats, sendOnlineHeartbeat, type PublicPrizePoolStats, type PublicSiteStats } from "./services/api";
 import "./App.css";
 
 type AuthMode = "login" | "signup";
@@ -56,14 +56,11 @@ function HomePage({
 }) {
   const { translation: t } = useI18n();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [homeTimerNow, setHomeTimerNow] = useState(() => Date.now());
-  const [homeSolvedCount, setHomeSolvedCount] = useState(0);
   const [siteStats, setSiteStats] = useState<PublicSiteStats | null>(null);
   const [prizePoolStats, setPrizePoolStats] = useState<PublicPrizePoolStats | null>(null);
   const isPersian = language === "fa";
   const isHomeRTL = language === "fa" || language === "ar";
   const homeCopy = getPageCopy(language, "homePage");
-  const homeProgressPercent = Math.min(100, (homeSolvedCount / 12) * 100);
   const localizeDigits = (value: string) => isPersian
     ? value
         .replace(/[0-9]/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"[Number(digit)])
@@ -79,11 +76,6 @@ function HomePage({
       ? localizeDigits(amount.toLocaleString(isPersian ? "fa-IR" : "en-US", { maximumFractionDigits: 2 }))
       : "—";
   };
-
-  useEffect(() => {
-    const timerId = window.setInterval(() => setHomeTimerNow(Date.now()), 1000);
-    return () => window.clearInterval(timerId);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -136,38 +128,6 @@ function HomePage({
   }, [isPersian]);
 
   useEffect(() => {
-    let cancelled = false;
-    let refreshing = false;
-
-    async function refreshHomeProgress() {
-      if (!isLoggedIn || !localStorage.getItem("walletFindToken")) {
-        setHomeSolvedCount(0);
-        return;
-      }
-      if (refreshing) return;
-      refreshing = true;
-      try {
-        const contest = await getActiveContest();
-        const current = await getCurrentClue(contest.id);
-        if (!cancelled) {
-          setHomeSolvedCount(Math.max(0, Math.min(12, current.solvedCount ?? 0)));
-        }
-      } catch {
-        // Keep the last confirmed count during brief network or server interruptions.
-      } finally {
-        refreshing = false;
-      }
-    }
-
-    void refreshHomeProgress();
-    const intervalId = window.setInterval(() => void refreshHomeProgress(), 10000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
-  }, [isLoggedIn]);
-
-  useEffect(() => {
     if (!mobileMenuOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setMobileMenuOpen(false);
@@ -175,13 +135,6 @@ function HomePage({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [mobileMenuOpen]);
-  const homeRoundRemainingMs = 15 * 60_000 - (homeTimerNow % (15 * 60_000));
-  const homeTimerSeconds = Math.ceil(homeRoundRemainingMs / 1000);
-  const homeTimerText = localizeDigits(
-    [Math.floor(homeTimerSeconds / 60), homeTimerSeconds % 60]
-      .map((value) => String(value).padStart(2, "0"))
-      .join(":"),
-  );
   const stats = [
     {
       value: siteStats ? formatHomeNumber(siteStats.onlineUsers) : "—",
@@ -274,22 +227,6 @@ function HomePage({
           <p className="home-concept-tagline" lang={language} dir={isHomeRTL ? "rtl" : "ltr"}>
             {isPersian ? <>هر روز سرنخ‌های رسیدن به کیف پول رو بهت میدیم<br />هر چقدر سریعتر باشی درآمدت بیشتره.</> : (homeCopy.heroTagline ?? <>We give you clues to find wallet every day...<br />The faster you are, the more you earn.</>)}
           </p>
-        </section>
-
-        <section className="home-challenge-card" aria-label={isPersian ? "چالش امروز" : "Today's challenge"}>
-          <div className="home-challenge-card__top">
-            <div className="home-challenge-card__bolt" aria-hidden="true"><svg className="home-challenge-card__magnifier" viewBox="0 0 24 24" fill="none"><circle cx="10.5" cy="10.5" r="6.4" stroke="currentColor" strokeWidth="2.1"/><path d="m15.2 15.2 5 5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/></svg></div>
-            <strong>{homeCopy.today ?? (isPersian ? "چالش امروز" : "Today's Challenge")}</strong>
-            <div className="home-challenge-card__timer">
-              <span><span aria-hidden="true">◷</span> {homeTimerText}</span>
-              <small>{homeCopy.untilNext ?? (isPersian ? "تا شروع دور جدید" : "Until next round")}</small>
-            </div>
-          </div>
-          <div className="home-challenge-card__progress">
-            <strong>{formatHomeNumber(homeSolvedCount)} / {formatHomeNumber(12)}</strong>
-            <span>{homeCopy.yourProgress ?? (isPersian ? "پیشرفت شما" : "Your progress")}</span>
-            <i role="progressbar" aria-valuemin={0} aria-valuemax={12} aria-valuenow={homeSolvedCount} aria-label={homeCopy.challengeProgress ?? (isPersian ? "پیشرفت چالش" : "Challenge progress")}><b style={{ width: homeProgressPercent + "%" }} /></i>
-          </div>
         </section>
 
         <section className="home-key-grid" aria-label={homeCopy.challengeKeys ?? (isPersian ? "۱۲ خانهٔ چالش" : "12 challenge keys")}>
