@@ -416,6 +416,9 @@ export default function WalletPage({ onNavigate }: Props) {
   // Resolve deposit details from the selected asset whenever the deposit view is
   // opened or wallet data is refreshed. This also restores the address after a
   // browser reload, when React selection state starts empty.
+  // This effect synchronizes the selected deposit asset with the remote deposit API;
+  // its loading/response state updates are intentional and scoped to this request lifecycle.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (view !== "deposit" || !wallet || !depositAssetId) return;
     const asset = wallet.networks.flatMap((network) => network.assets.map((item) => ({ ...item, networkId: network.id }))).find((item) => item.id === depositAssetId);
@@ -462,6 +465,7 @@ export default function WalletPage({ onNavigate }: Props) {
       if (requestSequence === depositRequestSequence.current) depositRequestSequence.current += 1;
     };
   }, [view, wallet, depositAssetId, copy.error, copy.depositDisabled, copy.withdrawDisabled, copy.scannerNotReady, copy.insufficientPol, copy.insufficientUsdt0, copy.invalidDestination]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const openDeposit = (assetId?: string) => {
     const asset = depositAssets.find((item) => item.id === assetId)
