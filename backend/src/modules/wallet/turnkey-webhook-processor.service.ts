@@ -109,6 +109,51 @@ async function processFinalizedDepositEvent(event: {
     throw new PermanentWebhookDepositError("TURNKEY_DEPOSIT_NETWORK_NOT_SUPPORTED");
   }
 
+  // Treasury webhook notifications are not user-wallet deposits. Route them
+  // to the dedicated Polygon chain scanner, which independently verifies the
+  // ERC-20 Transfer log and performs the idempotent treasury-ledger credit.
+  const treasury = await prisma.treasuryWallet.findFirst({
+    where: {
+      chainId: hint.chainId,
+      networkKey: hint.chainId === 137 ? "polygon" : "__unsupported_network__",
+      status: "ACTIVE",
+      address: { equals: hint.address, mode: "insensitive" },
+    },
+    select: { id: true },
+  });
+  if (treasury) {
+    const expectedContract = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f";
+    if (hint.chainId !== 137 || hint.symbol.toUpperCase() !== "USDT0" ||
+        hint.decimals !== 6 || hint.caip19 !== `eip155:137/erc20:${expectedContract}`) {
+      throw new PermanentWebhookDepositError("TREASURY_DEPOSIT_ASSET_MISMATCH");
+    }
+    const treasuryAsset = await prisma.chainAsset.findFirst({
+      where: {
+        chainId: 137,
+        symbol: "USDT0",
+        contractAddress: expectedContract,
+        decimals: 6,
+        canonicalStatus: "ONCHAIN_VERIFIED",
+        depositEnabled: true,
+      },
+      select: { id: true },
+    });
+    if (!treasuryAsset) {
+      throw new PermanentWebhookDepositError("TREASURY_USDT0_ASSET_NOT_ENABLED_OR_VERIFIED");
+    }
+    const emergencyPause = await prisma.systemSetting.findUnique({
+      where: { key: "wallet_global_emergency_pause" },
+      select: { value: true },
+    });
+    if (emergencyPause?.value === "true" || !network.isEnabled || !network.depositEnabled) {
+      throw new Error("TREASURY_DEPOSIT_SCANNER_PAUSED_OR_NETWORK_DISABLED");
+    }
+    if (process.env.POLYGON_DEPOSIT_SCANNER_ENABLED !== "true") {
+      throw new Error("TREASURY_DEPOSIT_SCANNER_DISABLED");
+    }
+    return { result: "TREASURY_ROUTED_TO_POLYGON_SCANNER" as const };
+  }
+
   const walletAccount = await prisma.walletAccount.findUnique({
     where: { turnkeyOrganizationId: event.organizationId },
     select: { id: true, userId: true, status: true },
