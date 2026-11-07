@@ -619,6 +619,7 @@ export async function getAdminWalletAccountTransactions(walletAccountId: string)
       id: true, userId: true, address: true, status: true, createdAt: true,
       user: { select: { id: true, username: true, email: true } },
       walletAddresses: {
+        where: { network: { chainId: 137 } },
         orderBy: { createdAt: "asc" },
         select: {
           id: true, address: true, addressType: true, isPrimary: true, status: true,
@@ -626,6 +627,7 @@ export async function getAdminWalletAccountTransactions(walletAccountId: string)
         },
       },
       networkAccounts: {
+        where: { chainId: 137 },
         orderBy: { chainId: "asc" },
         select: { id: true, chainId: true, networkKey: true, depositEnabled: true, withdrawalEnabled: true },
       },
