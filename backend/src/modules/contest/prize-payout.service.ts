@@ -39,11 +39,6 @@ function requiredConfirmations(): number {
   return Number.isFinite(configured) ? Math.max(32, configured) : 128;
 }
 
-function asMicro(value: string): bigint {
-  if (!/^(0|[1-9]\d*)$/.test(value)) throw new Error("INVALID_PRIZE_AMOUNT");
-  return BigInt(value);
-}
-
 async function setNeedsReview(awardId: string, failureCode: string) {
   const award = await prisma.prizeAward.findUnique({
     where: { id: awardId },
@@ -231,6 +226,24 @@ async function executePendingAward(awardId: string) {
     // A fresh chain-vs-ledger reconciliation is mandatory before each new send.
     const reconciliation = await reconcileTreasuryAccounting(null);
     if (reconciliation.status !== "MATCH") throw new Error("TREASURY_ACCOUNTING_MISMATCH");
+
+    // Preserve every other round's reservation and the still-unallocated global
+    // fund. Only the physically backed, already-reserved prize amount may leave.
+    const [globalFund, allPools, paidAwards] = await Promise.all([
+      prisma.globalPrizeFund.findUnique({ where: { id: "global" } }),
+      prisma.prizePool.aggregate({ _sum: { seededMicro: true } }),
+      prisma.prizeAward.aggregate({
+        where: { status: "PAID" },
+        _sum: { amountMicro: true },
+      }),
+    ]);
+    const globalBalance = BigInt(globalFund?.balanceMicro ?? 0n);
+    const outstandingRoundReserve = BigInt(allPools._sum.seededMicro ?? 0n)
+      - BigInt(paidAwards._sum.amountMicro ?? 0n);
+    const requiredReserve = globalBalance + (outstandingRoundReserve > 0n ? outstandingRoundReserve : 0n);
+    if (BigInt(reconciliation.onChainBalance.replace(".", "")) < requiredReserve) {
+      throw new Error("PRIZE_TREASURY_RESERVED_BALANCE_MISMATCH");
+    }
 
     const client = polygonClient();
     const [tokenBalance, nativeBalance, fees, estimatedGas] = await Promise.all([
