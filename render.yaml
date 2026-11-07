@@ -26,7 +26,7 @@ services:
       - key: POLYGON_DEPOSIT_START_BLOCK
         value: "96560914"
       - key: POLYGON_DEPOSITS_ENABLED
-        value: "false"
+        value: "true"
       - key: WALLET_GENERIC_DEPOSIT_SCANNER_ENABLED
         value: "true"
       - key: WALLET_GENERIC_DEPOSITS_PRODUCTION_READY
