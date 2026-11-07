@@ -41,7 +41,7 @@ export function requiresWalletScannerCursorOnlyMode(input: {
   activeAddressCount: number;
 }): boolean {
   return !input.networkEnabled
-    || input.legacyPolygonScannerActive
+    || (input.legacyPolygonScannerActive && input.verifiedEnabledAssetCount === 0)
     || !input.depositEnabled
     || !input.depositsProductionReady
     || input.verifiedEnabledAssetCount === 0
@@ -318,7 +318,7 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
 
     const cursorOnlyMode = requiresWalletScannerCursorOnlyMode({
       networkEnabled: network.isEnabled,
-      legacyPolygonScannerActive: legacyPolygonScannerActive && genericAssets.length === 0,
+      legacyPolygonScannerActive,
       depositEnabled: network.depositEnabled,
       depositsProductionReady: process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY === "true",
       verifiedEnabledAssetCount: genericAssets.length,
