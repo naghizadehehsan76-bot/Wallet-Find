@@ -415,6 +415,34 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     return () => window.clearTimeout(timer);
   }, [load]);
 
+  const loadWalletAccounts = useCallback(async () => {
+    setWalletAccountsLoading(true);
+    setWalletAccountsError("");
+    try {
+      const rows = await getAdminWalletAccounts();
+      setWalletAccounts(rows);
+    } catch {
+      setWalletAccountsError(fa ? "دریافت فهرست کیف پول‌ها ناموفق بود. دوباره تلاش کنید." : "Could not load wallet accounts. Please try again.");
+    } finally {
+      setWalletAccountsLoading(false);
+    }
+  }, [fa]);
+
+  const openWalletHistory = useCallback(async (walletAccountId: string) => {
+    setSelectedWalletId(walletAccountId);
+    setWalletHistory(null);
+    setWalletHistoryError("");
+    setWalletHistoryLoading(true);
+    try {
+      const result = await getAdminWalletAccountTransactions(walletAccountId);
+      setWalletHistory(result);
+    } catch {
+      setWalletHistoryError(fa ? "دریافت سوابق این کیف پول ناموفق بود." : "Could not load this wallet's transaction history.");
+    } finally {
+      setWalletHistoryLoading(false);
+    }
+  }, [fa]);
+
   useEffect(() => {
     if (section !== "wallets") return;
     let cancelled = false;
