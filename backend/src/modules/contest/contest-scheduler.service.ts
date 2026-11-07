@@ -2,7 +2,6 @@ import prisma from "../../config/prisma.js";
 import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
 import { ensureMvpActiveContest, ensureScheduledMvpContest } from "./mvp-contest-seed.service.js";
 import { CHALLENGE_LANGUAGES } from "./supported-languages.js";
-import { reserveRoundPrizeAllocation, settlePrizePool } from "./prize-pool.service.js";
 
 /**
  * The scheduler manages round activation/expiry only. Clues are no longer
@@ -76,38 +75,6 @@ export async function runContestScheduler(now = new Date()) {
         metadata: { finishedAt: now, endsAt },
       },
     });
-  }
-
-  // Reserve each active round's fixed allocation exactly once. A zero fund
-  // creates a zero-value pool and cannot produce a payable award.
-  const activeForAllocation = await prisma.contest.findMany({
-    where: { status: "ACTIVE" },
-    select: { id: true },
-  });
-  for (const contest of activeForAllocation) {
-    try {
-      await reserveRoundPrizeAllocation(contest.id, now);
-    } catch (error) {
-      console.error("Round prize allocation could not be reserved", { contestId: contest.id, error });
-    }
-  }
-
-  // Settle only finished rounds that actually reserved real funds. Historical
-  // zero-value pools are deliberately left untouched.
-  const fundedFinished = await prisma.contest.findMany({
-    where: {
-      status: "FINISHED",
-      prizePool: { is: { seededMicro: { gt: 0n }, status: "OPEN" } },
-    },
-    select: { id: true },
-    take: 100,
-  });
-  for (const contest of fundedFinished) {
-    try {
-      await settlePrizePool(contest.id, null);
-    } catch (error) {
-      console.error("Finished round prize settlement failed", { contestId: contest.id, error });
-    }
   }
 
   const languageResults: Record<string, { activeReady: boolean; scheduled: unknown }> = {};

@@ -124,4 +124,4 @@ Recommended lifecycle: `SCHEDULED -> ACTIVE -> FINISHED`.
 - The existing Polygon deposit scanner recognizes the payout transfer as a wallet credit, including awards below the ordinary minimum-deposit threshold.
 - A failed or uncertain signing/broadcast result is never automatically resent. It is quarantined for manual review.
 - The payout worker requires both `PRIZE_PAYOUTS_ENABLED=true` and `PRIZE_PAYOUTS_PRODUCTION_READY=true`; it also checks the global emergency pause, current treasury reconciliation, all outstanding round reservations, the USDT0 token balance, and POL gas balance.
-- The scheduler reserves and settles prizes independently of challenge activation and answer validation. A payout delay cannot delay or prevent a challenge from starting or finishing.
+- A separate prize-settlement runner reserves and settles funded rounds independently of challenge activation and answer validation. A payout delay cannot delay or prevent a challenge from starting or finishing.
