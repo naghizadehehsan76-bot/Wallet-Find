@@ -1176,7 +1176,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                   <>
                     <div className="admin-wallet-overview__metrics">
                       <article><span>{copy.treasuryAllocated}</span><strong>{Number(treasuryFunding.allocatedToPrizeFund).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></article>
-                      <article><span>{copy.treasuryFree}</span><strong>{Number(treasuryFunding.unallocatedTreasuryBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></article>
+                      <article><span>{copy.treasuryFree}</span><strong>{Number(treasuryFunding.accountingStatus === "MATCH" ? treasuryFunding.unallocatedTreasuryBalance : "0").toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></article>
                       <article><span>{copy.internalPrizeBalance}</span><strong>{Number(treasuryFunding.prizeFundBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</strong></article>
                     </div>
 
@@ -1190,6 +1190,9 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                       <div className="admin-wallet-overview__reconciliation-values">
                         <div><span>{fa ? "موجودی دفتر خزانه" : "Treasury ledger balance"}</span><strong>{Number(treasuryFunding.treasuryLedgerBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></div>
                         <div><span>{fa ? "اختلاف حسابداری" : "Accounting difference"}</span><strong>{Number(treasuryFunding.accountingDifference).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></div>
+                        {treasuryFunding.accountingStatus !== "MATCH" && (
+                          <div><span>{fa ? "موجودی در انتظار تطبیق" : "Balance pending reconciliation"}</span><strong>{Math.abs(Number(treasuryFunding.accountingDifference)).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></div>
+                        )}
                       </div>
                     </div>
                   </>
