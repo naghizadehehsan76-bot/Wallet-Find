@@ -528,7 +528,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   async function handleTreasuryPrizeAllocation(event: FormEvent) {
     event.preventDefault();
     const amount = treasuryAllocationAmount.trim();
-    if (!/^\\d+(?:\\.\\d{1,6})?$/.test(amount) || !Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+    if (!/^\d+(?:\.\d{1,6})?$/.test(amount) || !Number.isFinite(Number(amount)) || Number(amount) <= 0) {
       setError(fa ? "مبلغ معتبر با حداکثر ۶ رقم اعشار وارد کن." : "Enter a valid amount with up to 6 decimal places.");
       return;
     }
