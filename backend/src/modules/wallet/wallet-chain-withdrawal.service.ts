@@ -810,7 +810,7 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
       });
     } else {
       const walletClient = treasuryFunding
-        ? await createParentTurnkeySigner(fromAddress, withdrawal.network.chainId)
+        ? await createParentTurnkeySigner(fromAddress, withdrawal.network.chainId as 56 | 137)
         : await createTurnkeySigner(withdrawal.walletAddress.address, withdrawal.network.chainId);
       if (!walletClient.account ||
           walletClient.account.address.toLowerCase() !== fromAddress.toLowerCase()) {
