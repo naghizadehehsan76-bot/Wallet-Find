@@ -155,7 +155,6 @@ export default function WalletPage({ onNavigate }: Props) {
   const [cachedWalletSnapshot] = useState<WalletSnapshot | null>(() => readWalletSnapshot());
   const [wallet, setWallet] = useState<WalletResult | null>(() => cachedWalletSnapshot?.wallet ?? null);
   const [walletLoadedFromCache, setWalletLoadedFromCache] = useState(() => cachedWalletSnapshot !== null);
-  const [walletCacheTimestamp, setWalletCacheTimestamp] = useState<number | null>(() => cachedWalletSnapshot?.savedAt ?? null);
   const refreshInFlight = useRef(false);
   const [error, setError] = useState("");
   const [view, setView] = useState<WalletView>("overview");
@@ -207,8 +206,6 @@ export default function WalletPage({ onNavigate }: Props) {
     history: fa ? "تاریخچه تراکنش‌ها" : "Transaction history",
     empty: fa ? "هنوز تراکنشی ثبت نشده است." : "No transactions yet.",
     loading: fa ? "در حال دریافت کیف پول..." : "Loading wallet...",
-    cachedWalletNotice: fa ? "آخرین موجودی ذخیره‌شده نمایش داده می‌شود؛ ممکن است هنوز به‌روز نباشد." : "Showing the last saved balances; they may not be up to date.",
-    cachedWalletTime: fa ? "آخرین دریافت موفق:" : "Last successful update:",
     error: fa ? "دریافت اطلاعات کیف پول ناموفق بود." : "Unable to load wallet information.",
     refresh: fa ? "به‌روزرسانی" : "Refresh",
     network: fa ? "شبکه" : "Network",
@@ -285,7 +282,6 @@ export default function WalletPage({ onNavigate }: Props) {
       const walletResult = await getWallet();
       setWallet(walletResult);
       const savedAt = saveWalletSnapshot(walletResult, snapshotKey);
-      setWalletCacheTimestamp(savedAt);
       setWalletLoadedFromCache(false);
       setError("");
     } catch {
@@ -364,7 +360,6 @@ export default function WalletPage({ onNavigate }: Props) {
       const walletResult = await provisionOwnWallet();
       setWallet(walletResult);
       const savedAt = saveWalletSnapshot(walletResult);
-      setWalletCacheTimestamp(savedAt);
       setWalletLoadedFromCache(false);
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : "";
@@ -488,10 +483,6 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
 
       {!wallet && !error && <div className="inline-feedback"><LoadingIndicator label={copy.loading} /></div>}
       {error && <p className="inline-feedback wallet-error" role="alert">{error}</p>}
-      {walletLoadedFromCache && wallet && <p className="inline-feedback" role="status">
-        {copy.cachedWalletNotice}
-        {walletCacheTimestamp ? ` ${copy.cachedWalletTime} ${new Date(walletCacheTimestamp).toLocaleString(locale)}` : ""}
-      </p>}
 
       {wallet && view === "overview" && !wallet.walletAddress && wallet.turnkeyConfigured && !wallet.walletProvisioningReviewRequired && <>
         <section className="wallet-exchange-balance" id="wallet-create">
