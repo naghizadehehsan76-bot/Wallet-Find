@@ -22,7 +22,9 @@ services:
       - key: CONTEST_SCHEDULER_INTERVAL_MS
         value: "30000"
       - key: POLYGON_DEPOSIT_SCANNER_ENABLED
-        value: "false"
+        value: "true"
+      - key: POLYGON_DEPOSIT_START_BLOCK
+        value: "96560914"
       - key: POLYGON_DEPOSITS_ENABLED
         value: "false"
       - key: WALLET_GENERIC_DEPOSIT_SCANNER_ENABLED
