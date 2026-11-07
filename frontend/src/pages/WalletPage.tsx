@@ -418,7 +418,7 @@ export default function WalletPage({ onNavigate }: Props) {
   // browser reload, when React selection state starts empty.
   useEffect(() => {
     if (view !== "deposit" || !wallet || !depositAssetId) return;
-    const asset = allAssets.find((item) => item.id === depositAssetId);
+    const asset = wallet.networks.flatMap((network) => network.assets.map((item) => ({ ...item, networkId: network.id }))).find((item) => item.id === depositAssetId);
     if (!asset || !asset.depositEnabled) {
       setDepositDetails(null);
       setDepositLoading(false);
@@ -443,7 +443,15 @@ export default function WalletPage({ onNavigate }: Props) {
       })
       .catch((requestError) => {
         if (!cancelled && requestSequence === depositRequestSequence.current) {
-          setDepositError(errorMessage(requestError, apiErrorCopy));
+          setDepositError(errorMessage(requestError, {
+            error: copy.error,
+            depositDisabled: copy.depositDisabled,
+            withdrawDisabled: copy.withdrawDisabled,
+            scannerNotReady: copy.scannerNotReady,
+            insufficientPol: copy.insufficientPol,
+            insufficientUsdt0: copy.insufficientUsdt0,
+            invalidDestination: copy.invalidDestination,
+          }));
         }
       })
       .finally(() => {
@@ -453,7 +461,7 @@ export default function WalletPage({ onNavigate }: Props) {
       cancelled = true;
       if (requestSequence === depositRequestSequence.current) depositRequestSequence.current += 1;
     };
-  }, [view, wallet, depositAssetId, allAssets, apiErrorCopy]);
+  }, [view, wallet, depositAssetId, copy.error, copy.depositDisabled, copy.withdrawDisabled, copy.scannerNotReady, copy.insufficientPol, copy.insufficientUsdt0, copy.invalidDestination]);
 
   const openDeposit = (assetId?: string) => {
     const asset = depositAssets.find((item) => item.id === assetId)
