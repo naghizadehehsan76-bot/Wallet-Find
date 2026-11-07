@@ -1101,12 +1101,12 @@ export async function allocateTreasuryToPrizeFund(rawAmount: unknown, adminUserI
   if (amount > liveBalance) throw new Error("INSUFFICIENT_TREASURY_BALANCE");
   return prisma.$transaction(async (tx) => {
     await tx.globalPrizeFund.upsert({ where: { id: "global" }, update: {}, create: { id: "global" } });
-    const [fund, pools, paidAwards] = await Promise.all([
+    const [currentFund, pools, paidAwards] = await Promise.all([
       tx.globalPrizeFund.findUnique({ where: { id: "global" } }),
       tx.prizePool.aggregate({ _sum: { seededMicro: true } }),
       tx.prizeAward.aggregate({ where: { status: "PAID" }, _sum: { amountMicro: true } }),
     ]);
-    const globalBalance = BigInt(fund?.balanceMicro ?? 0n);
+    const globalBalance = BigInt(currentFund?.balanceMicro ?? 0n);
     const roundAllocations = BigInt(pools._sum.seededMicro ?? 0n);
     const paid = BigInt(paidAwards._sum.amountMicro ?? 0n);
     const outstandingRounds = roundAllocations > paid ? roundAllocations - paid : 0n;
