@@ -687,7 +687,6 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
             <div><span>{copy.minimum}</span><strong>{depositDetails.minDeposit ? depositDetails.minDeposit + " " + depositDetails.asset : "—"}</strong></div>
             <div><span>{copy.asset}</span><strong>{depositDetails.asset} · {depositDetails.displayName}</strong></div>
           </div>
-          {depositDetails.contractAddress && <div className="wallet-deposit-address"><label>{copy.contract}</label><code>{depositDetails.contractAddress}</code></div>}
           <div className="wallet-warning"><strong>⚠ {fa ? "هشدار امنیتی" : "Security notice"}</strong><p>{depositDetails.asset === "POL" ? copy.polWarning : copy.usdt0Warning} {copy.depositRisk}</p></div>
           <p className="wallet-deposit-minimum">{depositDetails.message}</p>
           <p className="wallet-deposit-minimum">{copy.networkFeeNotice}</p>
