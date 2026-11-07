@@ -190,6 +190,8 @@ async function executePendingAward(awardId: string) {
   if (claimed.count !== 1) return;
 
   let broadcastAttempted = false;
+  let knownTransactionHash: Hash | null = null;
+  let knownDestinationAddress: Address | null = null;
   try {
     const emergencyPause = await prisma.systemSetting.findUnique({
       where: { key: "wallet_global_emergency_pause" },
@@ -216,6 +218,7 @@ async function executePendingAward(awardId: string) {
       throw new Error("WINNER_WALLET_NOT_ACTIVE");
     }
     const destinationAddress = userWallet.address.toLowerCase() as Address;
+    knownDestinationAddress = destinationAddress;
 
     const treasury = await prisma.treasuryWallet.findUnique({ where: { id: TREASURY_ID } });
     if (!treasury || treasury.status !== "ACTIVE" || !treasury.address || !treasury.turnkeyWalletId) {
@@ -289,6 +292,7 @@ async function executePendingAward(awardId: string) {
       maxFeePerGas,
       ...(fees.maxPriorityFeePerGas ? { maxPriorityFeePerGas: fees.maxPriorityFeePerGas } : {}),
     });
+    knownTransactionHash = transactionHash;
 
     const updated = await prisma.prizeAward.updateMany({
       where: { id: award.id, status: "SIGNING", transactionHash: null },
@@ -318,7 +322,25 @@ async function executePendingAward(awardId: string) {
           failureCode: error instanceof Error ? error.message.slice(0, 180) : "PRE_BROADCAST_FAILURE",
         },
       }).catch(() => undefined);
+    } else if (knownTransactionHash && knownDestinationAddress) {
+      // The hash is known even if the first persistence attempt failed. Retry
+      // only the database write; never submit a second blockchain transaction.
+      const recovered = await prisma.prizeAward.updateMany({
+        where: { id: awardId, status: "SIGNING", transactionHash: null },
+        data: {
+          status: "BROADCAST",
+          destinationAddress: knownDestinationAddress,
+          transactionHash: knownTransactionHash,
+          broadcastAt: new Date(),
+          failureCode: null,
+        },
+      }).catch(() => ({ count: 0 }));
+      if (recovered.count !== 1) {
+        await setNeedsReview(awardId, "BROADCAST_HASH_PERSISTENCE_FAILED");
+      }
+      console.error("Prize payout broadcast persistence recovery attempted", { awardId, recovered: recovered.count });
     } else {
+      await setNeedsReview(awardId, "BROADCAST_OUTCOME_UNCERTAIN");
       console.error("Prize payout broadcast outcome is uncertain; automatic retry is disabled", {
         awardId,
         error,
