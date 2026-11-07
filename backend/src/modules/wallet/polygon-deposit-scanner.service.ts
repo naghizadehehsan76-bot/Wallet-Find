@@ -556,6 +556,37 @@ export async function scanPolygonUsdtDepositsOnce() {
     if (credited) treasuryCredited++;
   }
 
+  // Persist a fresh reconciliation after a newly credited treasury
+  // deposit. This is intentionally one-shot per deposit: once the latest
+  // reconciliation is newer than the credited deposit, subsequent scans do
+  // not create duplicate snapshots.
+  if (treasury?.id) {
+    const [latestCreditedDeposit, latestReconciliation] = await Promise.all([
+      prisma.treasuryDeposit.findFirst({
+        where: { treasuryWalletId: treasury.id, chainId, status: "CREDITED", creditedAt: { not: null } },
+        orderBy: { creditedAt: "desc" },
+        select: { creditedAt: true },
+      }),
+      prisma.treasuryReconciliation.findFirst({
+        where: { treasuryWalletId: treasury.id },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
+      }),
+    ]);
+    if (latestCreditedDeposit?.creditedAt &&
+        (!latestReconciliation || latestCreditedDeposit.creditedAt > latestReconciliation.createdAt)) {
+      try {
+        const { reconcileTreasuryAccounting } = await import("./wallet.service.js");
+        const reconciliation = await reconcileTreasuryAccounting(null);
+        console.log("Automatic treasury accounting reconciliation completed", reconciliation);
+      } catch (error) {
+        console.error("Automatic treasury accounting reconciliation failed", {
+          error: error instanceof Error ? error.message : "UNKNOWN_TREASURY_RECONCILIATION_ERROR",
+        });
+      }
+    }
+  }
+
   return {
     paused: globallyPaused,
     scanned: hasNewBlocks ? Number(scannedThrough - fromBlock + 1n) : 0,
