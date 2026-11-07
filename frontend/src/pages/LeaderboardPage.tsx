@@ -134,13 +134,21 @@ function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
                       </div>
                     </div>
                     <div className="leaderboard-time mono" data-label={copy.completion ?? (isPersian ? "زمان تکمیل" : "Completion time")}>{entry.completed ? formatTime(entry.totalResponseTimeMs, isPersian) : "—"}</div>
-                    <div className="leaderboard-prize" data-label={copy.roundPrize ?? (isPersian ? "جایزه این دور" : "Round prize")}>{formatAmount(entry.prizeEarned, isPersian)} <small>USDT</small></div>
+                    <div className="leaderboard-prize" data-label={copy.roundPrize ?? (isPersian ? "جایزه این دور" : "Round prize")}>
+                      {formatAmount(entry.prizeAwarded, isPersian)} <small>USDT</small>
+                      {entry.prizeStatus && <small>{entry.prizeStatus === "PAID"
+                        ? (isPersian ? "پرداخت‌شده" : "Paid")
+                        : entry.prizeStatus === "PENDING_PAYMENT" || entry.prizeStatus === "BROADCAST"
+                          ? (isPersian ? "در انتظار پرداخت" : "Payment pending")
+                          : (isPersian ? "نیازمند بررسی" : "Under review")}</small>}
+                      {entry.prizeTransactionHash && <a href={`https://polygonscan.com/tx/${entry.prizeTransactionHash}`} target="_blank" rel="noreferrer" className="wallet-activity-tx-link">{isPersian ? "مشاهده تراکنش" : "View payout"}</a>}
+                    </div>
                     <div className="leaderboard-prize leaderboard-prize--total" data-label={copy.totalPrizes ?? (isPersian ? "مجموع جوایز" : "Total prizes")}>{formatAmount(entry.totalPrizeEarned, isPersian)} <small>USDT</small></div>
                   </article>
                 ))}
                 <p className="leaderboard-footnote">
                   {isPersian
-                    ? "زمان تکمیل فقط برای کسانی نمایش داده می‌شود که هر ۱۲ کلید را در مهلت رسمی حل کرده‌اند؛ رتبهٔ سایر شرکت‌کنندگان بر اساس تعداد کلیدهای حل‌شده و سپس زمان ثبت فعالیت محاسبه می‌شود. جوایز فقط پس از تأیید موجودی واقعی صندوق و فعال‌شدن پرداخت شبکه قابل پرداخت خواهند بود."
+                    ? "زمان تکمیل فقط برای کسانی نمایش داده می‌شود که هر ۱۲ کلید را در مهلت رسمی حل کرده‌اند؛ رتبهٔ سایر شرکت‌کنندگان بر اساس تعداد کلیدهای حل‌شده و سپس زمان ثبت فعالیت محاسبه می‌شود. مبلغ جایزه تا زمان تأیید تراکنش در وضعیت انتظار پرداخت نمایش داده می‌شود؛ مجموع جوایز فقط مبالغ پرداخت‌شده را محاسبه می‌کند."
                     : "Completion time is shown only for participants who solved all 12 keys within the official round. Other participants are ranked by solved keys, then recorded activity time. Prizes are payable only after real prize-fund verification and on-chain payout processing are operational."}
                 </p>
               </section>
