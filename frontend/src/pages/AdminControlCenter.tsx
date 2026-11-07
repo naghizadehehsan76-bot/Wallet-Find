@@ -9,6 +9,7 @@ import {
   provisionPrizeTreasuryWallet,
   getPrizeTreasuryWallet,
   getTreasuryPrizeFunding,
+  allocateTreasuryPrizeFunding,
   reconcileTreasuryAccounting,
   type TreasuryPrizeFundingSnapshot,
   type PrizeTreasuryProvisionResult,
@@ -134,6 +135,8 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [treasuryFundingLoading, setTreasuryFundingLoading] = useState(false);
   const [treasuryFundingError, setTreasuryFundingError] = useState(false);
   const [treasuryReconciling, setTreasuryReconciling] = useState(false);
+  const [treasuryAllocationAmount, setTreasuryAllocationAmount] = useState("");
+  const [treasuryAllocating, setTreasuryAllocating] = useState(false);
   const [users, setUsers] = useState<AdminUserSummary[]>([]);
   const [userSearch, setUserSearch] = useState("");
   const [logs, setLogs] = useState<AdminAuditLog[]>([]);
@@ -519,6 +522,46 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       setError(cause instanceof Error ? cause.message : (fa ? "تطبیق خزانه ناموفق بود." : "Treasury reconciliation failed."));
     } finally {
       setTreasuryReconciling(false);
+    }
+  }
+
+  async function handleTreasuryPrizeAllocation(event: FormEvent) {
+    event.preventDefault();
+    const amount = treasuryAllocationAmount.trim();
+    if (!/^\\d+(?:\\.\\d{1,6})?$/.test(amount) || !Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+      setError(fa ? "مبلغ معتبر با حداکثر ۶ رقم اعشار وارد کن." : "Enter a valid amount with up to 6 decimal places.");
+      return;
+    }
+    if (!treasuryFunding || treasuryFunding.accountingStatus !== "MATCH") {
+      setError(fa ? "ابتدا باید تطبیق حسابداری خزانه موفق باشد." : "Treasury accounting must be reconciled before allocation.");
+      return;
+    }
+    if (Number(amount) > Number(treasuryFunding.unallocatedTreasuryBalance)) {
+      setError(fa ? "مبلغ از موجودی آزاد خزانه بیشتر است." : "The amount exceeds the unallocated treasury balance.");
+      return;
+    }
+    setTreasuryAllocating(true);
+    setError("");
+    setNotice("");
+    try {
+      const snapshot = await allocateTreasuryPrizeFunding(amount);
+      setTreasuryFunding(snapshot);
+      setTreasuryFundingError(false);
+      setTreasuryAllocationAmount("");
+      setNotice(fa
+        ? `تخصیص ${Number(snapshot.amount).toLocaleString("fa-IR", { maximumFractionDigits: 6 })} USDT به صندوق جوایز با موفقیت ثبت شد.`
+        : `Successfully allocated ${snapshot.amount} USDT to the prize fund.`);
+    } catch (cause) {
+      const code = cause instanceof Error ? cause.message : "";
+      setError(code === "TREASURY_ACCOUNTING_MISMATCH"
+        ? (fa ? "تطبیق حسابداری خزانه معتبر نیست؛ تخصیص انجام نشد." : "Treasury accounting is not matched; no allocation was made.")
+        : code === "INSUFFICIENT_UNALLOCATED_TREASURY_BALANCE" || code === "INSUFFICIENT_TREASURY_BALANCE"
+          ? (fa ? "موجودی آزاد خزانه برای این مبلغ کافی نیست." : "Insufficient unallocated treasury balance.")
+          : code === "INVALID_ALLOCATION_AMOUNT"
+            ? (fa ? "مبلغ تخصیص معتبر نیست." : "The allocation amount is invalid.")
+            : (fa ? "تخصیص به صندوق جوایز ناموفق بود." : "Prize fund allocation failed."));
+    } finally {
+      setTreasuryAllocating(false);
     }
   }
 
@@ -1218,6 +1261,69 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                 </details>
               </>
             )}
+            <section className="admin-wallet-allocation-card">
+              <div className="admin-wallet-allocation-card__heading">
+                <div>
+                  <h2>{fa ? "تخصیص از خزانه به صندوق جوایز" : "Allocate treasury funds to prize pool"}</h2>
+                  <p>{fa ? "مبلغ موردنظر را از موجودی آزاد خزانه به موجودی داخلی صندوق جوایز منتقل کن." : "Move an amount from the treasury's unallocated balance into the internal prize fund."}</p>
+                </div>
+                <span>{fa ? "USDT" : "USDT"}</span>
+              </div>
+              <div className="admin-wallet-allocation-card__balances">
+                <div>
+                  <span>{fa ? "موجودی آزاد خزانه" : "Available treasury balance"}</span>
+                  <strong>{treasuryFunding
+                    ? Number(treasuryFunding.accountingStatus === "MATCH" ? treasuryFunding.unallocatedTreasuryBalance : "0").toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) + " USDT0"
+                    : "—"}</strong>
+                </div>
+                <div>
+                  <span>{fa ? "موجودی صندوق جوایز" : "Prize fund balance"}</span>
+                  <strong>{treasuryFunding
+                    ? Number(treasuryFunding.prizeFundBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) + " USDT"
+                    : "—"}</strong>
+                </div>
+              </div>
+              <div className="admin-wallet-allocation-card__status">
+                <span className={treasuryFunding?.accountingStatus === "MATCH" ? "is-match" : "is-warning"}>
+                  {treasuryFunding?.accountingStatus === "MATCH"
+                    ? (fa ? "تطبیق حسابداری موفق" : "Accounting matched")
+                    : (fa ? "تخصیص تا زمان تطبیق مسدود است" : "Allocation blocked until reconciliation")}
+                </span>
+                <p>{fa
+                  ? "این عملیات فقط ثبت حسابداری داخلی است و هیچ تراکنش یا انتقالی روی شبکه Polygon انجام نمی‌دهد."
+                  : "This is an internal accounting entry only. It does not create an on-chain Polygon transaction or transfer."}</p>
+              </div>
+              <form className="admin-wallet-allocation-card__form" onSubmit={handleTreasuryPrizeAllocation}>
+                <label htmlFor="treasury-prize-allocation-amount">{fa ? "مبلغ تخصیص (USDT)" : "Allocation amount (USDT)"}</label>
+                <div className="admin-wallet-allocation-card__input-row">
+                  <input
+                    id="treasury-prize-allocation-amount"
+                    type="number"
+                    inputMode="decimal"
+                    min="0.000001"
+                    step="0.000001"
+                    max={treasuryFunding?.accountingStatus === "MATCH" ? treasuryFunding.unallocatedTreasuryBalance : "0"}
+                    value={treasuryAllocationAmount}
+                    onChange={(event) => setTreasuryAllocationAmount(event.target.value)}
+                    placeholder={fa ? "مثلاً ۱۰ یا ۰٫۵" : "e.g. 10 or 0.5"}
+                    disabled={!treasuryFunding || treasuryAllocating}
+                    required
+                  />
+                  <button
+                    className="cta-button"
+                    type="submit"
+                    disabled={!treasury || !treasuryFunding || treasuryFunding.accountingStatus !== "MATCH" || Number(treasuryFunding.unallocatedTreasuryBalance) <= 0 || !treasuryAllocationAmount.trim() || treasuryAllocating || treasuryFundingLoading}
+                  >
+                    {treasuryAllocating
+                      ? (fa ? "در حال تخصیص…" : "Allocating…")
+                      : (fa ? "تخصیص به صندوق جوایز" : "Allocate to prize fund")}
+                  </button>
+                </div>
+                <small>{fa
+                  ? "مبلغ باید مثبت و حداکثر دارای ۶ رقم اعشار باشد؛ سقف تخصیص برابر موجودی آزاد خزانه است."
+                  : "Enter a positive amount with up to 6 decimal places. The maximum is the treasury's available balance."}</small>
+              </form>
+            </section>
           </section>
         )}
 
