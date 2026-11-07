@@ -1133,55 +1133,89 @@ export default function AdminControlCenter({ onNavigate }: Props) {
         )}
 
         {section === "wallets" && (
-          <>
-          <section className="admin-panel">
-            <h2>{copy.treasuryTitle}</h2>
-            <p className="admin-footnote">{copy.treasuryHelp}</p>
+          <section className="admin-panel admin-wallet-overview">
+            <div className="admin-wallet-overview__heading">
+              <div>
+                <h2>{copy.treasuryTitle}</h2>
+                <p className="admin-footnote">{fa ? "نمای خلاصهٔ خزانه جوایز؛ اطلاعات فنی در بخش جزئیات قرار دارد." : "A clear overview of the prize treasury, with technical information kept in the details section."}</p>
+              </div>
+              {treasury && <span className="admin-wallet-overview__status">{treasury.status === "ACTIVE" ? (fa ? "فعال" : "Active") : treasury.status}</span>}
+            </div>
+
             {!treasury && (
-              <button className="cta-button" type="button" onClick={() => void handleProvisionTreasury()} disabled={treasuryLoading}>
-                {treasuryLoading ? copy.treasuryCreating : copy.treasuryCreate}
-              </button>
-            )}
-            {treasury && (
-              <div className="admin-settings-list admin-treasury-card-list">
-                <article className="admin-setting-row admin-wallet-row admin-treasury-wallet-card">
-                  <div className="admin-treasury-wallet-card__content">
-                    <div className="admin-treasury-wallet-card__heading">
-                      <strong>{copy.treasuryTitle}</strong>
-                      <span className="wallet-network-status wallet-network-status--active">{treasury.status} · Polygon ({treasury.chainId})</span>
-                    </div>
-                    <small>{copy.treasuryAddress}</small>
-                    <code>{treasury.address}</code>
-                    <small>{copy.treasuryWalletId}: {treasury.walletId}</small>
-                    <div className="admin-treasury-live-balance">
-                      <strong>{copy.treasuryLiveBalance}</strong>
-                      {treasuryFunding ? (
-                        <div className="admin-settings-list">
-                          <code>{Number(treasuryFunding.onChainBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</code>
-                          <small>{copy.treasuryAllocated}: {Number(treasuryFunding.allocatedToPrizeFund).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</small>
-                          <small>{copy.treasuryFree}: {Number(treasuryFunding.unallocatedTreasuryBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</small>
-                          <small>{copy.internalPrizeBalance}: {Number(treasuryFunding.prizeFundBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</small>
-                          <small>{fa ? "موجودی دفتر خزانه: " : "Treasury ledger balance: "}{Number(treasuryFunding.treasuryLedgerBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</small>
-                          <small>{fa ? "اختلاف حسابداری: " : "Accounting difference: "}{Number(treasuryFunding.accountingDifference).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</small>
-                          <strong style={{ color: treasuryFunding.accountingStatus === "MATCH" ? "#20c997" : "#ff6b6b" }}>
-                            {treasuryFunding.accountingStatus === "MATCH" ? (fa ? "وضعیت حسابداری: منطبق" : "Accounting: MATCH") : (fa ? "هشدار: اختلاف حسابداری" : "WARNING: ACCOUNTING MISMATCH")}
-                          </strong>
-                          <small>{fa ? "بلوک مبنای بررسی: " : "Snapshot block: "}{treasuryFunding.snapshotBlockNumber}</small>
-                          <small>{fa ? "آخرین بررسی: " : "Last checked: "}{new Date(treasuryFunding.updatedAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>
-                        </div>
-                      ) : <small>{treasuryFundingLoading ? (fa ? "در حال دریافت موجودی از شبکه Polygon…" : "Loading balance from Polygon…") : treasuryFundingError ? (fa ? "دریافت موجودی ناموفق بود؛ اتصال RPC شبکه Polygon را بررسی کن." : "Could not load balance; check the Polygon RPC connection.") : "—"}</small>}
-                      <button type="button" onClick={() => { setTreasuryFundingLoading(true); void getTreasuryPrizeFunding().then((snapshot) => { setTreasuryFunding(snapshot); setTreasuryFundingError(false); }).catch(() => setTreasuryFundingError(true)).finally(() => setTreasuryFundingLoading(false)); }} disabled={treasuryFundingLoading}>{fa ? "به‌روزرسانی موجودی" : "Refresh balance"}</button>
-                      <button className="cta-button" type="button" onClick={() => void handleTreasuryReconciliation()} disabled={treasuryReconciling || treasuryFundingLoading}>
-                        {treasuryReconciling ? (fa ? "در حال تطبیق…" : "Reconciling…") : (fa ? "تطبیق موجودی با دفتر خزانه" : "Reconcile chain balance with treasury ledger")}
-                      </button>
-                    </div>
-                  </div>
-                  <button type="button" onClick={() => { void navigator.clipboard?.writeText(treasury.address); setNotice(fa ? "آدرس کپی شد." : "Address copied."); }}>{fa ? "کپی آدرس" : "Copy address"}</button>
-                </article>
+              <div className="admin-wallet-overview__empty">
+                <p className="admin-footnote">{copy.treasuryHelp}</p>
+                <button className="cta-button" type="button" onClick={() => void handleProvisionTreasury()} disabled={treasuryLoading}>
+                  {treasuryLoading ? copy.treasuryCreating : copy.treasuryCreate}
+                </button>
               </div>
             )}
+
+            {treasury && (
+              <>
+                <div className="admin-wallet-overview__balance">
+                  <div>
+                    <span>{copy.treasuryLiveBalance}</span>
+                    <strong>
+                      {treasuryFunding
+                        ? Number(treasuryFunding.onChainBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) + " USDT0"
+                        : treasuryFundingLoading
+                          ? (fa ? "در حال دریافت…" : "Loading…")
+                          : treasuryFundingError
+                            ? (fa ? "دریافت موجودی ناموفق بود" : "Balance unavailable")
+                            : "—"}
+                    </strong>
+                    {treasuryFunding?.updatedAt && <small>{fa ? "آخرین بررسی: " : "Last checked: "}{new Date(treasuryFunding.updatedAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>}
+                  </div>
+                  <button type="button" onClick={() => { setTreasuryFundingLoading(true); void getTreasuryPrizeFunding().then((snapshot) => { setTreasuryFunding(snapshot); setTreasuryFundingError(false); }).catch(() => setTreasuryFundingError(true)).finally(() => setTreasuryFundingLoading(false)); }} disabled={treasuryFundingLoading}>
+                    {treasuryFundingLoading ? (fa ? "در حال به‌روزرسانی…" : "Refreshing…") : (fa ? "به‌روزرسانی" : "Refresh")}
+                  </button>
+                </div>
+
+                {treasuryFunding && (
+                  <>
+                    <div className="admin-wallet-overview__metrics">
+                      <article><span>{copy.treasuryAllocated}</span><strong>{Number(treasuryFunding.allocatedToPrizeFund).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></article>
+                      <article><span>{copy.treasuryFree}</span><strong>{Number(treasuryFunding.unallocatedTreasuryBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></article>
+                      <article><span>{copy.internalPrizeBalance}</span><strong>{Number(treasuryFunding.prizeFundBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</strong></article>
+                    </div>
+
+                    <div className="admin-wallet-overview__reconciliation">
+                      <div className="admin-wallet-overview__reconciliation-heading">
+                        <strong>{fa ? "وضعیت تطبیق حسابداری" : "Accounting reconciliation"}</strong>
+                        <span className={treasuryFunding.accountingStatus === "MATCH" ? "is-match" : "is-warning"}>
+                          {treasuryFunding.accountingStatus === "MATCH" ? (fa ? "منطبق" : "Matched") : (fa ? "نیازمند بررسی" : "Needs review")}
+                        </span>
+                      </div>
+                      <div className="admin-wallet-overview__reconciliation-values">
+                        <div><span>{fa ? "موجودی دفتر خزانه" : "Treasury ledger balance"}</span><strong>{Number(treasuryFunding.treasuryLedgerBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></div>
+                        <div><span>{fa ? "اختلاف حسابداری" : "Accounting difference"}</span><strong>{Number(treasuryFunding.accountingDifference).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <div className="admin-wallet-overview__actions">
+                  <button className="cta-button" type="button" onClick={() => void handleTreasuryReconciliation()} disabled={treasuryReconciling || treasuryFundingLoading}>
+                    {treasuryReconciling ? (fa ? "در حال تطبیق…" : "Reconciling…") : (fa ? "بررسی و تطبیق موجودی" : "Reconcile balances")}
+                  </button>
+                  <button type="button" onClick={() => { void navigator.clipboard?.writeText(treasury.address); setNotice(fa ? "آدرس کپی شد." : "Address copied."); }}>
+                    {fa ? "کپی آدرس خزانه" : "Copy treasury address"}
+                  </button>
+                </div>
+
+                <details className="admin-wallet-overview__details">
+                  <summary>{fa ? "جزئیات فنی و آدرس خزانه" : "Technical details & treasury address"}</summary>
+                  <div>
+                    <span>{copy.treasuryAddress}</span><code>{treasury.address}</code>
+                    <span>{copy.treasuryWalletId}</span><code>{treasury.walletId}</code>
+                    <span>{fa ? "شبکه" : "Network"}</span><strong>Polygon · {treasury.chainId}</strong>
+                    {treasuryFunding && <><span>{fa ? "بلوک مبنای بررسی" : "Snapshot block"}</span><strong>{treasuryFunding.snapshotBlockNumber}</strong></>}
+                  </div>
+                </details>
+              </>
+            )}
           </section>
-          </>
         )}
 
         {section === "settings" && (
