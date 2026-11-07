@@ -1,148 +1,102 @@
-import {
-  createPublicClient,
-  encodeFunctionData,
-  http,
-  parseAbi,
-  parseEventLogs,
-  type Address,
-  type Hash,
-} from "viem";
-import { polygon } from "viem/chains";
 import prisma from "../../config/prisma.js";
-import { createParentTurnkeySigner, sendSponsoredEvmTransaction } from "../wallet/turnkey.service.js";
-import { reconcileTreasuryAccounting } from "../wallet/wallet.service.js";
+import { postWalletJournalInTransaction } from "../wallet/wallet-journal.service.js";
 
-const USDT0_ADDRESS = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f" as Address;
-const USDT0_ABI = parseAbi([
-  "function balanceOf(address account) view returns (uint256)",
-  "function transfer(address to, uint256 value) returns (bool)",
-  "event Transfer(address indexed from, address indexed to, uint256 value)",
-]);
-const TREASURY_ID = "polygon-prize-treasury";
-const BATCH_SIZE = 10;
+const POLYGON_NETWORK_ID = "eip155:137";
+const POLYGON_USDT0_ASSET_ID = "eip155:137/erc20:0xc2132d05d31c914a87c6611c10748aeb04b58e8f";
+const PRIZE_TREASURY_ACCOUNT_REFERENCE = "PRIZE_TREASURY";
+const BATCH_SIZE = 20;
 
 function payoutsEnabled(): boolean {
   return process.env.PRIZE_PAYOUTS_ENABLED === "true"
     && process.env.PRIZE_PAYOUTS_PRODUCTION_READY === "true";
 }
 
-function polygonClient() {
-  const rpcUrl = process.env.POLYGON_RPC_URL?.trim();
-  if (!rpcUrl) throw new Error("POLYGON_RPC_NOT_CONFIGURED");
-  return createPublicClient({
-    chain: polygon,
-    transport: http(rpcUrl, { timeout: 20_000, retryCount: 2 }),
-  });
-}
+async function creditPendingAward(awardId: string) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRawUnsafe(
+      "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
+      "internal-prize-award:" + awardId,
+    );
 
-function requiredConfirmations(): number {
-  const configured = Number.parseInt(process.env.POLYGON_USDT_CONFIRMATIONS ?? "128", 10);
-  return Number.isFinite(configured) ? Math.max(32, configured) : 128;
-}
-
-async function setNeedsReview(awardId: string, failureCode: string) {
-  const award = await prisma.prizeAward.findUnique({
-    where: { id: awardId },
-    select: { contestId: true },
-  });
-  await prisma.$transaction(async (tx) => {
-    await tx.prizeAward.updateMany({
-      where: { id: awardId, status: { in: ["SIGNING", "BROADCAST"] } },
-      data: { status: "NEEDS_REVIEW", failureCode: failureCode.slice(0, 180) },
+    const award = await tx.prizeAward.findUnique({
+      where: { id: awardId },
+      include: { contest: { include: { prizePool: true } } },
     });
-    if (award) {
-      await tx.prizePool.updateMany({
-        where: { contestId: award.contestId, status: "PAYOUT_PENDING" },
-        data: { status: "PAYOUT_REVIEW" },
-      });
-    }
-  });
-}
+    if (!award) throw new Error("PRIZE_AWARD_NOT_FOUND");
+    if (award.status === "PAID") return { id: award.id, status: "PAID", reused: true };
+    if (award.status !== "PENDING_PAYMENT") return { id: award.id, status: award.status, skipped: true };
 
-async function reconcileBroadcastAward(award: {
-  id: string;
-  contestId: string;
-  userId: string;
-  amountMicro: bigint;
-  destinationAddress: string | null;
-  transactionHash: string | null;
-}) {
-  if (!award.transactionHash || !award.destinationAddress) {
-    await setNeedsReview(award.id, "BROADCAST_RECORD_INCOMPLETE");
-    return;
-  }
-
-  const client = polygonClient();
-  let receipt;
-  try {
-    receipt = await client.getTransactionReceipt({ hash: award.transactionHash as Hash });
-  } catch {
-    // The transaction may still be propagating or not yet mined. Never send it again.
-    return;
-  }
-
-  const latestBlock = await client.getBlockNumber();
-  const canonicalBlock = await client.getBlock({ blockNumber: receipt.blockNumber });
-  if (!canonicalBlock.hash || canonicalBlock.hash.toLowerCase() !== receipt.blockHash.toLowerCase()) {
-    return;
-  }
-
-  if (receipt.status !== "success") {
-    await setNeedsReview(award.id, "PRIZE_TRANSFER_REVERTED");
-    return;
-  }
-
-  const treasury = await prisma.treasuryWallet.findUnique({
-    where: { id: TREASURY_ID },
-    select: { address: true },
-  });
-  if (!treasury?.address) {
-    await setNeedsReview(award.id, "PRIZE_TREASURY_ADDRESS_MISSING");
-    return;
-  }
-
-  const transferEvents = parseEventLogs({
-    abi: USDT0_ABI,
-    logs: receipt.logs,
-    eventName: "Transfer",
-    strict: false,
-  });
-  const verifiedTransfer = transferEvents.some((event) =>
-    event.args.from?.toLowerCase() === treasury.address!.toLowerCase()
-    && event.args.to?.toLowerCase() === award.destinationAddress!.toLowerCase()
-    && event.args.value === award.amountMicro
-  );
-  if (!verifiedTransfer) {
-    await setNeedsReview(award.id, "PRIZE_TRANSFER_EVENT_MISMATCH");
-    return;
-  }
-
-  const confirmations = Number(latestBlock - receipt.blockNumber + 1n);
-  if (confirmations < requiredConfirmations()) return;
-
-  await prisma.$transaction(async (tx) => {
-    const current = await tx.prizeAward.findUnique({ where: { id: award.id } });
-    if (!current || current.status === "PAID") return;
-    if (current.status !== "BROADCAST" || current.transactionHash !== award.transactionHash) {
-      throw new Error("PRIZE_PAYOUT_STATE_CHANGED");
+    const pool = award.contest.prizePool;
+    const amount = BigInt(award.amountMicro);
+    if (!pool || pool.status !== "PAYOUT_PENDING") throw new Error("PRIZE_POOL_NOT_PAYABLE");
+    if (amount <= 0n || amount > BigInt(pool.awardedMicro) || amount > BigInt(pool.seededMicro)) {
+      throw new Error("PRIZE_AMOUNT_EXCEEDS_ROUND_ALLOCATION");
     }
 
-    await tx.treasuryLedger.create({
-      data: {
-        treasuryWalletId: TREASURY_ID,
-        type: "WITHDRAWAL_DEBIT",
-        amountMicro: -award.amountMicro,
-        currency: "USDT0",
-        transactionHash: award.transactionHash,
-        referenceKey: "prize-payout:" + award.id,
-        note: "Confirmed Polygon USDT0 prize payout to challenge winner",
-        effectiveAt: new Date(),
-      },
+    const wallet = await tx.walletAccount.findUnique({
+      where: { userId: award.userId },
+      select: { id: true, status: true },
+    });
+    if (!wallet || wallet.status !== "ACTIVE") throw new Error("WINNER_INTERNAL_WALLET_NOT_ACTIVE");
+
+    const [network, asset] = await Promise.all([
+      tx.walletNetwork.findUnique({
+        where: { id: POLYGON_NETWORK_ID },
+        select: { id: true, isEnabled: true },
+      }),
+      tx.walletAsset.findUnique({
+        where: { id: POLYGON_USDT0_ASSET_ID },
+        select: { id: true, networkId: true, symbol: true, decimals: true, verificationStatus: true },
+      }),
+    ]);
+    if (!network?.isEnabled || !asset || asset.networkId !== POLYGON_NETWORK_ID
+        || asset.symbol !== "USDT0" || asset.decimals !== 6
+        || asset.verificationStatus !== "VERIFIED") {
+      throw new Error("PRIZE_WALLET_ASSET_NOT_READY");
+    }
+
+    const claimed = await tx.prizeAward.updateMany({
+      where: { id: award.id, status: "PENDING_PAYMENT", transactionHash: null },
+      data: { status: "SIGNING", failureCode: null },
+    });
+    if (claimed.count !== 1) throw new Error("PRIZE_AWARD_ALREADY_PROCESSING");
+
+    // This journal entry moves the prize allocation into the winner's internal
+    // available balance. The custody asset remains in the shared prize treasury:
+    // no Turnkey signing, RPC broadcast, token transfer, or network fee occurs.
+    await postWalletJournalInTransaction(tx, {
+      userId: award.userId,
+      networkId: POLYGON_NETWORK_ID,
+      walletAssetId: POLYGON_USDT0_ASSET_ID,
+      entryType: "INTERNAL_TRANSFER",
+      referenceKey: "prize-award:" + award.id,
+      note: "Challenge prize credited to the winner's Wallet-Find balance",
+      postings: [
+        {
+          account: "CUSTODY_ASSET",
+          direction: "DEBIT",
+          amountAtomic: amount.toString(),
+          accountReference: "polygon-prize-treasury",
+        },
+        {
+          account: "USER_AVAILABLE",
+          direction: "CREDIT",
+          amountAtomic: amount.toString(),
+          accountReference: PRIZE_TREASURY_ACCOUNT_REFERENCE,
+        },
+      ],
     });
 
     await tx.prizeAward.update({
       where: { id: award.id },
-      data: { status: "PAID", confirmedAt: new Date(), failureCode: null },
+      data: {
+        status: "PAID",
+        destinationAddress: null,
+        transactionHash: null,
+        broadcastAt: null,
+        confirmedAt: new Date(),
+        failureCode: null,
+      },
     });
 
     const remaining = await tx.prizeAward.count({
@@ -151,248 +105,30 @@ async function reconcileBroadcastAward(award: {
     if (remaining === 0) {
       await tx.prizePool.updateMany({
         where: { contestId: award.contestId, status: "PAYOUT_PENDING" },
-        data: { status: "SETTLED" },
+        data: { status: "SETTLED", settledAt: new Date() },
       });
     }
 
     await tx.auditLog.create({
       data: {
-        action: "PRIZE_PAYOUT_CONFIRMED",
+        userId: award.userId,
+        action: "PRIZE_AWARD_CREDITED_INTERNAL",
         entity: "PrizeAward",
         entityId: award.id,
         metadata: {
           contestId: award.contestId,
-          userId: award.userId,
-          amountMicro: award.amountMicro.toString(),
-          transactionHash: award.transactionHash,
-          destinationAddress: award.destinationAddress,
-          confirmations,
+          amountMicro: amount.toString(),
+          currency: "USDT0",
+          rank: award.rank,
+          payoutMode: "INTERNAL_WALLET_LEDGER",
+          transactionHash: null,
+          blockchainTransfer: false,
         },
       },
     });
+
+    return { id: award.id, status: "PAID", amountMicro: amount.toString(), payoutMode: "INTERNAL_WALLET_LEDGER" };
   }, { isolationLevel: "Serializable" });
-
-  // Refresh the immutable treasury reconciliation after recording the debit.
-  const reconciliation = await reconcileTreasuryAccounting(null);
-  if (reconciliation.status !== "MATCH") {
-    console.error("Treasury reconciliation mismatch after confirmed prize payout", {
-      awardId: award.id,
-      transactionHash: award.transactionHash,
-      difference: reconciliation.difference,
-    });
-  }
-}
-
-async function executePendingAward(awardId: string) {
-  const claimed = await prisma.prizeAward.updateMany({
-    where: { id: awardId, status: "PENDING_PAYMENT", transactionHash: null },
-    data: { status: "SIGNING", failureCode: null },
-  });
-  if (claimed.count !== 1) return;
-
-  let broadcastAttempted = false;
-  let knownTransactionHash: Hash | null = null;
-  let knownDestinationAddress: Address | null = null;
-  try {
-    const emergencyPause = await prisma.systemSetting.findUnique({
-      where: { key: "wallet_global_emergency_pause" },
-      select: { value: true },
-    });
-    if (emergencyPause?.value === "true") throw new Error("WALLET_GLOBAL_EMERGENCY_PAUSE_ACTIVE");
-
-    const award = await prisma.prizeAward.findUnique({
-      where: { id: awardId },
-      include: {
-        contest: { include: { prizePool: true } },
-      },
-    });
-    if (!award || award.status !== "SIGNING") throw new Error("PRIZE_AWARD_NOT_READY");
-    const amount = BigInt(award.amountMicro);
-    if (amount <= 0n || !award.contest.prizePool || amount > BigInt(award.contest.prizePool.seededMicro)) {
-      throw new Error("PRIZE_AMOUNT_EXCEEDS_ROUND_ALLOCATION");
-    }
-    if (award.contest.prizePool.status !== "PAYOUT_PENDING") throw new Error("PRIZE_POOL_NOT_PAYABLE");
-
-    const userWallet = await prisma.walletAccount.findUnique({ where: { userId: award.userId } });
-    if (!userWallet || userWallet.status !== "ACTIVE" || !userWallet.address) {
-      throw new Error("WINNER_WALLET_NOT_ACTIVE");
-    }
-    const destinationAddress = userWallet.address.toLowerCase() as Address;
-    knownDestinationAddress = destinationAddress;
-    const polygonWalletNetwork = await prisma.walletNetworkAccount.findUnique({
-      where: { walletAccountId_chainId: { walletAccountId: userWallet.id, chainId: 137 } },
-      select: { depositEnabled: true },
-    });
-    if (!polygonWalletNetwork?.depositEnabled) throw new Error("WINNER_POLYGON_DEPOSITS_NOT_ENABLED");
-    const usdt0Asset = await prisma.chainAsset.findUnique({
-      where: { chainId_contractAddress: { chainId: 137, contractAddress: USDT0_ADDRESS } },
-      select: { depositEnabled: true, canonicalStatus: true, decimals: true },
-    });
-    if (!usdt0Asset?.depositEnabled || usdt0Asset.canonicalStatus !== "ONCHAIN_VERIFIED" || usdt0Asset.decimals !== 6) {
-      throw new Error("POLYGON_USDT0_DEPOSIT_SCANNER_NOT_READY");
-    }
-
-    const treasury = await prisma.treasuryWallet.findUnique({ where: { id: TREASURY_ID } });
-    if (!treasury || treasury.status !== "ACTIVE" || !treasury.address || !treasury.turnkeyWalletId) {
-      throw new Error("PRIZE_TREASURY_NOT_READY");
-    }
-    const treasuryAddress = treasury.address.toLowerCase() as Address;
-
-    // A fresh chain-vs-ledger reconciliation is mandatory before each new send.
-    const reconciliation = await reconcileTreasuryAccounting(null);
-    if (reconciliation.status !== "MATCH") throw new Error("TREASURY_ACCOUNTING_MISMATCH");
-
-    // Preserve every other round's reservation and the still-unallocated global
-    // fund. Only the physically backed, already-reserved prize amount may leave.
-    const [globalFund, allPools, paidAwards] = await Promise.all([
-      prisma.globalPrizeFund.findUnique({ where: { id: "global" } }),
-      prisma.prizePool.aggregate({ _sum: { seededMicro: true } }),
-      prisma.prizeAward.aggregate({
-        where: { status: "PAID" },
-        _sum: { amountMicro: true },
-      }),
-    ]);
-    const globalBalance = BigInt(globalFund?.balanceMicro ?? 0n);
-    const outstandingRoundReserve = BigInt(allPools._sum.seededMicro ?? 0n)
-      - BigInt(paidAwards._sum.amountMicro ?? 0n);
-    const requiredReserve = globalBalance + (outstandingRoundReserve > 0n ? outstandingRoundReserve : 0n);
-    if (BigInt(reconciliation.onChainBalance.replace(".", "")) < requiredReserve) {
-      throw new Error("PRIZE_TREASURY_RESERVED_BALANCE_MISMATCH");
-    }
-
-    const client = polygonClient();
-    const tokenBalance = await client.readContract({
-      address: USDT0_ADDRESS,
-      abi: USDT0_ABI,
-      functionName: "balanceOf",
-      args: [treasuryAddress],
-    });
-    if (tokenBalance < amount) throw new Error("INSUFFICIENT_TREASURY_USDT0");
-
-    // The Turnkey route is opt-in. When disabled, the original POL-funded
-    // viem signer path remains unchanged and fully available.
-    const useTurnkeySponsorship = process.env.TURNKEY_GAS_SPONSORSHIP_ENABLED === "true";
-    let transactionHash: Hash;
-    if (useTurnkeySponsorship) {
-      const data = encodeFunctionData({
-        abi: USDT0_ABI,
-        functionName: "transfer",
-        args: [destinationAddress, amount],
-      });
-      // Persist the Turnkey status id before polling. If the worker restarts,
-      // the SIGNING row remains quarantined and can be reconciled without resend.
-      broadcastAttempted = true;
-      transactionHash = await sendSponsoredEvmTransaction({
-        address: treasuryAddress,
-        chainId: 137,
-        to: USDT0_ADDRESS,
-        value: 0n,
-        data,
-        parentOrganization: true,
-        onStatusId: async (statusId) => {
-          await prisma.prizeAward.updateMany({
-            where: { id: award.id, status: "SIGNING", transactionHash: null },
-            data: { failureCode: "TURNKEY_STATUS_ID:" + statusId },
-          });
-        },
-      });
-    } else {
-      const [nativeBalance, fees, estimatedGas] = await Promise.all([
-        client.getBalance({ address: treasuryAddress }),
-        client.estimateFeesPerGas(),
-        client.estimateContractGas({
-          account: treasuryAddress,
-          address: USDT0_ADDRESS,
-          abi: USDT0_ABI,
-          functionName: "transfer",
-          args: [destinationAddress, amount],
-        }),
-      ]);
-      const maxFeePerGas = fees.maxFeePerGas ?? fees.gasPrice;
-      if (!maxFeePerGas || maxFeePerGas <= 0n) throw new Error("POLYGON_FEE_QUOTE_UNAVAILABLE");
-      const gasLimit = estimatedGas * 120n / 100n + 1n;
-      if (nativeBalance < gasLimit * maxFeePerGas) throw new Error("INSUFFICIENT_TREASURY_POL_FOR_GAS");
-
-      const signer = await createParentTurnkeySigner(treasuryAddress, 137);
-      if (signer.account?.address.toLowerCase() !== treasuryAddress) {
-        throw new Error("PRIZE_TREASURY_SIGNER_ADDRESS_MISMATCH");
-      }
-      broadcastAttempted = true;
-      transactionHash = await signer.writeContract({
-        account: signer.account!,
-        chain: polygon,
-        address: USDT0_ADDRESS,
-        abi: USDT0_ABI,
-        functionName: "transfer",
-        args: [destinationAddress, amount],
-        gas: gasLimit,
-        maxFeePerGas,
-        ...(fees.maxPriorityFeePerGas ? { maxPriorityFeePerGas: fees.maxPriorityFeePerGas } : {}),
-      });
-    }
-    knownTransactionHash = transactionHash;
-
-    const updated = await prisma.prizeAward.updateMany({
-      where: { id: award.id, status: "SIGNING", transactionHash: null },
-      data: {
-        status: "BROADCAST",
-        destinationAddress,
-        transactionHash,
-        broadcastAt: new Date(),
-        failureCode: null,
-      },
-    });
-    if (updated.count !== 1) {
-      throw new Error("PRIZE_PAYOUT_STATE_CHANGED_AFTER_BROADCAST");
-    }
-    console.log("Prize payout broadcast", {
-      awardId: award.id,
-      contestId: award.contestId,
-      amountMicro: amount.toString(),
-      transactionHash,
-    });
-  } catch (error) {
-    if (!broadcastAttempted || (error instanceof Error && error.message === "TURNKEY_SPONSORED_TRANSACTION_FAILED")) {
-      await prisma.prizeAward.updateMany({
-        where: { id: awardId, status: "SIGNING", transactionHash: null },
-        data: {
-          status: "PENDING_PAYMENT",
-          failureCode: error instanceof Error ? error.message.slice(0, 180) : "PRE_BROADCAST_FAILURE",
-        },
-      }).catch(() => undefined);
-    } else if (knownTransactionHash && knownDestinationAddress) {
-      // The hash is known even if the first persistence attempt failed. Retry
-      // only the database write; never submit a second blockchain transaction.
-      const recovered = await prisma.prizeAward.updateMany({
-        where: { id: awardId, status: "SIGNING", transactionHash: null },
-        data: {
-          status: "BROADCAST",
-          destinationAddress: knownDestinationAddress,
-          transactionHash: knownTransactionHash,
-          broadcastAt: new Date(),
-          failureCode: null,
-        },
-      }).catch(() => ({ count: 0 }));
-      if (recovered.count !== 1) {
-        await setNeedsReview(awardId, "BROADCAST_HASH_PERSISTENCE_FAILED");
-      }
-      console.error("Prize payout broadcast persistence recovery attempted", { awardId, recovered: recovered.count });
-    } else {
-      const current = await prisma.prizeAward.findUnique({
-        where: { id: awardId },
-        select: { failureCode: true },
-      });
-      const reviewCode = current?.failureCode?.startsWith("TURNKEY_STATUS_ID:")
-        ? current.failureCode
-        : "BROADCAST_OUTCOME_UNCERTAIN";
-      await setNeedsReview(awardId, reviewCode);
-      console.error("Prize payout broadcast outcome is uncertain; automatic retry is disabled", {
-        awardId,
-        error,
-        hasTurnkeyStatusId: reviewCode.startsWith("TURNKEY_STATUS_ID:"),
-      });
-    }
-  }
 }
 
 export async function runPrizePayoutProcessorOnce() {
@@ -404,40 +140,35 @@ export async function runPrizePayoutProcessorOnce() {
   });
   if (emergencyPause?.value === "true") return { skipped: "WALLET_GLOBAL_EMERGENCY_PAUSE_ACTIVE" };
 
-  const broadcasts = await prisma.prizeAward.findMany({
-    where: { status: "BROADCAST", transactionHash: { not: null } },
-    orderBy: { broadcastAt: "asc" },
-    take: BATCH_SIZE,
-    select: {
-      id: true, contestId: true, userId: true, amountMicro: true,
-      destinationAddress: true, transactionHash: true,
+  const pending = await prisma.prizeAward.findMany({
+    where: {
+      status: "PENDING_PAYMENT",
+      amountMicro: { gt: 0n },
+      contest: { prizePool: { is: { status: "PAYOUT_PENDING" } } },
     },
-  });
-  if (broadcasts.length > 0) {
-    for (const award of broadcasts) {
-      try {
-        await reconcileBroadcastAward(award);
-      } catch (error) {
-        console.error("Prize payout reconciliation will retry", { awardId: award.id, error });
-      }
-    }
-    return { reconciled: broadcasts.length };
-  }
-
-  // A SIGNING row means the previous process may have sent a transaction but
-  // failed before saving its hash. Never risk paying that award twice.
-  const uncertain = await prisma.prizeAward.count({ where: { status: "SIGNING" } });
-  if (uncertain > 0) return { skipped: "PRIZE_PAYOUT_REQUIRES_MANUAL_REVIEW" };
-
-  const pending = await prisma.prizeAward.findFirst({
-    where: { status: "PENDING_PAYMENT", amountMicro: { gt: 0n }, contest: { prizePool: { is: { status: "PAYOUT_PENDING" } } } },
     orderBy: [{ createdAt: "asc" }, { rank: "asc" }],
+    take: BATCH_SIZE,
     select: { id: true },
   });
-  if (!pending) return { processed: 0 };
 
-  await executePendingAward(pending.id);
-  return { processed: 1, awardId: pending.id };
+  let credited = 0;
+  const failures: Array<{ awardId: string; code: string }> = [];
+  for (const item of pending) {
+    try {
+      const result = await creditPendingAward(item.id);
+      if (result.status === "PAID") credited++;
+    } catch (error) {
+      const code = error instanceof Error ? error.message.slice(0, 180) : "INTERNAL_PRIZE_CREDIT_FAILED";
+      failures.push({ awardId: item.id, code });
+      await prisma.prizeAward.updateMany({
+        where: { id: item.id, status: "PENDING_PAYMENT", transactionHash: null },
+        data: { failureCode: code },
+      }).catch(() => undefined);
+      console.error("Internal prize credit failed; award remains pending", { awardId: item.id, code });
+    }
+  }
+
+  return { processed: pending.length, credited, failures };
 }
 
 export function startPrizePayoutProcessor() {
@@ -452,7 +183,7 @@ export function startPrizePayoutProcessor() {
         console.warn("Prize payout processor skipped", result);
       }
     } catch (error) {
-      console.error("Prize payout processor error", error);
+      console.error("Internal prize payout processor error", error);
     } finally {
       running = false;
     }
