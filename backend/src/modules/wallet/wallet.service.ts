@@ -54,7 +54,7 @@ export async function getWallet(userId: string) {
 
     const [chainDeposits, chainWithdrawals, legacyDeposits, legacyWithdrawals] = await Promise.all([
       tx.walletChainDeposit.findMany({
-        where: { userId },
+        where: { userId, networkId: "eip155:137" },
         include: {
           network: { select: { displayName: true, explorerTransactionUrlTemplate: true } },
           asset: { select: { symbol: true, decimals: true } },
@@ -63,7 +63,7 @@ export async function getWallet(userId: string) {
         take: 100,
       }),
       tx.walletChainWithdrawal.findMany({
-        where: { userId },
+        where: { userId, networkId: "eip155:137" },
         include: {
           network: { select: { displayName: true, explorerTransactionUrlTemplate: true } },
           asset: { select: { symbol: true, decimals: true } },
@@ -73,13 +73,13 @@ export async function getWallet(userId: string) {
         take: 100,
       }),
       tx.walletDeposit.findMany({
-        where: { userId },
+        where: { userId, chainId: 137 },
         include: { asset: { select: { symbol: true, decimals: true } } },
         orderBy: { detectedAt: "desc" },
         take: 100,
       }),
       tx.walletWithdrawal.findMany({
-        where: { userId },
+        where: { userId, chainId: 137 },
         include: { asset: { select: { symbol: true, decimals: true } } },
         orderBy: { requestedAt: "desc" },
         take: 100,
@@ -87,7 +87,7 @@ export async function getWallet(userId: string) {
     ]);
 
     const journalPostings = await tx.walletJournalPosting.findMany({
-      where: { journal: { userId } },
+      where: { journal: { userId, networkId: "eip155:137" } },
       select: {
         account: true,
         direction: true,
@@ -132,7 +132,7 @@ export async function getWallet(userId: string) {
       && Boolean(turnkeyWallet?.turnkeyOrganizationId && turnkeyWallet?.turnkeyWalletId);
 
     const networks = await tx.walletNetwork.findMany({
-      where: { family: "EVM" },
+      where: { family: "EVM", chainId: 137 },
       orderBy: [{ family: "asc" }, { networkKey: "asc" }],
       include: {
         assets: { orderBy: [{ symbol: "asc" }, { id: "asc" }] },
@@ -224,7 +224,7 @@ export async function getWallet(userId: string) {
       turnkeyConfigured: isTurnkeyConfigured(),
       walletProvisioningReviewRequired,
       walletAddress: walletProvisioningReviewRequired ? null : turnkeyWallet?.address ?? null,
-      supportedNetworks: (turnkeyWallet?.networkAccounts ?? []).map((item) => ({
+      supportedNetworks: (turnkeyWallet?.networkAccounts ?? []).filter((item) => item.chainId === 137).map((item) => ({
         chainId: item.chainId,
         networkKey: item.networkKey,
         depositEnabled: item.depositEnabled,
