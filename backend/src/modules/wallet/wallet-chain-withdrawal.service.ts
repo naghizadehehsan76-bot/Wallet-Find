@@ -111,6 +111,39 @@ async function readAvailableBalanceByReference(
   }, 0n);
 }
 
+async function assertPrizeTreasuryReserve(client: any, treasuryAddress: Address): Promise<bigint> {
+  const [fund, pools, paidAwards, custodyPostings] = await Promise.all([
+    prisma.globalPrizeFund.findUnique({ where: { id: "global" }, select: { balanceMicro: true } }),
+    prisma.prizePool.aggregate({ _sum: { seededMicro: true } }),
+    prisma.prizeAward.aggregate({ where: { status: "PAID" }, _sum: { amountMicro: true } }),
+    prisma.walletJournalPosting.findMany({
+      where: {
+        account: "CUSTODY_ASSET",
+        accountReference: PRIZE_TREASURY_ID,
+        journal: { networkId: "eip155:137", walletAssetId: "eip155:137/erc20:0xc2132d05d31c914a87c6611c10748aeb04b58e8f" },
+      },
+      select: { direction: true, amountAtomic: true },
+    }),
+  ]);
+  const globalBalance = BigInt(fund?.balanceMicro ?? 0n);
+  const seeded = BigInt(pools._sum.seededMicro ?? 0n);
+  const paid = BigInt(paidAwards._sum.amountMicro ?? 0n);
+  const outstandingRounds = seeded > paid ? seeded - paid : 0n;
+  const internalLiability = custodyPostings.reduce((total: bigint, posting: any) => {
+    const amount = BigInt(posting.amountAtomic.toFixed(0));
+    return total + (posting.direction === "DEBIT" ? amount : -amount);
+  }, 0n);
+  const requiredReserve = globalBalance + outstandingRounds + (internalLiability > 0n ? internalLiability : 0n);
+  const onChainBalance = await client.readContract({
+    address: POLYGON_USDT0_CONTRACT as Address,
+    abi: TOKEN_BALANCE_ABI,
+    functionName: "balanceOf",
+    args: [treasuryAddress],
+  });
+  if (onChainBalance < requiredReserve) throw new Error("PRIZE_TREASURY_RESERVED_BALANCE_MISMATCH");
+  return onChainBalance;
+}
+
 async function postReservation(
   tx: any,
   input: {
@@ -774,13 +807,15 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
       if (nativeBalance < amount + reservedFee) throw new Error("ONCHAIN_NATIVE_BALANCE_INSUFFICIENT");
     } else {
       if (!withdrawal.asset.contractAddress) throw new Error("INVALID_TOKEN_ASSET_CONFIGURATION");
-      const tokenBalance = await client.readContract({
-        address: withdrawal.asset.contractAddress as Address,
-        abi: TOKEN_BALANCE_ABI,
-        functionName: "balanceOf",
-        args: [fromAddress],
-      });
-      if (tokenBalance < amount) throw new Error("ONCHAIN_TOKEN_BALANCE_INSUFFICIENT");
+      const tokenBalance = treasuryFunding
+        ? await assertPrizeTreasuryReserve(client, fromAddress)
+        : await client.readContract({
+            address: withdrawal.asset.contractAddress as Address,
+            abi: TOKEN_BALANCE_ABI,
+            functionName: "balanceOf",
+            args: [fromAddress],
+          });
+      if (tokenBalance < amount) throw new Error(treasuryFunding ? "PRIZE_TREASURY_USDT0_BALANCE_INSUFFICIENT" : "ONCHAIN_TOKEN_BALANCE_INSUFFICIENT");
       if (!useTurnkeySponsorship) {
         const nativeBalance = await client.getBalance({ address: fromAddress });
         const requiredNative = treasuryFunding ? gasLimit * maxFeePerGas : reservedFee;
@@ -859,6 +894,8 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
       "ONCHAIN_TOKEN_BALANCE_INSUFFICIENT",
       "ONCHAIN_NATIVE_FEE_BALANCE_INSUFFICIENT",
       "PRIZE_TREASURY_POL_BALANCE_INSUFFICIENT",
+      "PRIZE_TREASURY_USDT0_BALANCE_INSUFFICIENT",
+      "PRIZE_TREASURY_RESERVED_BALANCE_MISMATCH",
       "TURNKEY_SPONSORED_TRANSACTION_FAILED",
       "INVALID_TOKEN_ASSET_CONFIGURATION",
     ]);
