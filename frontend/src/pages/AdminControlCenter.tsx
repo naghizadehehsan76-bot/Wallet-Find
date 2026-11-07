@@ -176,6 +176,13 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [challengeScheduleAnchor, setChallengeScheduleAnchor] = useState<ChallengeScheduleAnchor | null>(null);
   const [challengeScheduleLoading, setChallengeScheduleLoading] = useState(false);
   const [challengeScheduleUnavailable, setChallengeScheduleUnavailable] = useState(false);
+  const [scheduledFilterLanguage, setScheduledFilterLanguage] = useState("all");
+  const [scheduledFilterChallenge, setScheduledFilterChallenge] = useState("");
+  const [scheduledFilterCell, setScheduledFilterCell] = useState("all");
+  const [scheduledFilterSearch, setScheduledFilterSearch] = useState("");
+  const [sourceListLanguage, setSourceListLanguage] = useState<ChallengeLanguage>("en");
+  const [sourceListSearch, setSourceListSearch] = useState("");
+  const [expandedScheduledSourceId, setExpandedScheduledSourceId] = useState("");
 
   const copy = {
     title: fa ? "مرکز کنترل Wallet-Find" : "Wallet-Find Control Center",
@@ -963,111 +970,168 @@ export default function AdminControlCenter({ onNavigate }: Props) {
         )}
 
         {section === "ads" && (
-          <section className="admin-panel">
+          <section className="admin-panel admin-ads-panel">
             <h2>{copy.ads}</h2>
             <p className="admin-footnote">{copy.adsBody}</p>
-            <div className="admin-setting-form">
-              <h3>{copy.scheduledSourcesTitle}</h3>
-              <p className="admin-footnote">{copy.scheduledSourcesHelp}</p>
-              <form onSubmit={addScheduledSource}>
-                <label>{copy.scheduledSourceUrl}
-                  <input type="url" value={scheduledSourceUrl} onChange={(event) => setScheduledSourceUrl(event.target.value)} placeholder="https://..." required />
-                </label>
-                <label>{copy.scheduledSourceLanguage}
-                  <select value={scheduledSourceLanguage} onChange={(event) => {
-                    const selected = event.target.value;
-                    if (isChallengeLanguage(selected)) setScheduledSourceLanguage(selected);
-                  }}>
-                    {CHALLENGE_LANGUAGES.map(({ code, nativeName }) => <option key={code} value={code}>{nativeName}</option>)}
-                  </select>
-                </label>
-                <p className="admin-footnote">{copy.challengeScheduleHelp}</p>
-                {challengeScheduleLoading && <p className="admin-footnote">{copy.challengeScheduleLoading}</p>}
-                {challengeScheduleUnavailable && <p className="admin-message admin-message--error" role="alert">{copy.challengeScheduleUnavailable}</p>}
-                {challengeScheduleAnchor && (
-                  <p className="admin-footnote">
-                    {copy.challengeScheduleReference}: {fa ? "چالش" : "Challenge"} {challengeScheduleAnchor.challengeNumber.toLocaleString(fa ? "fa-IR" : "en-US")} · {new Date(challengeScheduleAnchor.startsAt).toLocaleString(fa ? "fa-IR" : "en-GB", { dateStyle: "medium", timeStyle: "short" })}
-                  </p>
-                )}
-                <label>{copy.scheduledChallengeNumber}
-                  <input
-                    type="number"
-                    min={challengeScheduleAnchor ? challengeScheduleAnchor.challengeNumber + 1 : 1}
-                    max={1000000}
-                    step={1}
-                    value={scheduledChallengeNumber}
-                    onChange={(event) => handleScheduledChallengeNumberChange(event.target.value)}
-                    required
-                    disabled={!challengeScheduleAnchor || challengeScheduleLoading}
-                  />
-                </label>
-                <label>{copy.scheduledChallengeStart}
-                  <input
-                    type="datetime-local"
-                    step={900}
-                    value={scheduledChallengeStart}
-                    onChange={(event) => handleScheduledChallengeStartChange(event.target.value)}
-                    required
-                    disabled={!challengeScheduleAnchor || challengeScheduleLoading}
-                  />
-                </label>
-                <label>{copy.scheduledClueSequence}
-                  <select value={scheduledClueSequence} onChange={(event) => setScheduledClueSequence(event.target.value)}>
-                    {Array.from({ length: 12 }, (_, index) => (
-                      <option key={index + 1} value={String(index + 1)}>{(index + 1).toLocaleString(fa ? "fa-IR" : "en-US")}</option>
-                    ))}
-                  </select>
-                </label>
-                <button className="cta-button" type="submit" disabled={saving || challengeScheduleLoading || !challengeScheduleAnchor}>{copy.addScheduledSource}</button>
-              </form>
-              {scheduledSources.length === 0 ? <p className="admin-empty">{copy.noScheduledSources}</p> : (
-                <div className="admin-settings-list">
-                  {scheduledSources.map((item) => (
-                    <article className="admin-setting-row" key={item.id}>
-                      <div>
-                        <strong>{getChallengeLanguageName(item.language)} · {fa ? "چالش" : "Challenge"} {item.challengeNumber.toLocaleString(fa ? "fa-IR" : "en-US")} · {fa ? "خانه" : "Cell"} {item.sequence.toLocaleString(fa ? "fa-IR" : "en-US")}</strong>
-                        <small>{new Date(item.startsAt).toLocaleString(fa ? "fa-IR" : "en-GB", { dateStyle: "medium", timeStyle: "short" })}</small>
-                        <code>{item.url}</code>
-                      </div>
-                      <button type="button" onClick={() => { setScheduledSources((current) => current.filter((entry) => entry.id !== item.id)); setError(""); setNotice(""); }} disabled={saving}>{copy.removeScheduledSource}</button>
-                    </article>
-                  ))}
-                </div>
-              )}
-              <button className="cta-button" type="button" onClick={() => void saveScheduledSources()} disabled={saving}>{saving ? copy.saving : copy.saveScheduledSources}</button>
+
+            <div className="admin-ads-toolbar">
+              <div>
+                <strong>{fa ? "پیوندهای زمان‌بندی‌شده" : "Scheduled source links"}</strong>
+                <small>{fa ? "فیلتر و مشاهدهٔ سریع پیوندهای اختصاص‌یافته به چالش‌ها" : "Filter and quickly review links assigned to future challenges"}</small>
+              </div>
+              <span>{scheduledSources.length.toLocaleString(fa ? "fa-IR" : "en-US")} {fa ? "مورد ثبت‌شده" : "items"}</span>
             </div>
-            {CHALLENGE_LANGUAGES.map(({ code, nativeName }) => {
-              const urls = code === "en"
-                ? sourceUrlsEn
-                : code === "fa"
-                  ? sourceUrlsFa
-                  : sourceUrlsOther[code] ?? DEFAULT_OTHER_SOURCES[code] ?? [];
-              const draft = code === "en"
-                ? sourceDraftEn
-                : code === "fa"
-                  ? sourceDraftFa
-                  : sourceDraftOther[code] ?? "";
+
+            <div className="admin-ads-filters">
+              <label>{fa ? "زبان" : "Language"}
+                <select value={scheduledFilterLanguage} onChange={(event) => setScheduledFilterLanguage(event.target.value)}>
+                  <option value="all">{fa ? "همه زبان‌ها" : "All languages"}</option>
+                  {CHALLENGE_LANGUAGES.map(({ code, nativeName }) => <option key={code} value={code}>{nativeName}</option>)}
+                </select>
+              </label>
+              <label>{fa ? "شماره چالش" : "Challenge number"}
+                <input type="number" min="1" value={scheduledFilterChallenge} onChange={(event) => setScheduledFilterChallenge(event.target.value)} placeholder={fa ? "همه چالش‌ها" : "All challenges"} />
+              </label>
+              <label>{fa ? "شماره خانه" : "Cell"}
+                <select value={scheduledFilterCell} onChange={(event) => setScheduledFilterCell(event.target.value)}>
+                  <option value="all">{fa ? "همه خانه‌ها" : "All cells"}</option>
+                  {Array.from({ length: 12 }, (_, index) => <option key={index + 1} value={String(index + 1)}>{(index + 1).toLocaleString(fa ? "fa-IR" : "en-US")}</option>)}
+                </select>
+              </label>
+              <label className="admin-ads-filters__search">{fa ? "جست‌وجوی دامنه یا لینک" : "Search domain or URL"}
+                <input type="search" value={scheduledFilterSearch} onChange={(event) => setScheduledFilterSearch(event.target.value)} placeholder={fa ? "مثلاً example.com" : "e.g. example.com"} />
+              </label>
+              <button type="button" onClick={() => { setScheduledFilterLanguage("all"); setScheduledFilterChallenge(""); setScheduledFilterCell("all"); setScheduledFilterSearch(""); }}>{fa ? "پاک‌کردن فیلترها" : "Clear filters"}</button>
+            </div>
+
+            {(() => {
+              const query = scheduledFilterSearch.trim().toLocaleLowerCase();
+              const filtered = scheduledSources
+                .filter((item) => scheduledFilterLanguage === "all" || item.language === scheduledFilterLanguage)
+                .filter((item) => !scheduledFilterChallenge || item.challengeNumber === Number(scheduledFilterChallenge))
+                .filter((item) => scheduledFilterCell === "all" || item.sequence === Number(scheduledFilterCell))
+                .filter((item) => !query || item.url.toLocaleLowerCase().includes(query) || sourceHostname(item.url).toLocaleLowerCase().includes(query))
+                .sort((a, b) => a.challengeNumber - b.challengeNumber || a.sequence - b.sequence || a.language.localeCompare(b.language));
               return (
-                <div className="admin-setting-form" key={code}>
-                  <h3>{nativeName}</h3>
+                <div className="admin-ads-results">
+                  <div className="admin-ads-results__count">{fa ? "نتیجه فیلتر:" : "Filtered results:"} {filtered.length.toLocaleString(fa ? "fa-IR" : "en-US")} {fa ? "از" : "of"} {scheduledSources.length.toLocaleString(fa ? "fa-IR" : "en-US")}</div>
+                  {filtered.length === 0 ? <p className="admin-empty">{fa ? "موردی با این فیلترها پیدا نشد." : "No scheduled links match these filters."}</p> : (
+                    <div className="admin-ads-list">
+                      {filtered.map((item) => (
+                        <article className="admin-ads-item" key={item.id}>
+                          <button className="admin-ads-item__summary" type="button" aria-expanded={expandedScheduledSourceId === item.id} onClick={() => setExpandedScheduledSourceId((current) => current === item.id ? "" : item.id)}>
+                            <span className="admin-ads-item__main">
+                              <strong>{sourceHostname(item.url)}</strong>
+                              <small>{getChallengeLanguageName(item.language)} · {fa ? "چالش" : "Challenge"} {item.challengeNumber.toLocaleString(fa ? "fa-IR" : "en-US")} · {fa ? "خانه" : "Cell"} {item.sequence.toLocaleString(fa ? "fa-IR" : "en-US")}</small>
+                            </span>
+                            <span className="admin-ads-item__date">{new Date(item.startsAt).toLocaleString(fa ? "fa-IR" : "en-GB", { dateStyle: "medium", timeStyle: "short" })}</span>
+                            <span className="admin-ads-item__toggle">{expandedScheduledSourceId === item.id ? "−" : "+"}</span>
+                          </button>
+                          {expandedScheduledSourceId === item.id && (
+                            <div className="admin-ads-item__details">
+                              <code dir="ltr">{item.url}</code>
+                              <button type="button" onClick={() => { setScheduledSources((current) => current.filter((entry) => entry.id !== item.id)); setExpandedScheduledSourceId(""); setError(""); setNotice(""); }} disabled={saving}>{copy.removeScheduledSource}</button>
+                            </div>
+                          )}
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            <details className="admin-ads-add">
+              <summary>{copy.addScheduledSource}</summary>
+              <div className="admin-setting-form">
+                <p className="admin-footnote">{copy.scheduledSourcesHelp}</p>
+                <form onSubmit={addScheduledSource}>
+                  <label>{copy.scheduledSourceUrl}
+                    <input type="url" value={scheduledSourceUrl} onChange={(event) => setScheduledSourceUrl(event.target.value)} placeholder="https://..." required />
+                  </label>
+                  <label>{copy.scheduledSourceLanguage}
+                    <select value={scheduledSourceLanguage} onChange={(event) => {
+                      const selected = event.target.value;
+                      if (isChallengeLanguage(selected)) setScheduledSourceLanguage(selected);
+                    }}>
+                      {CHALLENGE_LANGUAGES.map(({ code, nativeName }) => <option key={code} value={code}>{nativeName}</option>)}
+                    </select>
+                  </label>
+                  <p className="admin-footnote">{copy.challengeScheduleHelp}</p>
+                  {challengeScheduleLoading && <p className="admin-footnote">{copy.challengeScheduleLoading}</p>}
+                  {challengeScheduleUnavailable && <p className="admin-message admin-message--error" role="alert">{copy.challengeScheduleUnavailable}</p>}
+                  {challengeScheduleAnchor && (
+                    <p className="admin-footnote">
+                      {copy.challengeScheduleReference}: {fa ? "چالش" : "Challenge"} {challengeScheduleAnchor.challengeNumber.toLocaleString(fa ? "fa-IR" : "en-US")} · {new Date(challengeScheduleAnchor.startsAt).toLocaleString(fa ? "fa-IR" : "en-GB", { dateStyle: "medium", timeStyle: "short" })}
+                    </p>
+                  )}
+                  <label>{copy.scheduledChallengeNumber}
+                    <input type="number" min={challengeScheduleAnchor ? challengeScheduleAnchor.challengeNumber + 1 : 1} max={1000000} step={1} value={scheduledChallengeNumber} onChange={(event) => handleScheduledChallengeNumberChange(event.target.value)} required disabled={!challengeScheduleAnchor || challengeScheduleLoading} />
+                  </label>
+                  <label>{copy.scheduledChallengeStart}
+                    <input type="datetime-local" step={900} value={scheduledChallengeStart} onChange={(event) => handleScheduledChallengeStartChange(event.target.value)} required disabled={!challengeScheduleAnchor || challengeScheduleLoading} />
+                  </label>
+                  <label>{copy.scheduledClueSequence}
+                    <select value={scheduledClueSequence} onChange={(event) => setScheduledClueSequence(event.target.value)}>
+                      {Array.from({ length: 12 }, (_, index) => <option key={index + 1} value={String(index + 1)}>{(index + 1).toLocaleString(fa ? "fa-IR" : "en-US")}</option>)}
+                    </select>
+                  </label>
+                  <button className="cta-button" type="submit" disabled={saving || challengeScheduleLoading || !challengeScheduleAnchor}>{copy.addScheduledSource}</button>
+                </form>
+                <button className="cta-button" type="button" onClick={() => void saveScheduledSources()} disabled={saving}>{saving ? copy.saving : copy.saveScheduledSources}</button>
+              </div>
+            </details>
+
+            <div className="admin-ads-toolbar admin-ads-toolbar--sources">
+              <div>
+                <strong>{fa ? "منابع پایهٔ هر زبان" : "Base sources by language"}</strong>
+                <small>{fa ? "در هر لحظه فقط منابع زبان انتخاب‌شده نمایش داده می‌شوند." : "Only the selected language's sources are shown at a time."}</small>
+              </div>
+            </div>
+            <div className="admin-ads-source-filters">
+              <label>{fa ? "انتخاب زبان منابع" : "Source language"}
+                <select value={sourceListLanguage} onChange={(event) => { if (isChallengeLanguage(event.target.value)) setSourceListLanguage(event.target.value); }}>
+                  {CHALLENGE_LANGUAGES.map(({ code, nativeName }) => <option key={code} value={code}>{nativeName}</option>)}
+                </select>
+              </label>
+              <label>{fa ? "جست‌وجو در منابع این زبان" : "Search this language's sources"}
+                <input type="search" value={sourceListSearch} onChange={(event) => setSourceListSearch(event.target.value)} placeholder={fa ? "نام دامنه یا نشانی..." : "Domain or URL..."} />
+              </label>
+            </div>
+            {(() => {
+              const code = sourceListLanguage;
+              const nativeName = getChallengeLanguageName(code);
+              const urls = code === "en" ? sourceUrlsEn : code === "fa" ? sourceUrlsFa : sourceUrlsOther[code] ?? DEFAULT_OTHER_SOURCES[code] ?? [];
+              const draft = code === "en" ? sourceDraftEn : code === "fa" ? sourceDraftFa : sourceDraftOther[code] ?? "";
+              const query = sourceListSearch.trim().toLocaleLowerCase();
+              const filteredUrls = urls.filter((url) => !query || url.toLocaleLowerCase().includes(query) || sourceHostname(url).toLocaleLowerCase().includes(query));
+              return (
+                <div className="admin-setting-form admin-ads-language-card">
+                  <div className="admin-ads-language-card__heading">
+                    <strong>{nativeName}</strong>
+                    <span>{filteredUrls.length.toLocaleString(fa ? "fa-IR" : "en-US")} / {urls.length.toLocaleString(fa ? "fa-IR" : "en-US")}</span>
+                  </div>
                   <form onSubmit={(event) => { event.preventDefault(); addSource(code); }}>
                     <label>{copy.sourceUrl}<input type="url" value={draft} onChange={(event) => updateSourceDraft(code, event.target.value)} placeholder="https://..." /></label>
                     <button className="cta-button" type="submit" disabled={saving}>{copy.addSource}</button>
                   </form>
-                  {urls.length === 0 ? <p className="admin-empty">{copy.noSources}</p> : (
-                    <div className="admin-settings-list">
-                      {urls.map((url) => (
-                        <article className="admin-setting-row" key={url}>
-                          <div><strong>{sourceHostname(url)}</strong><code>{url}</code></div>
-                          <button type="button" onClick={() => removeSource(code, url)} disabled={saving}>{copy.removeSource}</button>
-                        </article>
+                  {filteredUrls.length === 0 ? <p className="admin-empty">{urls.length === 0 ? copy.noSources : (fa ? "منبعی با این جست‌وجو پیدا نشد." : "No sources match this search.")}</p> : (
+                    <div className="admin-ads-list">
+                      {filteredUrls.map((url) => (
+                        <details className="admin-ads-source-item" key={url}>
+                          <summary><strong>{sourceHostname(url)}</strong><span>{fa ? "نمایش نشانی کامل" : "Show full URL"}</span></summary>
+                          <div className="admin-ads-source-item__details">
+                            <code dir="ltr">{url}</code>
+                            <button type="button" onClick={() => removeSource(code, url)} disabled={saving}>{copy.removeSource}</button>
+                          </div>
+                        </details>
                       ))}
                     </div>
                   )}
                   <button className="cta-button" type="button" onClick={() => void saveSources(code)} disabled={saving}>{saving ? copy.saving : copy.saveSources}</button>
                 </div>
               );
-            })}
+            })()}
           </section>
         )}
 
