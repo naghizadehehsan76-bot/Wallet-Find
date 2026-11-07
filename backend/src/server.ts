@@ -7,6 +7,7 @@ import { startWalletChainWithdrawalReconciler } from "./modules/wallet/wallet-ch
 import { startTurnkeyWebhookDepositProcessor } from "./modules/wallet/turnkey-webhook-processor.service.js";
 import { startPolygonTreasuryDepositScanner } from "./modules/wallet/polygon-treasury-scanner-runner.service.js";
 import { startPrizePayoutProcessor } from "./modules/contest/prize-payout.service.js";
+import { startPrizeSettlementProcessor } from "./modules/contest/prize-settlement-runner.service.js";
 
 const PORT = process.env.PORT || 3000;
 
@@ -16,6 +17,7 @@ app.listen(PORT, () => {
   startWalletChainWithdrawalReconciler();
   startTurnkeyWebhookDepositProcessor();
   startPolygonTreasuryDepositScanner();
+  startPrizeSettlementProcessor();
   startPrizePayoutProcessor();
 
   // Keep /health responsive while contest data is prepared. Start the
