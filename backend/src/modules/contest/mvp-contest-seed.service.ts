@@ -394,85 +394,107 @@ async function fetchWikisourceDocuments(limit: number, language: ChallengeLangua
 }
 
 async function fetchGanjoorDocuments(limit: number): Promise<SourceDocument[]> {
-  // Ganjoor's Persian Wikisource counterpart is empty. Use only classical
-  // poets whose works are public domain, and preserve a direct source link.
+  // Persian Wikisource has no usable text corpus. Use classical public-domain
+  // poets and keep each poem's canonical Ganjoor page as the source link.
   const publicDomainPoetIds = [2, 7, 5, 3, 4]; // Hafez, Saadi, Rumi, Khayyam, Ferdowsi
   const sources: SourceDocument[] = [];
   const seenUrls = new Set<string>();
   let requestCount = 0;
 
   for (const poetId of publicDomainPoetIds.slice(0, limit)) {
-    const url = new URL("https://api.ganjoor.net/api/ganjoor/poem/random");
-    url.searchParams.set("poetId", String(poetId));
-    let response: Response | null = null;
+    let acceptedForPoet = false;
 
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      if (requestCount > 0) await waitForWikipediaRetry(1_500);
-      requestCount += 1;
-      try {
-        response = await fetch(url, {
-          headers: {
-            Accept: "application/json",
-            "User-Agent": "WalletFind/1.0 (Persian public-domain clue source; https://wallet-find.com)",
-          },
-          signal: AbortSignal.timeout(10_000),
-        });
-      } catch (error) {
-        console.warn("Ganjoor source request failed", {
+    // Some random poems are very short. Try a second poem from that same
+    // public-domain poet rather than accepting a source that cannot yield clues.
+    for (let poemAttempt = 0; poemAttempt < 2 && !acceptedForPoet; poemAttempt += 1) {
+      const url = new URL("https://api.ganjoor.net/api/ganjoor/poem/random");
+      url.searchParams.set("poetId", String(poetId));
+      let response: Response | null = null;
+
+      for (let requestAttempt = 0; requestAttempt < 2; requestAttempt += 1) {
+        if (requestCount > 0) await waitForWikipediaRetry(1_500);
+        requestCount += 1;
+        try {
+          response = await fetch(url, {
+            headers: {
+              Accept: "application/json",
+              "User-Agent": "WalletFind/1.0 (Persian public-domain clue source; https://wallet-find.com)",
+            },
+            signal: AbortSignal.timeout(10_000),
+          });
+        } catch (error) {
+          console.warn("Ganjoor source request failed", {
+            poetId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          response = null;
+          break;
+        }
+
+        if (response.status !== 429 || requestAttempt === 1) break;
+        const retryAfter = Number(response.headers.get("retry-after"));
+        const retryDelay = Number.isFinite(retryAfter) && retryAfter > 0
+          ? Math.min(30_000, retryAfter * 1_000)
+          : 5_000;
+        console.warn("Ganjoor rate limit received; retrying after a short delay.", {
           poetId,
-          error: error instanceof Error ? error.message : String(error),
+          retryDelay,
         });
-        response = null;
+        await waitForWikipediaRetry(retryDelay);
+      }
+
+      if (!response?.ok) {
+        console.warn("Ganjoor random poem request skipped", {
+          poetId,
+          status: response?.status ?? "network_error",
+        });
         break;
       }
 
-      if (response.status !== 429 || attempt === 1) break;
-      const retryAfter = Number(response.headers.get("retry-after"));
-      const retryDelay = Number.isFinite(retryAfter) && retryAfter > 0
-        ? Math.min(30_000, retryAfter * 1_000)
-        : 5_000;
-      console.warn("Ganjoor rate limit received; retrying after a short delay.", {
-        poetId,
-        retryDelay,
-      });
-      await waitForWikipediaRetry(retryDelay);
-    }
+      try {
+        const poem = await response.json() as {
+          title?: string;
+          fullTitle?: string;
+          fullUrl?: string;
+          plainText?: string;
+          published?: boolean;
+        };
+        const text = normalizeSourceText(poem.plainText ?? "");
+        const sourceUrl = poem.fullUrl
+          ? new URL(poem.fullUrl, "https://ganjoor.net").toString()
+          : null;
 
-    if (!response?.ok) {
-      console.warn("Ganjoor random poem skipped", {
-        poetId,
-        status: response?.status ?? "network_error",
-      });
-      continue;
-    }
+        if (poem.published === false || text.length < 120 || !sourceUrl || seenUrls.has(sourceUrl)) {
+          console.warn("Ganjoor poem skipped because it is not usable for clue generation", {
+            poetId,
+            textLength: text.length,
+            hasSourceUrl: Boolean(sourceUrl),
+            published: poem.published,
+          });
+          continue;
+        }
 
-    try {
-      const poem = await response.json() as {
-        title?: string;
-        fullTitle?: string;
-        fullUrl?: string;
-        plainText?: string;
-        published?: boolean;
-      };
-      const text = normalizeSourceText(poem.plainText ?? "");
-      if (poem.published === false || text.length < 300 || !poem.fullUrl) continue;
-
-      const sourceUrl = new URL(poem.fullUrl, "https://ganjoor.net").toString();
-      if (seenUrls.has(sourceUrl)) continue;
-      seenUrls.add(sourceUrl);
-      sources.push({
-        title: poem.fullTitle ?? poem.title ?? "Ganjoor classical poem",
-        url: sourceUrl,
-        text,
-      });
-    } catch (error) {
-      console.warn("Ganjoor poem response could not be parsed", {
-        poetId,
-        error: error instanceof Error ? error.message : String(error),
-      });
+        seenUrls.add(sourceUrl);
+        sources.push({
+          title: poem.fullTitle ?? poem.title ?? "Ganjoor classical poem",
+          url: sourceUrl,
+          text,
+        });
+        acceptedForPoet = true;
+      } catch (error) {
+        console.warn("Ganjoor poem response could not be parsed", {
+          poetId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
   }
 
+  console.info("Ganjoor Persian source selection completed", {
+    requestedSources: limit,
+    acceptedSources: sources.length,
+    sourceHosts: sources.map((source) => new URL(source.url).hostname),
+  });
   return sources;
 }
 
