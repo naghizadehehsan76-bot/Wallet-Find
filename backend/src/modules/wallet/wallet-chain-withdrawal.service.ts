@@ -992,7 +992,14 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
     return { id: withdrawalId, status: "BROADCAST", note: "Transaction details are not available yet." };
   }
 
-  const expectedFrom = withdrawal.walletAddress.address.toLowerCase();
+  const treasuryFunding = withdrawal.fundingSource === "PRIZE_TREASURY";
+  const prizeTreasury = treasuryFunding
+    ? await prisma.treasuryWallet.findUnique({ where: { id: PRIZE_TREASURY_ID }, select: { address: true, status: true } })
+    : null;
+  if (treasuryFunding && (!prizeTreasury || prizeTreasury.status !== "ACTIVE" || !prizeTreasury.address)) {
+    throw new Error("PRIZE_TREASURY_NOT_READY");
+  }
+  const expectedFrom = (treasuryFunding ? prizeTreasury!.address : withdrawal.walletAddress.address).toLowerCase();
   const expectedTo = withdrawal.destinationAddress.toLowerCase();
   let transactionMatches = transaction.from.toLowerCase() === expectedFrom;
   if (withdrawal.asset.assetType === "NATIVE") {
@@ -1054,8 +1061,8 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
   const confirmations = Number(confirmationsBig > 1_000_000n ? 1_000_000n : confirmationsBig);
   const required = withdrawal.network.finalityDepth;
   const reservedFee = atomic(withdrawal.feeAtomic);
-  // A zero reserved fee identifies a Turnkey-sponsored request: its gas is
-  // billed to the parent organization, never debited from the user's POL ledger.
+  // A zero reserved fee identifies either a sponsored request or a prize-funded
+  // treasury withdrawal: network gas is not charged to the user's POL ledger.
   const actualFee = reservedFee === 0n ? 0n : receipt.gasUsed * receipt.effectiveGasPrice;
 
   await prisma.walletChainWithdrawal.updateMany({
