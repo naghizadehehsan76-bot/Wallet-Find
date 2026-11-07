@@ -428,7 +428,14 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     }
   }, [fa]);
 
-  const openWalletHistory = useCallback(async (walletAccountId: string) => {
+  const openWalle
+  
+  useEffect(() => {
+    if (section !== "finance") return;
+    const timer = window.setTimeout(() => { void loadWalletAccounts(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [section, loadWalletAccounts]);
+tHistory = useCallback(async (walletAccountId: string) => {
     setSelectedWalletId(walletAccountId);
     setWalletHistory(null);
     setWalletHistoryError("");
