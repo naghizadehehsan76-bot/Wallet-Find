@@ -21,6 +21,7 @@ export type MarketPricesResult = {
   prices: Record<string, number>;
   updatedAt: number;
   stale?: boolean;
+  source?: string;
 };
 
 export async function getMarketPrices(): Promise<MarketPricesResult> {
