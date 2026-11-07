@@ -363,6 +363,7 @@ export default function WalletPage({ onNavigate }: Props) {
     .filter((network) => network.assets.length > 0);
   const allAssets = (wallet?.networks ?? []).flatMap((network) => network.assets.map((asset) => ({ ...asset, networkId: network.id, networkName: network.displayName, chainId: network.chainId, nativeAssetSymbol: network.nativeAssetSymbol })));
   const depositAssets = allAssets.filter((asset) => asset.depositEnabled);
+  const depositOptions = allAssets.filter((asset) => asset.chainId === 137 && ["USDT0", "POL"].includes(asset.symbol.toUpperCase()) && asset.verificationStatus === "VERIFIED");
   const withdrawalAssets = allAssets.filter((asset) => asset.withdrawalEnabled);
   const selectedDepositAsset = allAssets.find((asset) => asset.id === depositAssetId) ?? null;
   const selectedDepositNetwork = wallet?.networks.find((network) => network.id === depositNetworkId) ?? null;
@@ -415,7 +416,6 @@ export default function WalletPage({ onNavigate }: Props) {
     const network = asset ? wallet?.networks.find((item) => item.id === asset.networkId) : null;
     if (!asset || !network) {
       setDepositAssetId("");
-      setDepositError(copy.depositDisabled);
       setDepositLoading(false);
       return;
     }
@@ -685,24 +685,22 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
               <span className={"wallet-custom-select__chevron" + (openDepositFilter === "network" ? " is-open" : "")}>⌄</span>
             </button>
             {openDepositFilter === "network" && <div className="wallet-custom-select__menu" role="listbox" aria-label={copy.network}>
-              {(wallet?.networks ?? []).filter((network) => network.assets.some((asset) => asset.depositEnabled)).map((network) => (
+              {(wallet?.networks ?? []).filter((network) => depositOptions.some((asset) => asset.networkId === network.id)).map((network) => (
                 <button type="button" role="option" aria-selected={depositNetworkId === network.id} className={"wallet-custom-select__option" + (depositNetworkId === network.id ? " is-selected" : "")} key={network.id} onClick={() => {
                   setOpenDepositFilter(null);
                   setDepositNetworkId(network.id);
-                  const networkAssets = allAssets.filter((asset) => asset.networkId === network.id);
+                  const networkAssets = depositOptions.filter((asset) => asset.networkId === network.id);
                   const nextAsset = networkAssets.find((asset) => asset.depositEnabled && asset.symbol === "USDT0")
                     ?? networkAssets.find((asset) => asset.depositEnabled)
                     ?? networkAssets[0];
                   if (!nextAsset) {
                     setDepositAssetId("");
                     setDepositDetails(null);
-                    setDepositError(copy.depositDisabled);
                   } else if (nextAsset.depositEnabled) {
                     changeDepositAsset(nextAsset.id);
                   } else {
                     setDepositAssetId(nextAsset.id);
                     setDepositDetails(null);
-                    setDepositError(copy.depositDisabled);
                   }
                 }}>
                   <span className="wallet-custom-select__option-main"><i className="wallet-network-dot" />{network.displayName}</span>
@@ -721,7 +719,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
               <span className={"wallet-custom-select__chevron" + (openDepositFilter === "asset" ? " is-open" : "")}>⌄</span>
             </button>
             {openDepositFilter === "asset" && <div className="wallet-custom-select__menu" role="listbox" aria-label={copy.asset}>
-              {depositAssets.filter((asset) => !depositNetworkId || asset.networkId === depositNetworkId).map((asset) => (
+              {depositOptions.filter((asset) => !depositNetworkId || asset.networkId === depositNetworkId).map((asset) => (
                 <button type="button" role="option" aria-selected={depositAssetId === asset.id} className={"wallet-custom-select__option" + (depositAssetId === asset.id ? " is-selected" : "")} key={asset.id} onClick={() => {
                   setOpenDepositFilter(null);
                   if (asset.depositEnabled) changeDepositAsset(asset.id);
@@ -729,7 +727,6 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
                     setDepositAssetId(asset.id);
                     setDepositNetworkId(asset.networkId);
                     setDepositDetails(null);
-                    setDepositError(copy.depositDisabled);
                   }
                 }}>
                   <span className="wallet-custom-select__option-main"><AssetLogo symbol={asset.symbol} /><span className="wallet-custom-select__asset-copy"><strong>{asset.symbol}</strong><small>{asset.displayName}</small></span></span>
@@ -789,7 +786,6 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
           <p className="wallet-deposit-minimum">{depositDetails.message}</p>
           <p className="wallet-deposit-minimum">{copy.networkFeeNotice}</p>
         </>}
-        {!depositLoading && !depositDetails && !depositError && depositAssets.length === 0 && <div className="wallet-warning"><strong>⚠ {copy.unavailable}</strong><p>{copy.noDepositAssets}</p></div>}
 
       </section>}
 
