@@ -371,6 +371,14 @@ export default function WalletPage({ onNavigate }: Props) {
   const selectedWithdrawNetwork = wallet?.networks.find((network) => network.id === withdrawNetworkId) ?? null;
   const feeAsset = selectedWithdrawNetwork?.assets.find((asset) => asset.assetType === "NATIVE" && asset.verificationStatus === "VERIFIED") ?? null;
 
+  useEffect(() => {
+    if (view !== "deposit" || depositAssetId || depositOptions.length === 0) return;
+    const preferred = depositOptions.find((asset) => asset.symbol.toUpperCase() === "USDT0") ?? depositOptions[0];
+    if (!preferred) return;
+    setDepositAssetId(preferred.id);
+    setDepositNetworkId(preferred.networkId);
+  }, [view, depositAssetId, depositOptions]);
+
   const fmt = (value: string, decimals = 6) => formatAmount(value, decimals, locale);
   const apiErrorCopy = {
     error: copy.error,
