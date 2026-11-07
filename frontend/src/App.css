@@ -3862,6 +3862,7 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 /* Raise only the Home hero headline and tagline by 3 cm on all screen sizes.
    The transform is visual-only, preserving document flow and preventing section overlap. */
 .home-page .home-concept-title,
-.home-page .home-concept-tagline {
+.home-page .home-concept-tagline,
+.home-page .cta-group {
   transform: translateY(-3cm) !important;
 }
