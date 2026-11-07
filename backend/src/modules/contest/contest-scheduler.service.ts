@@ -86,7 +86,16 @@ export async function runContestScheduler(now = new Date()) {
     } catch (error) {
       console.warn(`The ${language} challenge could not be initialized; scheduler will retry.`, error);
     }
-    const scheduledRound = await ensureScheduledMvpContest(now, language);
+    let scheduledRound: unknown = null;
+    try {
+      scheduledRound = await ensureScheduledMvpContest(now, language);
+    } catch (error) {
+      // One unavailable source must never abort scheduling for the remaining languages.
+      console.warn(`The ${language} next challenge could not be scheduled; scheduler will retry.`, error);
+      scheduledRound = {
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
     languageResults[language] = { activeReady, scheduled: scheduledRound };
   }
 
