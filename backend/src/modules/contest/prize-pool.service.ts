@@ -278,7 +278,7 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
           awardedMicro: awarded.toString(),
           payoutCount: allocations.length,
           unusedMicro: (seeded - awarded).toString(),
-          payoutMode: "POLYGON_USDT0_TREASURY",
+          payoutMode: "INTERNAL_WALLET_LEDGER",
         },
       },
     });
