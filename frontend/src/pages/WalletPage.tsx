@@ -157,7 +157,28 @@ export default function WalletPage({ onNavigate }: Props) {
   const [walletLoadedFromCache, setWalletLoadedFromCache] = useState(() => cachedWalletSnapshot !== null);
   const refreshInFlight = useRef(false);
   const [error, setError] = useState("");
-  const [view, setView] = useState<WalletView>("overview");
+  const [view, setViewState] = useState<WalletView>(() => {
+    const path = window.location.pathname.replace(/\/+$/, "");
+    if (path === "/wallet/deposit") return "deposit";
+    if (path === "/wallet/withdraw") return "withdraw";
+    if (path === "/wallet/history") return "history";
+    return "overview";
+  });
+  const setView = (nextView: WalletView) => {
+    const nextPath = nextView === "overview" ? "/wallet" : `/wallet/${nextView}`;
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({ walletFindPage: "wallet", walletView: nextView }, "", nextPath);
+    }
+    setViewState(nextView);
+  };
+  useEffect(() => {
+    const syncViewFromPath = () => {
+      const path = window.location.pathname.replace(/\/+$/, "");
+      setViewState(path === "/wallet/deposit" ? "deposit" : path === "/wallet/withdraw" ? "withdraw" : path === "/wallet/history" ? "history" : "overview");
+    };
+    window.addEventListener("popstate", syncViewFromPath);
+    return () => window.removeEventListener("popstate", syncViewFromPath);
+  }, []);
   const [depositAssetId, setDepositAssetId] = useState("");
   const [depositNetworkId, setDepositNetworkId] = useState("");
   const [openDepositFilter, setOpenDepositFilter] = useState<"network" | "asset" | null>(null);
