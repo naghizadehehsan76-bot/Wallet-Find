@@ -471,6 +471,57 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
   const unpricedAssetCount = displayedNetworks.reduce((count, network) => count + network.assets.filter((asset) => { const amount = Number(asset.balance); const id = priceIdBySymbol[asset.symbol.toUpperCase()]; return Number.isFinite(amount) && amount > 0 && (!id || usdPrices[id] === undefined); }).length, 0);
   const usdFormatter = new Intl.NumberFormat(locale, { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 6 });
 
+  const historyItems = [
+    ...(wallet?.transactions ?? []).map((item) => ({
+      id: "ledger:" + item.id,
+      source: "ledger" as const,
+      sortAt: item.createdAt,
+      type: item.type,
+      status: item.status,
+      amount: item.amount,
+      asset: item.currency,
+      network: "",
+      note: item.note,
+      transactionHash: null as string | null,
+      explorerUrl: null as string | null,
+      confirmationCount: null as number | null,
+      fee: null as string | null,
+      feeAsset: null as string | null,
+    })),
+    ...(wallet?.onChainDeposits ?? []).map((item) => ({
+      id: "deposit:" + item.id,
+      source: "deposit" as const,
+      sortAt: item.detectedAt ?? item.creditedAt ?? "",
+      type: "DEPOSIT",
+      status: item.status,
+      amount: item.amount,
+      asset: item.asset,
+      network: item.network,
+      note: item.reviewReason ?? "",
+      transactionHash: item.transactionHash,
+      explorerUrl: item.explorerUrl,
+      confirmationCount: item.confirmationCount,
+      fee: null as string | null,
+      feeAsset: null as string | null,
+    })),
+    ...(wallet?.onChainWithdrawals ?? []).map((item) => ({
+      id: "withdrawal:" + item.id,
+      source: "withdrawal" as const,
+      sortAt: item.requestedAt ?? item.confirmedAt ?? "",
+      type: "WITHDRAWAL",
+      status: item.status,
+      amount: item.amount,
+      asset: item.asset,
+      network: item.network,
+      note: item.failureCode ?? item.reviewReason ?? "",
+      transactionHash: item.transactionHash,
+      explorerUrl: item.explorerUrl,
+      confirmationCount: item.confirmationCount,
+      fee: item.actualFee ?? item.estimatedFee ?? null,
+      feeAsset: item.feeAsset ?? null,
+    })),
+  ].sort((a, b) => new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime());
+
 
   return <div className="app-shell wallet-page">
     <header className="topbar">
@@ -565,13 +616,37 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
       {wallet && view === "history" && <section className="wallet-flow-card wallet-history-card">
         <button type="button" className="wallet-back" onClick={() => setView("overview")}>← {copy.back}</button>
         <h1>{copy.history}</h1>
-        {walletLoadedFromCache ? <div className="inline-feedback"><LoadingIndicator label={copy.loading} /></div> : wallet.transactions.length === 0 ? <p className="wallet-asset-empty">{copy.empty}</p> : <div className="wallet-activity-list">
-          {[...wallet.transactions].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((transaction) => (
-            <div className="wallet-network-row wallet-activity-row" key={transaction.id}>
-              <div><strong>{transaction.type}</strong><small>{new Date(transaction.createdAt).toLocaleString(locale)}</small><small>{transaction.status}{transaction.note ? " · " + transaction.note : ""}</small></div>
-              <strong>{fmt(transaction.amount)} {transaction.currency}</strong>
-            </div>
-          ))}
+        {walletLoadedFromCache ? <div className="inline-feedback"><LoadingIndicator label={copy.loading} /></div> : historyItems.length === 0 ? <p className="wallet-asset-empty">{copy.empty}</p> : <div className="wallet-activity-list">
+          {historyItems.map((item) => {
+            const typeLabel = item.source === "deposit"
+              ? (fa ? "واریز بلاک‌چین" : "On-chain deposit")
+              : item.source === "withdrawal"
+                ? (fa ? "برداشت بلاک‌چین" : "On-chain withdrawal")
+                : item.type === "DEPOSIT"
+                  ? (fa ? "واریز" : "Deposit")
+                  : item.type === "DEPOSIT_REVERSAL"
+                    ? (fa ? "برگشت واریز" : "Deposit reversal")
+                    : item.type === "WITHDRAWAL"
+                      ? (fa ? "برداشت" : "Withdrawal")
+                      : item.type === "WITHDRAWAL_REQUEST"
+                        ? (fa ? "درخواست برداشت" : "Withdrawal request")
+                        : item.type;
+            return (
+              <div className="wallet-network-row wallet-activity-row" key={item.id}>
+                <div>
+                  <strong>{typeLabel}</strong>
+                  <small>{new Date(item.sortAt).toLocaleString(locale)}{item.network ? " · " + item.network : ""}</small>
+                  <small>{item.asset}{item.status ? " · " + item.status : ""}{item.note ? " · " + item.note : ""}</small>
+                  {item.confirmationCount !== null && <small>{fa ? "تأییدیه‌ها" : "Confirmations"}: {item.confirmationCount}</small>}
+                  {item.fee && <small>{fa ? "کارمزد" : "Fee"}: {fmt(item.fee)} {item.feeAsset ?? item.asset}</small>}
+                  {item.transactionHash && (item.explorerUrl
+                    ? <a href={item.explorerUrl} target="_blank" rel="noreferrer" className="wallet-activity-tx-link">{fa ? "مشاهده تراکنش در مرورگر بلاک‌چین" : "View transaction on block explorer"}</a>
+                    : <small>{item.transactionHash}</small>)}
+                </div>
+                <strong>{fmt(item.amount)} {item.asset}</strong>
+              </div>
+            );
+          })}
         </div>}
       </section>}
 
