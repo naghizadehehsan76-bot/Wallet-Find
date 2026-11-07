@@ -436,6 +436,77 @@ export async function createParentTurnkeySigner(
   return createWalletClient({ account, chain: chainConfig.chain, transport: http(rpcUrl.trim()) });
 }
 
+/**
+ * Submit an EVM transaction through Turnkey Transaction Management.
+ * Gas Sponsorship is opt-in per deployment and must also be enabled in the
+ * Turnkey dashboard. The legacy viem signer remains available as a fallback.
+ */
+export async function sendSponsoredEvmTransaction(input: {
+  address: string;
+  chainId: number;
+  to: string;
+  value?: bigint;
+  data?: `0x${string}`;
+  parentOrganization?: boolean;
+  onStatusId?: (statusId: string) => Promise<void>;
+}): Promise<`0x${string}`> {
+  if (process.env.TURNKEY_GAS_SPONSORSHIP_ENABLED !== "true") {
+    throw new Error("TURNKEY_GAS_SPONSORSHIP_NOT_ENABLED");
+  }
+  turnkeyEvmChain(input.chainId);
+  if (input.chainId !== 137) throw new Error("TURNKEY_GAS_SPONSORSHIP_CHAIN_NOT_ENABLED");
+
+  let client: any;
+  if (input.parentOrganization) {
+    client = turnkeyConfig().client;
+  } else {
+    const wallet = await prisma.walletAccount.findFirst({
+      where: { address: input.address.toLowerCase() },
+      select: {
+        turnkeyOrganizationId: true,
+        turnkeyApiPublicKey: true,
+        turnkeyApiPrivateKeyEncrypted: true,
+      },
+    });
+    if (!wallet?.turnkeyOrganizationId || !wallet.turnkeyApiPublicKey || !wallet.turnkeyApiPrivateKeyEncrypted) {
+      throw new Error("TURNKEY_USER_ORGANIZATION_NOT_FOUND");
+    }
+    client = new Turnkey({
+      apiBaseUrl: process.env.TURNKEY_API_BASE_URL?.trim() || "https://api.turnkey.com",
+      apiPublicKey: wallet.turnkeyApiPublicKey,
+      apiPrivateKey: decryptApiPrivateKey(wallet.turnkeyApiPrivateKeyEncrypted),
+      defaultOrganizationId: wallet.turnkeyOrganizationId,
+    }).apiClient();
+  }
+
+  const submission = await client.ethSendTransaction({
+    transaction: {
+      from: getAddress(input.address),
+      to: getAddress(input.to),
+      caip2: `eip155:${input.chainId}`,
+      sponsor: true,
+      value: (input.value ?? 0n).toString(),
+      data: input.data ?? "0x",
+    },
+  });
+  const statusId = typeof submission === "string"
+    ? submission
+    : submission?.sendTransactionStatusId;
+  if (typeof statusId !== "string" || !statusId) {
+    throw new Error("TURNKEY_SPONSORED_TRANSACTION_STATUS_ID_MISSING");
+  }
+  await input.onStatusId?.(statusId);
+
+  const result = await client.pollTransactionStatus({ sendTransactionStatusId: statusId });
+  const txHash = result?.eth?.txHash;
+  if (typeof txHash === "string" && /^0x[a-fA-F0-9]{64}$/.test(txHash)) {
+    return txHash as `0x${string}`;
+  }
+  const status = String(result?.status ?? result?.txStatus ?? "").toUpperCase();
+  if (status === "FAILED") throw new Error("TURNKEY_SPONSORED_TRANSACTION_FAILED");
+  throw new Error("TURNKEY_SPONSORED_TRANSACTION_STATUS_UNCERTAIN");
+}
+
 export function isTurnkeyConfigured(): boolean {
   return requiredEnv.every((key) => Boolean(process.env[key]?.trim()))
     && /^[a-fA-F0-9]{64}$/.test(process.env.TURNKEY_ENCRYPTION_KEY?.trim() ?? "");

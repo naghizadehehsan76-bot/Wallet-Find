@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { decodeFunctionData, isAddress, type Address } from "viem";
+import { decodeFunctionData, encodeFunctionData, isAddress, type Address } from "viem";
 import prisma from "../../config/prisma.js";
 import { formatAssetUnits, parseAssetUnits } from "./asset-amount.js";
 import {
@@ -8,7 +8,7 @@ import {
   isEvmWithdrawalFeeModelSupported,
 } from "./chain-adapters/evm.adapter.js";
 import { postWalletJournalInTransaction } from "./wallet-journal.service.js";
-import { createTurnkeySigner, provisionTurnkeyWallet } from "./turnkey.service.js";
+import { createTurnkeySigner, provisionTurnkeyWallet, sendSponsoredEvmTransaction } from "./turnkey.service.js";
 
 const TOKEN_TRANSFER_ABI = [
   {
@@ -331,6 +331,9 @@ export async function requestChainWalletWithdrawal(input: {
   if (feeQuote.feeAtomic <= 0n || feeQuote.feeAtomic.toString().length > 78) {
     throw new Error("INVALID_WITHDRAWAL_FEE_QUOTE");
   }
+  const useTurnkeySponsorship = process.env.TURNKEY_GAS_SPONSORSHIP_ENABLED === "true"
+    && network.chainId === 137;
+  const reservedFeeAmount = useTurnkeySponsorship ? 0n : feeQuote.feeAtomic;
 
   const id = randomUUID();
   return prisma.$transaction(async (tx) => {
@@ -372,14 +375,16 @@ export async function requestChainWalletWithdrawal(input: {
     const availableAmount = await readAvailableBalance(tx, input.userId, networkId, asset.id);
     const availableFee = feeAndAmountSameAsset
       ? availableAmount
-      : await readAvailableBalance(tx, input.userId, networkId, feeAsset.id);
+      : useTurnkeySponsorship
+        ? 0n
+        : await readAvailableBalance(tx, input.userId, networkId, feeAsset.id);
     if (feeAndAmountSameAsset) {
-      if (availableAmount < amount + feeQuote.feeAtomic) {
+      if (availableAmount < amount + reservedFeeAmount) {
         throw new Error("INSUFFICIENT_WALLET_BALANCE_FOR_AMOUNT_AND_NETWORK_FEE");
       }
     } else {
       if (availableAmount < amount) throw new Error("INSUFFICIENT_WALLET_BALANCE");
-      if (availableFee < feeQuote.feeAtomic) throw new Error("INSUFFICIENT_NATIVE_FEE_BALANCE");
+      if (!useTurnkeySponsorship && availableFee < feeQuote.feeAtomic) throw new Error("INSUFFICIENT_NATIVE_FEE_BALANCE");
     }
 
     const withdrawal = await tx.walletChainWithdrawal.create({
@@ -393,7 +398,7 @@ export async function requestChainWalletWithdrawal(input: {
         feeAssetId: feeAsset.id,
         destinationAddress,
         amountAtomic: amount.toString(),
-        feeAtomic: feeQuote.feeAtomic.toString(),
+        feeAtomic: reservedFeeAmount.toString(),
         estimatedGasLimit: feeQuote.gasLimit.toString(),
         maxFeePerGasAtomic: feeQuote.maxFeePerGas.toString(),
         maxPriorityFeePerGasAtomic: feeQuote.maxPriorityFeePerGas?.toString() ?? null,
@@ -412,15 +417,17 @@ export async function requestChainWalletWithdrawal(input: {
       suffix: "amount-reserve",
       note: "Reserve wallet balance for approved on-chain withdrawal",
     });
-    await postReservation(tx, {
-      id,
-      userId: input.userId,
-      networkId,
-      walletAssetId: feeAsset.id,
-      amount: feeQuote.feeAtomic,
-      suffix: "fee-reserve",
-      note: "Reserve native asset for estimated network fee",
-    });
+    if (reservedFeeAmount > 0n) {
+      await postReservation(tx, {
+        id,
+        userId: input.userId,
+        networkId,
+        walletAssetId: feeAsset.id,
+        amount: reservedFeeAmount,
+        suffix: "fee-reserve",
+        note: "Reserve native asset for estimated network fee",
+      });
+    }
 
     await tx.auditLog.create({
       data: {
@@ -433,7 +440,8 @@ export async function requestChainWalletWithdrawal(input: {
           assetId,
           amountAtomic: amount.toString(),
           feeAssetId: feeAsset.id,
-          reservedFeeAtomic: feeQuote.feeAtomic.toString(),
+          reservedFeeAtomic: reservedFeeAmount.toString(),
+          gasSponsorship: useTurnkeySponsorship,
           idempotencyKey,
           approvalMode: "AUTOMATIC_NO_ADMIN_REVIEW",
         },
@@ -669,7 +677,10 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
     contractAddress: withdrawal.asset.contractAddress,
     amountAtomic: amount,
   });
-  const reservedFee = await refreshWithdrawalFeeReservation({
+  const useTurnkeySponsorship = process.env.TURNKEY_GAS_SPONSORSHIP_ENABLED === "true"
+    && withdrawal.network.chainId === 137
+    && atomic(withdrawal.feeAtomic) === 0n;
+  const reservedFee = useTurnkeySponsorship ? 0n : await refreshWithdrawalFeeReservation({
     withdrawal,
     newQuote: freshQuote,
   });
@@ -688,58 +699,70 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
   if (updated.count !== 1) throw new Error("WALLET_WITHDRAWAL_ALREADY_PROCESSING");
 
   try {
-    const walletClient = await createTurnkeySigner(
-      withdrawal.walletAddress.address,
-      withdrawal.network.chainId,
-    );
     const fromAddress = withdrawal.walletAddress.address as Address;
     const destination = withdrawal.destinationAddress as Address;
-    if (!walletClient.account ||
-        walletClient.account.address.toLowerCase() !== fromAddress.toLowerCase()) {
-      throw new Error("TURNKEY_SIGNER_ADDRESS_MISMATCH");
-    }
+    let hash: `0x${string}`;
 
     if (withdrawal.asset.assetType === "NATIVE") {
       const nativeBalance = await client.getBalance({ address: fromAddress });
-      if (nativeBalance < amount + reservedFee) {
-        throw new Error("ONCHAIN_NATIVE_BALANCE_INSUFFICIENT");
-      }
+      if (nativeBalance < amount + reservedFee) throw new Error("ONCHAIN_NATIVE_BALANCE_INSUFFICIENT");
     } else {
       if (!withdrawal.asset.contractAddress) throw new Error("INVALID_TOKEN_ASSET_CONFIGURATION");
-      const [tokenBalance, nativeBalance] = await Promise.all([
-        client.readContract({
-          address: withdrawal.asset.contractAddress as Address,
-          abi: TOKEN_BALANCE_ABI,
-          functionName: "balanceOf",
-          args: [fromAddress],
-        }),
-        client.getBalance({ address: fromAddress }),
-      ]);
+      const tokenBalance = await client.readContract({
+        address: withdrawal.asset.contractAddress as Address,
+        abi: TOKEN_BALANCE_ABI,
+        functionName: "balanceOf",
+        args: [fromAddress],
+      });
       if (tokenBalance < amount) throw new Error("ONCHAIN_TOKEN_BALANCE_INSUFFICIENT");
-      if (nativeBalance < reservedFee) throw new Error("ONCHAIN_NATIVE_FEE_BALANCE_INSUFFICIENT");
+      if (!useTurnkeySponsorship) {
+        const nativeBalance = await client.getBalance({ address: fromAddress });
+        if (nativeBalance < reservedFee) throw new Error("ONCHAIN_NATIVE_FEE_BALANCE_INSUFFICIENT");
+      }
     }
 
-    const hash = withdrawal.asset.assetType === "NATIVE"
-      ? await walletClient.sendTransaction({
-          account: walletClient.account!,
-          chain: null,
-          to: destination,
-          value: amount,
-          gas: gasLimit,
-          maxFeePerGas,
-          ...(maxPriorityFeePerGas > 0n ? { maxPriorityFeePerGas } : {}),
-        })
-      : await walletClient.writeContract({
-          account: walletClient.account!,
-          chain: null,
-          address: withdrawal.asset.contractAddress as Address,
-          abi: TOKEN_TRANSFER_ABI,
-          functionName: "transfer",
-          args: [destination, amount],
-          gas: gasLimit,
-          maxFeePerGas,
-          ...(maxPriorityFeePerGas > 0n ? { maxPriorityFeePerGas } : {}),
-        });
+    if (useTurnkeySponsorship) {
+      const data = withdrawal.asset.assetType === "NATIVE" ? "0x" : encodeFunctionData({
+        abi: TOKEN_TRANSFER_ABI,
+        functionName: "transfer",
+        args: [destination, amount],
+      });
+      hash = await sendSponsoredEvmTransaction({
+        address: fromAddress,
+        chainId: withdrawal.network.chainId,
+        to: withdrawal.asset.assetType === "NATIVE" ? destination : withdrawal.asset.contractAddress!,
+        value: withdrawal.asset.assetType === "NATIVE" ? amount : 0n,
+        data,
+        onStatusId: async (statusId) => {
+          await prisma.walletChainWithdrawal.updateMany({
+            where: { id: withdrawalId, status: "SIGNING", transactionReference: null },
+            data: { failureCode: "TURNKEY_STATUS_ID:" + statusId },
+          });
+        },
+      });
+    } else {
+      const walletClient = await createTurnkeySigner(
+        withdrawal.walletAddress.address,
+        withdrawal.network.chainId,
+      );
+      if (!walletClient.account ||
+          walletClient.account.address.toLowerCase() !== fromAddress.toLowerCase()) {
+        throw new Error("TURNKEY_SIGNER_ADDRESS_MISMATCH");
+      }
+      hash = withdrawal.asset.assetType === "NATIVE"
+        ? await walletClient.sendTransaction({
+            account: walletClient.account!, chain: null, to: destination, value: amount,
+            gas: gasLimit, maxFeePerGas,
+            ...(maxPriorityFeePerGas > 0n ? { maxPriorityFeePerGas } : {}),
+          })
+        : await walletClient.writeContract({
+            account: walletClient.account!, chain: null,
+            address: withdrawal.asset.contractAddress as Address, abi: TOKEN_TRANSFER_ABI,
+            functionName: "transfer", args: [destination, amount],
+            gas: gasLimit, maxFeePerGas,
+            ...(maxPriorityFeePerGas > 0n ? { maxPriorityFeePerGas } : {}),
+          });
+    }
 
     await prisma.walletChainWithdrawal.update({
       where: { id: withdrawalId },
@@ -768,13 +791,21 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
       "ONCHAIN_NATIVE_BALANCE_INSUFFICIENT",
       "ONCHAIN_TOKEN_BALANCE_INSUFFICIENT",
       "ONCHAIN_NATIVE_FEE_BALANCE_INSUFFICIENT",
+      "TURNKEY_SPONSORED_TRANSACTION_FAILED",
       "INVALID_TOKEN_ASSET_CONFIGURATION",
     ]);
+    const current = safeKnown.has(message) ? null : await prisma.walletChainWithdrawal.findUnique({
+      where: { id: withdrawalId },
+      select: { failureCode: true },
+    }).catch(() => null);
+    const uncertainCode = current?.failureCode?.startsWith("TURNKEY_STATUS_ID:")
+      ? current.failureCode
+      : "SIGNING_OR_BROADCAST_OUTCOME_UNCERTAIN";
     await prisma.walletChainWithdrawal.updateMany({
       where: { id: withdrawalId, status: "SIGNING" },
       data: {
         status: safeKnown.has(message) ? "APPROVED" : "SIGNING",
-        failureCode: safeKnown.has(message) ? message : "SIGNING_OR_BROADCAST_OUTCOME_UNCERTAIN",
+        failureCode: safeKnown.has(message) ? message : uncertainCode,
         lastCheckedAt: new Date(),
       },
     }).catch(() => undefined);
@@ -955,8 +986,10 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
   const confirmationsBig = latest >= receipt.blockNumber ? latest - receipt.blockNumber + 1n : 0n;
   const confirmations = Number(confirmationsBig > 1_000_000n ? 1_000_000n : confirmationsBig);
   const required = withdrawal.network.finalityDepth;
-  const actualFee = receipt.gasUsed * receipt.effectiveGasPrice;
   const reservedFee = atomic(withdrawal.feeAtomic);
+  // A zero reserved fee identifies a Turnkey-sponsored request: its gas is
+  // billed to the parent organization, never debited from the user's POL ledger.
+  const actualFee = reservedFee === 0n ? 0n : receipt.gasUsed * receipt.effectiveGasPrice;
 
   await prisma.walletChainWithdrawal.updateMany({
     where: { id: withdrawalId, status: "BROADCAST" },

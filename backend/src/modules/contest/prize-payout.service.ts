@@ -1,5 +1,6 @@
 import {
   createPublicClient,
+  encodeFunctionData,
   http,
   parseAbi,
   parseEventLogs,
@@ -8,7 +9,7 @@ import {
 } from "viem";
 import { polygon } from "viem/chains";
 import prisma from "../../config/prisma.js";
-import { createParentTurnkeySigner } from "../wallet/turnkey.service.js";
+import { createParentTurnkeySigner, sendSponsoredEvmTransaction } from "../wallet/turnkey.service.js";
 import { reconcileTreasuryAccounting } from "../wallet/wallet.service.js";
 
 const USDT0_ADDRESS = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f" as Address;
@@ -260,49 +261,75 @@ async function executePendingAward(awardId: string) {
     }
 
     const client = polygonClient();
-    const [tokenBalance, nativeBalance, fees, estimatedGas] = await Promise.all([
-      client.readContract({
-        address: USDT0_ADDRESS,
+    const tokenBalance = await client.readContract({
+      address: USDT0_ADDRESS,
+      abi: USDT0_ABI,
+      functionName: "balanceOf",
+      args: [treasuryAddress],
+    });
+    if (tokenBalance < amount) throw new Error("INSUFFICIENT_TREASURY_USDT0");
+
+    // The Turnkey route is opt-in. When disabled, the original POL-funded
+    // viem signer path remains unchanged and fully available.
+    const useTurnkeySponsorship = process.env.TURNKEY_GAS_SPONSORSHIP_ENABLED === "true";
+    let transactionHash: Hash;
+    if (useTurnkeySponsorship) {
+      const data = encodeFunctionData({
         abi: USDT0_ABI,
-        functionName: "balanceOf",
-        args: [treasuryAddress],
-      }),
-      client.getBalance({ address: treasuryAddress }),
-      client.estimateFeesPerGas(),
-      client.estimateContractGas({
-        account: treasuryAddress,
+        functionName: "transfer",
+        args: [destinationAddress, amount],
+      });
+      // Persist the Turnkey status id before polling. If the worker restarts,
+      // the SIGNING row remains quarantined and can be reconciled without resend.
+      broadcastAttempted = true;
+      transactionHash = await sendSponsoredEvmTransaction({
+        address: treasuryAddress,
+        chainId: 137,
+        to: USDT0_ADDRESS,
+        value: 0n,
+        data,
+        parentOrganization: true,
+        onStatusId: async (statusId) => {
+          await prisma.prizeAward.updateMany({
+            where: { id: award.id, status: "SIGNING", transactionHash: null },
+            data: { failureCode: "TURNKEY_STATUS_ID:" + statusId },
+          });
+        },
+      });
+    } else {
+      const [nativeBalance, fees, estimatedGas] = await Promise.all([
+        client.getBalance({ address: treasuryAddress }),
+        client.estimateFeesPerGas(),
+        client.estimateContractGas({
+          account: treasuryAddress,
+          address: USDT0_ADDRESS,
+          abi: USDT0_ABI,
+          functionName: "transfer",
+          args: [destinationAddress, amount],
+        }),
+      ]);
+      const maxFeePerGas = fees.maxFeePerGas ?? fees.gasPrice;
+      if (!maxFeePerGas || maxFeePerGas <= 0n) throw new Error("POLYGON_FEE_QUOTE_UNAVAILABLE");
+      const gasLimit = estimatedGas * 120n / 100n + 1n;
+      if (nativeBalance < gasLimit * maxFeePerGas) throw new Error("INSUFFICIENT_TREASURY_POL_FOR_GAS");
+
+      const signer = await createParentTurnkeySigner(treasuryAddress, 137);
+      if (signer.account?.address.toLowerCase() !== treasuryAddress) {
+        throw new Error("PRIZE_TREASURY_SIGNER_ADDRESS_MISMATCH");
+      }
+      broadcastAttempted = true;
+      transactionHash = await signer.writeContract({
+        account: signer.account!,
+        chain: polygon,
         address: USDT0_ADDRESS,
         abi: USDT0_ABI,
         functionName: "transfer",
         args: [destinationAddress, amount],
-      }),
-    ]);
-
-    if (tokenBalance < amount) throw new Error("INSUFFICIENT_TREASURY_USDT0");
-    const maxFeePerGas = fees.maxFeePerGas ?? fees.gasPrice;
-    if (!maxFeePerGas || maxFeePerGas <= 0n) throw new Error("POLYGON_FEE_QUOTE_UNAVAILABLE");
-    const gasLimit = estimatedGas * 120n / 100n + 1n;
-    if (nativeBalance < gasLimit * maxFeePerGas) throw new Error("INSUFFICIENT_TREASURY_POL_FOR_GAS");
-
-    const signer = await createParentTurnkeySigner(treasuryAddress, 137);
-    if (signer.account?.address.toLowerCase() !== treasuryAddress) {
-      throw new Error("PRIZE_TREASURY_SIGNER_ADDRESS_MISMATCH");
+        gas: gasLimit,
+        maxFeePerGas,
+        ...(fees.maxPriorityFeePerGas ? { maxPriorityFeePerGas: fees.maxPriorityFeePerGas } : {}),
+      });
     }
-
-    // From this point an exception is treated as an uncertain broadcast. The
-    // worker will never automatically retry a SIGNING record.
-    broadcastAttempted = true;
-    const transactionHash = await signer.writeContract({
-      account: signer.account!,
-      chain: polygon,
-      address: USDT0_ADDRESS,
-      abi: USDT0_ABI,
-      functionName: "transfer",
-      args: [destinationAddress, amount],
-      gas: gasLimit,
-      maxFeePerGas,
-      ...(fees.maxPriorityFeePerGas ? { maxPriorityFeePerGas: fees.maxPriorityFeePerGas } : {}),
-    });
     knownTransactionHash = transactionHash;
 
     const updated = await prisma.prizeAward.updateMany({
@@ -325,7 +352,7 @@ async function executePendingAward(awardId: string) {
       transactionHash,
     });
   } catch (error) {
-    if (!broadcastAttempted) {
+    if (!broadcastAttempted || (error instanceof Error && error.message === "TURNKEY_SPONSORED_TRANSACTION_FAILED")) {
       await prisma.prizeAward.updateMany({
         where: { id: awardId, status: "SIGNING", transactionHash: null },
         data: {
@@ -351,10 +378,18 @@ async function executePendingAward(awardId: string) {
       }
       console.error("Prize payout broadcast persistence recovery attempted", { awardId, recovered: recovered.count });
     } else {
-      await setNeedsReview(awardId, "BROADCAST_OUTCOME_UNCERTAIN");
+      const current = await prisma.prizeAward.findUnique({
+        where: { id: awardId },
+        select: { failureCode: true },
+      });
+      const reviewCode = current?.failureCode?.startsWith("TURNKEY_STATUS_ID:")
+        ? current.failureCode
+        : "BROADCAST_OUTCOME_UNCERTAIN";
+      await setNeedsReview(awardId, reviewCode);
       console.error("Prize payout broadcast outcome is uncertain; automatic retry is disabled", {
         awardId,
         error,
+        hasTurnkeyStatusId: reviewCode.startsWith("TURNKEY_STATUS_ID:"),
       });
     }
   }
