@@ -8,7 +8,11 @@ import {
   isEvmWithdrawalFeeModelSupported,
 } from "./chain-adapters/evm.adapter.js";
 import { postWalletJournalInTransaction } from "./wallet-journal.service.js";
-import { createTurnkeySigner, provisionTurnkeyWallet, sendSponsoredEvmTransaction } from "./turnkey.service.js";
+import { createParentTurnkeySigner, createTurnkeySigner, provisionTurnkeyWallet, sendSponsoredEvmTransaction } from "./turnkey.service.js";
+
+const PRIZE_TREASURY_ID = "polygon-prize-treasury";
+const PRIZE_TREASURY_ACCOUNT_REFERENCE = "PRIZE_TREASURY";
+const POLYGON_USDT0_CONTRACT = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f";
 
 const TOKEN_TRANSFER_ABI = [
   {
@@ -41,6 +45,7 @@ type WithdrawalSnapshot = {
   networkId: string;
   walletAssetId: string;
   feeAssetId: string | null;
+  fundingSource: string;
   destinationAddress: string;
   amountAtomic: { toFixed(decimalPlaces?: number): string };
   feeAtomic: { toFixed(decimalPlaces?: number): string } | null;
@@ -93,6 +98,52 @@ async function readAvailableBalance(
   }, 0n);
 }
 
+async function readAvailableBalanceByReference(
+  tx: any, userId: string, networkId: string, walletAssetId: string, accountReference: string,
+): Promise<bigint> {
+  const postings = await tx.walletJournalPosting.findMany({
+    where: { account: "USER_AVAILABLE", accountReference, journal: { userId, networkId, walletAssetId } },
+    select: { direction: true, amountAtomic: true },
+  });
+  return postings.reduce((total: bigint, posting: any) => {
+    const amount = BigInt(posting.amountAtomic.toFixed(0));
+    return total + (posting.direction === "CREDIT" ? amount : -amount);
+  }, 0n);
+}
+
+async function assertPrizeTreasuryReserve(client: any, treasuryAddress: Address): Promise<bigint> {
+  const [fund, pools, paidAwards, custodyPostings] = await Promise.all([
+    prisma.globalPrizeFund.findUnique({ where: { id: "global" }, select: { balanceMicro: true } }),
+    prisma.prizePool.aggregate({ _sum: { seededMicro: true } }),
+    prisma.prizeAward.aggregate({ where: { status: "PAID" }, _sum: { amountMicro: true } }),
+    prisma.walletJournalPosting.findMany({
+      where: {
+        account: "CUSTODY_ASSET",
+        accountReference: PRIZE_TREASURY_ID,
+        journal: { networkId: "eip155:137", walletAssetId: "eip155:137/erc20:0xc2132d05d31c914a87c6611c10748aeb04b58e8f" },
+      },
+      select: { direction: true, amountAtomic: true },
+    }),
+  ]);
+  const globalBalance = BigInt(fund?.balanceMicro ?? 0n);
+  const seeded = BigInt(pools._sum.seededMicro ?? 0n);
+  const paid = BigInt(paidAwards._sum.amountMicro ?? 0n);
+  const outstandingRounds = seeded > paid ? seeded - paid : 0n;
+  const internalLiability = custodyPostings.reduce((total: bigint, posting: any) => {
+    const amount = BigInt(posting.amountAtomic.toFixed(0));
+    return total + (posting.direction === "DEBIT" ? amount : -amount);
+  }, 0n);
+  const requiredReserve = globalBalance + outstandingRounds + (internalLiability > 0n ? internalLiability : 0n);
+  const onChainBalance = await client.readContract({
+    address: POLYGON_USDT0_CONTRACT as Address,
+    abi: TOKEN_BALANCE_ABI,
+    functionName: "balanceOf",
+    args: [treasuryAddress],
+  });
+  if (onChainBalance < requiredReserve) throw new Error("PRIZE_TREASURY_RESERVED_BALANCE_MISMATCH");
+  return onChainBalance;
+}
+
 async function postReservation(
   tx: any,
   input: {
@@ -103,6 +154,7 @@ async function postReservation(
     amount: bigint;
     suffix: string;
     note: string;
+    availableAccountReference?: string;
   },
 ) {
   return postWalletJournalInTransaction(tx, {
@@ -117,7 +169,7 @@ async function postReservation(
         account: "USER_AVAILABLE",
         direction: "DEBIT",
         amountAtomic: input.amount.toString(),
-        accountReference: input.userId,
+        accountReference: input.availableAccountReference ?? input.userId,
       },
       {
         account: "USER_RESERVED",
@@ -139,6 +191,7 @@ async function releaseReservation(
     amount: bigint;
     suffix: string;
     note: string;
+    availableAccountReference?: string;
   },
 ) {
   if (input.amount <= 0n) return null;
@@ -160,7 +213,7 @@ async function releaseReservation(
         account: "USER_AVAILABLE",
         direction: "CREDIT",
         amountAtomic: input.amount.toString(),
-        accountReference: input.userId,
+        accountReference: input.availableAccountReference ?? input.userId,
       },
     ],
   });
@@ -320,9 +373,38 @@ export async function requestChainWalletWithdrawal(input: {
   });
   if (!feeAsset) throw new Error("WALLET_NATIVE_FEE_ASSET_NOT_CONFIGURED");
 
+  const isPolygonUsdt0 = network.chainId === 137
+    && asset.symbol === "USDT0"
+    && asset.contractAddress?.toLowerCase() === POLYGON_USDT0_CONTRACT;
+  const [totalAvailableBefore, prizeAvailableBefore, prizeTreasury] = await Promise.all([
+    prisma.$transaction((tx) => readAvailableBalance(tx, input.userId, networkId, asset.id)),
+    isPolygonUsdt0
+      ? prisma.$transaction((tx) => readAvailableBalanceByReference(tx, input.userId, networkId, asset.id, PRIZE_TREASURY_ACCOUNT_REFERENCE))
+      : Promise.resolve(0n),
+    isPolygonUsdt0
+      ? prisma.treasuryWallet.findUnique({ where: { id: PRIZE_TREASURY_ID }, select: { id: true, address: true, status: true, turnkeyWalletId: true } })
+      : Promise.resolve(null),
+  ]);
+  const regularWalletAvailable = totalAvailableBefore - prizeAvailableBefore;
+  let fundingSource: "USER_WALLET" | "PRIZE_TREASURY" = "USER_WALLET";
+  if (isPolygonUsdt0 && prizeAvailableBefore >= amount
+      && prizeTreasury?.status === "ACTIVE" && prizeTreasury.address && prizeTreasury.turnkeyWalletId) {
+    fundingSource = "PRIZE_TREASURY";
+  } else if (regularWalletAvailable < amount) {
+    if (isPolygonUsdt0 && totalAvailableBefore >= amount) {
+      throw new Error(prizeAvailableBefore >= amount
+        ? "PRIZE_TREASURY_NOT_READY"
+        : "WITHDRAWAL_AMOUNT_EXCEEDS_EITHER_FUNDING_SOURCE");
+    }
+    throw new Error("INSUFFICIENT_WALLET_BALANCE");
+  }
+
+  const transactionSender = fundingSource === "PRIZE_TREASURY"
+    ? prizeTreasury!.address as Address
+    : address.address as Address;
   const feeQuote = await quoteEvmFee({
     chainId: network.chainId,
-    from: address.address as Address,
+    from: transactionSender,
     to: destinationAddress as Address,
     assetType: asset.assetType,
     contractAddress: asset.contractAddress,
@@ -333,7 +415,7 @@ export async function requestChainWalletWithdrawal(input: {
   }
   const useTurnkeySponsorship = process.env.TURNKEY_GAS_SPONSORSHIP_ENABLED === "true"
     && network.chainId === 137;
-  const reservedFeeAmount = useTurnkeySponsorship ? 0n : feeQuote.feeAtomic;
+  const reservedFeeAmount = fundingSource === "PRIZE_TREASURY" || useTurnkeySponsorship ? 0n : feeQuote.feeAtomic;
 
   const id = randomUUID();
   return prisma.$transaction(async (tx) => {
@@ -373,18 +455,23 @@ export async function requestChainWalletWithdrawal(input: {
 
     const feeAndAmountSameAsset = asset.id === feeAsset.id;
     const availableAmount = await readAvailableBalance(tx, input.userId, networkId, asset.id);
+    const prizeAvailable = isPolygonUsdt0
+      ? await readAvailableBalanceByReference(tx, input.userId, networkId, asset.id, PRIZE_TREASURY_ACCOUNT_REFERENCE)
+      : 0n;
+    const sourceAvailable = fundingSource === "PRIZE_TREASURY" ? prizeAvailable : availableAmount - prizeAvailable;
     const availableFee = feeAndAmountSameAsset
       ? availableAmount
-      : useTurnkeySponsorship
+      : useTurnkeySponsorship || fundingSource === "PRIZE_TREASURY"
         ? 0n
         : await readAvailableBalance(tx, input.userId, networkId, feeAsset.id);
+    if (sourceAvailable < amount) throw new Error("INSUFFICIENT_WALLET_BALANCE");
     if (feeAndAmountSameAsset) {
       if (availableAmount < amount + reservedFeeAmount) {
         throw new Error("INSUFFICIENT_WALLET_BALANCE_FOR_AMOUNT_AND_NETWORK_FEE");
       }
     } else {
       if (availableAmount < amount) throw new Error("INSUFFICIENT_WALLET_BALANCE");
-      if (!useTurnkeySponsorship && availableFee < feeQuote.feeAtomic) throw new Error("INSUFFICIENT_NATIVE_FEE_BALANCE");
+      if (!useTurnkeySponsorship && fundingSource === "USER_WALLET" && availableFee < feeQuote.feeAtomic) throw new Error("INSUFFICIENT_NATIVE_FEE_BALANCE");
     }
 
     const withdrawal = await tx.walletChainWithdrawal.create({
@@ -396,6 +483,7 @@ export async function requestChainWalletWithdrawal(input: {
         networkId,
         walletAssetId: asset.id,
         feeAssetId: feeAsset.id,
+        fundingSource,
         destinationAddress,
         amountAtomic: amount.toString(),
         feeAtomic: reservedFeeAmount.toString(),
@@ -416,6 +504,7 @@ export async function requestChainWalletWithdrawal(input: {
       amount,
       suffix: "amount-reserve",
       note: "Reserve wallet balance for approved on-chain withdrawal",
+      availableAccountReference: fundingSource === "PRIZE_TREASURY" ? PRIZE_TREASURY_ACCOUNT_REFERENCE : input.userId,
     });
     if (reservedFeeAmount > 0n) {
       await postReservation(tx, {
@@ -442,6 +531,7 @@ export async function requestChainWalletWithdrawal(input: {
           feeAssetId: feeAsset.id,
           reservedFeeAtomic: reservedFeeAmount.toString(),
           gasSponsorship: useTurnkeySponsorship,
+          fundingSource,
           idempotencyKey,
           approvalMode: "AUTOMATIC_NO_ADMIN_REVIEW",
         },
@@ -482,6 +572,7 @@ export async function getAdminChainWalletWithdrawals() {
     asset: row.asset.symbol,
     decimals: row.asset.decimals,
     feeAsset: row.feeAsset?.symbol ?? null,
+    fundingSource: row.fundingSource,
     feeDecimals: row.feeAsset?.decimals ?? null,
     destinationAddress: row.destinationAddress,
     amount: formatAssetUnits(BigInt(row.amountAtomic.toFixed(0)), row.asset.decimals),
@@ -531,6 +622,7 @@ export async function reviewChainWalletWithdrawal(
         amount: atomic(withdrawal.amountAtomic),
         suffix: "amount-rejected-release",
         note: "Release withdrawal amount after admin rejection",
+        availableAccountReference: withdrawal.fundingSource === "PRIZE_TREASURY" ? PRIZE_TREASURY_ACCOUNT_REFERENCE : withdrawal.userId,
       });
       if (withdrawal.feeAssetId && withdrawal.feeAtomic) {
         await releaseReservation(tx, {
@@ -668,10 +760,18 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
     throw new Error("WALLET_WITHDRAWAL_FEE_QUOTE_MISSING");
   }
 
+  const treasuryFunding = withdrawal.fundingSource === "PRIZE_TREASURY";
+  const prizeTreasury = treasuryFunding
+    ? await prisma.treasuryWallet.findUnique({ where: { id: PRIZE_TREASURY_ID }, select: { address: true, status: true, turnkeyWalletId: true } })
+    : null;
+  if (treasuryFunding && (!prizeTreasury || prizeTreasury.status !== "ACTIVE" || !prizeTreasury.address || !prizeTreasury.turnkeyWalletId)) {
+    throw new Error("PRIZE_TREASURY_NOT_READY");
+  }
+  const fromAddress = (treasuryFunding ? prizeTreasury!.address : withdrawal.walletAddress.address) as Address;
   const client = getEvmPublicClient(withdrawal.network.chainId);
   const freshQuote = await quoteEvmFee({
     chainId: withdrawal.network.chainId,
-    from: withdrawal.walletAddress.address as Address,
+    from: fromAddress,
     to: withdrawal.destinationAddress as Address,
     assetType: withdrawal.asset.assetType,
     contractAddress: withdrawal.asset.contractAddress,
@@ -680,7 +780,7 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
   const useTurnkeySponsorship = process.env.TURNKEY_GAS_SPONSORSHIP_ENABLED === "true"
     && withdrawal.network.chainId === 137
     && atomic(withdrawal.feeAtomic) === 0n;
-  const reservedFee = useTurnkeySponsorship ? 0n : await refreshWithdrawalFeeReservation({
+  const reservedFee = treasuryFunding || useTurnkeySponsorship ? 0n : await refreshWithdrawalFeeReservation({
     withdrawal,
     newQuote: freshQuote,
   });
@@ -699,7 +799,6 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
   if (updated.count !== 1) throw new Error("WALLET_WITHDRAWAL_ALREADY_PROCESSING");
 
   try {
-    const fromAddress = withdrawal.walletAddress.address as Address;
     const destination = withdrawal.destinationAddress as Address;
     let hash: `0x${string}`;
 
@@ -708,16 +807,19 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
       if (nativeBalance < amount + reservedFee) throw new Error("ONCHAIN_NATIVE_BALANCE_INSUFFICIENT");
     } else {
       if (!withdrawal.asset.contractAddress) throw new Error("INVALID_TOKEN_ASSET_CONFIGURATION");
-      const tokenBalance = await client.readContract({
-        address: withdrawal.asset.contractAddress as Address,
-        abi: TOKEN_BALANCE_ABI,
-        functionName: "balanceOf",
-        args: [fromAddress],
-      });
-      if (tokenBalance < amount) throw new Error("ONCHAIN_TOKEN_BALANCE_INSUFFICIENT");
+      const tokenBalance = treasuryFunding
+        ? await assertPrizeTreasuryReserve(client, fromAddress)
+        : await client.readContract({
+            address: withdrawal.asset.contractAddress as Address,
+            abi: TOKEN_BALANCE_ABI,
+            functionName: "balanceOf",
+            args: [fromAddress],
+          });
+      if (tokenBalance < amount) throw new Error(treasuryFunding ? "PRIZE_TREASURY_USDT0_BALANCE_INSUFFICIENT" : "ONCHAIN_TOKEN_BALANCE_INSUFFICIENT");
       if (!useTurnkeySponsorship) {
         const nativeBalance = await client.getBalance({ address: fromAddress });
-        if (nativeBalance < reservedFee) throw new Error("ONCHAIN_NATIVE_FEE_BALANCE_INSUFFICIENT");
+        const requiredNative = treasuryFunding ? gasLimit * maxFeePerGas : reservedFee;
+        if (nativeBalance < requiredNative) throw new Error(treasuryFunding ? "PRIZE_TREASURY_POL_BALANCE_INSUFFICIENT" : "ONCHAIN_NATIVE_FEE_BALANCE_INSUFFICIENT");
       }
     }
 
@@ -733,6 +835,7 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
         to: withdrawal.asset.assetType === "NATIVE" ? destination : withdrawal.asset.contractAddress!,
         value: withdrawal.asset.assetType === "NATIVE" ? amount : 0n,
         data,
+        parentOrganization: treasuryFunding,
         onStatusId: async (statusId) => {
           await prisma.walletChainWithdrawal.updateMany({
             where: { id: withdrawalId, status: "SIGNING", transactionReference: null },
@@ -741,10 +844,9 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
         },
       });
     } else {
-      const walletClient = await createTurnkeySigner(
-        withdrawal.walletAddress.address,
-        withdrawal.network.chainId,
-      );
+      const walletClient = treasuryFunding
+        ? await createParentTurnkeySigner(fromAddress, withdrawal.network.chainId as 56 | 137)
+        : await createTurnkeySigner(withdrawal.walletAddress.address, withdrawal.network.chainId);
       if (!walletClient.account ||
           walletClient.account.address.toLowerCase() !== fromAddress.toLowerCase()) {
         throw new Error("TURNKEY_SIGNER_ADDRESS_MISMATCH");
@@ -791,6 +893,9 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
       "ONCHAIN_NATIVE_BALANCE_INSUFFICIENT",
       "ONCHAIN_TOKEN_BALANCE_INSUFFICIENT",
       "ONCHAIN_NATIVE_FEE_BALANCE_INSUFFICIENT",
+      "PRIZE_TREASURY_POL_BALANCE_INSUFFICIENT",
+      "PRIZE_TREASURY_USDT0_BALANCE_INSUFFICIENT",
+      "PRIZE_TREASURY_RESERVED_BALANCE_MISMATCH",
       "TURNKEY_SPONSORED_TRANSACTION_FAILED",
       "INVALID_TOKEN_ASSET_CONFIGURATION",
     ]);
@@ -925,7 +1030,14 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
     return { id: withdrawalId, status: "BROADCAST", note: "Transaction details are not available yet." };
   }
 
-  const expectedFrom = withdrawal.walletAddress.address.toLowerCase();
+  const treasuryFunding = withdrawal.fundingSource === "PRIZE_TREASURY";
+  const prizeTreasury = treasuryFunding
+    ? await prisma.treasuryWallet.findUnique({ where: { id: PRIZE_TREASURY_ID }, select: { address: true, status: true } })
+    : null;
+  if (treasuryFunding && (!prizeTreasury || prizeTreasury.status !== "ACTIVE" || !prizeTreasury.address)) {
+    throw new Error("PRIZE_TREASURY_NOT_READY");
+  }
+  const expectedFrom = (treasuryFunding ? prizeTreasury!.address! : withdrawal.walletAddress.address).toLowerCase();
   const expectedTo = withdrawal.destinationAddress.toLowerCase();
   let transactionMatches = transaction.from.toLowerCase() === expectedFrom;
   if (withdrawal.asset.assetType === "NATIVE") {
@@ -987,8 +1099,8 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
   const confirmations = Number(confirmationsBig > 1_000_000n ? 1_000_000n : confirmationsBig);
   const required = withdrawal.network.finalityDepth;
   const reservedFee = atomic(withdrawal.feeAtomic);
-  // A zero reserved fee identifies a Turnkey-sponsored request: its gas is
-  // billed to the parent organization, never debited from the user's POL ledger.
+  // A zero reserved fee identifies either a sponsored request or a prize-funded
+  // treasury withdrawal: network gas is not charged to the user's POL ledger.
   const actualFee = reservedFee === 0n ? 0n : receipt.gasUsed * receipt.effectiveGasPrice;
 
   await prisma.walletChainWithdrawal.updateMany({
@@ -1049,10 +1161,24 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
             account: "CUSTODY_ASSET",
             direction: "CREDIT",
             amountAtomic: current.amountAtomic.toFixed(0),
-            accountReference: current.walletAccountId,
+            accountReference: withdrawal.fundingSource === "PRIZE_TREASURY" ? PRIZE_TREASURY_ID : current.walletAccountId,
           },
         ],
       });
+      if (withdrawal.fundingSource === "PRIZE_TREASURY") {
+        await tx.treasuryLedger.create({
+          data: {
+            treasuryWalletId: PRIZE_TREASURY_ID,
+            type: "WITHDRAWAL_DEBIT",
+            amountMicro: -atomic(current.amountAtomic),
+            currency: "USDT0",
+            transactionHash: withdrawal.transactionReference,
+            referenceKey: "prize-wallet-withdrawal:" + withdrawalId,
+            note: "Confirmed user withdrawal paid from internally credited prize balance",
+            effectiveAt: new Date(),
+          },
+        });
+      }
     } else {
       await releaseReservation(tx, {
         id: withdrawalId,
@@ -1062,6 +1188,7 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
         amount: atomic(current.amountAtomic),
         suffix: "amount-failed-release",
         note: "Release withdrawal amount after canonical reverted transaction",
+        availableAccountReference: withdrawal.fundingSource === "PRIZE_TREASURY" ? PRIZE_TREASURY_ACCOUNT_REFERENCE : withdrawal.userId,
       });
     }
 
@@ -1122,6 +1249,7 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
         metadata: {
           transactionHash: withdrawal.transactionReference,
           actualFeeAtomic: actualFee.toString(),
+          fundingSource: withdrawal.fundingSource,
           confirmations,
         },
       },
