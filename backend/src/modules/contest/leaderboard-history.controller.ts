@@ -21,11 +21,12 @@ export async function getLeaderboardHistoryHandler(req: AuthenticatedRequest, re
 
     const scheduleAnchor = await getChallengeScheduleAnchor();
 
-    const allAwards = await prisma.prizeAward.findMany({
+    const paidAwards = await prisma.prizeAward.findMany({
+      where: { status: "PAID" },
       select: { userId: true, amountMicro: true },
     });
     const totalEarnedByUser = new Map<string, bigint>();
-    for (const award of allAwards) {
+    for (const award of paidAwards) {
       totalEarnedByUser.set(award.userId, (totalEarnedByUser.get(award.userId) ?? 0n) + award.amountMicro);
     }
 
@@ -33,7 +34,7 @@ export async function getLeaderboardHistoryHandler(req: AuthenticatedRequest, re
       const leaderboard = await getContestLeaderboard(contest.id, 500);
       const awards = await prisma.prizeAward.findMany({
         where: { contestId: contest.id },
-        select: { userId: true, amountMicro: true, status: true },
+        select: { userId: true, amountMicro: true, status: true, transactionHash: true },
       });
       const awardByUser = new Map(awards.map((award) => [award.userId, award]));
       return {
@@ -47,10 +48,12 @@ export async function getLeaderboardHistoryHandler(req: AuthenticatedRequest, re
           const award = awardByUser.get(entry.userId);
           return {
             ...entry,
-            prizeEarned: award ? (Number(award.amountMicro) / 1_000_000).toFixed(6) : "0",
+            prizeAwarded: award ? (Number(award.amountMicro) / 1_000_000).toFixed(6) : "0",
+            prizeEarned: award?.status === "PAID" ? (Number(award.amountMicro) / 1_000_000).toFixed(6) : "0",
             totalPrizeEarned: ((totalEarnedByUser.get(entry.userId) ?? 0n) / 1_000_000n).toString() +
               "." + (((totalEarnedByUser.get(entry.userId) ?? 0n) % 1_000_000n).toString().padStart(6, "0")),
             prizeStatus: award?.status ?? null,
+            prizeTransactionHash: award?.transactionHash ?? null,
           };
         }),
       };
