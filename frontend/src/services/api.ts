@@ -820,6 +820,105 @@ export type AdminWalletSummary = {
   pendingWithdrawalRequests: number;
 };
 
+
+export type AdminWalletAccountBalance = {
+  networkId: string;
+  network: string;
+  networkKey: string;
+  chainId: number | null;
+  assetId: string;
+  asset: string;
+  assetName: string;
+  decimals: number;
+  available: string;
+  reserved: string;
+  total: string;
+};
+
+export type AdminWalletAccount = {
+  id: string;
+  userId: string;
+  username: string;
+  email: string;
+  address: string;
+  status: string;
+  derivationPath: string | null;
+  createdAt: string;
+  updatedAt: string;
+  addresses: Array<{
+    id: string;
+    address: string;
+    addressType: string;
+    isPrimary: boolean;
+    status: string;
+    createdAt?: string;
+    network: { id: string; displayName: string; networkKey: string; chainId: number | null; nativeAssetSymbol?: string };
+  }>;
+  networkAccounts: Array<{
+    id: string;
+    chainId: number;
+    networkKey: string;
+    depositEnabled: boolean;
+    withdrawalEnabled: boolean;
+    createdAt?: string;
+  }>;
+  counts: { deposits: number; withdrawals: number; chainDeposits: number; chainWithdrawals: number };
+  balances: AdminWalletAccountBalance[];
+};
+
+export type AdminWalletAccountTransaction = {
+  id: string;
+  source: string;
+  type: string;
+  status: string;
+  network: string | null;
+  networkKey: string | null;
+  chainId: number | null;
+  asset: string;
+  amount: string;
+  fee: string | null;
+  transactionHash: string | null;
+  fromAddress: string | null;
+  toAddress: string | null;
+  destinationAddress: string | null;
+  confirmations: number | null;
+  position: string | null;
+  note: string | null;
+  createdAt: string;
+  confirmedAt: string | null;
+  explorerUrl: string | null;
+};
+
+export type AdminWalletAccountHistory = {
+  wallet: {
+    id: string;
+    userId: string;
+    username: string;
+    email: string;
+    address: string;
+    status: string;
+    createdAt: string;
+    addresses: AdminWalletAccount["addresses"];
+    networkAccounts: AdminWalletAccount["networkAccounts"];
+  };
+  balances: AdminWalletAccountBalance[];
+  transactionCount: number;
+  transactions: AdminWalletAccountTransaction[];
+  generatedAt: string;
+};
+
+export async function getAdminWalletAccounts(): Promise<AdminWalletAccount[]> {
+  return request<AdminWalletAccount[]>("/admin/wallet-accounts", {}, true);
+}
+
+export async function getAdminWalletAccountTransactions(walletAccountId: string): Promise<AdminWalletAccountHistory> {
+  return request<AdminWalletAccountHistory>(
+    "/admin/wallet-accounts/" + encodeURIComponent(walletAccountId) + "/transactions",
+    {},
+    true,
+  );
+}
+
 export type AdminWalletAsset = {
   id: string;
   symbol: string;
