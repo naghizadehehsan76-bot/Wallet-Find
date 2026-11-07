@@ -1,0 +1,31 @@
+name: Keep Render Free Service Awake
+
+on:
+  schedule:
+    # Render Free services sleep after 15 minutes without inbound traffic.
+    # Five-minute checks keep the web service warm so its deposit scanners
+    # can continue running. GitHub scheduled runs are best-effort, not SLA.
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-free-service-keepalive
+  cancel-in-progress: true
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Wake/check Wallet-Find health endpoint
+        run: |
+          curl --fail --silent --show-error \
+            --retry 5 \
+            --retry-all-errors \
+            --retry-delay 10 \
+            --connect-timeout 10 \
+            --max-time 20 \
+            https://wallet-find.onrender.com/health
