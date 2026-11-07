@@ -63,8 +63,7 @@ function HomePage({
   const isPersian = language === "fa";
   const isHomeRTL = language === "fa" || language === "ar";
   const homeCopy = getPageCopy(language, "homePage");
-  // Retained for the existing homepage progress state; the challenge card is no longer shown.
-  void homeSolvedCount;
+  const homeProgressPercent = Math.min(100, (homeSolvedCount / 12) * 100);
   const localizeDigits = (value: string) => isPersian
     ? value
         .replace(/[0-9]/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"[Number(digit)])
@@ -178,8 +177,11 @@ function HomePage({
   }, [mobileMenuOpen]);
   const homeRoundRemainingMs = 15 * 60_000 - (homeTimerNow % (15 * 60_000));
   const homeTimerSeconds = Math.ceil(homeRoundRemainingMs / 1000);
-  // The homepage challenge timer is no longer displayed.
-  void homeTimerSeconds;
+  const homeTimerText = localizeDigits(
+    [Math.floor(homeTimerSeconds / 60), homeTimerSeconds % 60]
+      .map((value) => String(value).padStart(2, "0"))
+      .join(":"),
+  );
   const stats = [
     {
       value: siteStats ? formatHomeNumber(siteStats.onlineUsers) : "—",
@@ -274,9 +276,20 @@ function HomePage({
           </p>
         </section>
 
-        <section className="cta-group">
-          <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>{homeCopy.enterChallenge ?? (isPersian ? "ورود به چالش امشب" : "Enter Challenge")}</button>
-          <button className="cta-button cta-button--ghost" type="button" onClick={() => onNavigate("rules")}>{homeCopy.rules ?? (isPersian ? "روش و قوانین چالش" : "How to Play & Challenge Rules")}</button>
+        <section className="home-challenge-card" aria-label={isPersian ? "چالش امروز" : "Today's challenge"}>
+          <div className="home-challenge-card__top">
+            <div className="home-challenge-card__bolt" aria-hidden="true"><svg className="home-challenge-card__magnifier" viewBox="0 0 24 24" fill="none"><circle cx="10.5" cy="10.5" r="6.4" stroke="currentColor" strokeWidth="2.1"/><path d="m15.2 15.2 5 5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/></svg></div>
+            <strong>{homeCopy.today ?? (isPersian ? "چالش امروز" : "Today's Challenge")}</strong>
+            <div className="home-challenge-card__timer">
+              <span><span aria-hidden="true">◷</span> {homeTimerText}</span>
+              <small>{homeCopy.untilNext ?? (isPersian ? "تا شروع دور جدید" : "Until next round")}</small>
+            </div>
+          </div>
+          <div className="home-challenge-card__progress">
+            <strong>{formatHomeNumber(homeSolvedCount)} / {formatHomeNumber(12)}</strong>
+            <span>{homeCopy.yourProgress ?? (isPersian ? "پیشرفت شما" : "Your progress")}</span>
+            <i role="progressbar" aria-valuemin={0} aria-valuemax={12} aria-valuenow={homeSolvedCount} aria-label={homeCopy.challengeProgress ?? (isPersian ? "پیشرفت چالش" : "Challenge progress")}><b style={{ width: homeProgressPercent + "%" }} /></i>
+          </div>
         </section>
 
         <section className="home-key-grid" aria-label={homeCopy.challengeKeys ?? (isPersian ? "۱۲ خانهٔ چالش" : "12 challenge keys")}>
@@ -291,6 +304,11 @@ function HomePage({
               {index < 3 ? <span className="home-key-tile__word">{(isPersian ? ["چالش", "تو", "سرعت"] : ["Challenge", "Your", "Speed"])[index]}</span> : <><span className="home-key-tile__lock" aria-hidden="true"><i /></span><span className="home-key-tile__number">{(index + 1).toLocaleString(isPersian ? "fa-IR" : "en-US")}</span></>}
             </button>
           ))}
+        </section>
+
+        <section className="cta-group">
+          <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>{homeCopy.enterChallenge ?? (isPersian ? "ورود به چالش امشب" : "Enter Challenge")}</button>
+          <button className="cta-button cta-button--ghost" type="button" onClick={() => onNavigate("rules")}>{homeCopy.rules ?? (isPersian ? "روش و قوانین چالش" : "How to Play & Challenge Rules")}</button>
         </section>
 
         <section className="stat-row">
