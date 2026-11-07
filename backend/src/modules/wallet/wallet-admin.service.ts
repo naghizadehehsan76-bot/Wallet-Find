@@ -553,6 +553,7 @@ export async function getAdminWalletAccounts() {
       updatedAt: true,
       user: { select: { id: true, username: true, email: true } },
       walletAddresses: {
+        where: { network: { chainId: 137 } },
         orderBy: { createdAt: "asc" },
         select: {
           id: true, address: true, addressType: true, isPrimary: true, status: true, createdAt: true,
@@ -560,6 +561,7 @@ export async function getAdminWalletAccounts() {
         },
       },
       networkAccounts: {
+        where: { chainId: 137 },
         orderBy: { chainId: "asc" },
         select: {
           id: true, chainId: true, networkKey: true, depositEnabled: true, withdrawalEnabled: true,
@@ -573,7 +575,7 @@ export async function getAdminWalletAccounts() {
 
   const userIds = [...new Set(accounts.map((account) => account.userId))];
   const journals = await prisma.walletJournal.findMany({
-    where: { userId: { in: userIds } },
+    where: { userId: { in: userIds }, networkId: "eip155:137" },
     include: {
       network: { select: { displayName: true, networkKey: true, chainId: true } },
       asset: { select: { symbol: true, displayName: true, decimals: true } },
@@ -617,6 +619,7 @@ export async function getAdminWalletAccountTransactions(walletAccountId: string)
       id: true, userId: true, address: true, status: true, createdAt: true,
       user: { select: { id: true, username: true, email: true } },
       walletAddresses: {
+        where: { network: { chainId: 137 } },
         orderBy: { createdAt: "asc" },
         select: {
           id: true, address: true, addressType: true, isPrimary: true, status: true,
@@ -624,6 +627,7 @@ export async function getAdminWalletAccountTransactions(walletAccountId: string)
         },
       },
       networkAccounts: {
+        where: { chainId: 137 },
         orderBy: { chainId: "asc" },
         select: { id: true, chainId: true, networkKey: true, depositEnabled: true, withdrawalEnabled: true },
       },
@@ -633,7 +637,7 @@ export async function getAdminWalletAccountTransactions(walletAccountId: string)
 
   const [chainDeposits, chainWithdrawals, legacyDeposits, legacyWithdrawals, journals, legacyTransactions] = await Promise.all([
     prisma.walletChainDeposit.findMany({
-      where: { walletAccountId },
+      where: { walletAccountId, networkId: "eip155:137" },
       include: {
         network: { select: { id: true, displayName: true, networkKey: true, chainId: true, explorerTransactionUrlTemplate: true } },
         asset: { select: { id: true, symbol: true, displayName: true, decimals: true } },
@@ -642,7 +646,7 @@ export async function getAdminWalletAccountTransactions(walletAccountId: string)
       orderBy: { detectedAt: "desc" },
     }),
     prisma.walletChainWithdrawal.findMany({
-      where: { walletAccountId },
+      where: { walletAccountId, networkId: "eip155:137" },
       include: {
         network: { select: { id: true, displayName: true, networkKey: true, chainId: true, explorerTransactionUrlTemplate: true } },
         asset: { select: { id: true, symbol: true, displayName: true, decimals: true } },
@@ -652,7 +656,7 @@ export async function getAdminWalletAccountTransactions(walletAccountId: string)
       orderBy: { requestedAt: "desc" },
     }),
     prisma.walletDeposit.findMany({
-      where: { walletAccountId },
+      where: { walletAccountId, chainId: 137 },
       include: {
         asset: { select: { symbol: true, displayName: true, decimals: true } },
         networkAccount: { select: { networkKey: true, chainId: true } },
@@ -660,7 +664,7 @@ export async function getAdminWalletAccountTransactions(walletAccountId: string)
       orderBy: { detectedAt: "desc" },
     }),
     prisma.walletWithdrawal.findMany({
-      where: { walletAccountId },
+      where: { walletAccountId, chainId: 137 },
       include: {
         asset: { select: { symbol: true, displayName: true, decimals: true } },
         networkAccount: { select: { networkKey: true, chainId: true } },
@@ -668,7 +672,7 @@ export async function getAdminWalletAccountTransactions(walletAccountId: string)
       orderBy: { requestedAt: "desc" },
     }),
     prisma.walletJournal.findMany({
-      where: { userId: account.userId },
+      where: { userId: account.userId, networkId: "eip155:137" },
       include: {
         network: { select: { displayName: true, networkKey: true, chainId: true } },
         asset: { select: { symbol: true, displayName: true, decimals: true } },

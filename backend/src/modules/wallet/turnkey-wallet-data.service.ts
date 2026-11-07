@@ -2,13 +2,7 @@ import { Turnkey } from "@turnkey/sdk-server";
 import prisma from "../../config/prisma.js";
 import { decryptApiPrivateKey } from "./turnkey.service.js";
 
-const TURNKEY_NATIVE_DATA_NETWORKS = new Set([
-  "eip155:1",
-  "eip155:10",
-  "eip155:56",
-  "eip155:137",
-  "eip155:42161",
-]);
+const TURNKEY_NATIVE_DATA_NETWORKS = new Set(["eip155:137"]);
 
 function normalizeNetworkId(value: unknown): string {
   if (typeof value !== "string" || !TURNKEY_NATIVE_DATA_NETWORKS.has(value.trim())) {
