@@ -37,7 +37,7 @@ export async function runPrizeSettlementProcessorOnce() {
 }
 
 export function startPrizeSettlementProcessor() {
-  const configured = Number.parseInt(process.env.PRIZE_SETTLEMENT_INTERVAL_MS ?? "15_000", 10);
+  const configured = Number.parseInt(process.env.PRIZE_SETTLEMENT_INTERVAL_MS ?? "15000", 10);
   const intervalMs = Math.max(5_000, Number.isFinite(configured) ? configured : 15_000);
   let running = false;
 
