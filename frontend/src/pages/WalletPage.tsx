@@ -766,15 +766,6 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
           <p className="wallet-deposit-minimum">{depositDetails.message}</p>
           <p className="wallet-deposit-minimum">{copy.networkFeeNotice}</p>
         </>}
-        <section className="wallet-deposit-history">
-          <h2>{copy.depositHistory}</h2>
-          {wallet.onChainDeposits.length === 0 ? <p>{copy.noDepositHistory}</p> : wallet.onChainDeposits.slice(0, 8).map((item) => (
-            <div className="wallet-deposit-history-row" key={item.id}>
-              <div><strong>{item.amount} {item.asset}</strong><small>{item.network} · {(item.detectedAt || item.requestedAt ? new Date(item.detectedAt || item.requestedAt || 0).toLocaleString(locale) : "—")}</small><small>{item.status} · {item.confirmationCount} / {depositDetails?.confirmationsRequired ?? "—"}</small></div>
-              <strong>{item.status}</strong>
-            </div>
-          ))}
-        </section>
         {!depositLoading && !depositDetails && !depositError && depositAssets.length === 0 && <div className="wallet-warning"><strong>⚠ {copy.unavailable}</strong><p>{copy.noDepositAssets}</p></div>}
 
       </section>}
