@@ -356,6 +356,18 @@ export async function scanPolygonUsdtDepositsOnce() {
         const amountMicro = toMicro(log.args.value, asset.decimals);
         if (amountMicro === null || amountMicro <= 0n) continue;
         const minimumAmountMicro = minimumDepositAtomic({ chainId, symbol: asset.symbol, decimals: asset.decimals });
+        // A verified prize payout is an incoming payment, not a user deposit;
+        // never discard it merely because it is below the public deposit minimum.
+        const prizeAward = wallet ? await prisma.prizeAward.findFirst({
+          where: {
+            transactionHash: log.transactionHash,
+            userId: wallet.walletAccount.userId,
+            destinationAddress: recipientAddress,
+            status: { in: ["BROADCAST", "PAID"] },
+          },
+          select: { id: true },
+        }) : null;
+        const belowMinimum = !prizeAward && amountMicro < minimumAmountMicro;
 
         const unique = { chainId, transactionHash: log.transactionHash, logIndex: log.logIndex };
         if (wallet) {
@@ -377,7 +389,7 @@ export async function scanPolygonUsdtDepositsOnce() {
               toAddress: recipientAddress,
               rawAmount: log.args.value.toString(),
               amountMicro,
-              status: amountMicro < minimumAmountMicro ? "IGNORED" : "CONFIRMING",
+              status: belowMinimum ? "IGNORED" : "CONFIRMING",
               confirmationCount: Number(latestBlock - log.blockNumber + 1n),
             }],
             skipDuplicates: true,

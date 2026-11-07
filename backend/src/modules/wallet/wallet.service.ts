@@ -981,19 +981,31 @@ export async function getLatestTreasuryAccountingReconciliation() {
   };
 }
 
+async function getCommittedPrizeTreasuryReserve() {
+  const [fund, pools, paidAwards] = await Promise.all([
+    prisma.globalPrizeFund.findUnique({ where: { id: "global" } }),
+    prisma.prizePool.aggregate({ _sum: { seededMicro: true } }),
+    prisma.prizeAward.aggregate({ where: { status: "PAID" }, _sum: { amountMicro: true } }),
+  ]);
+  const globalBalance = BigInt(fund?.balanceMicro ?? 0n);
+  const roundAllocations = BigInt(pools._sum.seededMicro ?? 0n);
+  const paid = BigInt(paidAwards._sum.amountMicro ?? 0n);
+  const outstandingRounds = roundAllocations > paid ? roundAllocations - paid : 0n;
+  return globalBalance + outstandingRounds;
+}
+
 export async function getTreasuryPrizeFundingSnapshot() {
   const treasury = await prisma.treasuryWallet.findUnique({ where: { id: TREASURY_ID } });
   if (!treasury || treasury.status !== "ACTIVE" || !treasury.address) throw new Error("TREASURY_NOT_READY");
-  const [chain, fund, fundingRows, treasuryLedgerRows] = await Promise.all([
+  const [chain, fund, treasuryLedgerRows, committedReserve] = await Promise.all([
     readTreasuryChainSnapshot(treasury.address),
     prisma.globalPrizeFund.findUnique({ where: { id: "global" } }),
-    prisma.globalPrizeLedger.aggregate({ where: { type: "TREASURY_FUNDING" }, _sum: { amountMicro: true } }),
     prisma.treasuryLedger.aggregate({
       where: { treasuryWalletId: treasury.id, currency: "USDT0" },
       _sum: { amountMicro: true },
     }),
+    getCommittedPrizeTreasuryReserve(),
   ]);
-  const reserved = BigInt(fundingRows._sum.amountMicro ?? 0n);
   const ledgerBalance = BigInt(treasuryLedgerRows._sum.amountMicro ?? 0n);
   const difference = chain.balanceMicro - ledgerBalance;
   return {
@@ -1006,8 +1018,8 @@ export async function getTreasuryPrizeFundingSnapshot() {
     treasuryLedgerBalance: formatMicro(ledgerBalance),
     accountingDifference: formatMicro(difference),
     accountingStatus: difference === 0n ? "MATCH" : "MISMATCH",
-    allocatedToPrizeFund: formatMicro(reserved),
-    unallocatedTreasuryBalance: formatMicro(chain.balanceMicro > reserved ? chain.balanceMicro - reserved : 0n),
+    allocatedToPrizeFund: formatMicro(committedReserve),
+    unallocatedTreasuryBalance: formatMicro(chain.balanceMicro > committedReserve ? chain.balanceMicro - committedReserve : 0n),
     prizeFundBalance: formatMicro(BigInt(fund?.balanceMicro ?? 0n)),
     updatedAt: new Date().toISOString(),
   };
@@ -1089,8 +1101,16 @@ export async function allocateTreasuryToPrizeFund(rawAmount: unknown, adminUserI
   if (amount > liveBalance) throw new Error("INSUFFICIENT_TREASURY_BALANCE");
   return prisma.$transaction(async (tx) => {
     await tx.globalPrizeFund.upsert({ where: { id: "global" }, update: {}, create: { id: "global" } });
-    const prior = await tx.globalPrizeLedger.aggregate({ where: { type: "TREASURY_FUNDING" }, _sum: { amountMicro: true } });
-    const alreadyReserved = BigInt(prior._sum.amountMicro ?? 0n);
+    const [currentFund, pools, paidAwards] = await Promise.all([
+      tx.globalPrizeFund.findUnique({ where: { id: "global" } }),
+      tx.prizePool.aggregate({ _sum: { seededMicro: true } }),
+      tx.prizeAward.aggregate({ where: { status: "PAID" }, _sum: { amountMicro: true } }),
+    ]);
+    const globalBalance = BigInt(currentFund?.balanceMicro ?? 0n);
+    const roundAllocations = BigInt(pools._sum.seededMicro ?? 0n);
+    const paid = BigInt(paidAwards._sum.amountMicro ?? 0n);
+    const outstandingRounds = roundAllocations > paid ? roundAllocations - paid : 0n;
+    const alreadyReserved = globalBalance + outstandingRounds;
     if (alreadyReserved + amount > liveBalance) throw new Error("INSUFFICIENT_UNALLOCATED_TREASURY_BALANCE");
     const referenceKey = "treasury-prize-funding:" + randomUUID();
     const fund = await tx.globalPrizeFund.update({ where: { id: "global" }, data: { balanceMicro: { increment: amount }, totalFundedMicro: { increment: amount } } });

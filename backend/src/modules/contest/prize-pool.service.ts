@@ -1,4 +1,6 @@
 import prisma from "../../config/prisma.js";
+import { getContestLeaderboard } from "./leaderboard.service.js";
+import { calculatePrizeAllocations } from "./prize-distribution.js";
 
 const MICRO = 1_000_000n;
 const ROUND_ALLOCATION_MICRO = MICRO;
@@ -9,14 +11,14 @@ function formatMicro(value: bigint) {
 }
 
 /**
- * Reserves up to 1 USDT from the verified global-fund balance.
- * This function is intentionally not called by the contest scheduler.
- * Only a separately verified real-deposit process may increase the fund.
+ * Reserves up to 1 USDT from the verified global-fund balance when the
+ * scheduler observes the round as active. Only reconciled real funding can
+ * increase the global fund. The unique reference key makes retries safe.
  */
 async function ensurePool(tx: any, contestId: string, now = new Date()) {
   const contest = await tx.contest.findUnique({
     where: { id: contestId },
-    select: { id: true, startsAt: true },
+    select: { id: true, startsAt: true, status: true },
   });
   if (!contest) throw new Error("CONTEST_NOT_FOUND");
 
@@ -31,7 +33,7 @@ async function ensurePool(tx: any, contestId: string, now = new Date()) {
     update: {},
     create: { contestId, currency: "USDT", testOnly: false },
   });
-  if (pool.status !== "OPEN" || !contest.startsAt || contest.startsAt > now) return pool;
+  if (pool.status !== "OPEN" || contest.status !== "ACTIVE" || !contest.startsAt || contest.startsAt > now) return pool;
 
   const allocationKey = "round-allocation:" + contestId;
   const existing = await tx.globalPrizeLedger.findUnique({ where: { referenceKey: allocationKey } });
@@ -99,8 +101,8 @@ function responsePool(pool: any) {
     projectProfit: "0.000000",
     rolloverOut: "0.000000",
     returnedToGlobal: "0.000000",
-    available: formatMicro(pool.status === "SETTLED" ? 0n : remaining),
-    unused: formatMicro(pool.status === "SETTLED" ? remaining : 0n),
+    available: formatMicro(pool.status === "OPEN" ? remaining : 0n),
+    unused: formatMicro(pool.status === "OPEN" ? 0n : remaining),
     settledAt: pool.settledAt,
   };
 }
@@ -149,7 +151,7 @@ export async function getPrizePool(contestId: string) {
     }),
     prisma.prizeAward.findMany({
       where: { contestId }, orderBy: [{ rank: "asc" }, { createdAt: "asc" }],
-      select: { username: true, rank: true, amountMicro: true, status: true },
+      select: { username: true, rank: true, amountMicro: true, status: true, destinationAddress: true, transactionHash: true, broadcastAt: true, confirmedAt: true, failureCode: true },
     }),
   ]);
   return {
@@ -168,6 +170,133 @@ export async function testFundPrizePool(_contestId?: string, _rawAmount?: unknow
   throw new Error("TEST_FUNDING_REMOVED");
 }
 
-export async function settlePrizePool(_contestId?: string, _actorUserId?: string): Promise<never> {
-  throw new Error("REAL_PAYOUT_PROCESSING_NOT_CONFIGURED");
+export async function reserveRoundPrizeAllocation(contestId: string, now = new Date()) {
+  return prisma.$transaction((tx) => ensurePool(tx, contestId, now), { isolationLevel: "Serializable" });
+}
+
+/**
+ * Freezes the completed ranking and creates immutable payout instructions.
+ * Actual transfers are performed by the separate, idempotent payout worker.
+ */
+export async function settlePrizePool(contestId?: string, actorUserId?: string | null) {
+  if (!contestId) throw new Error("CONTEST_NOT_FOUND");
+  const contest = await prisma.contest.findUnique({
+    where: { id: contestId },
+    select: { id: true, status: true, startsAt: true, endsAt: true },
+  });
+  if (!contest) throw new Error("CONTEST_NOT_FOUND");
+  if (contest.status !== "FINISHED" || (contest.endsAt && contest.endsAt > new Date())) {
+    throw new Error("CONTEST_NOT_FINISHED");
+  }
+
+  const leaderboard = await getContestLeaderboard(contestId, 5000);
+  const completed = leaderboard.entries
+    .filter((entry) => entry.completed)
+    .map((entry) => ({
+      userId: entry.userId,
+      username: entry.username,
+      rank: entry.rank,
+      elapsedMs: entry.totalResponseTimeMs,
+    }));
+
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRawUnsafe(
+      "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
+      "prize-pool-settlement:" + contestId,
+    );
+    const pool = await tx.prizePool.findUnique({ where: { contestId } });
+    if (!pool) throw new Error("PRIZE_POOL_NOT_ALLOCATED_AT_ROUND_START");
+    if (pool.status !== "OPEN") {
+      return {
+        contestId,
+        status: pool.status,
+        seeded: formatMicro(BigInt(pool.seededMicro)),
+        awarded: formatMicro(BigInt(pool.awardedMicro)),
+        reused: true,
+      };
+    }
+
+    const seeded = BigInt(pool.seededMicro);
+    if (seeded <= 0n) {
+      const settled = await tx.prizePool.update({
+        where: { contestId },
+        data: { awardedMicro: 0n, status: "SETTLED", settledAt: new Date() },
+      });
+      return { contestId, status: settled.status, seeded: "0.000000", awarded: "0.000000", awards: [] };
+    }
+
+    const allocations = calculatePrizeAllocations(
+      seeded,
+      completed.map(({ userId, rank, elapsedMs }) => ({ userId, rank, elapsedMs })),
+    );
+    const usernameById = new Map(completed.map((entry) => [entry.userId, entry.username]));
+    let awarded = 0n;
+
+    for (const allocation of allocations) {
+      if (allocation.amountMicro <= 0n) continue;
+      await tx.prizeAward.create({
+        data: {
+          contestId,
+          userId: allocation.userId,
+          username: usernameById.get(allocation.userId) ?? "Wallet-Find user",
+          rank: allocation.rank,
+          amountMicro: allocation.amountMicro,
+          status: "PENDING_PAYMENT",
+        },
+      });
+      awarded += allocation.amountMicro;
+    }
+
+    if (awarded > 0n) {
+      await tx.prizeLedger.create({
+        data: {
+          contestId,
+          type: "AWARD",
+          amountMicro: awarded,
+          note: "Final participant awards calculated from verified round allocation",
+          referenceKey: "round-awards:" + contestId,
+        },
+      });
+    }
+
+    const updated = await tx.prizePool.update({
+      where: { contestId },
+      data: {
+        awardedMicro: awarded,
+        status: awarded > 0n ? "PAYOUT_PENDING" : "SETTLED",
+        settledAt: new Date(),
+      },
+    });
+    await tx.auditLog.create({
+      data: {
+        userId: actorUserId ?? null,
+        action: "PRIZE_POOL_SETTLEMENT_PREPARED",
+        entity: "PrizePool",
+        entityId: contestId,
+        metadata: {
+          seededMicro: seeded.toString(),
+          awardedMicro: awarded.toString(),
+          payoutCount: allocations.length,
+          unusedMicro: (seeded - awarded).toString(),
+          payoutMode: "POLYGON_USDT0_TREASURY",
+        },
+      },
+    });
+
+    return {
+      contestId,
+      status: updated.status,
+      seeded: formatMicro(seeded),
+      awarded: formatMicro(awarded),
+      unused: formatMicro(seeded - awarded),
+      payoutCount: allocations.length,
+      awards: allocations.map((award) => ({
+        userId: award.userId,
+        username: usernameById.get(award.userId) ?? "Wallet-Find user",
+        rank: award.rank,
+        amount: formatMicro(award.amountMicro),
+        status: "PENDING_PAYMENT",
+      })),
+    };
+  }, { isolationLevel: "Serializable" });
 }
