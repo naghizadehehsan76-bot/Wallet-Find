@@ -354,14 +354,14 @@ export async function requestChainWalletWithdrawal(input: {
   ]);
   const regularWalletAvailable = totalAvailableBefore - prizeAvailableBefore;
   let fundingSource: "USER_WALLET" | "PRIZE_TREASURY" = "USER_WALLET";
-  if (isPolygonUsdt0 && prizeAvailableBefore >= amount) {
-    if (!prizeTreasury || prizeTreasury.status !== "ACTIVE" || !prizeTreasury.address || !prizeTreasury.turnkeyWalletId) {
-      throw new Error("PRIZE_TREASURY_NOT_READY");
-    }
+  if (isPolygonUsdt0 && prizeAvailableBefore >= amount
+      && prizeTreasury?.status === "ACTIVE" && prizeTreasury.address && prizeTreasury.turnkeyWalletId) {
     fundingSource = "PRIZE_TREASURY";
   } else if (regularWalletAvailable < amount) {
     if (isPolygonUsdt0 && totalAvailableBefore >= amount) {
-      throw new Error("WITHDRAWAL_AMOUNT_EXCEEDS_EITHER_FUNDING_SOURCE");
+      throw new Error(prizeAvailableBefore >= amount
+        ? "PRIZE_TREASURY_NOT_READY"
+        : "WITHDRAWAL_AMOUNT_EXCEEDS_EITHER_FUNDING_SOURCE");
     }
     throw new Error("INSUFFICIENT_WALLET_BALANCE");
   }
@@ -858,6 +858,7 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
       "ONCHAIN_NATIVE_BALANCE_INSUFFICIENT",
       "ONCHAIN_TOKEN_BALANCE_INSUFFICIENT",
       "ONCHAIN_NATIVE_FEE_BALANCE_INSUFFICIENT",
+      "PRIZE_TREASURY_POL_BALANCE_INSUFFICIENT",
       "TURNKEY_SPONSORED_TRANSACTION_FAILED",
       "INVALID_TOKEN_ASSET_CONFIGURATION",
     ]);
