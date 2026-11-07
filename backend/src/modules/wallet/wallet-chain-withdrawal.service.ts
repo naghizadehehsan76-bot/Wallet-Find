@@ -733,6 +733,12 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
         to: withdrawal.asset.assetType === "NATIVE" ? destination : withdrawal.asset.contractAddress!,
         value: withdrawal.asset.assetType === "NATIVE" ? amount : 0n,
         data,
+        onStatusId: async (statusId) => {
+          await prisma.walletChainWithdrawal.updateMany({
+            where: { id: withdrawalId, status: "SIGNING", transactionReference: null },
+            data: { failureCode: "TURNKEY_STATUS_ID:" + statusId },
+          });
+        },
       });
     } else {
       const walletClient = await createTurnkeySigner(
