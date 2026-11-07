@@ -3798,3 +3798,62 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 .contest-language-choice .wf-language-picker__menu {
   z-index: 93;
 }
+
+
+/* Home layout: place the action buttons in normal document flow between the hero copy and the 12-cell grid.
+   Neutralize legacy visual transforms so sections never overlap or cover one another. */
+.home-page .home-concept-vector,
+.home-page .home-concept-title,
+.home-page .home-concept-tagline,
+.home-page .cta-group,
+.home-page .home-key-grid {
+  transform: none !important;
+}
+.home-page .cta-group {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  margin: 20px 0 24px;
+}
+.home-page .home-key-grid {
+  position: relative;
+  margin: 0 0 24px;
+}
+@media (min-width: 900px) {
+  .home-shell .home-content .home-page {
+    grid-template-rows: auto auto auto auto;
+    row-gap: 24px;
+  }
+  .home-page .home-showcase {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+  }
+  .home-page .cta-group {
+    grid-column: 1;
+    grid-row: 2;
+    flex-direction: row;
+    align-self: start;
+    margin: 0;
+  }
+  .home-page .cta-group .cta-button {
+    flex: 1;
+    min-width: 0;
+  }
+  .home-page .home-key-grid {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: start;
+    margin: 0;
+  }
+  .home-page .stat-row {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+  .home-page .how-section {
+    grid-column: 1 / -1;
+    grid-row: 4;
+  }
+}
