@@ -413,8 +413,49 @@ export default function WalletPage({ onNavigate }: Props) {
     }
   };
 
-  const openDeposit = async (assetId?: string) => {
+  // Resolve deposit details from the selected asset whenever the deposit view is
+  // opened or wallet data is refreshed. This also restores the address after a
+  // browser reload, when React selection state starts empty.
+  useEffect(() => {
+    if (view !== "deposit" || !wallet || !depositAssetId) return;
+    const asset = allAssets.find((item) => item.id === depositAssetId);
+    if (!asset || !asset.depositEnabled) {
+      setDepositDetails(null);
+      setDepositLoading(false);
+      return;
+    }
+    const network = wallet.networks.find((item) => item.id === asset.networkId);
+    if (!network) {
+      setDepositDetails(null);
+      setDepositLoading(false);
+      return;
+    }
+
     const requestSequence = ++depositRequestSequence.current;
+    let cancelled = false;
+    setDepositNetworkId(network.id);
+    setDepositDetails(null);
+    setDepositError("");
+    setDepositLoading(true);
+    void requestWalletDeposit(network.id, asset.id)
+      .then((details) => {
+        if (!cancelled && requestSequence === depositRequestSequence.current) setDepositDetails(details);
+      })
+      .catch((requestError) => {
+        if (!cancelled && requestSequence === depositRequestSequence.current) {
+          setDepositError(errorMessage(requestError, apiErrorCopy));
+        }
+      })
+      .finally(() => {
+        if (!cancelled && requestSequence === depositRequestSequence.current) setDepositLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      if (requestSequence === depositRequestSequence.current) depositRequestSequence.current += 1;
+    };
+  }, [view, wallet, depositAssetId, allAssets, apiErrorCopy]);
+
+  const openDeposit = (assetId?: string) => {
     const asset = depositAssets.find((item) => item.id === assetId)
       ?? depositAssets.find((item) => item.symbol === "USDT0")
       ?? depositAssets[0];
@@ -430,21 +471,10 @@ export default function WalletPage({ onNavigate }: Props) {
     }
     setDepositAssetId(asset.id);
     setDepositNetworkId(network.id);
-    setDepositLoading(true);
-    try {
-      const details = await requestWalletDeposit(network.id, asset.id);
-      if (requestSequence === depositRequestSequence.current) setDepositDetails(details);
-    } catch (requestError) {
-      if (requestSequence === depositRequestSequence.current) {
-        setDepositError(errorMessage(requestError, apiErrorCopy));
-      }
-    } finally {
-      if (requestSequence === depositRequestSequence.current) setDepositLoading(false);
-    }
   };
 
   const changeDepositAsset = (assetId: string) => {
-    void openDeposit(assetId);
+    openDeposit(assetId);
   };
 
   const openWithdraw = (assetId?: string) => {
