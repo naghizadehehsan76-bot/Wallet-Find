@@ -399,6 +399,7 @@ async function fetchGanjoorDocuments(limit: number): Promise<SourceDocument[]> {
   const publicDomainPoetIds = [2, 7, 5, 3, 4]; // Hafez, Saadi, Rumi, Khayyam, Ferdowsi
   const sources: SourceDocument[] = [];
   const seenUrls = new Set<string>();
+  let requestCount = 0;
 
   for (const poetId of publicDomainPoetIds.slice(0, limit)) {
     const url = new URL("https://api.ganjoor.net/api/ganjoor/poem/random");
@@ -406,7 +407,8 @@ async function fetchGanjoorDocuments(limit: number): Promise<SourceDocument[]> {
     let response: Response | null = null;
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
-      if (sources.length > 0 || attempt > 0) await waitForWikipediaRetry(1_500);
+      if (requestCount > 0) await waitForWikipediaRetry(1_500);
+      requestCount += 1;
       try {
         response = await fetch(url, {
           headers: {
