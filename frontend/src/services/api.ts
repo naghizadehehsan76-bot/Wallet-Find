@@ -138,9 +138,11 @@ export type LeaderboardResult = {
 };
 
 export type LeaderboardHistoryEntry = LeaderboardEntry & {
+  prizeAwarded: string;
   prizeEarned: string;
   totalPrizeEarned: string;
   prizeStatus: string | null;
+  prizeTransactionHash: string | null;
 };
 
 export type LeaderboardRound = {
