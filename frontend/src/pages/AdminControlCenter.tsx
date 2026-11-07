@@ -428,6 +428,21 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     }
   }, [fa]);
 
+  const closeWalletHistory = useCallback(() => {
+    setSelectedWalletId("");
+    setWalletHistory(null);
+    setWalletHistoryError("");
+  }, []);
+
+  useEffect(() => {
+    if (!selectedWalletId) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeWalletHistory();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [selectedWalletId, closeWalletHistory]);
+
   const openWalletHistory = useCallback(async (walletAccountId: string) => {
     setSelectedWalletId(walletAccountId);
     setWalletHistory(null);
@@ -1165,13 +1180,25 @@ export default function AdminControlCenter({ onNavigate }: Props) {
             ))}
 
             {selectedWalletId && (
-              <section className="admin-wallet-history">
+              <div
+                className="admin-wallet-history-modal"
+                onMouseDown={(event) => {
+                  if (event.target === event.currentTarget) closeWalletHistory();
+                }}
+              >
+              <section
+                className="admin-wallet-history"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="admin-wallet-history-title"
+                onMouseDown={(event) => event.stopPropagation()}
+              >
                 <div className="admin-user-wallets__heading">
                   <div>
-                    <h3>{fa ? "سوابق اختصاصی کیف پول" : "Wallet Transaction History"}</h3>
+                    <h3 id="admin-wallet-history-title">{fa ? "سوابق اختصاصی کیف پول" : "Wallet Transaction History"}</h3>
                     {walletHistory && <p className="admin-footnote">{walletHistory.wallet.username} · {walletHistory.wallet.email}</p>}
                   </div>
-                  <button type="button" onClick={() => { setSelectedWalletId(""); setWalletHistory(null); setWalletHistoryError(""); }}>
+                  <button type="button" onClick={closeWalletHistory} aria-label={fa ? "بستن پنجره سوابق" : "Close transaction history"}>
                     {fa ? "بستن سوابق" : "Close history"}
                   </button>
                 </div>
@@ -1231,6 +1258,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                   </>
                 )}
               </section>
+              </div>
             )}
           </section>
         )}
