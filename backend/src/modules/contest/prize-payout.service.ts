@@ -33,12 +33,6 @@ async function creditPendingAward(awardId: string) {
       throw new Error("PRIZE_AMOUNT_EXCEEDS_ROUND_ALLOCATION");
     }
 
-    const wallet = await tx.walletAccount.findUnique({
-      where: { userId: award.userId },
-      select: { id: true, status: true },
-    });
-    if (!wallet || wallet.status !== "ACTIVE") throw new Error("WINNER_INTERNAL_WALLET_NOT_ACTIVE");
-
     const [network, asset] = await Promise.all([
       tx.walletNetwork.findUnique({
         where: { id: POLYGON_NETWORK_ID },
