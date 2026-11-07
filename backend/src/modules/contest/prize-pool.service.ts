@@ -157,7 +157,7 @@ export async function getPrizePool(contestId: string) {
   return {
     pool: responsePool(pool),
     ledger: ledger.map((row) => ({ ...row, amount: formatMicro(BigInt(row.amountMicro)), amountMicro: undefined })),
-    awards: awards.map((row) => ({ ...row, amount: formatMicro(BigInt(row.amountMicro)), amountMicro: undefined })),
+    awards: awards.map((row) => ({ ...row, payoutMode: "INTERNAL_WALLET_LEDGER", amount: formatMicro(BigInt(row.amountMicro)), amountMicro: undefined })),
   };
 }
 
@@ -175,8 +175,8 @@ export async function reserveRoundPrizeAllocation(contestId: string, now = new D
 }
 
 /**
- * Freezes the completed ranking and creates immutable payout instructions.
- * Actual transfers are performed by the separate, idempotent payout worker.
+ * Freezes the completed ranking and creates immutable internal-credit instructions.
+ * The idempotent payout worker credits each winner's Wallet-Find balance; it never broadcasts a chain transaction.
  */
 export async function settlePrizePool(contestId?: string, actorUserId?: string | null) {
   if (!contestId) throw new Error("CONTEST_NOT_FOUND");
