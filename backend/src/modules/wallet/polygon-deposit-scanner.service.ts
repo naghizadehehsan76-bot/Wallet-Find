@@ -314,32 +314,18 @@ export async function scanPolygonUsdtDepositsOnce() {
   const fromBlock = cursor ? cursor.lastBlockNumber + 1n : initialBlock;
   const hasNewBlocks = fromBlock <= safeHead;
 
-  if (globallyPaused) {
-    // Keep the legacy scanner's cursor moving while the emergency pause is
-    // active. Transfers sent during the pause are intentionally not detected
-    // or credited after resume; already detected deposits remain pending.
-    const pauseAnchor = await client.getBlock({ blockNumber: safeHead });
-    await prisma.chainScanCursor.upsert({
-      where: { chainId },
-      create: { chainId, lastBlockNumber: safeHead, lastBlockHash: pauseAnchor.hash },
-      update: { lastBlockNumber: safeHead, lastBlockHash: pauseAnchor.hash },
-    });
-    return {
-      paused: true,
-      scanned: hasNewBlocks ? Number(safeHead - fromBlock + 1n) : 0,
-      latestBlock: latestBlock.toString(),
-      safeHead: safeHead.toString(),
-      ...reorgResult,
-    };
-  }
-
-  const recipients = new Map(wallets.map((wallet) => [wallet.walletAccount.address.toLowerCase(), wallet]));
+  // The global emergency pause continues to suppress user-wallet deposit
+  // discovery and credits, but must not hide funds arriving at the separate
+  // prize treasury. Scan the treasury address independently while paused.
+  const recipients = new Map(
+    (globallyPaused ? [] : wallets).map((wallet) => [wallet.walletAccount.address.toLowerCase(), wallet]),
+  );
   const treasuryAddress = treasury?.address?.toLowerCase() ?? null;
   if (treasuryAddress && recipients.has(treasuryAddress)) {
     throw new Error("TREASURY_ADDRESS_COLLIDES_WITH_USER_WALLET");
   }
   const addresses = Array.from(new Set([
-    ...wallets.map((wallet) => wallet.walletAccount.address.toLowerCase()),
+    ...(globallyPaused ? [] : wallets.map((wallet) => wallet.walletAccount.address.toLowerCase())),
     ...(treasuryAddress ? [treasuryAddress] : []),
   ])) as Address[];
   const tokenAddress = asset.contractAddress as Address;
@@ -472,7 +458,7 @@ export async function scanPolygonUsdtDepositsOnce() {
     });
   }
 
-  const mature = await prisma.walletDeposit.findMany({
+  const mature = globallyPaused ? [] : await prisma.walletDeposit.findMany({
     where: { chainId, status: "CONFIRMING", blockNumber: { lte: safeHead } },
     take: 250,
     orderBy: { blockNumber: "asc" },
@@ -571,6 +557,7 @@ export async function scanPolygonUsdtDepositsOnce() {
   }
 
   return {
+    paused: globallyPaused,
     scanned: hasNewBlocks ? Number(scannedThrough - fromBlock + 1n) : 0,
     detected,
     treasuryDetected,
