@@ -63,7 +63,8 @@ function HomePage({
   const isPersian = language === "fa";
   const isHomeRTL = language === "fa" || language === "ar";
   const homeCopy = getPageCopy(language, "homePage");
-  const homeProgressPercent = Math.min(100, (homeSolvedCount / 12) * 100);
+  // Retained for the existing homepage progress state; the challenge card is no longer shown.
+  void homeSolvedCount;
   const localizeDigits = (value: string) => isPersian
     ? value
         .replace(/[0-9]/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"[Number(digit)])
@@ -177,11 +178,8 @@ function HomePage({
   }, [mobileMenuOpen]);
   const homeRoundRemainingMs = 15 * 60_000 - (homeTimerNow % (15 * 60_000));
   const homeTimerSeconds = Math.ceil(homeRoundRemainingMs / 1000);
-  const homeTimerText = localizeDigits(
-    [Math.floor(homeTimerSeconds / 60), homeTimerSeconds % 60]
-      .map((value) => String(value).padStart(2, "0"))
-      .join(":"),
-  );
+  // The homepage challenge timer is no longer displayed.
+  void homeTimerSeconds;
   const stats = [
     {
       value: siteStats ? formatHomeNumber(siteStats.onlineUsers) : "—",
