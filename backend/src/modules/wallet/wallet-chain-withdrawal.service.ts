@@ -794,11 +794,18 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
       "TURNKEY_SPONSORED_TRANSACTION_FAILED",
       "INVALID_TOKEN_ASSET_CONFIGURATION",
     ]);
+    const current = safeKnown.has(message) ? null : await prisma.walletChainWithdrawal.findUnique({
+      where: { id: withdrawalId },
+      select: { failureCode: true },
+    }).catch(() => null);
+    const uncertainCode = current?.failureCode?.startsWith("TURNKEY_STATUS_ID:")
+      ? current.failureCode
+      : "SIGNING_OR_BROADCAST_OUTCOME_UNCERTAIN";
     await prisma.walletChainWithdrawal.updateMany({
       where: { id: withdrawalId, status: "SIGNING" },
       data: {
         status: safeKnown.has(message) ? "APPROVED" : "SIGNING",
-        failureCode: safeKnown.has(message) ? message : "SIGNING_OR_BROADCAST_OUTCOME_UNCERTAIN",
+        failureCode: safeKnown.has(message) ? message : uncertainCode,
         lastCheckedAt: new Date(),
       },
     }).catch(() => undefined);
