@@ -513,6 +513,7 @@ const PATH_PAGES: Record<string, Page> = Object.fromEntries(
 
 function getPageFromPath(pathname: string): Page | null {
   const normalizedPath = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  if (["/wallet/deposit", "/wallet/withdraw", "/wallet/history"].includes(normalizedPath)) return "wallet";
   return PATH_PAGES[normalizedPath] ?? null;
 }
 
@@ -581,7 +582,8 @@ function App() {
     }
 
     const canonicalPath = getPathFromPage(page);
-    if (window.location.pathname !== canonicalPath) {
+    const isWalletSubpage = page === "wallet" && /^\/wallet\/(deposit|withdraw|history)\/?$/.test(window.location.pathname);
+    if (!isWalletSubpage && window.location.pathname !== canonicalPath) {
       window.history.replaceState({ walletFindPage: page }, "", canonicalPath);
     }
   }, [page]);
