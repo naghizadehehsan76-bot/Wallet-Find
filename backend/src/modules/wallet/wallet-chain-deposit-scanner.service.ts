@@ -178,6 +178,14 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
 
   const legacyPolygonScannerActive = network.id === "eip155:137"
     && process.env.POLYGON_DEPOSIT_SCANNER_ENABLED === "true";
+  // The legacy Polygon scanner owns only the USDT0 contract. Keep native POL
+  // on the generic EVM scanner so both assets can be deposited concurrently.
+  const genericAssets = network.assets.filter((asset) => !(
+    legacyPolygonScannerActive
+    && asset.assetType === "TOKEN"
+    && asset.symbol === "USDT0"
+    && asset.contractAddress?.toLowerCase() === "0xc2132d05d31c914a87c6611c10748aeb04b58e8f"
+  ));
   const adapter = makeAdapter({ id: network.id, family: "EVM", chainId: network.chainId });
   const latestPosition = await adapter.getLatestPosition();
   const safePosition = await adapter.getSafePosition(network.finalityDepth);
@@ -296,7 +304,7 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
       1,
       2_000,
     );
-    const hasNativeAssets = network.assets.some((asset) => asset.assetType === "NATIVE");
+    const hasNativeAssets = genericAssets.some((asset) => asset.assetType === "NATIVE");
     const chunkSize = BigInt(
       hasNativeAssets ? Math.min(configuredChunkSize, nativeBatchLimit) : configuredChunkSize,
     );
@@ -310,10 +318,10 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
 
     const cursorOnlyMode = requiresWalletScannerCursorOnlyMode({
       networkEnabled: network.isEnabled,
-      legacyPolygonScannerActive,
+      legacyPolygonScannerActive: legacyPolygonScannerActive && genericAssets.length === 0,
       depositEnabled: network.depositEnabled,
       depositsProductionReady: process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY === "true",
-      verifiedEnabledAssetCount: network.assets.length,
+      verifiedEnabledAssetCount: genericAssets.length,
       activeAddressCount: network.addresses.length,
     });
 
@@ -332,7 +340,7 @@ export async function scanWalletNetworkDepositsOnce(networkId: string) {
     for (let start = cursorPosition + 1n; start <= safeValue; start += chunkSize) {
       const end = start + chunkSize - 1n > safeValue ? safeValue : start + chunkSize - 1n;
 
-      for (const asset of network.assets) {
+      for (const asset of genericAssets) {
         if (asset.assetType === "TOKEN" && !asset.contractAddress) continue;
 
         const assetInput: AdapterAsset = {
