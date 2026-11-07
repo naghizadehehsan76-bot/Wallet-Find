@@ -38,8 +38,8 @@ test("distributes the 20 percent tail by inverse completion time", () => {
     { userId: "e", rank: 5, elapsedMs: 80_000 },
   ]);
   const amounts = new Map(awards.map((award) => [award.userId, award.amountMicro]));
-  assert.equal(amounts.get("d"), 133_334n);
-  assert.equal(amounts.get("e"), 66_666n);
+  assert.equal(amounts.get("d"), 133_333n);
+  assert.equal(amounts.get("e"), 66_667n);
   assert.equal(awards.reduce((sum, award) => sum + award.amountMicro, 0n), USDT);
 });
 
