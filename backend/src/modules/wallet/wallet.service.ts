@@ -86,6 +86,38 @@ export async function getWallet(userId: string) {
       }),
     ]);
 
+    const internalPrizeJournals = await tx.walletJournal.findMany({
+      where: {
+        userId,
+        networkId: "eip155:137",
+        entryType: "INTERNAL_TRANSFER",
+        referenceKey: { startsWith: "prize-award:" },
+      },
+      include: {
+        asset: { select: { symbol: true, decimals: true } },
+        postings: {
+          where: { account: "USER_AVAILABLE", direction: "CREDIT" },
+          select: { amountAtomic: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+
+    const internalPrizeTransactions = internalPrizeJournals.map((journal) => ({
+      id: journal.id,
+      type: "PRIZE_AWARD",
+      status: "COMPLETED",
+      amount: formatAssetUnits(
+        journal.postings.reduce((sum, posting) => sum + BigInt(posting.amountAtomic.toFixed(0)), 0n),
+        journal.asset.decimals,
+      ),
+      currency: journal.asset.symbol,
+      note: journal.note,
+      contestId: journal.referenceKey.slice("prize-award:".length),
+      createdAt: journal.createdAt,
+    }));
+
     const journalPostings = await tx.walletJournalPosting.findMany({
       where: { journal: { userId, networkId: "eip155:137" } },
       select: {
@@ -336,7 +368,7 @@ export async function getWallet(userId: string) {
         legacy: false,
       })),
       ],
-      transactions: transactions.map(serializeTransaction),
+      transactions: [...transactions.map(serializeTransaction), ...internalPrizeTransactions].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 100),
     };
   });
 }
