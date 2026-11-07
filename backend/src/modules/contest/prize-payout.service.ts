@@ -203,7 +203,6 @@ async function executePendingAward(awardId: string) {
       where: { id: awardId },
       include: {
         contest: { include: { prizePool: true } },
-        user: { include: { walletAccount: true } },
       },
     });
     if (!award || award.status !== "SIGNING") throw new Error("PRIZE_AWARD_NOT_READY");
@@ -213,7 +212,7 @@ async function executePendingAward(awardId: string) {
     }
     if (award.contest.prizePool.status !== "PAYOUT_PENDING") throw new Error("PRIZE_POOL_NOT_PAYABLE");
 
-    const userWallet = award.user.walletAccount;
+    const userWallet = await prisma.walletAccount.findUnique({ where: { userId: award.userId } });
     if (!userWallet || userWallet.status !== "ACTIVE" || !userWallet.address) {
       throw new Error("WINNER_WALLET_NOT_ACTIVE");
     }
