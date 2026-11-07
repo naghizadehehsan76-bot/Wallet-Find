@@ -15,8 +15,16 @@ test("disabled network advances cursor without scanning deposits", () => {
   assert.equal(requiresWalletScannerCursorOnlyMode({ ...ready, networkEnabled: false }), true);
 });
 
-test("generic Polygon scanner remains cursor-only while legacy scanner owns it", () => {
-  assert.equal(requiresWalletScannerCursorOnlyMode({ ...ready, legacyPolygonScannerActive: true }), true);
+test("generic scanner can process native POL while legacy scanner owns USDT0", () => {
+  assert.equal(requiresWalletScannerCursorOnlyMode({ ...ready, legacyPolygonScannerActive: true }), false);
+});
+
+test("legacy-only Polygon scanner keeps generic scanner cursor-only when no generic asset remains", () => {
+  assert.equal(requiresWalletScannerCursorOnlyMode({
+    ...ready,
+    legacyPolygonScannerActive: true,
+    verifiedEnabledAssetCount: 0,
+  }), true);
 });
 
 test("asset-level pause keeps the cursor moving but does not detect transfers", () => {
