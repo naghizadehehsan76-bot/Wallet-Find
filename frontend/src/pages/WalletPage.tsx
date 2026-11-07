@@ -281,7 +281,7 @@ export default function WalletPage({ onNavigate }: Props) {
     try {
       const walletResult = await getWallet();
       setWallet(walletResult);
-      const savedAt = saveWalletSnapshot(walletResult, snapshotKey);
+      saveWalletSnapshot(walletResult, snapshotKey);
       setWalletLoadedFromCache(false);
       setError("");
     } catch {
@@ -359,7 +359,7 @@ export default function WalletPage({ onNavigate }: Props) {
     try {
       const walletResult = await provisionOwnWallet();
       setWallet(walletResult);
-      const savedAt = saveWalletSnapshot(walletResult);
+      saveWalletSnapshot(walletResult);
       setWalletLoadedFromCache(false);
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : "";
