@@ -453,7 +453,7 @@ export async function sendSponsoredEvmTransaction(input: {
   if (process.env.TURNKEY_GAS_SPONSORSHIP_ENABLED !== "true") {
     throw new Error("TURNKEY_GAS_SPONSORSHIP_NOT_ENABLED");
   }
-  const chainConfig = turnkeyEvmChain(input.chainId);
+  turnkeyEvmChain(input.chainId);
   if (input.chainId !== 137) throw new Error("TURNKEY_GAS_SPONSORSHIP_CHAIN_NOT_ENABLED");
 
   let client: any;
