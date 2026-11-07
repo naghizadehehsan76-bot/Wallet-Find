@@ -510,10 +510,16 @@ model PrizeAward {
   rank Int
   amountMicro BigInt
   status String @default("PENDING_PAYMENT")
+  destinationAddress String?
+  transactionHash String? @unique
+  broadcastAt DateTime?
+  confirmedAt DateTime?
+  failureCode String?
   contest Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   @@unique([contestId, userId])
   @@index([contestId, rank])
+  @@index([status, createdAt])
   @@map("prize_awards")
 }
 
