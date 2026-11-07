@@ -11,9 +11,9 @@ function formatMicro(value: bigint) {
 }
 
 /**
- * Reserves up to 1 USDT from the verified global-fund balance.
- * This function is intentionally not called by the contest scheduler.
- * Only a separately verified real-deposit process may increase the fund.
+ * Reserves up to 1 USDT from the verified global-fund balance when the
+ * scheduler observes the round as active. Only reconciled real funding can
+ * increase the global fund. The unique reference key makes retries safe.
  */
 async function ensurePool(tx: any, contestId: string, now = new Date()) {
   const contest = await tx.contest.findUnique({
