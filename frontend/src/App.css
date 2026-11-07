@@ -3798,35 +3798,3 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 .contest-language-choice .wf-language-picker__menu {
   z-index: 93;
 }
-
-/* Prevent the Home call-to-action buttons and 12-key grid from overlapping. */
-.home-page .cta-group {
-  position: relative;
-  z-index: 1;
-  transform: none !important;
-  margin: 24px 0 22px !important;
-}
-
-.home-page .home-key-grid {
-  position: relative;
-  z-index: 0;
-  transform: none !important;
-  margin-top: 0 !important;
-}
-
-@media (max-width: 899px) {
-  .home-page .cta-group {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .home-page .cta-group .cta-button {
-    width: 100%;
-    min-height: 52px;
-  }
-
-  .home-page .home-key-grid {
-    margin-bottom: 24px;
-  }
-}
