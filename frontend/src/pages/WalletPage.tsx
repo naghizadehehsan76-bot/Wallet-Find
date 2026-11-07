@@ -413,8 +413,61 @@ export default function WalletPage({ onNavigate }: Props) {
     }
   };
 
-  const openDeposit = async (assetId?: string) => {
+  // Resolve deposit details from the selected asset whenever the deposit view is
+  // opened or wallet data is refreshed. This also restores the address after a
+  // browser reload, when React selection state starts empty.
+  // This effect synchronizes the selected deposit asset with the remote deposit API;
+  // its loading/response state updates are intentional and scoped to this request lifecycle.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (view !== "deposit" || !wallet || !depositAssetId) return;
+    const asset = wallet.networks.flatMap((network) => network.assets.map((item) => ({ ...item, networkId: network.id }))).find((item) => item.id === depositAssetId);
+    if (!asset || !asset.depositEnabled) {
+      setDepositDetails(null);
+      setDepositLoading(false);
+      return;
+    }
+    const network = wallet.networks.find((item) => item.id === asset.networkId);
+    if (!network) {
+      setDepositDetails(null);
+      setDepositLoading(false);
+      return;
+    }
+
     const requestSequence = ++depositRequestSequence.current;
+    let cancelled = false;
+    setDepositNetworkId(network.id);
+    setDepositDetails(null);
+    setDepositError("");
+    setDepositLoading(true);
+    void requestWalletDeposit(network.id, asset.id)
+      .then((details) => {
+        if (!cancelled && requestSequence === depositRequestSequence.current) setDepositDetails(details);
+      })
+      .catch((requestError) => {
+        if (!cancelled && requestSequence === depositRequestSequence.current) {
+          setDepositError(errorMessage(requestError, {
+            error: copy.error,
+            depositDisabled: copy.depositDisabled,
+            withdrawDisabled: copy.withdrawDisabled,
+            scannerNotReady: copy.scannerNotReady,
+            insufficientPol: copy.insufficientPol,
+            insufficientUsdt0: copy.insufficientUsdt0,
+            invalidDestination: copy.invalidDestination,
+          }));
+        }
+      })
+      .finally(() => {
+        if (!cancelled && requestSequence === depositRequestSequence.current) setDepositLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      if (requestSequence === depositRequestSequence.current) depositRequestSequence.current += 1;
+    };
+  }, [view, wallet, depositAssetId, copy.error, copy.depositDisabled, copy.withdrawDisabled, copy.scannerNotReady, copy.insufficientPol, copy.insufficientUsdt0, copy.invalidDestination]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const openDeposit = (assetId?: string) => {
     const asset = depositAssets.find((item) => item.id === assetId)
       ?? depositAssets.find((item) => item.symbol === "USDT0")
       ?? depositAssets[0];
@@ -430,21 +483,10 @@ export default function WalletPage({ onNavigate }: Props) {
     }
     setDepositAssetId(asset.id);
     setDepositNetworkId(network.id);
-    setDepositLoading(true);
-    try {
-      const details = await requestWalletDeposit(network.id, asset.id);
-      if (requestSequence === depositRequestSequence.current) setDepositDetails(details);
-    } catch (requestError) {
-      if (requestSequence === depositRequestSequence.current) {
-        setDepositError(errorMessage(requestError, apiErrorCopy));
-      }
-    } finally {
-      if (requestSequence === depositRequestSequence.current) setDepositLoading(false);
-    }
   };
 
   const changeDepositAsset = (assetId: string) => {
-    void openDeposit(assetId);
+    openDeposit(assetId);
   };
 
   const openWithdraw = (assetId?: string) => {
