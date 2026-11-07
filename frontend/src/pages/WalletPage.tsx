@@ -651,7 +651,9 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
                       ? (fa ? "برداشت" : "Withdrawal")
                       : item.type === "WITHDRAWAL_REQUEST"
                         ? (fa ? "درخواست برداشت" : "Withdrawal request")
-                        : item.type;
+                        : item.type === "PRIZE_AWARD"
+                          ? (fa ? "دریافت جایزه چالش" : "Challenge prize received")
+                          : item.type;
             return (
               <div className="wallet-network-row wallet-activity-row" key={item.id}>
                 <div>
