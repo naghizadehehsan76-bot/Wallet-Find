@@ -6,6 +6,7 @@ import { startWalletChainDepositScanner } from "./modules/wallet/wallet-chain-de
 import { startWalletChainWithdrawalReconciler } from "./modules/wallet/wallet-chain-withdrawal-reconciler.service.js";
 import { startTurnkeyWebhookDepositProcessor } from "./modules/wallet/turnkey-webhook-processor.service.js";
 import { startPolygonTreasuryDepositScanner } from "./modules/wallet/polygon-treasury-scanner-runner.service.js";
+import { startPrizePayoutProcessor } from "./modules/contest/prize-payout.service.js";
 
 const PORT = process.env.PORT || 3000;
 
@@ -15,6 +16,7 @@ app.listen(PORT, () => {
   startWalletChainWithdrawalReconciler();
   startTurnkeyWebhookDepositProcessor();
   startPolygonTreasuryDepositScanner();
+  startPrizePayoutProcessor();
 
   // Keep /health responsive while contest data is prepared. Start the
   // scheduler only after the initial seed attempt settles so it cannot race
