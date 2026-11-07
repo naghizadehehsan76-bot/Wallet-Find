@@ -4014,3 +4014,54 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   .admin-user-wallet-card__balances { grid-template-columns:1fr; }
   .admin-wallet-history { padding:12px; }
 }
+
+
+/* Wallet transaction details open in a centered, scrollable dialog instead of extending the wallet list. */
+.admin-wallet-history-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(12px, 3vw, 30px);
+  background: rgba(0, 8, 18, .78);
+  backdrop-filter: blur(8px);
+}
+.admin-wallet-history-modal .admin-wallet-history {
+  width: min(980px, 100%);
+  max-height: calc(100dvh - 48px);
+  margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-color: rgba(0, 225, 207, .34);
+  background: linear-gradient(150deg, rgba(5, 31, 48, .99), rgba(2, 14, 27, .99));
+  box-shadow: 0 24px 90px rgba(0, 0, 0, .58), 0 0 34px rgba(0, 225, 207, .09);
+}
+.admin-wallet-history-modal .admin-user-wallets__heading {
+  position: sticky;
+  top: -16px;
+  z-index: 2;
+  margin: -16px -16px 0;
+  padding: 16px;
+  border-bottom: 1px solid rgba(125, 190, 220, .14);
+  background: rgba(4, 22, 36, .97);
+  backdrop-filter: blur(12px);
+}
+@media (max-width: 640px) {
+  .admin-wallet-history-modal {
+    align-items: flex-end;
+    padding: 8px;
+  }
+  .admin-wallet-history-modal .admin-wallet-history {
+    width: 100%;
+    max-height: calc(100dvh - 16px);
+    padding: 13px;
+    border-radius: 18px 18px 12px 12px;
+  }
+  .admin-wallet-history-modal .admin-user-wallets__heading {
+    top: -13px;
+    margin: -13px -13px 0;
+    padding: 13px;
+  }
+}
