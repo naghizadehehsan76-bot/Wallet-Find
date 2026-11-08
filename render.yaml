@@ -38,7 +38,7 @@ services:
 
 databases:
   - name: wallet-find-db
-    plan: free
+    plan: 0.1c-256mb
     region: frankfurt
     databaseName: wallet_find
     user: wallet_find
