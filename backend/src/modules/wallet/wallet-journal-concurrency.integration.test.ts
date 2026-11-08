@@ -101,6 +101,7 @@ test("concurrent identical ledger events are idempotent and distinct events rema
       .reduce((sum, posting) => sum + BigInt(posting.amountAtomic.toFixed(0)), 0n);
     assert.equal(debit, credit);
   } finally {
-    await prisma.walletNetwork.deleteMany({ where: { id: networkId } });
+    // The CI database is disposable; journal immutability intentionally prevents
+    // deleting posted ledger history as part of fixture cleanup.
   }
 });
