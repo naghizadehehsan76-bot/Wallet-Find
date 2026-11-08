@@ -10,8 +10,7 @@ export type PrizeAllocation = {
   amountMicro: bigint;
 };
 
-const PODIUM_BASIS_POINTS = [5_000n, 2_000n, 1_000n] as const;
-const FOURTH_AND_BELOW_BASIS_POINTS = 2_000n;
+const RANK_BASIS_POINTS = [5_000n, 2_500n, 1_250n, 1_250n] as const;
 const BASIS_POINTS_DENOMINATOR = 10_000n;
 const WEIGHT_SCALE = 1_000_000_000_000_000_000n;
 
@@ -52,10 +51,9 @@ function distribute(
 }
 
 /**
- * Allocates fixed 50% / 20% / 10% shares to ranks 1 / 2 / 3.
- * The remaining 20% is distributed among rank 4+ finishers by inverse
- * server-measured completion time. Missing podium shares remain unused.
- * Exact ties at a podium rank split that rank's fixed share equally.
+ * Allocates fixed 50% / 25% / 12.5% / 12.5% shares to ranks 1 / 2 / 3 / 4.
+ * Ranks below fourth receive no award. A missing rank's share remains unused.
+ * Exact ties at any paid rank split that rank's fixed share equally.
  */
 export function calculatePrizeAllocations(
   poolMicro: bigint,
@@ -73,14 +71,14 @@ export function calculatePrizeAllocations(
   const amounts = new Map<string, bigint>();
   const podiumGroups = new Map<number, PrizeRankEntry[]>();
   for (const entry of completed) {
-    if (entry.rank > 3) continue;
+    if (entry.rank > 4) continue;
     const group = podiumGroups.get(entry.rank) ?? [];
     group.push(entry);
     podiumGroups.set(entry.rank, group);
   }
 
   for (const [rank, group] of podiumGroups) {
-    const basisPoints = PODIUM_BASIS_POINTS[rank - 1];
+    const basisPoints = RANK_BASIS_POINTS[rank - 1];
     if (basisPoints === undefined) continue;
     const share = poolMicro * basisPoints / BASIS_POINTS_DENOMINATOR;
     const equalShares = distribute(share, group, group.map(() => 1n));
@@ -89,15 +87,6 @@ export function calculatePrizeAllocations(
     }
   }
 
-  const fourthAndBelow = completed.filter((entry) => entry.rank >= 4);
-  if (fourthAndBelow.length > 0) {
-    const weightedPool = poolMicro * FOURTH_AND_BELOW_BASIS_POINTS / BASIS_POINTS_DENOMINATOR;
-    const weights = fourthAndBelow.map((entry) => WEIGHT_SCALE / BigInt(Math.max(1, Math.trunc(entry.elapsedMs))));
-    const weightedShares = distribute(weightedPool, fourthAndBelow, weights);
-    for (const [userId, amount] of weightedShares) {
-      amounts.set(userId, (amounts.get(userId) ?? 0n) + amount);
-    }
-  }
 
   return completed.flatMap((entry) => {
     const amountMicro = amounts.get(entry.userId) ?? 0n;
