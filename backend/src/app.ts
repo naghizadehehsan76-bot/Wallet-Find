@@ -4,6 +4,7 @@ import path from "node:path";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import { PostgresRateLimitStore } from "./config/postgres-rate-limit-store.js";
 
 import authRoutes from "./modules/auth/auth.routes.js";
 import contestRoutes from "./modules/contest/contest.routes.js";
@@ -71,6 +72,7 @@ app.post(
 app.use(express.json({ limit: "2mb" }));
 
 const authLimiter = rateLimit({
+  store: new PostgresRateLimitStore("auth:"),
   windowMs: 15 * 60 * 1000,
   limit: 20,
   standardHeaders: "draft-7",
@@ -79,6 +81,7 @@ const authLimiter = rateLimit({
 });
 
 const answerLimiter = rateLimit({
+  store: new PostgresRateLimitStore("contest-answer:"),
   // Legitimate users can submit twelve correct answers quickly, but should
   // not need dozens of requests in a minute. This is an IP-level outer guard;
   // the authoritative per-user game rules remain enforced in the service.
@@ -181,6 +184,7 @@ async function fetchBinancePolFallback(): Promise<number> {
 }
 
 const marketPriceLimiter = rateLimit({
+  store: new PostgresRateLimitStore("market-price:"),
   windowMs: 60 * 1000,
   limit: 30,
   standardHeaders: "draft-7",
