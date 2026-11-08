@@ -54,8 +54,9 @@ function distribute(
 /**
  * Allocates fixed 50% / 25% / 12.5% shares to ranks 1 / 2 / 3.
  * The remaining 12.5% is distributed among rank 4+ finishers by inverse
- * server-measured completion time. Missing podium shares remain unused.
- * Exact ties at a podium rank split that rank's fixed share equally.
+ * server-measured completion time. Faster finishers receive a larger weight;
+ * exact completion-time ties receive equal weights. Missing podium shares
+ * remain unused and are not redistributed.
  */
 export function calculatePrizeAllocations(
   poolMicro: bigint,
@@ -91,9 +92,12 @@ export function calculatePrizeAllocations(
 
   const fourthAndBelow = completed.filter((entry) => entry.rank >= 4);
   if (fourthAndBelow.length > 0) {
-    const weightedPool = poolMicro * FOURTH_AND_BELOW_BASIS_POINTS / BASIS_POINTS_DENOMINATOR;
-    const weights = fourthAndBelow.map((entry) => WEIGHT_SCALE / BigInt(Math.max(1, Math.trunc(entry.elapsedMs))));
-    const weightedShares = distribute(weightedPool, fourthAndBelow, weights);
+    const tailShare = poolMicro * FOURTH_AND_BELOW_BASIS_POINTS / BASIS_POINTS_DENOMINATOR;
+    const weights = fourthAndBelow.map((entry) => {
+      const elapsed = BigInt(Math.max(1, Math.round(entry.elapsedMs)));
+      return WEIGHT_SCALE / elapsed > 0n ? WEIGHT_SCALE / elapsed : 1n;
+    });
+    const weightedShares = distribute(tailShare, fourthAndBelow, weights);
     for (const [userId, amount] of weightedShares) {
       amounts.set(userId, (amounts.get(userId) ?? 0n) + amount);
     }

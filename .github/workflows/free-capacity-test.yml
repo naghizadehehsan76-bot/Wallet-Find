@@ -1,0 +1,145 @@
+name: Free CI Capacity Smoke Test
+
+on:
+  push:
+    branches:
+      - "perf/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-capacity-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: wallet_find_capacity
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d wallet_find_capacity"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/wallet_find_capacity?schema=public
+      DATABASE_POOL_MAX: "5"
+      APP_ROLE: web
+      PORT: "3000"
+      JWT_SECRET: ci-only-not-a-real-secret
+      CORS_ORIGIN: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci --include=dev
+      - name: Apply isolated database migrations
+        working-directory: backend
+        run: npx prisma migrate deploy
+      - name: Generate Prisma client and build
+        working-directory: backend
+        run: |
+          npx prisma generate
+          npm run build
+      - name: Run unit and isolated PostgreSQL concurrency tests
+        working-directory: backend
+        run: npm test
+      - name: Seed synthetic authenticated test fixtures
+        working-directory: backend
+        run: node scripts/seed-capacity-fixtures.mjs
+      - name: Start two isolated API processes against the same PostgreSQL database
+        working-directory: backend
+        run: |
+          PORT=3000 nohup node dist/server.js > /tmp/wallet-find-capacity-api-3000.log 2>&1 &
+          echo $! > /tmp/wallet-find-capacity-api-3000.pid
+          PORT=3001 nohup node dist/server.js > /tmp/wallet-find-capacity-api-3001.log 2>&1 &
+          echo $! > /tmp/wallet-find-capacity-api-3001.pid
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:3000/health > /tmp/wallet-find-health-3000.json               && curl --fail --silent http://127.0.0.1:3001/health > /tmp/wallet-find-health-3001.json; then
+              cat /tmp/wallet-find-health-3000.json
+              cat /tmp/wallet-find-health-3001.json
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/wallet-find-capacity-api-3000.log
+          cat /tmp/wallet-find-capacity-api-3001.log
+          exit 1
+      - name: Run authenticated read-only HTTP load tests
+        working-directory: backend
+        run: |
+          mkdir -p capacity-results
+          endpoints=(
+            "/api/stats/site"
+            "/api/stats/prize-pools?language=en"
+            "/api/profile/me"
+            "/api/wallet/me"
+            "/api/contests/$CAPACITY_CONTEST_ID/leaderboard"
+            "/api/contests/leaderboard-history"
+          )
+          for endpoint in "${endpoints[@]}"; do
+            safe_name=$(echo "$endpoint" | sed 's/[^a-zA-Z0-9]/_/g')
+            for concurrency in 10 25 50; do
+              echo "Testing both API processes concurrently endpoint=$endpoint concurrency=$concurrency duration=10s"
+              for port in 3000 3001; do
+                result_file="capacity-results/${safe_name}-p${port}-c${concurrency}.json"
+                if [[ "$endpoint" == /api/stats/* ]]; then
+                  npx --yes autocannon@8.0.0 --json -c "$concurrency" -d 10 "http://127.0.0.1:$port$endpoint" > "$result_file" &
+                else
+                  npx --yes autocannon@8.0.0 --json -H "Authorization=Bearer $CAPACITY_TOKEN" -c "$concurrency" -d 10 "http://127.0.0.1:$port$endpoint" > "$result_file" &
+                fi
+              done
+              wait
+              for port in 3000 3001; do
+                result_file="capacity-results/${safe_name}-p${port}-c${concurrency}.json"
+                node --input-type=module -e '
+                  import fs from "node:fs";
+                  const p = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+                  const result = {
+                    url: p.url,
+                    connections: p.connections,
+                    durationSeconds: p.duration,
+                    requestsPerSecond: p.requests?.average,
+                    latencyMs: { p50: p.latency?.p50, p99: p.latency?.p99, max: p.latency?.max },
+                    errors: p.errors,
+                    timeouts: p.timeouts,
+                    non2xx: p.non2xx,
+                    throughputBytesPerSecond: p.throughput?.average
+                  };
+                  console.log(JSON.stringify(result));
+                  if ((p.errors || 0) + (p.timeouts || 0) + (p.non2xx || 0) > 0) process.exit(1);
+                  if (typeof p.latency?.p99 === "number" && p.latency.p99 > 1500) process.exit(1);
+                ' "$result_file"
+              done
+            done
+          done
+      - name: Stop isolated API
+        if: always()
+        run: |
+          for port in 3000 3001; do
+            if [ -f "/tmp/wallet-find-capacity-api-$port.pid" ]; then
+              kill "$(cat "/tmp/wallet-find-capacity-api-$port.pid")" || true
+            fi
+            if [ -f "/tmp/wallet-find-capacity-api-$port.log" ]; then
+              tail -n 120 "/tmp/wallet-find-capacity-api-$port.log"
+            fi
+          done
+      - name: Upload capacity results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wallet-find-free-ci-capacity-results
+          path: backend/capacity-results/
+          if-no-files-found: warn
+          retention-days: 7

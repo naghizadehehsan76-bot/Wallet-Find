@@ -78,3 +78,38 @@ test("the lease is released after completion so a later process can run", async 
   assert.deepEqual(first, { acquired: true, value: 1 });
   assert.deepEqual(second, { acquired: true, value: 2 });
 });
+
+test("a failed lease heartbeat marks the worker unsafe and allows recovery", async () => {
+  class HeartbeatFailureStore extends FakeLeaseStore {
+    async updateMany(input: unknown): Promise<{ count: number }> {
+      const args = input as {
+        where: { owner?: string; OR?: unknown };
+        data: { owner?: string | null; leaseExpiresAt?: Date | null };
+      };
+      if (args.where.owner && args.data.leaseExpiresAt instanceof Date && !args.where.OR) {
+        throw new Error("CI_INJECTED_DATABASE_INTERRUPTION");
+      }
+      return super.updateMany(input);
+    }
+  }
+
+  const store = new HeartbeatFailureStore();
+  await assert.rejects(
+    runWithSystemJobLease(
+      "heartbeat-fault-injection",
+      async () => {
+        await new Promise((resolve) => setTimeout(resolve, 2_200));
+        return "must-not-be-reported-as-safe";
+      },
+      { store, leaseMs: 5_000 },
+    ),
+    /SYSTEM_JOB_LEASE_LOST/,
+  );
+
+  const recovered = await runWithSystemJobLease(
+    "heartbeat-fault-injection",
+    async () => "recovered",
+    { store, leaseMs: 5_000 },
+  );
+  assert.deepEqual(recovered, { acquired: true, value: "recovered" });
+});

@@ -181,6 +181,89 @@ async function postReservation(
   });
 }
 
+export async function reserveChainWithdrawalFunds(
+  tx: any,
+  input: {
+    id: string;
+    userId: string;
+    networkId: string;
+    assetId: string;
+    feeAssetId: string;
+    amount: bigint;
+    reservedFeeAmount: bigint;
+    feeQuoteAtomic: bigint;
+    useTurnkeySponsorship: boolean;
+    fundingSource: "USER_WALLET" | "PRIZE_TREASURY";
+    isPolygonUsdt0: boolean;
+  },
+): Promise<void> {
+  // Serialize balance checks and reservations for this user/network/asset.
+  // ReadCommitted is intentional: after waiting for this lock, the next
+  // statement must see the previous transaction's committed reservation.
+  const lockKeys = Array.from(new Set([input.assetId, input.feeAssetId]))
+    .sort()
+    .map((key) => "wallet-user-asset:" + input.userId + ":" + input.networkId + ":" + key);
+  for (const key of lockKeys) {
+    await tx.$queryRawUnsafe(
+      "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
+      key,
+    );
+  }
+
+  const sameAsset = input.assetId === input.feeAssetId;
+  const availableAmount = await readAvailableBalance(tx, input.userId, input.networkId, input.assetId);
+  const prizeAvailable = input.isPolygonUsdt0
+    ? await readAvailableBalanceByReference(
+        tx, input.userId, input.networkId, input.assetId, PRIZE_TREASURY_ACCOUNT_REFERENCE,
+      )
+    : 0n;
+  const sourceAvailable = input.fundingSource === "PRIZE_TREASURY"
+    ? prizeAvailable
+    : availableAmount - prizeAvailable;
+  const availableFee = sameAsset
+    ? availableAmount
+    : input.useTurnkeySponsorship || input.fundingSource === "PRIZE_TREASURY"
+      ? 0n
+      : await readAvailableBalance(tx, input.userId, input.networkId, input.feeAssetId);
+
+  if (sourceAvailable < input.amount) throw new Error("INSUFFICIENT_WALLET_BALANCE");
+  if (sameAsset) {
+    if (availableAmount < input.amount + input.reservedFeeAmount) {
+      throw new Error("INSUFFICIENT_WALLET_BALANCE_FOR_AMOUNT_AND_NETWORK_FEE");
+    }
+  } else {
+    if (availableAmount < input.amount) throw new Error("INSUFFICIENT_WALLET_BALANCE");
+    if (!input.useTurnkeySponsorship && input.fundingSource === "USER_WALLET"
+        && availableFee < input.feeQuoteAtomic) {
+      throw new Error("INSUFFICIENT_NATIVE_FEE_BALANCE");
+    }
+  }
+
+  await postReservation(tx, {
+    id: input.id,
+    userId: input.userId,
+    networkId: input.networkId,
+    walletAssetId: input.assetId,
+    amount: input.amount,
+    suffix: "amount-reserve",
+    note: "Reserve wallet balance for approved on-chain withdrawal",
+    availableAccountReference: input.fundingSource === "PRIZE_TREASURY"
+      ? PRIZE_TREASURY_ACCOUNT_REFERENCE
+      : input.userId,
+  });
+  if (input.reservedFeeAmount > 0n) {
+    await postReservation(tx, {
+      id: input.id,
+      userId: input.userId,
+      networkId: input.networkId,
+      walletAssetId: input.feeAssetId,
+      amount: input.reservedFeeAmount,
+      suffix: "fee-reserve",
+      note: "Reserve native asset for estimated network fee",
+    });
+  }
+}
+
 async function releaseReservation(
   tx: any,
   input: {
@@ -446,33 +529,19 @@ export async function requestChainWalletWithdrawal(input: {
       };
     }
 
-    const lockKeys = Array.from(new Set([asset.id, feeAsset.id]))
-      .sort()
-      .map((key) => "wallet-user-asset:" + input.userId + ":" + networkId + ":" + key);
-    for (const key of lockKeys) {
-      await tx.$queryRawUnsafe("SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock", key);
-    }
-
-    const feeAndAmountSameAsset = asset.id === feeAsset.id;
-    const availableAmount = await readAvailableBalance(tx, input.userId, networkId, asset.id);
-    const prizeAvailable = isPolygonUsdt0
-      ? await readAvailableBalanceByReference(tx, input.userId, networkId, asset.id, PRIZE_TREASURY_ACCOUNT_REFERENCE)
-      : 0n;
-    const sourceAvailable = fundingSource === "PRIZE_TREASURY" ? prizeAvailable : availableAmount - prizeAvailable;
-    const availableFee = feeAndAmountSameAsset
-      ? availableAmount
-      : useTurnkeySponsorship || fundingSource === "PRIZE_TREASURY"
-        ? 0n
-        : await readAvailableBalance(tx, input.userId, networkId, feeAsset.id);
-    if (sourceAvailable < amount) throw new Error("INSUFFICIENT_WALLET_BALANCE");
-    if (feeAndAmountSameAsset) {
-      if (availableAmount < amount + reservedFeeAmount) {
-        throw new Error("INSUFFICIENT_WALLET_BALANCE_FOR_AMOUNT_AND_NETWORK_FEE");
-      }
-    } else {
-      if (availableAmount < amount) throw new Error("INSUFFICIENT_WALLET_BALANCE");
-      if (!useTurnkeySponsorship && fundingSource === "USER_WALLET" && availableFee < feeQuote.feeAtomic) throw new Error("INSUFFICIENT_NATIVE_FEE_BALANCE");
-    }
+    await reserveChainWithdrawalFunds(tx, {
+      id,
+      userId: input.userId,
+      networkId,
+      assetId: asset.id,
+      feeAssetId: feeAsset.id,
+      amount,
+      reservedFeeAmount,
+      feeQuoteAtomic: feeQuote.feeAtomic,
+      useTurnkeySponsorship,
+      fundingSource,
+      isPolygonUsdt0,
+    });
 
     const withdrawal = await tx.walletChainWithdrawal.create({
       data: {
@@ -495,28 +564,6 @@ export async function requestChainWalletWithdrawal(input: {
         status: "APPROVED",
       },
     });
-
-    await postReservation(tx, {
-      id,
-      userId: input.userId,
-      networkId,
-      walletAssetId: asset.id,
-      amount,
-      suffix: "amount-reserve",
-      note: "Reserve wallet balance for approved on-chain withdrawal",
-      availableAccountReference: fundingSource === "PRIZE_TREASURY" ? PRIZE_TREASURY_ACCOUNT_REFERENCE : input.userId,
-    });
-    if (reservedFeeAmount > 0n) {
-      await postReservation(tx, {
-        id,
-        userId: input.userId,
-        networkId,
-        walletAssetId: feeAsset.id,
-        amount: reservedFeeAmount,
-        suffix: "fee-reserve",
-        note: "Reserve native asset for estimated network fee",
-      });
-    }
 
     await tx.auditLog.create({
       data: {
@@ -546,7 +593,7 @@ export async function requestChainWalletWithdrawal(input: {
       feeDecimals: feeAsset.decimals,
       reused: false,
     };
-  }, { isolationLevel: "Serializable" });
+  }, { isolationLevel: "ReadCommitted" });
 }
 
 export async function getAdminChainWalletWithdrawals() {

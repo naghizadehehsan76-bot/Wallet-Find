@@ -1,0 +1,61 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { after, test } from "node:test";
+import prisma from "../../config/prisma.js";
+import { runWithSystemJobLease } from "./system-job-lease.service.js";
+import { PostgresRateLimitStore } from "../../config/postgres-rate-limit-store.js";
+
+const shouldRun = Boolean(process.env.DATABASE_URL);
+
+after(async () => {
+  if (shouldRun) await prisma.$disconnect();
+});
+
+test("PostgreSQL lease admits one worker under concurrent replica claims and recovers expired leases", {
+  skip: !shouldRun,
+  timeout: 60_000,
+}, async () => {
+  const name = "ci-concurrent-worker-" + randomUUID();
+  let executions = 0;
+  try {
+    const claims = await Promise.all(Array.from({ length: 20 }, () =>
+      runWithSystemJobLease(name, async () => {
+        executions += 1;
+        await new Promise((resolve) => setTimeout(resolve, 40));
+        return "processed";
+      }, { leaseMs: 5_000 }),
+    ));
+
+    assert.equal(claims.filter((claim) => claim.acquired).length, 1);
+    assert.equal(executions, 1);
+
+    await prisma.systemJobLease.update({
+      where: { name },
+      data: { leaseExpiresAt: new Date(Date.now() - 1_000) },
+    });
+
+    const recovered = await runWithSystemJobLease(name, async () => "recovered", { leaseMs: 5_000 });
+    assert.deepEqual(recovered, { acquired: true, value: "recovered" });
+  } finally {
+    await prisma.systemJobLease.deleteMany({ where: { name } });
+  }
+});
+
+test("shared PostgreSQL rate limits count simultaneous requests atomically", {
+  skip: !shouldRun,
+  timeout: 60_000,
+}, async () => {
+  const prefix = "ci-rate-limit-" + randomUUID() + ":";
+  const key = "client";
+  const store = new PostgresRateLimitStore(prefix);
+  store.init({ windowMs: 60_000 });
+  try {
+    const results = await Promise.all(Array.from({ length: 40 }, () => store.increment(key)));
+    assert.equal(results.length, 40);
+    assert.equal(Math.max(...results.map((result) => result.totalHits)), 40);
+    assert.equal((await store.get(key))?.totalHits, 40);
+  } finally {
+    await store.resetKey(key);
+  }
+  assert.equal(await store.get(key), undefined);
+});
