@@ -58,19 +58,23 @@ jobs:
       - name: Seed synthetic authenticated test fixtures
         working-directory: backend
         run: node scripts/seed-capacity-fixtures.mjs
-      - name: Start isolated API process
+      - name: Start two isolated API processes against the same PostgreSQL database
         working-directory: backend
         run: |
-          nohup node dist/server.js > /tmp/wallet-find-capacity-api.log 2>&1 &
-          echo $! > /tmp/wallet-find-capacity-api.pid
+          PORT=3000 nohup node dist/server.js > /tmp/wallet-find-capacity-api-3000.log 2>&1 &
+          echo $! > /tmp/wallet-find-capacity-api-3000.pid
+          PORT=3001 nohup node dist/server.js > /tmp/wallet-find-capacity-api-3001.log 2>&1 &
+          echo $! > /tmp/wallet-find-capacity-api-3001.pid
           for attempt in $(seq 1 40); do
-            if curl --fail --silent http://127.0.0.1:3000/health > /tmp/wallet-find-health.json; then
-              cat /tmp/wallet-find-health.json
+            if curl --fail --silent http://127.0.0.1:3000/health > /tmp/wallet-find-health-3000.json               && curl --fail --silent http://127.0.0.1:3001/health > /tmp/wallet-find-health-3001.json; then
+              cat /tmp/wallet-find-health-3000.json
+              cat /tmp/wallet-find-health-3001.json
               exit 0
             fi
             sleep 2
           done
-          cat /tmp/wallet-find-capacity-api.log
+          cat /tmp/wallet-find-capacity-api-3000.log
+          cat /tmp/wallet-find-capacity-api-3001.log
           exit 1
       - name: Run authenticated read-only HTTP load tests
         working-directory: backend
@@ -84,44 +88,49 @@ jobs:
             "/api/contests/$CAPACITY_CONTEST_ID/leaderboard"
             "/api/contests/leaderboard-history"
           )
-          for endpoint in "${endpoints[@]}"; do
-            safe_name=$(echo "$endpoint" | sed 's/[^a-zA-Z0-9]/_/g')
-            for concurrency in 10 25 50; do
-              echo "Testing endpoint=$endpoint concurrency=$concurrency duration=10s"
-              if [[ "$endpoint" == /api/stats/* ]]; then
-                npx --yes autocannon@8.0.0 --json -c "$concurrency" -d 10 "http://127.0.0.1:3000$endpoint" > "capacity-results/${safe_name}-c${concurrency}.json"
-              else
-                npx --yes autocannon@8.0.0 --json -H "Authorization=Bearer $CAPACITY_TOKEN" -c "$concurrency" -d 10 "http://127.0.0.1:3000$endpoint" > "capacity-results/${safe_name}-c${concurrency}.json"
-              fi
-              node --input-type=module -e '
-                import fs from "node:fs";
-                const p = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-                const result = {
-                  url: p.url,
-                  connections: p.connections,
-                  durationSeconds: p.duration,
-                  requestsPerSecond: p.requests?.average,
-                  latencyMs: { p50: p.latency?.p50, p99: p.latency?.p99, max: p.latency?.max },
-                  errors: p.errors,
-                  timeouts: p.timeouts,
-                  non2xx: p.non2xx,
-                  throughputBytesPerSecond: p.throughput?.average
-                };
-                console.log(JSON.stringify(result));
-                if ((p.errors || 0) + (p.timeouts || 0) + (p.non2xx || 0) > 0) process.exit(1);
-                if (typeof p.latency?.p99 === "number" && p.latency.p99 > 1500) process.exit(1);
-              ' "capacity-results/${safe_name}-c${concurrency}.json"
+          for port in 3000 3001; do
+            for endpoint in "${endpoints[@]}"; do
+              safe_name=$(echo "$endpoint" | sed 's/[^a-zA-Z0-9]/_/g')
+              for concurrency in 10 25 50; do
+                echo "Testing port=$port endpoint=$endpoint concurrency=$concurrency duration=10s"
+                result_file="capacity-results/${safe_name}-p${port}-c${concurrency}.json"
+                if [[ "$endpoint" == /api/stats/* ]]; then
+                  npx --yes autocannon@8.0.0 --json -c "$concurrency" -d 10 "http://127.0.0.1:$port$endpoint" > "$result_file"
+                else
+                  npx --yes autocannon@8.0.0 --json -H "Authorization=Bearer $CAPACITY_TOKEN" -c "$concurrency" -d 10 "http://127.0.0.1:$port$endpoint" > "$result_file"
+                fi
+                node --input-type=module -e '
+                  import fs from "node:fs";
+                  const p = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+                  const result = {
+                    url: p.url,
+                    connections: p.connections,
+                    durationSeconds: p.duration,
+                    requestsPerSecond: p.requests?.average,
+                    latencyMs: { p50: p.latency?.p50, p99: p.latency?.p99, max: p.latency?.max },
+                    errors: p.errors,
+                    timeouts: p.timeouts,
+                    non2xx: p.non2xx,
+                    throughputBytesPerSecond: p.throughput?.average
+                  };
+                  console.log(JSON.stringify(result));
+                  if ((p.errors || 0) + (p.timeouts || 0) + (p.non2xx || 0) > 0) process.exit(1);
+                  if (typeof p.latency?.p99 === "number" && p.latency.p99 > 1500) process.exit(1);
+                ' "$result_file"
+              done
             done
           done
       - name: Stop isolated API
         if: always()
         run: |
-          if [ -f /tmp/wallet-find-capacity-api.pid ]; then
-            kill "$(cat /tmp/wallet-find-capacity-api.pid)" || true
-          fi
-          if [ -f /tmp/wallet-find-capacity-api.log ]; then
-            tail -n 120 /tmp/wallet-find-capacity-api.log
-          fi
+          for port in 3000 3001; do
+            if [ -f "/tmp/wallet-find-capacity-api-$port.pid" ]; then
+              kill "$(cat "/tmp/wallet-find-capacity-api-$port.pid")" || true
+            fi
+            if [ -f "/tmp/wallet-find-capacity-api-$port.log" ]; then
+              tail -n 120 "/tmp/wallet-find-capacity-api-$port.log"
+            fi
+          done
       - name: Upload capacity results
         if: always()
         uses: actions/upload-artifact@v4
