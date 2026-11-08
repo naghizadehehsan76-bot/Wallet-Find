@@ -56,7 +56,7 @@ For each authenticated submission:
 ## 6. Prize calculation and real-fund safeguards
 
 - The maximum per-round allocation is 1.000000 USDT from the verified global prize-fund balance.
-- Participant awards are fixed at 50% for first, 25% for second, 12.5% for third, and 12.5% for fourth. Ranks fifth and lower receive no award. Exact ties within a paid rank split that rank's share equally. If a paid rank is unfilled, its share remains unused and does not roll over.
+- Participant awards are 50% for first, 25% for second, and 12.5% for third. The remaining 12.5% is distributed among all finishers ranked fourth and below in proportion to inverse server-measured completion time (weight = 1 / elapsed time), so faster finishers receive a larger share. Exact equal completion times receive equal weights. If there are no rank-four-or-below finishers, this 12.5% remains unused and does not roll over. Missing podium shares also remain unused.
 - The reservation must be atomic and idempotent. Use integer micro-USDT units and database uniqueness constraints.
 - If the global fund has less than 1 USDT, reserve only the available amount. If it has no confirmed funds, the round allocation and prize are zero.
 - Ranking and contest completion must never depend on successful prize allocation, settlement, or transfer.
@@ -103,12 +103,12 @@ Recommended lifecycle: `SCHEDULED -> ACTIVE -> FINISHED`.
 7. Completion time for clue 12 is immutable and measured from `startsAt`.
 8. Duplicate/concurrent submissions cannot bypass sequence, locks, or completion state.
 9. Incomplete participants receive no award.
-10. The fixed 50% / 25% / 12.5% / 12.5% allocation for ranks one through four never exceeds the round allocation.
+10. The fixed 50% / 25% / 12.5% podium allocation plus the inverse-completion-time 12.5% tail for rank four and below never exceeds the round allocation.
 11. Exact ties spanning podium positions split the combined occupied podium shares equally.
 12. No simulated daily funding is recorded or backfilled.
 13. Each active round reserves up to 1 USDT from the verified global fund exactly once.
 14. A round with no completed participants creates no payout and leaves its allocation unused; nothing rolls over.
-15. Rank four receives 12.5%; ranks five and lower receive no prize. Exact ties at rank four split that 12.5% equally.
+15. Ranks four and lower share the final 12.5% in proportion to inverse completion time; faster finishers receive more, and equal times receive equal weights.
 16. Payouts are sent only from the Polygon prize treasury to the winner's verified Turnkey wallet address.
 17. Payouts are idempotent, wait for canonical chain finality, verify the USDT0 Transfer event, and record a treasury debit only after confirmation.
 18. An uncertain signing/broadcast result is quarantined for manual review and is never automatically resubmitted.
