@@ -240,6 +240,7 @@ model Submission {
   @@index([userId, contestId])
   @@index([contestId, clueId])
   @@index([contestId, userId])
+  @@index([contestId, submittedAt])
   @@map("submissions")
 }
 
@@ -1197,4 +1198,30 @@ model TurnkeyWebhookEvent {
   @@index([status, receivedAt])
   @@index([organizationId, receivedAt])
   @@map("turnkey_webhook_events")
+}
+
+
+/// Cross-process leases for singleton background jobs such as the challenge
+/// scheduler and financial settlement runners.
+model SystemJobLease {
+  name           String   @id
+  owner          String?
+  leaseExpiresAt DateTime?
+  heartbeatAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([leaseExpiresAt])
+  @@map("system_job_leases")
+}
+
+/// Shared request counters used by express-rate-limit on every API replica.
+model RateLimitCounter {
+  key       String   @id
+  hits      Int
+  resetAt   DateTime
+  updatedAt DateTime @updatedAt
+
+  @@index([resetAt])
+  @@map("rate_limit_counters")
 }
