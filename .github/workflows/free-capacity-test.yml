@@ -88,17 +88,21 @@ jobs:
             "/api/contests/$CAPACITY_CONTEST_ID/leaderboard"
             "/api/contests/leaderboard-history"
           )
-          for port in 3000 3001; do
-            for endpoint in "${endpoints[@]}"; do
-              safe_name=$(echo "$endpoint" | sed 's/[^a-zA-Z0-9]/_/g')
-              for concurrency in 10 25 50; do
-                echo "Testing port=$port endpoint=$endpoint concurrency=$concurrency duration=10s"
+          for endpoint in "${endpoints[@]}"; do
+            safe_name=$(echo "$endpoint" | sed 's/[^a-zA-Z0-9]/_/g')
+            for concurrency in 10 25 50; do
+              echo "Testing both API processes concurrently endpoint=$endpoint concurrency=$concurrency duration=10s"
+              for port in 3000 3001; do
                 result_file="capacity-results/${safe_name}-p${port}-c${concurrency}.json"
                 if [[ "$endpoint" == /api/stats/* ]]; then
-                  npx --yes autocannon@8.0.0 --json -c "$concurrency" -d 10 "http://127.0.0.1:$port$endpoint" > "$result_file"
+                  npx --yes autocannon@8.0.0 --json -c "$concurrency" -d 10 "http://127.0.0.1:$port$endpoint" > "$result_file" &
                 else
-                  npx --yes autocannon@8.0.0 --json -H "Authorization=Bearer $CAPACITY_TOKEN" -c "$concurrency" -d 10 "http://127.0.0.1:$port$endpoint" > "$result_file"
+                  npx --yes autocannon@8.0.0 --json -H "Authorization=Bearer $CAPACITY_TOKEN" -c "$concurrency" -d 10 "http://127.0.0.1:$port$endpoint" > "$result_file" &
                 fi
+              done
+              wait
+              for port in 3000 3001; do
+                result_file="capacity-results/${safe_name}-p${port}-c${concurrency}.json"
                 node --input-type=module -e '
                   import fs from "node:fs";
                   const p = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
