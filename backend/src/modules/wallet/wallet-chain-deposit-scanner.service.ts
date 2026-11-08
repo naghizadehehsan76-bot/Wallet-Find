@@ -189,7 +189,7 @@ export async function scanWalletNetworkDepositsOnce(
     && asset.symbol === "USDT0"
     && asset.contractAddress?.toLowerCase() === "0xc2132d05d31c914a87c6611c10748aeb04b58e8f"
   ));
-  const adapter = makeAdapter({ id: network.id, family: "EVM", chainId: network.chainId });
+  const adapter = adapterFactory({ id: network.id, family: "EVM", chainId: network.chainId });
   const latestPosition = await adapter.getLatestPosition();
   const safePosition = await adapter.getSafePosition(network.finalityDepth);
   const safeValue = numericPosition(safePosition);
