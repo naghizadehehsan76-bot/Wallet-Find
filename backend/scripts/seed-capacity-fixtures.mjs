@@ -1,7 +1,7 @@
 import { appendFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import jwt from "jsonwebtoken";
-import { PrismaClient } from "../src/generated/prisma/client.js";
+import { PrismaClient } from "../dist/generated/prisma/client.js";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const adapter = new PrismaPg({
