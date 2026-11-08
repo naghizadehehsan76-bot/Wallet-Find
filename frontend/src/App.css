@@ -4119,3 +4119,106 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   .admin-ads-item__details,.admin-ads-source-item__details { grid-template-columns:1fr; }
   .admin-ads-item__details button,.admin-ads-source-item__details button { width:100%; }
 }
+
+/* Desktop homepage alignment: keep all sections in normal grid flow.
+   The mobile layout intentionally remains unchanged. */
+@media (min-width: 900px) {
+  .home-shell .home-content .home-page {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(320px, .95fr);
+    grid-template-rows: auto auto auto auto;
+    column-gap: clamp(28px, 3.8vw, 48px);
+    row-gap: 24px;
+    align-items: start;
+  }
+
+  .home-page .home-showcase {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: center;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .home-page .home-concept-vector {
+    width: 100%;
+    max-width: 100%;
+    max-height: 370px;
+    height: auto;
+    margin: 0 auto 8px;
+    transform: none !important;
+  }
+
+  .home-page .home-concept-title,
+  .home-page .home-concept-tagline {
+    position: relative;
+    transform: none !important;
+    max-width: 100%;
+  }
+
+  .home-page .home-concept-title {
+    margin: 4px 0 10px;
+    font-size: clamp(27px, 2.8vw, 36px);
+    line-height: 1.45;
+  }
+
+  .home-page .home-concept-tagline {
+    margin: 0;
+    font-size: clamp(15px, 1.35vw, 17px);
+    line-height: 1.85;
+  }
+
+  .home-page .cta-group {
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    flex-direction: row;
+    align-self: start;
+    gap: 12px;
+    width: 100%;
+    margin: 0;
+    transform: none !important;
+  }
+
+  .home-page .cta-group .cta-button {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 54px;
+  }
+
+  .home-page .home-key-grid {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    width: 100%;
+    margin: 0;
+    transform: none !important;
+  }
+
+  .home-page .home-key-tile {
+    min-width: 0;
+    aspect-ratio: 1 / 1;
+  }
+
+  .home-page .stat-row {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    align-self: stretch;
+    margin: 0;
+    transform: none !important;
+  }
+
+  .home-page .how-section {
+    grid-column: 1 / -1;
+    grid-row: 4;
+    margin: 0;
+    transform: none !important;
+  }
+
+  .home-page .steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+}
