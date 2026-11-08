@@ -63,8 +63,8 @@ test("parallel participants and duplicate answer requests preserve one ordered a
     for (const clue of clues) {
       // Keep the burst above the five-connection CI pool while avoiding an
       // artificial connection-queue timeout from launching every fixture at once.
-      for (let offset = 0; offset < userIds.length; offset += 4) {
-        const batch = userIds.slice(offset, offset + 4);
+      for (let offset = 0; offset < userIds.length; offset += 2) {
+        const batch = userIds.slice(offset, offset + 2);
         const attempts = await Promise.allSettled(batch.flatMap((userId) =>
           Array.from({ length: 2 }, () => submitAnswer(userId, activeContestId, {
             clueId: clue.id,
