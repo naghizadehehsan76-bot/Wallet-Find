@@ -23,7 +23,15 @@ const app = express();
 // through that proxy without trusting arbitrary X-Forwarded-For entries.
 app.set("trust proxy", 1);
 
-const corsOrigin = process.env.CORS_ORIGIN?.trim();
+// Never reflect arbitrary Origin values while credentials are enabled.
+// The configured value accepts a comma-separated allowlist; known first-party
+// production origins remain allowed even when the optional variable is absent.
+const corsOrigins = new Set([
+  "https://wallet-find.com",
+  "https://www.wallet-find.com",
+  "https://wallet-find.onrender.com",
+  ...(process.env.CORS_ORIGIN ?? "").split(",").map((origin) => origin.trim()).filter(Boolean),
+]);
 
 app.use(
   helmet({
@@ -37,7 +45,10 @@ app.use(
 );
 app.use(
   cors({
-    origin: corsOrigin || true,
+    origin: (origin, callback) => {
+      if (!origin || corsOrigins.has(origin)) return callback(null, true);
+      return callback(null, false);
+    },
     credentials: true,
   }),
 );
