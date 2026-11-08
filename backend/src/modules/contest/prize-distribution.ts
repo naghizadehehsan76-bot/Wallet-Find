@@ -10,8 +10,8 @@ export type PrizeAllocation = {
   amountMicro: bigint;
 };
 
-const PODIUM_BASIS_POINTS = [5_000n, 2_500n, 1_250n] as const;
-const FOURTH_AND_BELOW_BASIS_POINTS = 1_250n;
+const PODIUM_BASIS_POINTS = [5_000n, 2_000n, 1_000n] as const;
+const FOURTH_AND_BELOW_BASIS_POINTS = 2_000n;
 const BASIS_POINTS_DENOMINATOR = 10_000n;
 const WEIGHT_SCALE = 1_000_000_000_000_000_000n;
 
@@ -52,8 +52,8 @@ function distribute(
 }
 
 /**
- * Allocates fixed 50% / 25% / 12.5% shares to ranks 1 / 2 / 3.
- * The remaining 12.5% is distributed among rank 4+ finishers by inverse
+ * Allocates fixed 50% / 20% / 10% shares to ranks 1 / 2 / 3.
+ * The remaining 20% is distributed among rank 4+ finishers by inverse
  * server-measured completion time. Missing podium shares remain unused.
  * Exact ties at a podium rank split that rank's fixed share equally.
  */
