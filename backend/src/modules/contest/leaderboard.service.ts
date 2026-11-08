@@ -1,16 +1,9 @@
-import { calculateResponseTimeMs } from "./contest.logic.js";
-
 import prisma from "../../config/prisma.js";
+import { buildLeaderboardEntries, type LeaderboardAggregateRow } from "./leaderboard.logic.js";
 
-export type LeaderboardEntry = {
-  rank: number;
-  userId: string;
-  username: string;
-  solvedCount: number;
-  totalResponseTimeMs: number;
-  incorrectAttempts: number;
-  completed: boolean;
-};
+export type { LeaderboardEntry } from "./leaderboard.logic.js";
+
+const MAX_LEADERBOARD_PAGE_SIZE = 5_000;
 
 export async function getContestLeaderboard(
   contestId: string,
@@ -24,149 +17,43 @@ export async function getContestLeaderboard(
     },
   });
 
-  if (!contest) {
-    throw new Error("CONTEST_NOT_FOUND");
-  }
+  if (!contest) throw new Error("CONTEST_NOT_FOUND");
 
-  const submissions = await prisma.submission.findMany({
-    where: { contestId },
-    orderBy: [{ submittedAt: "asc" }, { id: "asc" }],
-    select: {
-      userId: true,
-      clueId: true,
-      isCorrect: true,
-      submittedAt: true,
-      responseTimeMs: true,
-      clue: {
-        select: {
-          sequence: true,
-        },
-      },
-      user: {
-        select: { username: true },
-      },
-    },
-  });
+  const safeLimit = Number.isFinite(limit)
+    ? Math.max(1, Math.min(MAX_LEADERBOARD_PAGE_SIZE, Math.floor(limit)))
+    : 100;
 
-  const byUser = new Map<
-    string,
-    {
-      username: string;
-      solvedClueIds: Set<string>;
-      totalResponseTimeMs: bigint;
-      completedAt: Date | null;
-      incorrectAttempts: number;
-      lastSubmittedAt: Date | null;
-    }
-  >();
-
-  for (const submission of submissions) {
-    let existing = byUser.get(submission.userId);
-
-    if (!existing) {
-      existing = {
-        username: submission.user.username,
-        solvedClueIds: new Set<string>(),
-        totalResponseTimeMs: 0n,
-        completedAt: null,
-        incorrectAttempts: 0,
-        lastSubmittedAt: null,
-      };
-      byUser.set(submission.userId, existing);
-    }
-
-    if (!existing.lastSubmittedAt || submission.submittedAt > existing.lastSubmittedAt) {
-      existing.lastSubmittedAt = submission.submittedAt;
-    }
-    if (!submission.isCorrect) {
-      existing.incorrectAttempts += 1;
-      continue;
-    }
-
-    // Count one successful answer per clue only. Submissions are ordered by
-    // server timestamp so duplicated concurrent correct requests cannot
-    // inflate (or replace) the user's score more than once for the same clue.
-    if (existing.solvedClueIds.has(submission.clueId)) {
-      continue;
-    }
-    existing.solvedClueIds.add(submission.clueId);
-    if (submission.clue.sequence === 12) {
-      existing.completedAt = submission.submittedAt;
-    }
-
-    // Completed users are ranked by round completion time below. For
-    // incomplete users, the last server timestamp is used only for progress display.
-    existing.totalResponseTimeMs += BigInt(0);
-  }
-
-  const contestStartTime = contest.startsAt;
-
-  const entries = [...byUser.entries()]
-    .map(([userId, value]) => {
-      const completed = value.solvedClueIds.size >= 12;
-      const overallElapsedMs =
-        completed && value.completedAt && contestStartTime
-          ? calculateResponseTimeMs(value.completedAt, [contestStartTime])
-          : value.lastSubmittedAt && contestStartTime
-            ? calculateResponseTimeMs(value.lastSubmittedAt, [contestStartTime])
-            : 0;
-
-      return {
-        userId,
-        username: value.username,
-        solvedCount: value.solvedClueIds.size,
-        totalResponseTimeMs: overallElapsedMs,
-        incorrectAttempts: value.incorrectAttempts,
-        completed,
-      };
-    })
-    .sort((a, b) => {
-      if (a.completed !== b.completed) {
-        return a.completed ? -1 : 1;
-      }
-
-      if (a.completed && b.completed) {
-        // Once both users solved all twelve clues, total elapsed time alone
-        // decides the order. Equal totals are a tie, not an error-count win.
-        return a.totalResponseTimeMs - b.totalResponseTimeMs;
-      }
-
-      if (a.solvedCount !== b.solvedCount) {
-        return b.solvedCount - a.solvedCount;
-      }
-
-      if (a.totalResponseTimeMs !== b.totalResponseTimeMs) {
-        return a.totalResponseTimeMs - b.totalResponseTimeMs;
-      }
-
-      return a.incorrectAttempts - b.incorrectAttempts;
-    })
-    .slice(0, limit);
-
-  let previousCompletedTotal: number | null = null;
-  let previousRank = 0;
-
-  const leaderboard: LeaderboardEntry[] = entries.map((entry, index) => {
-    const rank =
-      entry.completed &&
-      previousCompletedTotal !== null &&
-      entry.totalResponseTimeMs === previousCompletedTotal
-        ? previousRank
-        : index + 1;
-
-    previousCompletedTotal = entry.completed
-      ? entry.totalResponseTimeMs
-      : null;
-    previousRank = rank;
-
-    return {
-      rank,
-      ...entry,
-    };
-  });
+  // Aggregate in PostgreSQL and return one row per participant instead of
+  // transferring every answer attempt to the API process. A composite index
+  // on (contestId, submittedAt) supports the contest-scoped scan.
+  const aggregates = await prisma.$queryRaw<LeaderboardAggregateRow[]> `
+    SELECT
+      s."userId" AS "userId",
+      u."username" AS "username",
+      COUNT(DISTINCT s."clueId") FILTER (WHERE s."isCorrect")::int AS "solvedCount",
+      COUNT(*) FILTER (WHERE NOT s."isCorrect")::int AS "incorrectAttempts",
+      MAX(s."submittedAt") FILTER (
+        WHERE s."isCorrect" AND clue."sequence" = 12
+      ) AS "completedAt",
+      MAX(s."submittedAt") AS "lastSubmittedAt"
+    FROM "submissions" AS s
+    INNER JOIN "users" AS u ON u."id" = s."userId"
+    INNER JOIN "contest_clues" AS clue ON clue."id" = s."clueId"
+    WHERE s."contestId" = ${contestId}
+    GROUP BY s."userId", u."username"
+    ORDER BY
+      MAX(s."submittedAt") FILTER (
+        WHERE s."isCorrect" AND clue."sequence" = 12
+      ) ASC NULLS LAST,
+      COUNT(DISTINCT s."clueId") FILTER (WHERE s."isCorrect") DESC,
+      MAX(s."submittedAt") ASC,
+      COUNT(*) FILTER (WHERE NOT s."isCorrect") ASC,
+      s."userId" ASC
+    LIMIT ${safeLimit}
+  `;
 
   return {
     contestId,
-    entries: leaderboard,
+    entries: buildLeaderboardEntries(aggregates, contest.startsAt),
   };
 }
