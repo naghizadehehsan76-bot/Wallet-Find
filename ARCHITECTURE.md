@@ -342,3 +342,21 @@ The architecture is considered stable when:
 - UI components are reusable
 - automated testing covers critical business logic
 - production deployment is reproducible
+
+
+## 22. Horizontal Scaling
+
+See [docs/SCALABILITY.md](docs/SCALABILITY.md) for the production scaling design and safe Render migration order.
+
+The backend supports three process roles from one build:
+- `all`: backwards-compatible HTTP API plus background processors
+- `web`: stateless HTTP API only
+- `worker`: background processors only
+
+The role split is controlled by `APP_ROLE`. The standalone Worker entry point is `backend/src/worker.ts` and the Render start script is `npm run start:worker`.
+
+Background work that must execute once across multiple instances uses a renewable PostgreSQL lease, per-resource scanner lease, or atomic record claim. Rate-limit counters are shared through PostgreSQL. Business state and financial accounting remain in PostgreSQL; no process-local cache is authoritative.
+
+Each process uses one bounded Prisma/PostgreSQL pool. Pool size must be budgeted across all API and Worker instances.
+
+Leaderboard reads aggregate answer attempts in PostgreSQL and return bounded participant summaries rather than loading every submission into API memory.
