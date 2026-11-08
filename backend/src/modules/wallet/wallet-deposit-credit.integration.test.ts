@@ -88,7 +88,7 @@ test("confirmed chain deposit is detected and credited once across scanner retri
       data: { userId, address: receivingAddress, status: "ACTIVE" },
       select: { id: true },
     });
-    const address = await prisma.walletAddress.create({
+    await prisma.walletAddress.create({
       data: {
         walletAccountId: account.id,
         networkId,
