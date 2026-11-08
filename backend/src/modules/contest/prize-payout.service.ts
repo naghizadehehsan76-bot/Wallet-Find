@@ -1,5 +1,6 @@
 import prisma from "../../config/prisma.js";
 import { postWalletJournalInTransaction } from "../wallet/wallet-journal.service.js";
+import { runWithSystemJobLease } from "../system/system-job-lease.service.js";
 
 const POLYGON_NETWORK_ID = "eip155:137";
 const POLYGON_USDT0_ASSET_ID = "eip155:137/erc20:0xc2132d05d31c914a87c6611c10748aeb04b58e8f";
@@ -172,8 +173,9 @@ export function startPrizePayoutProcessor() {
     if (running) return;
     running = true;
     try {
-      const result = await runPrizePayoutProcessorOnce();
-      if (result.skipped && result.skipped !== "PRIZE_PAYOUTS_NOT_ENABLED") {
+      const lease = await runWithSystemJobLease("prize-payout", runPrizePayoutProcessorOnce, { leaseMs: 180_000 });
+      const result = lease.acquired ? lease.value : null;
+      if (result?.skipped && result.skipped !== "PRIZE_PAYOUTS_NOT_ENABLED") {
         console.warn("Prize payout processor skipped", result);
       }
     } catch (error) {
