@@ -264,7 +264,7 @@ export async function reserveChainWithdrawalFunds(
   }
 }
 
-function releaseReservation(
+async function releaseReservation(
   tx: any,
   input: {
     id: string;
