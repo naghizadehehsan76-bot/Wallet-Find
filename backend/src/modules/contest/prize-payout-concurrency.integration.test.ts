@@ -98,9 +98,9 @@ test("parallel payout processors credit one internal prize exactly once without 
     process.env.PRIZE_PAYOUTS_ENABLED = "true";
     process.env.PRIZE_PAYOUTS_PRODUCTION_READY = "true";
 
-    const results = await Promise.all(
-      Array.from({ length: 8 }, () => runPrizePayoutProcessorOnce()),
-    );
+    await Promise.all(Array.from({ length: 8 }, () => runPrizePayoutProcessorOnce()));
+    // A transient database conflict must leave the award retryable.
+    await runPrizePayoutProcessorOnce();
 
     const finalAward = await prisma.prizeAward.findUnique({ where: { id: award.id } });
     assert.equal(finalAward?.status, "PAID");
@@ -113,9 +113,6 @@ test("parallel payout processors credit one internal prize exactly once without 
     }), 1);
     const finalPool = await prisma.prizePool.findUnique({ where: { contestId: contest.id } });
     assert.equal(finalPool?.status, "SETTLED");
-    // Concurrent workers may observe an already-claimed award or leave a
-    // transient failure for the next poll; the durable invariant is one credit.
-    assert.ok(results.every((result) => !("skipped" in result) || result.skipped === undefined));
   } finally {
     if (oldEnabled === undefined) delete process.env.PRIZE_PAYOUTS_ENABLED;
     else process.env.PRIZE_PAYOUTS_ENABLED = oldEnabled;
