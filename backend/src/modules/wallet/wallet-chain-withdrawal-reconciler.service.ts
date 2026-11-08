@@ -1,5 +1,6 @@
 import prisma from "../../config/prisma.js";
 import { executeChainWalletWithdrawal, reconcileChainWalletWithdrawal } from "./wallet-chain-withdrawal.service.js";
+import { runWithSystemJobLease } from "../system/system-job-lease.service.js";
 
 const INTERVAL_MS = 30_000;
 const BATCH_SIZE = 50;
@@ -11,13 +12,15 @@ let timer: ReturnType<typeof setInterval> | null = null;
  * receipts. The reconciliation service owns per-withdrawal DB locking and
  * idempotent journal settlement; this worker only discovers pending rows.
  */
-export function startWalletChainWithdrawalReconciler(): void {
-  if (process.env.WALLET_CHAIN_WITHDRAWAL_RECONCILER_ENABLED === "false" || timer) return;
+export function startWalletChainWithdrawalReconciler(): ReturnType<typeof setInterval> | null {
+  if (process.env.WALLET_CHAIN_WITHDRAWAL_RECONCILER_ENABLED === "false") return null;
+  if (timer) return timer;
 
   const run = async () => {
     if (running) return;
     running = true;
     try {
+      await runWithSystemJobLease("wallet-chain-withdrawal-reconciler", async () => {
       const awaitingBroadcast = await prisma.walletChainWithdrawal.findMany({
         where: { status: "APPROVED", transactionReference: null },
         select: { id: true, userId: true },
@@ -58,6 +61,7 @@ export function startWalletChainWithdrawalReconciler(): void {
           });
         }
       }
+      }, { leaseMs: 180_000 });
     } catch (error) {
       console.error("Chain withdrawal reconciliation scan failed", error);
     } finally {
@@ -70,4 +74,5 @@ export function startWalletChainWithdrawalReconciler(): void {
   // First pass shortly after startup; avoid delaying reconciliation for one
   // full interval after a cold start.
   setTimeout(() => { void run(); }, 5_000).unref?.();
+  return timer;
 }
