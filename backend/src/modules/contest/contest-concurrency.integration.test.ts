@@ -31,7 +31,8 @@ test("parallel participants and duplicate answer requests preserve one ordered a
       },
       select: { id: true },
     });
-    contestId = contest.id;
+    const activeContestId = contest.id;
+    contestId = activeContestId;
 
     await prisma.user.createMany({
       data: userIds.map((id) => ({
@@ -44,7 +45,7 @@ test("parallel participants and duplicate answer requests preserve one ordered a
 
     await prisma.contestClue.createMany({
       data: Array.from({ length: 12 }, (_, index) => ({
-        contestId,
+        contestId: activeContestId,
         sequence: index + 1,
         content: "Synthetic concurrency clue " + (index + 1),
         correctAnswer: "ci-answer-" + (index + 1),
@@ -53,7 +54,7 @@ test("parallel participants and duplicate answer requests preserve one ordered a
     });
 
     const clues = await prisma.contestClue.findMany({
-      where: { contestId },
+      where: { contestId: activeContestId },
       orderBy: { sequence: "asc" },
       select: { id: true, sequence: true },
     });
@@ -61,7 +62,7 @@ test("parallel participants and duplicate answer requests preserve one ordered a
 
     for (const clue of clues) {
       const attempts = await Promise.allSettled(userIds.flatMap((userId) =>
-        Array.from({ length: 2 }, () => submitAnswer(userId, contestId!, {
+        Array.from({ length: 2 }, () => submitAnswer(userId, activeContestId, {
           clueId: clue.id,
           answer: "ci-answer-" + clue.sequence,
         })),
@@ -92,7 +93,7 @@ test("parallel participants and duplicate answer requests preserve one ordered a
     assert.ok(totals.every((row) => row.isCorrect && row._count._all === userIds.length));
 
     const finalRows = await prisma.submission.count({
-      where: { contestId, isCorrect: true },
+      where: { contestId: activeContestId, isCorrect: true },
     });
     assert.equal(finalRows, userIds.length * 12);
   } finally {
