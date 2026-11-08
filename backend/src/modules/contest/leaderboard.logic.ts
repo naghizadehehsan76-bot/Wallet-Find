@@ -43,6 +43,21 @@ export function buildLeaderboardEntries(
       incorrectAttempts: row.incorrectAttempts,
       completed,
     };
+  }).sort((a, b) => {
+    if (a.completed !== b.completed) return a.completed ? -1 : 1;
+
+    if (a.completed && b.completed) {
+      return a.totalResponseTimeMs - b.totalResponseTimeMs;
+    }
+
+    if (a.solvedCount !== b.solvedCount) return b.solvedCount - a.solvedCount;
+    if (a.totalResponseTimeMs !== b.totalResponseTimeMs) {
+      return a.totalResponseTimeMs - b.totalResponseTimeMs;
+    }
+    if (a.incorrectAttempts !== b.incorrectAttempts) {
+      return a.incorrectAttempts - b.incorrectAttempts;
+    }
+    return a.userId.localeCompare(b.userId);
   });
 
   let previousCompletedTotal: number | null = null;
