@@ -181,7 +181,7 @@ async function postReservation(
   });
 }
 
-async export async function reserveChainWithdrawalFunds(
+export async function reserveChainWithdrawalFunds(
   tx: any,
   input: {
     id: string;
