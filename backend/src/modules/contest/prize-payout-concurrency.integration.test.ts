@@ -22,10 +22,10 @@ test("parallel payout processors credit one internal prize exactly once without 
   const oldReady = process.env.PRIZE_PAYOUTS_PRODUCTION_READY;
 
   try {
-    assert.equal(await prisma.walletNetwork.findUnique({ where: { id: polygonNetworkId } }), null,
-      "isolated payout fixture expects an unseeded Polygon network row");
-    await prisma.walletNetwork.create({
-      data: {
+    await prisma.walletNetwork.upsert({
+      where: { id: polygonNetworkId },
+      update: { isEnabled: true },
+      create: {
         id: polygonNetworkId,
         family: "EVM",
         chainId: 137,
@@ -39,8 +39,16 @@ test("parallel payout processors credit one internal prize exactly once without 
         withdrawalEnabled: false,
       },
     });
-    await prisma.walletAsset.create({
-      data: {
+    await prisma.walletAsset.upsert({
+      where: { id: polygonUsdt0AssetId },
+      update: {
+        verificationStatus: "VERIFIED",
+        symbol: "USDT0",
+        decimals: 6,
+        assetType: "TOKEN",
+        contractAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f",
+      },
+      create: {
         id: polygonUsdt0AssetId,
         networkId: polygonNetworkId,
         assetType: "TOKEN",
