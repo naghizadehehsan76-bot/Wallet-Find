@@ -34,6 +34,17 @@ selection of the latest authoritative timestamp for response timing.
 11. Correct answers are never returned by player-facing APIs.
 12. Leaderboard ordering is calculated server-side.
 
+## Scalability regression tests
+
+- API and Worker roles start only their assigned process responsibilities.
+- Distributed worker leases allow only one owner for singleton jobs at a time.
+- A completed worker releases its lease; a crashed worker is recoverable after expiry.
+- Rate-limit counters are shared by all API instances through PostgreSQL.
+- Leaderboard SQL aggregates answer attempts in PostgreSQL and preserves completed-user tie ranking.
+- Every background job added in the future uses a distributed lease, per-resource lease, or atomic record claim.
+
+Before a production scale-up, run a representative load test against a staging environment and record p50/p95/p99 latency, HTTP errors, CPU/memory, database connections, and lease contention.
+
 ## Security regression tests
 
 - unauthorized requests return 401

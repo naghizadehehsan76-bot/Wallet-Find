@@ -1,33 +1,63 @@
 import "dotenv/config";
 import app from "./app.js";
-import { startContestScheduler } from "./modules/contest/contest-scheduler.service.js";
-import { ensureMvpActiveContest } from "./modules/contest/mvp-contest-seed.service.js";
-import { startWalletChainDepositScanner } from "./modules/wallet/wallet-chain-deposit-scanner.service.js";
-import { startWalletChainWithdrawalReconciler } from "./modules/wallet/wallet-chain-withdrawal-reconciler.service.js";
-import { startTurnkeyWebhookDepositProcessor } from "./modules/wallet/turnkey-webhook-processor.service.js";
-import { startPolygonTreasuryDepositScanner } from "./modules/wallet/polygon-treasury-scanner-runner.service.js";
-import { startPrizePayoutProcessor } from "./modules/contest/prize-payout.service.js";
-import { startPrizeSettlementProcessor } from "./modules/contest/prize-settlement-runner.service.js";
+import prisma from "./config/prisma.js";
+import { getRuntimeRole, shouldStartBackgroundWorkers, shouldStartHttpServer } from "./config/runtime-role.js";
+import { startBackgroundWorkers, type BackgroundWorkersHandle } from "./modules/system/background-workers.js";
+import { waitForActiveWorkerTasks } from "./modules/system/system-job-lease.service.js";
+
+const role = getRuntimeRole(process.env.APP_ROLE, "all");
+if (!shouldStartHttpServer(role)) {
+  throw new Error("APP_ROLE=worker must use the dedicated Worker entrypoint (dist/worker.js)");
+}
 
 const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  startWalletChainDepositScanner();
-  startWalletChainWithdrawalReconciler();
-  startTurnkeyWebhookDepositProcessor();
-  startPolygonTreasuryDepositScanner();
-  startPrizeSettlementProcessor();
-  startPrizePayoutProcessor();
-
-  // Keep /health responsive while contest data is prepared. Start the
-  // scheduler only after the initial seed attempt settles so it cannot race
-  // the startup seed and trigger a second source-generation run.
-  void ensureMvpActiveContest()
-    .catch((error) => {
-      console.error("Failed to ensure a playable MVP contest", error);
-    })
-    .finally(() => {
-      startContestScheduler();
-    });
+const httpServer = app.listen(PORT, () => {
+  console.log(`Wallet-Find API server running on port ${PORT} (APP_ROLE=${role})`);
 });
+
+let workerStartup: Promise<BackgroundWorkersHandle> | null = null;
+let workers: BackgroundWorkersHandle | null = null;
+let shuttingDown = false;
+
+if (shouldStartBackgroundWorkers(role)) {
+  workerStartup = startBackgroundWorkers();
+  void workerStartup.then((handle) => {
+    workers = handle;
+    if (shuttingDown) handle.stop();
+  }).catch((error) => {
+    console.error("Background worker startup failed", error);
+  });
+}
+
+async function shutdown(signal: string) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`API server received ${signal}; stopping new traffic and scheduled work`);
+  workers?.stop();
+
+  const serverClosed = new Promise<void>((resolve) => {
+    httpServer.close(() => resolve());
+  });
+
+  if (workerStartup) {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+      workerStartup.then(() => undefined).catch(() => undefined),
+      new Promise<void>((resolve) => {
+        timeout = setTimeout(resolve, 20_000);
+        timeout.unref?.();
+      }),
+    ]);
+    if (timeout) clearTimeout(timeout);
+    workers?.stop();
+  }
+
+  await serverClosed;
+  const drained = await waitForActiveWorkerTasks(20_000);
+  if (!drained) console.error("API shutdown deadline reached while background jobs were active");
+  await prisma.$disconnect();
+  process.exitCode = drained ? 0 : 1;
+}
+
+process.on("SIGTERM", () => { void shutdown("SIGTERM"); });
+process.on("SIGINT", () => { void shutdown("SIGINT"); });

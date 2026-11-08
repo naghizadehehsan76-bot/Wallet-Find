@@ -2,6 +2,7 @@ import prisma from "../../config/prisma.js";
 import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
 import { ensureMvpActiveContest, ensureScheduledMvpContest } from "./mvp-contest-seed.service.js";
 import { CHALLENGE_LANGUAGES } from "./supported-languages.js";
+import { runWithSystemJobLease } from "../system/system-job-lease.service.js";
 
 /**
  * The scheduler manages round activation/expiry only. Clues are no longer
@@ -115,7 +116,7 @@ export function startContestScheduler() {
     if (running) return;
     running = true;
     try {
-      await runContestScheduler();
+      await runWithSystemJobLease("contest-scheduler", () => runContestScheduler(), { leaseMs: 180_000 });
     } catch (error) {
       console.error("Contest scheduler error", error);
     } finally {

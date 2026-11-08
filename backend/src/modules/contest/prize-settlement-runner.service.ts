@@ -1,5 +1,6 @@
 import prisma from "../../config/prisma.js";
 import { reserveRoundPrizeAllocation, settlePrizePool } from "./prize-pool.service.js";
+import { runWithSystemJobLease } from "../system/system-job-lease.service.js";
 
 export async function runPrizeSettlementProcessorOnce() {
   const now = new Date();
@@ -45,7 +46,7 @@ export function startPrizeSettlementProcessor() {
     if (running) return;
     running = true;
     try {
-      await runPrizeSettlementProcessorOnce();
+      await runWithSystemJobLease("prize-settlement", runPrizeSettlementProcessorOnce, { leaseMs: 180_000 });
     } catch (error) {
       // This processor is intentionally isolated from challenge scheduling and
       // retries on its next tick without blocking challenge start/end handling.
