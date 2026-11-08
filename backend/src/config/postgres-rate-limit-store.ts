@@ -21,7 +21,7 @@ export class PostgresRateLimitStore {
   private windowMs = 60_000;
   private operationCount = 0;
 
-  constructor(private readonly prefix: string) {}
+  constructor(readonly prefix: string) {}
 
   init(options: RateLimitStoreOptions): void {
     if (Number.isFinite(options.windowMs) && options.windowMs > 0) {
