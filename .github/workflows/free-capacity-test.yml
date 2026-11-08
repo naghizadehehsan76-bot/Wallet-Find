@@ -12,7 +12,7 @@ permissions:
 jobs:
   isolated-capacity-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:18
@@ -52,6 +52,9 @@ jobs:
         run: |
           npx prisma generate
           npm run build
+      - name: Seed synthetic authenticated test fixtures
+        working-directory: backend
+        run: node scripts/seed-capacity-fixtures.mjs
       - name: Start isolated API process
         working-directory: backend
         run: |
@@ -66,15 +69,27 @@ jobs:
           done
           cat /tmp/wallet-find-capacity-api.log
           exit 1
-      - name: Run staged read-only HTTP load tests
+      - name: Run authenticated read-only HTTP load tests
         working-directory: backend
         run: |
           mkdir -p capacity-results
-          for endpoint in "/api/stats/site" "/api/stats/prize-pools?language=en"; do
-            safe_name=$(echo "$endpoint" | tr '/?=&' '_____')
+          endpoints=(
+            "/api/stats/site"
+            "/api/stats/prize-pools?language=en"
+            "/api/profile/me"
+            "/api/wallet/me"
+            "/api/contests/$CAPACITY_CONTEST_ID/leaderboard"
+            "/api/contests/leaderboard-history"
+          )
+          for endpoint in "${endpoints[@]}"; do
+            safe_name=$(echo "$endpoint" | sed 's/[^a-zA-Z0-9]/_/g')
             for concurrency in 10 25 50; do
-              echo "Testing endpoint=$endpoint concurrency=$concurrency duration=15s"
-              npx --yes autocannon@8.0.0 --json -c "$concurrency" -d 15 "http://127.0.0.1:3000$endpoint" > "capacity-results/${safe_name}-c${concurrency}.json"
+              echo "Testing endpoint=$endpoint concurrency=$concurrency duration=10s"
+              if [[ "$endpoint" == /api/stats/* ]]; then
+                npx --yes autocannon@8.0.0 --json -c "$concurrency" -d 10 "http://127.0.0.1:3000$endpoint" > "capacity-results/${safe_name}-c${concurrency}.json"
+              else
+                npx --yes autocannon@8.0.0 --json -H "Authorization=Bearer $CAPACITY_TOKEN" -c "$concurrency" -d 10 "http://127.0.0.1:3000$endpoint" > "capacity-results/${safe_name}-c${concurrency}.json"
+              fi
               node --input-type=module -e '
                 import fs from "node:fs";
                 const p = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
@@ -83,7 +98,7 @@ jobs:
                   connections: p.connections,
                   durationSeconds: p.duration,
                   requestsPerSecond: p.requests?.average,
-                  latencyMs: { p50: p.latency?.p50, p95: p.latency?.p95, p99: p.latency?.p99 },
+                  latencyMs: { p50: p.latency?.p50, p99: p.latency?.p99, max: p.latency?.max },
                   errors: p.errors,
                   timeouts: p.timeouts,
                   non2xx: p.non2xx,
@@ -91,7 +106,7 @@ jobs:
                 };
                 console.log(JSON.stringify(result));
                 if ((p.errors || 0) + (p.timeouts || 0) + (p.non2xx || 0) > 0) process.exit(1);
-                if (typeof p.latency?.p95 === "number" && p.latency.p95 > 1500) process.exit(1);
+                if (typeof p.latency?.p99 === "number" && p.latency.p99 > 1500) process.exit(1);
               ' "capacity-results/${safe_name}-c${concurrency}.json"
             done
           done
