@@ -42,6 +42,13 @@ export async function getContestLeaderboard(
     WHERE s."contestId" = ${contestId}
     GROUP BY s."userId", u."username"
     ORDER BY
+      CASE
+        WHEN COUNT(DISTINCT s."clueId") FILTER (WHERE s."isCorrect") >= 12
+          AND MAX(s."submittedAt") FILTER (
+            WHERE s."isCorrect" AND clue."sequence" = 12
+          ) IS NOT NULL
+        THEN 0 ELSE 1
+      END ASC,
       MAX(s."submittedAt") FILTER (
         WHERE s."isCorrect" AND clue."sequence" = 12
       ) ASC NULLS LAST,
