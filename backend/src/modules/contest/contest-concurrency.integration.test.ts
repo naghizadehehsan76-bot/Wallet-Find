@@ -61,19 +61,24 @@ test("parallel participants and duplicate answer requests preserve one ordered a
     assert.equal(clues.length, 12);
 
     for (const clue of clues) {
-      const attempts = await Promise.allSettled(userIds.flatMap((userId) =>
-        Array.from({ length: 2 }, () => submitAnswer(userId, activeContestId, {
-          clueId: clue.id,
-          answer: "ci-answer-" + clue.sequence,
-        })),
-      ));
+      // Keep the burst above the five-connection CI pool while avoiding an
+      // artificial connection-queue timeout from launching every fixture at once.
+      for (let offset = 0; offset < userIds.length; offset += 4) {
+        const batch = userIds.slice(offset, offset + 4);
+        const attempts = await Promise.allSettled(batch.flatMap((userId) =>
+          Array.from({ length: 2 }, () => submitAnswer(userId, activeContestId, {
+            clueId: clue.id,
+            answer: "ci-answer-" + clue.sequence,
+          })),
+        ));
 
-      const unexpected = attempts.filter((result) =>
-        result.status === "rejected"
-        && !(result.reason instanceof Error
-          && result.reason.message === "CLUE_NOT_CURRENT"),
-      );
-      assert.deepEqual(unexpected, [], `unexpected errors at clue ${clue.sequence}`);
+        const unexpected = attempts.filter((result) =>
+          result.status === "rejected"
+          && !(result.reason instanceof Error
+            && result.reason.message === "CLUE_NOT_CURRENT"),
+        );
+        assert.deepEqual(unexpected, [], `unexpected errors at clue ${clue.sequence}`);
+      }
     }
 
     const grouped = await prisma.submission.groupBy({
