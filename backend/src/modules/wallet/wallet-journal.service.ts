@@ -188,6 +188,6 @@ export async function postWalletJournal(input: PostWalletJournalInput) {
   validateJournalInput(input);
   return prisma.$transaction(
     (tx) => postWalletJournalInTransaction(tx, input),
-    { isolationLevel: "Serializable" },
+    { isolationLevel: "ReadCommitted" },
   );
 }
