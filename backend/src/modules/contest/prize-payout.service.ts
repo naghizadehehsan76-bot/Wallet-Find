@@ -175,7 +175,7 @@ export function startPrizePayoutProcessor() {
     try {
       const lease = await runWithSystemJobLease("prize-payout", runPrizePayoutProcessorOnce, { leaseMs: 180_000 });
       const result = lease.acquired ? lease.value : null;
-      if (result?.skipped && result.skipped !== "PRIZE_PAYOUTS_NOT_ENABLED") {
+      if (result && "skipped" in result && result.skipped !== "PRIZE_PAYOUTS_NOT_ENABLED") {
         console.warn("Prize payout processor skipped", result);
       }
     } catch (error) {
