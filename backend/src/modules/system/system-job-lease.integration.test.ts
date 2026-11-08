@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { after, test } from "node:test";
 import prisma from "../../config/prisma.js";
 import { runWithSystemJobLease } from "./system-job-lease.service.js";
+import { PostgresRateLimitStore } from "../../config/postgres-rate-limit-store.js";
 
 const shouldRun = Boolean(process.env.DATABASE_URL);
 
@@ -38,4 +39,23 @@ test("PostgreSQL lease admits one worker under concurrent replica claims and rec
   } finally {
     await prisma.systemJobLease.deleteMany({ where: { name } });
   }
+});
+
+test("shared PostgreSQL rate limits count simultaneous requests atomically", {
+  skip: !shouldRun,
+  timeout: 60_000,
+}, async () => {
+  const prefix = "ci-rate-limit-" + randomUUID() + ":";
+  const key = "client";
+  const store = new PostgresRateLimitStore(prefix);
+  store.init({ windowMs: 60_000 });
+  try {
+    const results = await Promise.all(Array.from({ length: 40 }, () => store.increment(key)));
+    assert.equal(results.length, 40);
+    assert.equal(Math.max(...results.map((result) => result.totalHits)), 40);
+    assert.equal((await store.get(key))?.totalHits, 40);
+  } finally {
+    await store.resetKey(key);
+  }
+  assert.equal(await store.get(key), undefined);
 });
