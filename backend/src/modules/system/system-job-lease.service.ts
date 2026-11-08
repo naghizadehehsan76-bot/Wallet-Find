@@ -43,16 +43,26 @@ export async function runWithSystemJobLease<T>(
   const owner = randomUUID();
   const now = new Date();
 
-  await store.upsert({
-    where: { name },
-    update: {},
-    create: {
-      name,
-      owner: null,
-      leaseExpiresAt: null,
-      heartbeatAt: null,
-    },
-  });
+  try {
+    await store.upsert({
+      where: { name },
+      update: {},
+      create: {
+        name,
+        owner: null,
+        leaseExpiresAt: null,
+        heartbeatAt: null,
+      },
+    });
+  } catch (error) {
+    // Multiple replicas may attempt the first insert at the same instant.
+    // A unique-key race means another replica created the shared lease row;
+    // continue to the atomic updateMany claim instead of failing the worker.
+    const code = error && typeof error === "object" && "code" in error
+      ? (error as { code?: unknown }).code
+      : undefined;
+    if (code !== "P2002") throw error;
+  }
 
   const claimed = await store.updateMany({
     where: {
