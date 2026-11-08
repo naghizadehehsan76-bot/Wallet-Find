@@ -1,0 +1,114 @@
+name: Free CI Capacity Smoke Test
+
+on:
+  push:
+    branches:
+      - "perf/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-capacity-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: wallet_find_capacity
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d wallet_find_capacity"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/wallet_find_capacity?schema=public
+      DATABASE_POOL_MAX: "5"
+      APP_ROLE: web
+      PORT: "3000"
+      JWT_SECRET: ci-only-not-a-real-secret
+      CORS_ORIGIN: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci --include=dev
+      - name: Apply isolated database migrations
+        working-directory: backend
+        run: npx prisma migrate deploy
+      - name: Generate Prisma client and build
+        working-directory: backend
+        run: |
+          npx prisma generate
+          npm run build
+      - name: Start isolated API process
+        working-directory: backend
+        run: |
+          nohup node dist/server.js > /tmp/wallet-find-capacity-api.log 2>&1 &
+          echo $! > /tmp/wallet-find-capacity-api.pid
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:3000/health > /tmp/wallet-find-health.json; then
+              cat /tmp/wallet-find-health.json
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/wallet-find-capacity-api.log
+          exit 1
+      - name: Run staged read-only HTTP load tests
+        working-directory: backend
+        run: |
+          mkdir -p capacity-results
+          for endpoint in "/api/stats/site" "/api/stats/prize-pools?language=en"; do
+            safe_name=$(echo "$endpoint" | tr '/?=&' '_____')
+            for concurrency in 10 25 50; do
+              echo "Testing endpoint=$endpoint concurrency=$concurrency duration=15s"
+              npx --yes autocannon@8.0.0 --json -c "$concurrency" -d 15 "http://127.0.0.1:3000$endpoint" > "capacity-results/${safe_name}-c${concurrency}.json"
+              node --input-type=module -e '
+                import fs from "node:fs";
+                const p = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+                const result = {
+                  url: p.url,
+                  connections: p.connections,
+                  durationSeconds: p.duration,
+                  requestsPerSecond: p.requests?.average,
+                  latencyMs: { p50: p.latency?.p50, p95: p.latency?.p95, p99: p.latency?.p99 },
+                  errors: p.errors,
+                  timeouts: p.timeouts,
+                  non2xx: p.non2xx,
+                  throughputBytesPerSecond: p.throughput?.average
+                };
+                console.log(JSON.stringify(result));
+                if ((p.errors || 0) + (p.timeouts || 0) + (p.non2xx || 0) > 0) process.exit(1);
+                if (typeof p.latency?.p95 === "number" && p.latency.p95 > 1500) process.exit(1);
+              ' "capacity-results/${safe_name}-c${concurrency}.json"
+            done
+          done
+      - name: Stop isolated API
+        if: always()
+        run: |
+          if [ -f /tmp/wallet-find-capacity-api.pid ]; then
+            kill "$(cat /tmp/wallet-find-capacity-api.pid)" || true
+          fi
+          if [ -f /tmp/wallet-find-capacity-api.log ]; then
+            tail -n 120 /tmp/wallet-find-capacity-api.log
+          fi
+      - name: Upload capacity results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wallet-find-free-ci-capacity-results
+          path: backend/capacity-results/
+          if-no-files-found: warn
+          retention-days: 7
