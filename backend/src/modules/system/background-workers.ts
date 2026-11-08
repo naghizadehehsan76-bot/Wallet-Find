@@ -6,6 +6,7 @@ import { startWalletChainDepositScanner } from "../wallet/wallet-chain-deposit-s
 import { startWalletChainWithdrawalReconciler } from "../wallet/wallet-chain-withdrawal-reconciler.service.js";
 import { startTurnkeyWebhookDepositProcessor } from "../wallet/turnkey-webhook-processor.service.js";
 import { startPolygonTreasuryDepositScanner } from "../wallet/polygon-treasury-scanner-runner.service.js";
+import { runWithSystemJobLease } from "./system-job-lease.service.js";
 
 export type BackgroundWorkersHandle = {
   stop: () => void;
@@ -32,7 +33,7 @@ export async function startBackgroundWorkers(): Promise<BackgroundWorkersHandle>
   // Keep the API health endpoint independent of initial source generation.
   // A dedicated Worker can safely await this before its own readiness.
   try {
-    await ensureMvpActiveContest();
+    await runWithSystemJobLease("startup-contest-bootstrap", ensureMvpActiveContest, { leaseMs: 180_000 });
   } catch (error) {
     console.error("Failed to ensure a playable MVP contest; scheduler will retry", error);
   }
