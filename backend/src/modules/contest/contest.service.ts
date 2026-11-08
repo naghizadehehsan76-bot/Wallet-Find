@@ -547,5 +547,5 @@ export async function submitAnswer(
       nextSequence: nextClue.sequence,
     };
   
-  });
+  }, { maxWait: 10_000, timeout: 15_000 });
 }
