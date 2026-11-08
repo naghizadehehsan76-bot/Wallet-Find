@@ -139,7 +139,10 @@ async function reverseCreditedDeposit(
  * activation deliberately anchors at the confirmed head: old transfers are
  * not silently backfilled into user balances.
  */
-export async function scanWalletNetworkDepositsOnce(networkId: string) {
+export async function scanWalletNetworkDepositsOnce(
+  networkId: string,
+  adapterFactory: typeof makeAdapter = makeAdapter,
+) {
   const network = await prisma.walletNetwork.findUnique({
     where: { id: networkId },
     include: {
