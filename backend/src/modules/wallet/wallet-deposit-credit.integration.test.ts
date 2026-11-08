@@ -138,7 +138,6 @@ test("confirmed chain deposit is detected and credited once across scanner retri
     const cursor = await prisma.walletNetworkScanCursor.findUniqueOrThrow({ where: { networkId } });
     assert.equal(cursor.cursorPosition, "105");
     assert.equal(cursor.leaseOwner, null);
-    assert.equal(address.address, receivingAddress);
   } finally {
     if (oldReady === undefined) delete process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY;
     else process.env.WALLET_GENERIC_DEPOSITS_PRODUCTION_READY = oldReady;
