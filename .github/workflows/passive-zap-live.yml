@@ -1,0 +1,78 @@
+name: Passive ZAP Baseline (Live Site)
+
+on:
+  push:
+    branches:
+      - security/zap-passive-baseline-2026-11-09
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wallet-find-live-passive-zap
+  cancel-in-progress: false
+
+jobs:
+  passive-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Run low-intensity passive baseline scan
+        shell: bash
+        run: |
+          set +e
+          docker run --rm \
+            -v "${PWD}:/zap/wrk/:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+              -t https://wallet-find.com \
+              -m 2 \
+              -T 5 \
+              -I \
+              -J /zap/wrk/zap-report.json \
+              -r /zap/wrk/zap-report.html \
+              > /tmp/zap-baseline.log 2>&1
+          scanner_status=$?
+          set -e
+
+          if [ ! -s zap-report.json ]; then
+            echo "SCAN_FAILED: scanner did not produce a JSON report (details intentionally withheld)."
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import json
+          from collections import Counter
+
+          with open("zap-report.json", encoding="utf-8") as f:
+              report = json.load(f)
+
+          alerts = [
+              alert
+              for site in report.get("site", [])
+              for alert in site.get("alerts", [])
+          ]
+          counts = Counter()
+          instances = 0
+          for alert in alerts:
+              risk = str(alert.get("riskcode", alert.get("riskdesc", "unknown"))).lower()
+              if risk in {"3", "high"} or risk.startswith("high"):
+                  key = "high"
+              elif risk in {"2", "medium"} or risk.startswith("medium"):
+                  key = "medium"
+              elif risk in {"1", "low"} or risk.startswith("low"):
+                  key = "low"
+              else:
+                  key = "informational_or_unknown"
+              counts[key] += 1
+              instances += len(alert.get("instances", []))
+
+          print("PASSIVE_SCAN_SUMMARY")
+          print("alert_types_by_risk=" + json.dumps(dict(sorted(counts.items()))))
+          print("total_alert_instances=" + str(instances))
+          print("scanner_exit_code=" + str(0))
+          PY
+          summary_status=$?
+
+          rm -f zap-report.json zap-report.html
+          exit "$summary_status"
