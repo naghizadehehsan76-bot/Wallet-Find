@@ -40,8 +40,9 @@ jobs:
             exit 1
           fi
 
-          python3 - <<'PY'
+          ZAP_SCANNER_STATUS="$scanner_status" python3 - <<'PY'
           import json
+          import os
           from collections import Counter
 
           with open("zap-report.json", encoding="utf-8") as f:
@@ -70,9 +71,7 @@ jobs:
           print("PASSIVE_SCAN_SUMMARY")
           print("alert_types_by_risk=" + json.dumps(dict(sorted(counts.items()))))
           print("total_alert_instances=" + str(instances))
-          print("scanner_exit_code=" + str(0))
+          print("scanner_exit_code=" + os.environ.get("ZAP_SCANNER_STATUS", "unknown"))
           PY
-          summary_status=$?
 
           rm -f zap-report.json zap-report.html
-          exit "$summary_status"
