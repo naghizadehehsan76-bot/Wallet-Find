@@ -21,6 +21,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Verify Docker image can be pulled
+        shell: bash
+        run: docker pull ghcr.io/zaproxy/zaproxy:stable
+
       - name: Run low-intensity passive baseline scan
         shell: bash
         run: |
@@ -40,7 +44,13 @@ jobs:
           set -e
 
           if [ ! -s zap-report.json ]; then
-            echo "SCAN_FAILED: scanner did not produce a JSON report (details intentionally withheld)."
+            echo "SCAN_FAILED: scanner produced no JSON report."
+            echo "scanner_exit_code=$scanner_status"
+            echo "Sanitized diagnostic lines:"
+            grep -Ei 'error|failed|denied|unable|exception|not found|timeout' /tmp/zap-baseline.log \
+              | sed -E 's#https?://[^ ]+#<url-redacted>#g' \
+              | tail -n 20 || true
+            rm -f zap-report.json zap-report.html /tmp/zap-baseline.log
             exit 1
           fi
 
@@ -78,4 +88,4 @@ jobs:
           print("scanner_exit_code=" + os.environ.get("ZAP_SCANNER_STATUS", "unknown"))
           PY
 
-          rm -f zap-report.json zap-report.html
+          rm -f zap-report.json zap-report.html /tmp/zap-baseline.log
