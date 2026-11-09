@@ -1,4 +1,5 @@
 name: Passive ZAP Baseline (Live Site)
+# Passive-only live review; no active attack rules or report artifacts.
 
 on:
   push:
