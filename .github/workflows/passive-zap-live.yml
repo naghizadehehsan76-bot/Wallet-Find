@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - security/zap-passive-baseline-2026-11-09
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
