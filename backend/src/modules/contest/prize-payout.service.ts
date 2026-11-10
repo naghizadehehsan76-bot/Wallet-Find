@@ -34,6 +34,77 @@ async function creditPendingAward(awardId: string) {
       throw new Error("PRIZE_AMOUNT_EXCEEDS_ROUND_ALLOCATION");
     }
 
+    const eligibleAtJoin = await tx.submission.findFirst({
+      where: { contestId: award.contestId, userId: award.userId, prizeEligibleAtJoin: true },
+      select: { id: true },
+    });
+    if (!eligibleAtJoin) {
+      // Return an already-debited but unpaid allocation exactly once.
+      await tx.$queryRawUnsafe(
+        "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
+        "global-prize-fund-settlement",
+      );
+      const returnReference = "ineligible-award-return:" + award.id;
+      const existingReturn = await tx.globalPrizeLedger.findUnique({ where: { referenceKey: returnReference } });
+      if (!existingReturn) {
+        await tx.globalPrizeFund.upsert({ where: { id: "global" }, update: {}, create: { id: "global" } });
+        await tx.globalPrizeLedger.create({
+          data: {
+            type: "ROUND_UNUSED_RETURN",
+            amountMicro: amount,
+            contestId: award.contestId,
+            effectiveAt: new Date(),
+            referenceKey: returnReference,
+            note: "Unpaid award returned because the participant joined when the global prize fund had no balance",
+          },
+        });
+        await tx.globalPrizeFund.update({
+          where: { id: "global" },
+          data: { balanceMicro: { increment: amount }, updatedAt: new Date() },
+        });
+        await tx.prizeLedger.create({
+          data: {
+            contestId: award.contestId,
+            type: "ROLLOVER_OUT",
+            amountMicro: amount,
+            note: "Ineligible unpaid award returned to the shared global prize fund",
+            referenceKey: returnReference,
+          },
+        });
+        await tx.prizePool.update({
+          where: { contestId: award.contestId },
+          data: {
+            awardedMicro: { decrement: amount },
+            returnedToGlobalMicro: { increment: amount },
+            rolloverOutMicro: { increment: amount },
+          },
+        });
+      }
+      await tx.prizeAward.update({
+        where: { id: award.id },
+        data: { status: "INELIGIBLE", failureCode: "PRIZE_FUND_EMPTY_AT_JOIN" },
+      });
+      const outstanding = await tx.prizeAward.count({
+        where: { contestId: award.contestId, status: { notIn: ["PAID", "INELIGIBLE"] } },
+      });
+      if (outstanding === 0) {
+        await tx.prizePool.updateMany({
+          where: { contestId: award.contestId, status: "PAYOUT_PENDING" },
+          data: { status: "SETTLED", settledAt: new Date() },
+        });
+      }
+      await tx.auditLog.create({
+        data: {
+          userId: award.userId,
+          action: "PRIZE_AWARD_REJECTED_NO_FUND_AT_JOIN",
+          entity: "PrizeAward",
+          entityId: award.id,
+          metadata: { contestId: award.contestId, amountMicro: amount.toString(), currency: "USDT0", returnedToGlobalFund: !existingReturn },
+        },
+      });
+      return { id: award.id, status: "INELIGIBLE", skipped: true };
+    }
+
     const [network, asset] = await Promise.all([
       tx.walletNetwork.findUnique({
         where: { id: POLYGON_NETWORK_ID },

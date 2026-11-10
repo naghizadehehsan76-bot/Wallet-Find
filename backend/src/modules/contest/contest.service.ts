@@ -431,6 +431,26 @@ export async function submitAnswer(
       },
     });
   
+    // Eligibility is fixed on the user's first accepted submission for this round.
+    // Serialize the balance check with settlement and admin funding; later top-ups
+    // cannot make an existing participant eligible retroactively.
+    const priorParticipation = await tx.submission.findFirst({
+      where: { userId, contestId },
+      select: { id: true },
+    });
+    let prizeEligibleAtJoin = false;
+    if (!priorParticipation) {
+      await tx.$queryRawUnsafe(
+        "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
+        "global-prize-fund-settlement",
+      );
+      const globalFund = await tx.globalPrizeFund.findUnique({
+        where: { id: "global" },
+        select: { balanceMicro: true },
+      });
+      prizeEligibleAtJoin = BigInt(globalFund?.balanceMicro ?? 0n) > 0n;
+    }
+
     const solvedClueIds = new Set(
       correctSubmissions.map((submission) => submission.clueId),
     );
@@ -504,6 +524,7 @@ export async function submitAnswer(
         clueId: currentClue.id,
         answer: data.answer,
         isCorrect,
+        prizeEligibleAtJoin,
         submittedAt: now,
         responseTimeMs: BigInt(responseTimeMs),
       },

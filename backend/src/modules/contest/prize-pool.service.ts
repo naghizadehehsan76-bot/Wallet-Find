@@ -216,14 +216,6 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
   }
 
   const leaderboard = await getContestLeaderboard(contestId, 5000);
-  const completed = leaderboard.entries
-    .filter((entry) => entry.completed)
-    .map((entry) => ({
-      userId: entry.userId,
-      username: entry.username,
-      rank: entry.rank,
-      elapsedMs: entry.totalResponseTimeMs,
-    }));
 
   return prisma.$transaction(async (tx) => {
     await tx.$queryRawUnsafe(
@@ -236,6 +228,31 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
       "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
       "global-prize-fund-settlement",
     );
+    const eligibleParticipants = await tx.submission.findMany({
+      where: { contestId, prizeEligibleAtJoin: true },
+      distinct: ["userId"],
+      select: { userId: true },
+    });
+    const eligibleUserIds = new Set(eligibleParticipants.map((participant) => participant.userId));
+    const eligibleCompleted = leaderboard.entries.filter(
+      (entry) => entry.completed && eligibleUserIds.has(entry.userId),
+    );
+    let previousElapsedMs: number | null = null;
+    let previousEligibleRank = 0;
+    const completed = eligibleCompleted.map((entry, index) => {
+      const rank = previousElapsedMs === entry.totalResponseTimeMs
+        ? previousEligibleRank
+        : index + 1;
+      previousElapsedMs = entry.totalResponseTimeMs;
+      previousEligibleRank = rank;
+      return {
+        userId: entry.userId,
+        username: entry.username,
+        rank,
+        elapsedMs: entry.totalResponseTimeMs,
+      };
+    });
+
     let pool = await tx.prizePool.findUnique({ where: { contestId } });
     if (!pool) {
       pool = await tx.prizePool.create({
