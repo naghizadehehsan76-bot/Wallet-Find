@@ -209,12 +209,12 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     treasuryDepositError: fa ? "دریافت تاریخچه واریزهای خزانه ناموفق بود." : "Could not load treasury deposit history.",
     treasuryNetworkInstruction: fa ? "فقط USDT0 روی شبکه Polygon PoS به این آدرس ارسال شود. از شبکه‌های دیگر استفاده نکن." : "Send only USDT0 on Polygon PoS to this address. Do not use another network.",
     treasuryContract: fa ? "قرارداد توکن USDT0" : "USDT0 token contract",
-    treasuryAllocated: fa ? "تخصیص‌یافته به صندوق جوایز" : "Allocated to prize fund",
+    treasuryAllocated: fa ? "تخصیص‌یافته و رزروشده برای صندوق و چالش‌ها" : "Allocated and reserved for prize fund and rounds",
     treasuryFree: fa ? "موجودی آزاد خزانه" : "Unallocated treasury balance",
-    internalPrizeBalance: fa ? "موجودی داخلی صندوق جوایز" : "Internal prize fund balance",
-    fundingAmount: fa ? "مبلغ تخصیص (USDT)" : "Allocation amount (USDT)",
+    internalPrizeBalance: fa ? "ماندهٔ آزاد صندوق عمومی جوایز" : "Unreserved global prize fund balance",
+    fundingAmount: fa ? "مبلغ تخصیص (USDT0)" : "Allocation amount (USDT0)",
     allocateFunding: fa ? "تخصیص به صندوق جوایز" : "Allocate to prize fund",
-    fundingHelp: fa ? "آدرس زیر تنها آدرس واریز بلاک‌چینی است. صندوق جوایز حساب داخلی است؛ تخصیص فقط ثبت حسابداری است و انتقالی روی بلاک‌چین انجام نمی‌دهد." : "The treasury address below is the only on-chain deposit address. The prize fund is an internal ledger; allocation is accounting only and makes no blockchain transfer.",
+    fundingHelp: fa ? "آدرس زیر تنها آدرس واریز بلاک‌چینی است. تخصیص فقط ثبت حسابداری داخلی است؛ پس از تخصیص، سیستم ممکن است مبلغ را برای چالش فعال رزرو کند. در این حالت ماندهٔ آزاد صندوق عمومی کم یا صفر می‌شود، اما مبلغ رزروشده همچنان در صندوق همان چالش باقی می‌ماند و هیچ انتقالی روی شبکه Polygon انجام نمی‌شود." : "The treasury address below is the only on-chain deposit address. Allocation is an internal accounting entry; the scheduler may reserve it for an active challenge. The unreserved global fund balance can then decrease to zero while the amount remains reserved in that challenge's prize pool. No Polygon transaction is created.",
     treasuryHelp: fa ? "این عملیات یک کیف پول مستقل برای نگهداری جوایز در Turnkey ایجاد می‌کند. فعلاً هیچ وجهی منتقل نمی‌شود و قابلیت برداشت یا امضای تراکنش فعال نمی‌شود." : "This creates a dedicated Turnkey wallet for prize funds. No funds are transferred and signing or withdrawals are not enabled.",
     treasuryCreate: fa ? "ساخت خزانه Polygon" : "Create Polygon treasury",
     treasuryCreating: fa ? "در حال ساخت خزانه…" : "Creating treasury…",
@@ -1142,7 +1142,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
             <div className="admin-metrics-grid">
               <article className="admin-metric-card">
                 <span className="admin-metric-card__label">{copy.projectProfitBalance}</span>
-                <strong>{projectProfitPool ? Number(projectProfitPool.balance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) + " USDT" : "—"}</strong>
+                <strong>{projectProfitPool ? Number(projectProfitPool.balance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })  + " USDT0" : "—"}</strong>
               </article>
               <article className="admin-metric-card">
                 <span className="admin-metric-card__label">{copy.projectProfitTotal}</span>
@@ -1492,7 +1492,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                     <div className="admin-wallet-overview__metrics">
                       <article><span>{copy.treasuryAllocated}</span><strong>{Number(treasuryFunding.allocatedToPrizeFund).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></article>
                       <article><span>{copy.treasuryFree}</span><strong>{Number(treasuryFunding.accountingStatus === "MATCH" ? treasuryFunding.unallocatedTreasuryBalance : "0").toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></article>
-                      <article><span>{copy.internalPrizeBalance}</span><strong>{Number(treasuryFunding.prizeFundBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</strong></article>
+                      <article><span>{copy.internalPrizeBalance}</span><strong>{Number(treasuryFunding.prizeFundBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></article>
                     </div>
 
                     <div className="admin-wallet-overview__reconciliation">
