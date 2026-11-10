@@ -36,6 +36,10 @@ export async function runPrizeSettlementProcessorOnce() {
           testOnly: false,
           seededMicro: { gt: 0n },
           returnedToGlobalMicro: 0n,
+          OR: [
+            { status: "OPEN" },
+            { status: { in: ["SETTLED", "PAYOUT_PENDING"] }, awardedMicro: { lt: 100_000n } },
+          ],
         },
       },
     },
