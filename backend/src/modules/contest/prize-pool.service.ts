@@ -144,7 +144,26 @@ export async function getProjectProfitPoolAdminSnapshot(now = new Date()) {
 }
 
 export async function getPrizePool(contestId: string) {
-  const pool = await prisma.$transaction((tx) => ensurePool(tx, contestId));
+  // Reading prize-pool information must never create or mutate financial rows.
+  // Pool creation and funding reservation belong exclusively to the settlement worker.
+  const [storedPool, contest] = await Promise.all([
+    prisma.prizePool.findUnique({ where: { contestId } }),
+    prisma.contest.findUnique({ where: { id: contestId }, select: { id: true } }),
+  ]);
+  if (!contest) throw new Error("CONTEST_NOT_FOUND");
+
+  const pool = storedPool ?? {
+    contestId,
+    currency: "USDT0",
+    testOnly: false,
+    status: "OPEN",
+    seededMicro: 0n,
+    rolloverInMicro: 0n,
+    rolloverOutMicro: 0n,
+    awardedMicro: 0n,
+    projectProfitMicro: 0n,
+    settledAt: null,
+  };
   const [ledger, awards] = await Promise.all([
     prisma.prizeLedger.findMany({
       where: { contestId }, orderBy: { createdAt: "asc" },
@@ -172,7 +191,28 @@ export async function testFundPrizePool(_contestId?: string, _rawAmount?: unknow
 }
 
 export async function reserveRoundPrizeAllocation(contestId: string, now = new Date()) {
-  return prisma.$transaction((tx) => ensurePool(tx, contestId, now), { isolationLevel: "Serializable" });
+  // Fast-path checks keep empty/unfunded rounds out of serializable transactions.
+  // The checks are advisory only; ensurePool revalidates all conditions atomically.
+  const [contest, pool, fund] = await Promise.all([
+    prisma.contest.findUnique({
+      where: { id: contestId },
+      select: { id: true, startsAt: true, status: true },
+    }),
+    prisma.prizePool.findUnique({ where: { contestId } }),
+    prisma.globalPrizeFund.findUnique({
+      where: { id: "global" },
+      select: { balanceMicro: true },
+    }),
+  ]);
+  if (!contest) throw new Error("CONTEST_NOT_FOUND");
+  if (contest.status !== "ACTIVE" || !contest.startsAt || contest.startsAt > now) return pool;
+  if (pool && (pool.status !== "OPEN" || BigInt(pool.seededMicro) > 0n)) return pool;
+  if (BigInt(fund?.balanceMicro ?? 0n) < ROUND_ALLOCATION_MICRO) return pool;
+
+  return prisma.$transaction(
+    (tx) => ensurePool(tx, contestId, now),
+    { isolationLevel: "Serializable", maxWait: 10_000, timeout: 15_000 },
+  );
 }
 
 /**
@@ -231,21 +271,22 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
       completed.map(({ userId, rank, elapsedMs }) => ({ userId, rank, elapsedMs })),
     );
     const usernameById = new Map(completed.map((entry) => [entry.userId, entry.username]));
-    let awarded = 0n;
+    const payableAllocations = allocations.filter((allocation) => allocation.amountMicro > 0n);
+    const awarded = payableAllocations.reduce((total, allocation) => total + allocation.amountMicro, 0n);
 
-    for (const allocation of allocations) {
-      if (allocation.amountMicro <= 0n) continue;
-      await tx.prizeAward.create({
-        data: {
+    // One bulk insert avoids holding a financial transaction open for one
+    // database round-trip per winner.
+    if (payableAllocations.length > 0) {
+      await tx.prizeAward.createMany({
+        data: payableAllocations.map((allocation) => ({
           contestId,
           userId: allocation.userId,
           username: usernameById.get(allocation.userId) ?? "Wallet-Find user",
           rank: allocation.rank,
           amountMicro: allocation.amountMicro,
           status: "PENDING_PAYMENT",
-        },
+        })),
       });
-      awarded += allocation.amountMicro;
     }
 
     if (awarded > 0n) {
@@ -299,5 +340,5 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
         status: "PENDING_PAYMENT",
       })),
     };
-  }, { isolationLevel: "Serializable" });
+  }, { isolationLevel: "Serializable", maxWait: 10_000, timeout: 20_000 });
 }
