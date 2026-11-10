@@ -106,7 +106,7 @@ function responsePool(pool: any) {
     rolloverOut: formatMicro(BigInt(pool.rolloverOutMicro ?? 0n)),
     returnedToGlobal: formatMicro(returned),
     available: formatMicro(pool.status === "OPEN" ? remaining : 0n),
-    unused: formatMicro(remaining),
+    unused: formatMicro(pool.status === "OPEN" ? 0n : remaining),
     settledAt: pool.settledAt,
   };
 }
