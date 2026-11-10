@@ -87,21 +87,24 @@ async function ensurePool(tx: any, contestId: string, now = new Date()) {
 }
 
 function responsePool(pool: any) {
-  const total = BigInt(pool.seededMicro) + BigInt(pool.rolloverInMicro);
+  const seeded = BigInt(pool.seededMicro);
+  const rolloverIn = BigInt(pool.rolloverInMicro ?? 0n);
+  const total = seeded + rolloverIn;
   const awarded = BigInt(pool.awardedMicro);
-  const remaining = total > awarded ? total - awarded : 0n;
+  const returned = BigInt(pool.returnedToGlobalMicro ?? 0n);
+  const remaining = total > awarded + returned ? total - awarded - returned : 0n;
   return {
     contestId: pool.contestId,
     currency: "USDT0",
     testOnly: false,
     status: pool.status,
-    seeded: formatMicro(BigInt(pool.seededMicro)),
-    rolloverIn: "0.000000",
+    seeded: formatMicro(seeded),
+    rolloverIn: formatMicro(rolloverIn),
     total: formatMicro(total),
     awarded: formatMicro(awarded),
-    projectProfit: "0.000000",
-    rolloverOut: "0.000000",
-    returnedToGlobal: "0.000000",
+    projectProfit: formatMicro(BigInt(pool.projectProfitMicro ?? 0n)),
+    rolloverOut: formatMicro(BigInt(pool.rolloverOutMicro ?? 0n)),
+    returnedToGlobal: formatMicro(returned),
     available: formatMicro(pool.status === "OPEN" ? remaining : 0n),
     unused: formatMicro(pool.status === "OPEN" ? 0n : remaining),
     settledAt: pool.settledAt,
@@ -162,6 +165,7 @@ export async function getPrizePool(contestId: string) {
     rolloverOutMicro: 0n,
     awardedMicro: 0n,
     projectProfitMicro: 0n,
+    returnedToGlobalMicro: 0n,
     settledAt: null,
   };
   const [ledger, awards] = await Promise.all([
@@ -213,6 +217,88 @@ export async function reserveRoundPrizeAllocation(contestId: string, now = new D
     (tx) => ensurePool(tx, contestId, now),
     { isolationLevel: "Serializable", maxWait: 10_000, timeout: 15_000 },
   );
+}
+
+/**
+ * Returns the unpaid remainder of a finalized real USDT0 round to the shared
+ * global prize fund. The global-ledger reference is the idempotency boundary:
+ * a retry can repair the pool snapshot without crediting the fund twice.
+ */
+async function returnUnusedWithinTransaction(tx: any, pool: any, contestId: string, now = new Date()) {
+  if (pool.testOnly || pool.currency !== "USDT0" || pool.status === "OPEN") return 0n;
+
+  const total = BigInt(pool.seededMicro) + BigInt(pool.rolloverInMicro ?? 0n);
+  const awarded = BigInt(pool.awardedMicro);
+  const alreadyReturned = BigInt(pool.returnedToGlobalMicro ?? 0n);
+  const remaining = total - awarded - alreadyReturned;
+  if (remaining <= 0n) return 0n;
+
+  const referenceKey = "round-unused-return:" + contestId;
+  const existing = await tx.globalPrizeLedger.findUnique({ where: { referenceKey } });
+  const amount = existing ? BigInt(existing.amountMicro) : remaining;
+
+  if (!existing) {
+    await tx.globalPrizeFund.upsert({
+      where: { id: "global" },
+      update: {},
+      create: { id: "global" },
+    });
+    await tx.globalPrizeLedger.create({
+      data: {
+        type: "ROUND_UNUSED_RETURN",
+        amountMicro: amount,
+        contestId,
+        effectiveAt: now,
+        referenceKey,
+        note: "Unused unpaid USDT0 prize allocation returned to the global prize fund",
+      },
+    });
+    await tx.globalPrizeFund.update({
+      where: { id: "global" },
+      data: { balanceMicro: { increment: amount }, updatedAt: now },
+    });
+  }
+
+  const prizeLedgerKey = "round-rollover-out:" + contestId;
+  const prizeLedgerEntry = await tx.prizeLedger.findUnique({ where: { referenceKey: prizeLedgerKey } });
+  if (!prizeLedgerEntry) {
+    await tx.prizeLedger.create({
+      data: {
+        contestId,
+        type: "ROLLOVER_OUT",
+        amountMicro: amount,
+        note: "Unused unpaid round allocation returned to the global prize fund",
+        referenceKey: prizeLedgerKey,
+      },
+    });
+  }
+
+  await tx.prizePool.update({
+    where: { contestId },
+    data: {
+      returnedToGlobalMicro: { increment: amount - alreadyReturned },
+      rolloverOutMicro: { increment: amount - alreadyReturned },
+    },
+  });
+  return amount;
+}
+
+/**
+ * Repairs finalized USDT0 rounds created before rollover-return accounting
+ * was enabled. Safe to call repeatedly; the unique global-ledger reference
+ * prevents duplicate credits.
+ */
+export async function returnSettledPrizePoolUnusedToGlobal(contestId: string) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRawUnsafe(
+      "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
+      "prize-pool-settlement:" + contestId,
+    );
+    const pool = await tx.prizePool.findUnique({ where: { contestId } });
+    if (!pool) return "0.000000";
+    const amount = await returnUnusedWithinTransaction(tx, pool, contestId, new Date());
+    return formatMicro(amount);
+  }, { isolationLevel: "Serializable", maxWait: 10_000, timeout: 20_000 });
 }
 
 /**
@@ -309,6 +395,12 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
         settledAt: new Date(),
       },
     });
+    const returnedToGlobal = await returnUnusedWithinTransaction(
+      tx,
+      { ...pool, awardedMicro: awarded, status: updated.status },
+      contestId,
+      updated.settledAt ?? new Date(),
+    );
     await tx.auditLog.create({
       data: {
         userId: actorUserId ?? null,
@@ -319,7 +411,7 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
           seededMicro: seeded.toString(),
           awardedMicro: awarded.toString(),
           payoutCount: allocations.length,
-          unusedMicro: (seeded - awarded).toString(),
+          unusedMicro: (seeded + BigInt(pool.rolloverInMicro ?? 0n) - awarded).toString(),
           payoutMode: "INTERNAL_WALLET_LEDGER",
         },
       },
@@ -330,7 +422,8 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
       status: updated.status,
       seeded: formatMicro(seeded),
       awarded: formatMicro(awarded),
-      unused: formatMicro(seeded - awarded),
+      unused: "0.000000",
+      returnedToGlobal: formatMicro(returnedToGlobal),
       payoutCount: allocations.length,
       awards: allocations.map((award) => ({
         userId: award.userId,

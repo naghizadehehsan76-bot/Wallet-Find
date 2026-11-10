@@ -1,5 +1,5 @@
 import prisma from "../../config/prisma.js";
-import { reserveRoundPrizeAllocation, settlePrizePool } from "./prize-pool.service.js";
+import { reserveRoundPrizeAllocation, returnSettledPrizePoolUnusedToGlobal, settlePrizePool } from "./prize-pool.service.js";
 import { runWithSystemJobLease } from "../system/system-job-lease.service.js";
 
 export async function runPrizeSettlementProcessorOnce() {
@@ -25,10 +25,23 @@ export async function runPrizeSettlementProcessorOnce() {
     }
   }
 
+  // Process both newly finished rounds and older finalized USDT0 rounds
+  // whose unpaid remainder has not yet been returned to the global fund.
   const finishedRounds = await prisma.contest.findMany({
     where: {
       status: "FINISHED",
-      prizePool: { is: { seededMicro: { gt: 0n }, status: "OPEN" } },
+      prizePool: {
+        is: {
+          currency: "USDT0",
+          testOnly: false,
+          seededMicro: { gt: 0n },
+          returnedToGlobalMicro: 0n,
+          OR: [
+            { status: "OPEN" },
+            { status: { in: ["SETTLED", "PAYOUT_PENDING"] }, awardedMicro: { lt: 100_000n } },
+          ],
+        },
+      },
     },
     select: { id: true },
     take: 100,
@@ -37,8 +50,9 @@ export async function runPrizeSettlementProcessorOnce() {
   for (const round of finishedRounds) {
     try {
       await settlePrizePool(round.id, null);
+      await returnSettledPrizePoolUnusedToGlobal(round.id);
     } catch (error) {
-      console.error("Finished round prize settlement failed", { contestId: round.id, error });
+      console.error("Finished round prize settlement/rollover failed", { contestId: round.id, error });
     }
   }
 
