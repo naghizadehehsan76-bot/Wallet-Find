@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createPublicClient, http, isAddress, parseAbi, parseEventLogs } from "viem";
 import { formatAssetUnits, parseAssetUnits } from "./asset-amount.js";
+import { calculateOutstandingPrizeRoundReserve } from "./prize-treasury-accounting.js";
 import { meetsMinimumDeposit, minimumDepositAtomic } from "./deposit-minimum.js";
 import { isEvmWithdrawalFeeModelSupported, isSupportedEvmChainId } from "./chain-adapters/evm.adapter.js";
 import { polygon } from "viem/chains";
@@ -1016,7 +1017,15 @@ export async function getLatestTreasuryAccountingReconciliation() {
 async function getCommittedPrizeTreasuryReserve(client: any = prisma) {
   const [fund, pools, paidAwards, prizeWalletLiabilityRows] = await Promise.all([
     client.globalPrizeFund.findUnique({ where: { id: "global" } }),
-    client.prizePool.aggregate({ _sum: { seededMicro: true } }),
+    client.prizePool.aggregate({
+      where: { testOnly: false, currency: "USDT0" },
+      _sum: {
+        seededMicro: true,
+        rolloverInMicro: true,
+        rolloverOutMicro: true,
+        returnedToGlobalMicro: true,
+      },
+    }),
     client.prizeAward.aggregate({ where: { status: "PAID" }, _sum: { amountMicro: true } }),
     client.$queryRaw`
       SELECT COALESCE(SUM(
@@ -1043,9 +1052,13 @@ async function getCommittedPrizeTreasuryReserve(client: any = prisma) {
     `,
   ]);
   const globalBalance = BigInt(fund?.balanceMicro ?? 0n);
-  const roundAllocations = BigInt(pools._sum.seededMicro ?? 0n);
-  const paid = BigInt(paidAwards._sum.amountMicro ?? 0n);
-  const outstandingRounds = roundAllocations > paid ? roundAllocations - paid : 0n;
+  const outstandingRounds = calculateOutstandingPrizeRoundReserve({
+    seededMicro: BigInt(pools._sum.seededMicro ?? 0n),
+    rolloverInMicro: BigInt(pools._sum.rolloverInMicro ?? 0n),
+    rolloverOutMicro: BigInt(pools._sum.rolloverOutMicro ?? 0n),
+    returnedToGlobalMicro: BigInt(pools._sum.returnedToGlobalMicro ?? 0n),
+    paidAwardsMicro: BigInt(paidAwards._sum.amountMicro ?? 0n),
+  });
   const prizeWalletLiabilities = BigInt((prizeWalletLiabilityRows as Array<{ balance: bigint }>)[0]?.balance ?? 0n);
   return globalBalance + outstandingRounds + (prizeWalletLiabilities > 0n ? prizeWalletLiabilities : 0n);
 }
