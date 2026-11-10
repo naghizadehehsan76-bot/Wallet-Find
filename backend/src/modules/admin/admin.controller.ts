@@ -167,7 +167,7 @@ export async function getPrizeTreasuryPaymentHistoryHandler(
   res: Response,
 ) {
   try {
-    const [awards, fundingRows, fundingAuditRows] = await Promise.all([
+    const [awards, fundingRows, fundingAuditRows, fundingTotal, paidTotal, pendingTotal, awardCount, paidCount] = await Promise.all([
       prisma.prizeAward.findMany({
         orderBy: [{ createdAt: "desc" }],
         take: 500,
@@ -191,6 +191,11 @@ export async function getPrizeTreasuryPaymentHistoryHandler(
         take: 200,
         include: { user: { select: { username: true, email: true } } },
       }),
+      prisma.globalPrizeLedger.aggregate({ where: { type: "TREASURY_FUNDING" }, _sum: { amountMicro: true } }),
+      prisma.prizeAward.aggregate({ where: { status: "PAID" }, _sum: { amountMicro: true } }),
+      prisma.prizeAward.aggregate({ where: { status: { notIn: ["PAID", "INELIGIBLE"] } }, _sum: { amountMicro: true } }),
+      prisma.prizeAward.count(),
+      prisma.prizeAward.count({ where: { status: "PAID" } }),
     ]);
 
     const journalRows = awards.length ? await prisma.walletJournal.findMany({
@@ -203,13 +208,15 @@ export async function getPrizeTreasuryPaymentHistoryHandler(
     const journalByReference = new Map(journalRows.map((row) => [row.referenceKey, row]));
     const formatMicro = (value: bigint) => (value / 1_000_000n).toString() + "." + (value % 1_000_000n).toString().padStart(6, "0");
     const auditByTime = [...fundingAuditRows].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    const matchedAuditIds = new Set<string>();
 
     const allocations = fundingRows.map((row) => {
       const amount = BigInt(row.amountMicro);
       const audit = auditByTime.find((item) => {
         const metadata = item.metadata && typeof item.metadata === "object" ? item.metadata as Record<string, unknown> : {};
-        return metadata.amountMicro === amount.toString() && Math.abs(item.createdAt.getTime() - row.effectiveAt.getTime()) < 120_000;
+        return !matchedAuditIds.has(item.id) && metadata.amountMicro === amount.toString() && Math.abs(item.createdAt.getTime() - row.effectiveAt.getTime()) < 120_000;
       });
+      if (audit) matchedAuditIds.add(audit.id);
       return {
         id: row.id, amount: formatMicro(amount), effectiveAt: row.effectiveAt,
         createdAt: row.createdAt, referenceKey: row.referenceKey, note: row.note,
@@ -240,11 +247,11 @@ export async function getPrizeTreasuryPaymentHistoryHandler(
       };
     });
 
-    const totalFundedMicro = fundingRows.reduce((sum, row) => sum + BigInt(row.amountMicro), 0n);
-    const totalPaidMicro = awards.filter((award) => award.status === "PAID").reduce((sum, award) => sum + BigInt(award.amountMicro), 0n);
-    const pendingMicro = awards.filter((award) => award.status !== "PAID" && award.status !== "INELIGIBLE").reduce((sum, award) => sum + BigInt(award.amountMicro), 0n);
+    const totalFundedMicro = BigInt(fundingTotal._sum.amountMicro ?? 0n);
+    const totalPaidMicro = BigInt(paidTotal._sum.amountMicro ?? 0n);
+    const pendingMicro = BigInt(pendingTotal._sum.amountMicro ?? 0n);
     return res.json({ success: true, data: {
-      summary: { totalFunded: formatMicro(totalFundedMicro), totalPaid: formatMicro(totalPaidMicro), pending: formatMicro(pendingMicro), awardCount: awards.length, paidCount: awards.filter((award) => award.status === "PAID").length },
+      summary: { totalFunded: formatMicro(totalFundedMicro), totalPaid: formatMicro(totalPaidMicro), pending: formatMicro(pendingMicro), awardCount, paidCount },
       allocations, payments, generatedAt: new Date().toISOString(),
       accountingNote: "Prize awards are credited to users' internal Wallet-Find balances from the shared Polygon prize treasury ledger. These credits are not on-chain USDT0 transfers unless an explicit transaction hash is present.",
     } });
