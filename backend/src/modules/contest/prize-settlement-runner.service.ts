@@ -1,9 +1,28 @@
 import prisma from "../../config/prisma.js";
 import { returnSettledPrizePoolUnusedToGlobal, settlePrizePool } from "./prize-pool.service.js";
 import { runWithSystemJobLease } from "../system/system-job-lease.service.js";
+import { syncUnallocatedTreasuryToPrizeFund } from "../wallet/wallet.service.js";
+
+let lastTreasuryFundingSyncAt = 0;
+const TREASURY_FUNDING_SYNC_INTERVAL_MS = 60_000;
 
 export async function runPrizeSettlementProcessorOnce() {
   const now = new Date();
+
+  // The Polygon prize treasury is the source of truth for prize funding.
+  // Periodically allocate only its reconciled, uncommitted balance to the
+  // shared global fund, preserving balances already credited to winners.
+  if (Date.now() - lastTreasuryFundingSyncAt >= TREASURY_FUNDING_SYNC_INTERVAL_MS) {
+    try {
+      const funding = await syncUnallocatedTreasuryToPrizeFund();
+      lastTreasuryFundingSyncAt = Date.now();
+      if ("amount" in funding && funding.amount !== "0.000000") {
+        console.log("Reconciled prize treasury balance allocated to shared global fund", funding);
+      }
+    } catch (error) {
+      console.error("Prize treasury funding sync failed; it will retry", error);
+    }
+  }
   const activeRounds = await prisma.contest.count({ where: { status: "ACTIVE" } });
 
   // Process both newly finished rounds and older finalized USDT0 rounds

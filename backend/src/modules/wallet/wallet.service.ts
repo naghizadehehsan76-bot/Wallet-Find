@@ -1013,17 +1013,41 @@ export async function getLatestTreasuryAccountingReconciliation() {
   };
 }
 
-async function getCommittedPrizeTreasuryReserve() {
-  const [fund, pools, paidAwards] = await Promise.all([
-    prisma.globalPrizeFund.findUnique({ where: { id: "global" } }),
-    prisma.prizePool.aggregate({ _sum: { seededMicro: true } }),
-    prisma.prizeAward.aggregate({ where: { status: "PAID" }, _sum: { amountMicro: true } }),
+async function getCommittedPrizeTreasuryReserve(client: any = prisma) {
+  const [fund, pools, paidAwards, prizeWalletLiabilityRows] = await Promise.all([
+    client.globalPrizeFund.findUnique({ where: { id: "global" } }),
+    client.prizePool.aggregate({ _sum: { seededMicro: true } }),
+    client.prizeAward.aggregate({ where: { status: "PAID" }, _sum: { amountMicro: true } }),
+    client.$queryRaw`
+      SELECT COALESCE(SUM(
+        CASE WHEN posting."direction"::text = 'CREDIT'
+          THEN posting."amountAtomic" ELSE -posting."amountAtomic" END
+      ), 0)::bigint AS balance
+      FROM "wallet_journal_postings" AS posting
+      INNER JOIN "wallet_journals" AS journal ON journal.id = posting."journalId"
+      WHERE journal."networkId" = 'eip155:137'
+        AND journal."walletAssetId" = 'eip155:137/erc20:0xc2132d05d31c914a87c6611c10748aeb04b58e8f'
+        AND (
+          (posting.account::text = 'USER_AVAILABLE' AND posting."accountReference" = 'PRIZE_TREASURY')
+          OR (
+            posting.account::text = 'USER_RESERVED'
+            AND EXISTS (
+              SELECT 1
+              FROM "wallet_journal_postings" AS available
+              WHERE available."journalId" = posting."journalId"
+                AND available.account::text = 'USER_AVAILABLE'
+                AND available."accountReference" = 'PRIZE_TREASURY'
+            )
+          )
+        )
+    `,
   ]);
   const globalBalance = BigInt(fund?.balanceMicro ?? 0n);
   const roundAllocations = BigInt(pools._sum.seededMicro ?? 0n);
   const paid = BigInt(paidAwards._sum.amountMicro ?? 0n);
   const outstandingRounds = roundAllocations > paid ? roundAllocations - paid : 0n;
-  return globalBalance + outstandingRounds;
+  const prizeWalletLiabilities = BigInt((prizeWalletLiabilityRows as Array<{ balance: bigint }>)[0]?.balance ?? 0n);
+  return globalBalance + outstandingRounds + (prizeWalletLiabilities > 0n ? prizeWalletLiabilities : 0n);
 }
 
 export async function getTreasuryPrizeFundingSnapshot() {
@@ -1118,7 +1142,24 @@ export async function getAdminTreasuryLedgerHistory() {
   };
 }
 
-export async function allocateTreasuryToPrizeFund(rawAmount: unknown, adminUserId: string) {
+/**
+ * Automatically moves only reconciled, uncommitted USDT0 held by the dedicated
+ * prize treasury into the shared global prize fund. This is an internal
+ * accounting allocation; it never broadcasts a blockchain transaction.
+ */
+export async function syncUnallocatedTreasuryToPrizeFund() {
+  const snapshot = await getTreasuryPrizeFundingSnapshot();
+  if (snapshot.accountingStatus !== "MATCH") {
+    throw new Error("TREASURY_ACCOUNTING_MISMATCH");
+  }
+  const unallocated = parseAssetUnits(snapshot.unallocatedTreasuryBalance, 6);
+  if (unallocated <= 0n) {
+    return { amount: "0.000000", prizeFundBalance: snapshot.prizeFundBalance, skipped: "NO_UNALLOCATED_TREASURY_BALANCE" };
+  }
+  return allocateTreasuryToPrizeFund(formatMicro(unallocated), null);
+}
+
+export async function allocateTreasuryToPrizeFund(rawAmount: unknown, adminUserId: string | null) {
   if (typeof rawAmount !== "string") throw new Error("INVALID_ALLOCATION_AMOUNT");
   let amount: bigint;
   try {
@@ -1133,16 +1174,11 @@ export async function allocateTreasuryToPrizeFund(rawAmount: unknown, adminUserI
   if (amount > liveBalance) throw new Error("INSUFFICIENT_TREASURY_BALANCE");
   return prisma.$transaction(async (tx) => {
     await tx.globalPrizeFund.upsert({ where: { id: "global" }, update: {}, create: { id: "global" } });
-    const [currentFund, pools, paidAwards] = await Promise.all([
-      tx.globalPrizeFund.findUnique({ where: { id: "global" } }),
-      tx.prizePool.aggregate({ _sum: { seededMicro: true } }),
-      tx.prizeAward.aggregate({ where: { status: "PAID" }, _sum: { amountMicro: true } }),
-    ]);
-    const globalBalance = BigInt(currentFund?.balanceMicro ?? 0n);
-    const roundAllocations = BigInt(pools._sum.seededMicro ?? 0n);
-    const paid = BigInt(paidAwards._sum.amountMicro ?? 0n);
-    const outstandingRounds = roundAllocations > paid ? roundAllocations - paid : 0n;
-    const alreadyReserved = globalBalance + outstandingRounds;
+    await tx.$queryRawUnsafe(
+      "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
+      "global-prize-fund-settlement",
+    );
+    const alreadyReserved = await getCommittedPrizeTreasuryReserve(tx);
     if (alreadyReserved + amount > liveBalance) throw new Error("INSUFFICIENT_UNALLOCATED_TREASURY_BALANCE");
     const referenceKey = "treasury-prize-funding:" + randomUUID();
     const fund = await tx.globalPrizeFund.update({ where: { id: "global" }, data: { balanceMicro: { increment: amount }, totalFundedMicro: { increment: amount } } });
