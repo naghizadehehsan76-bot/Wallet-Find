@@ -15,7 +15,7 @@ test("returns an unpaid finalized USDT0 remainder to the global fund exactly onc
   timeout: 60_000,
 }, async () => {
   const suffix = randomUUID();
-  const referenceKey = "round-unused-return:" + suffix;
+  let referenceKey = "";
   let contestId: string | undefined;
 
   await prisma.globalPrizeFund.upsert({
@@ -46,6 +46,7 @@ test("returns an unpaid finalized USDT0 remainder to the global fund exactly onc
       select: { id: true },
     });
     contestId = contest.id;
+    referenceKey = "round-unused-return:" + contest.id;
 
     assert.equal(await returnSettledPrizePoolUnusedToGlobal(contest.id), "0.075000");
     assert.equal(await returnSettledPrizePoolUnusedToGlobal(contest.id), "0.000000");
