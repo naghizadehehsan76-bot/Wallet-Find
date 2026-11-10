@@ -539,8 +539,17 @@ export default function WalletPage({ onNavigate }: Props) {
   };
 
 const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token", MATIC: "polygon-ecosystem-token", USDT: "tether", USDT0: "tether", USDC: "usd-coin", DAI: "dai", ETH: "ethereum", WETH: "ethereum", BNB: "binancecoin", TRX: "tron", XRP: "ripple", DOGE: "dogecoin", ADA: "cardano", AVAX: "avalanche-2", LINK: "chainlink", LTC: "litecoin", DOT: "polkadot", XLM: "stellar" };
-  const usdBalance = displayedNetworks.reduce((sum, network) => sum + network.assets.reduce((assetSum, asset) => { const id = priceIdBySymbol[asset.symbol.toUpperCase()]; const price = id ? usdPrices[id] : undefined; const amount = Number(asset.balance); return price !== undefined && Number.isFinite(amount) ? assetSum + amount * price : assetSum; }, 0), 0);
-  const unpricedAssetCount = displayedNetworks.reduce((count, network) => count + network.assets.filter((asset) => { const amount = Number(asset.balance); const id = priceIdBySymbol[asset.symbol.toUpperCase()]; return Number.isFinite(amount) && amount > 0 && (!id || usdPrices[id] === undefined); }).length, 0);
+  // USDT0 is a Polygon representation of a USD-pegged stablecoin. Keep its
+  // estimated display value available when market-price providers omit Tether;
+  // this is display-only and never participates in wallet accounting.
+  const getUsdUnitPrice = (symbol: string): number | undefined => {
+    const normalized = symbol.toUpperCase();
+    if (normalized === "USDT0") return usdPrices.tether ?? 1;
+    const id = priceIdBySymbol[normalized];
+    return id ? usdPrices[id] : undefined;
+  };
+  const usdBalance = displayedNetworks.reduce((sum, network) => sum + network.assets.reduce((assetSum, asset) => { const price = getUsdUnitPrice(asset.symbol); const amount = Number(asset.balance); return price !== undefined && Number.isFinite(amount) ? assetSum + amount * price : assetSum; }, 0), 0);
+  const unpricedAssetCount = displayedNetworks.reduce((count, network) => count + network.assets.filter((asset) => { const amount = Number(asset.balance); return Number.isFinite(amount) && amount > 0 && getUsdUnitPrice(asset.symbol) === undefined; }).length, 0);
   const usdFormatter = new Intl.NumberFormat(locale, { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 6 });
 
   const historyItems = [
@@ -553,7 +562,9 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
       amount: item.amount,
       asset: item.currency,
       network: "",
-      note: item.note,
+      note: item.type === "PRIZE_AWARD"
+        ? (fa ? "جایزه چالش به موجودی کیف پول Wallet-Find واریز شد" : "Challenge prize credited to Wallet-Find balance")
+        : item.note,
       transactionHash: null as string | null,
       explorerUrl: null as string | null,
       confirmationCount: null as number | null,
@@ -656,8 +667,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
               </div>
               {network.assets.map((asset) => {
                 const amount = Number(asset.balance);
-                const priceId = priceIdBySymbol[asset.symbol.toUpperCase()];
-                const unitPrice = priceId ? usdPrices[priceId] : undefined;
+                const unitPrice = getUsdUnitPrice(asset.symbol);
                 const hasBalance = Number.isFinite(amount);
                 const hasUsdValue = hasBalance && (amount === 0 || unitPrice !== undefined);
                 const usdValue = hasUsdValue ? amount * (unitPrice ?? 0) : null;
@@ -717,7 +727,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
                     ? <a href={item.explorerUrl} target="_blank" rel="noreferrer" className="wallet-activity-tx-link">{fa ? "مشاهده تراکنش در مرورگر بلاک‌چین" : "View transaction on block explorer"}</a>
                     : <small>{item.transactionHash}</small>)}
                 </div>
-                <strong>{fmt(item.amount)} {item.asset}</strong>
+                <strong>{item.type === "PRIZE_AWARD" ? "+" : ""}{fmt(item.amount)} {item.asset}</strong>
               </div>
             );
           })}
