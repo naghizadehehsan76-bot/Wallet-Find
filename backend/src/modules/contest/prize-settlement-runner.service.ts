@@ -9,11 +9,19 @@ export async function runPrizeSettlementProcessorOnce() {
     select: { id: true },
   });
 
-  for (const round of activeRounds) {
-    try {
-      await reserveRoundPrizeAllocation(round.id, now);
-    } catch (error) {
-      console.error("Round prize allocation could not be reserved", { contestId: round.id, error });
+  // Do not open a serializable transaction for every active language/round
+  // when the global fund cannot cover even one complete 0.1 USDT0 allocation.
+  const globalFund = await prisma.globalPrizeFund.findUnique({
+    where: { id: "global" },
+    select: { balanceMicro: true },
+  });
+  if (BigInt(globalFund?.balanceMicro ?? 0n) >= 100_000n) {
+    for (const round of activeRounds) {
+      try {
+        await reserveRoundPrizeAllocation(round.id, now);
+      } catch (error) {
+        console.error("Round prize allocation could not be reserved", { contestId: round.id, error });
+      }
     }
   }
 
