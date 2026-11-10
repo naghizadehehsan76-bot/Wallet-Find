@@ -21,7 +21,7 @@ export async function runPrizeSettlementProcessorOnce() {
             is: {
               currency: "USDT0",
               testOnly: false,
-              seededMicro: { gt: 0n },
+              seededMicro: { gte: 100_000n },
               returnedToGlobalMicro: 0n,
               status: { in: ["SETTLED", "PAYOUT_PENDING"] },
               awardedMicro: { lt: 100_000n },
