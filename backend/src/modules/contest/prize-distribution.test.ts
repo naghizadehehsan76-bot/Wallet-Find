@@ -60,3 +60,12 @@ test("returns no awards for an empty or zero-value pool", () => {
   assert.deepEqual(calculatePrizeAllocations(0n, [{ userId: "a", rank: 1, elapsedMs: 1 }]), []);
   assert.deepEqual(calculatePrizeAllocations(USDT, []), []);
 });
+
+
+test("uses the fixed 0.1 USDT0 basis without requiring a full 0.1 debit when some rank shares are unused", () => {
+  const awards = calculatePrizeAllocations(100_000n, [
+    { userId: "winner", rank: 1, elapsedMs: 10_000 },
+  ]);
+  assert.deepEqual(awards, [{ userId: "winner", rank: 1, amountMicro: 50_000n }]);
+  assert.equal(awards.reduce((sum, award) => sum + award.amountMicro, 0n), 50_000n);
+});
