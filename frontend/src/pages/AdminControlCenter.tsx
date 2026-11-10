@@ -1207,7 +1207,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                         <article className="admin-setting-row" key={entry.id}>
                           <div>
                             <strong>{Number(entry.amount).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0 · {entry.username} · {fa ? "رتبه " : "Rank "}{entry.rank}</strong>
-                            <small>{entry.challengeTitle} · {getChallengeLanguageName(entry.language)} · {fa ? "شناسه چالش: " : "Challenge ID: "}{entry.contestId}</small>
+                            <small>{entry.challengeTitle} · {isChallengeLanguage(entry.language) ? getChallengeLanguageName(entry.language) : entry.language} · {fa ? "شناسه چالش: " : "Challenge ID: "}{entry.contestId}</small>
                             <small>{fa ? "ثبت جایزه: " : "Award created: "}{new Date(entry.awardCreatedAt).toLocaleString(fa ? "fa-IR" : "en-GB")}{entry.creditedAt ? " · " + (fa ? "اعتباردهی: " : "Credited: ") + new Date(entry.creditedAt).toLocaleString(fa ? "fa-IR" : "en-GB") : ""}</small>
                             <small>{fa ? "وضعیت: " : "Status: "}{statusLabel} · {entry.paymentMode === "INTERNAL_WALLET_CREDIT" ? (fa ? "اعتبار داخلی کیف پول" : "Internal wallet credit") : entry.paymentMode === "ON_CHAIN" ? (fa ? "تراکنش بلاک‌چینی" : "On-chain transaction") : (fa ? "هنوز اعتباردهی نشده" : "Not credited")}</small>
                             {entry.journalReference && <small>{fa ? "مرجع دفترکل: " : "Ledger reference: "}{entry.journalReference}</small>}
