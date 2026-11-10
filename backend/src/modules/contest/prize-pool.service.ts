@@ -3,7 +3,7 @@ import { getContestLeaderboard } from "./leaderboard.service.js";
 import { calculatePrizeAllocations } from "./prize-distribution.js";
 
 const MICRO = 1_000_000n;
-const ROUND_ALLOCATION_MICRO = MICRO;
+const ROUND_ALLOCATION_MICRO = MICRO / 10n;
 
 function formatMicro(value: bigint) {
   const safe = value > 0n ? value : 0n;
@@ -11,8 +11,8 @@ function formatMicro(value: bigint) {
 }
 
 /**
- * Reserves up to 1 USDT from the verified global-fund balance when the
- * scheduler observes the round as active. Only reconciled real funding can
+ * Reserves exactly 0.1 USDT0 from the verified global-fund balance when the
+ * scheduler observes the round as active. A round is not partially funded. Only reconciled real funding can
  * increase the global fund. The unique reference key makes retries safe.
  */
 async function ensurePool(tx: any, contestId: string, now = new Date()) {
@@ -31,7 +31,7 @@ async function ensurePool(tx: any, contestId: string, now = new Date()) {
   let pool = await tx.prizePool.upsert({
     where: { contestId },
     update: {},
-    create: { contestId, currency: "USDT", testOnly: false },
+    create: { contestId, currency: "USDT0", testOnly: false },
   });
   if (pool.status !== "OPEN" || contest.status !== "ACTIVE" || !contest.startsAt || contest.startsAt > now) return pool;
 
@@ -41,7 +41,8 @@ async function ensurePool(tx: any, contestId: string, now = new Date()) {
 
   const fund = await tx.globalPrizeFund.findUnique({ where: { id: "global" } });
   const available = BigInt(fund?.balanceMicro ?? 0n);
-  const amount = available < ROUND_ALLOCATION_MICRO ? available : ROUND_ALLOCATION_MICRO;
+  if (available < ROUND_ALLOCATION_MICRO) return pool;
+  const amount = ROUND_ALLOCATION_MICRO;
 
   await tx.globalPrizeLedger.create({
     data: {
@@ -51,7 +52,7 @@ async function ensurePool(tx: any, contestId: string, now = new Date()) {
       contestId,
       effectiveAt: contest.startsAt,
       referenceKey: allocationKey,
-      note: "Reservation from confirmed real USDT global prize fund",
+      note: "Reservation of 0.1 USDT0 from confirmed real global prize fund",
     },
   });
   await tx.globalPrizeFund.update({
@@ -78,7 +79,7 @@ async function ensurePool(tx: any, contestId: string, now = new Date()) {
       contestId,
       type: "GLOBAL_ALLOCATION",
       amountMicro: amount,
-      note: "Confirmed real USDT allocation from global prize fund",
+      note: "Confirmed real 0.1 USDT0 allocation from global prize fund",
       referenceKey: "round-real-allocation:" + contestId,
     },
   });
@@ -91,7 +92,7 @@ function responsePool(pool: any) {
   const remaining = total > awarded ? total - awarded : 0n;
   return {
     contestId: pool.contestId,
-    currency: "USDT",
+    currency: "USDT0",
     testOnly: false,
     status: pool.status,
     seeded: formatMicro(BigInt(pool.seededMicro)),
@@ -114,7 +115,7 @@ export async function getGlobalPrizePoolSnapshot(now = new Date()) {
     dailyContribution: "0.000000",
     totalDailyFunding: "0.000000",
     totalRoundAllocations: formatMicro(BigInt(fund?.totalAllocatedMicro ?? 0n)),
-    currency: "USDT" as const,
+    currency: "USDT0" as const,
     simulatedOnly: false as const,
     updatedAt: now.toISOString(),
   };

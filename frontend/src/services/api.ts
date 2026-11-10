@@ -56,7 +56,7 @@ export type PublicPrizePoolStats = {
   currentRoundPool: string;
   totalRoundAllocations: string;
   totalPrizesAwarded: string;
-  currency: "USDT";
+  currency: "USDT0";
   updatedAt: string;
 };
 

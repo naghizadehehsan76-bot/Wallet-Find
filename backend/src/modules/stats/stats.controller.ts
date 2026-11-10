@@ -33,7 +33,7 @@ export async function getPublicPrizePoolStatsHandler(
       select: { id: true },
     });
 
-    // Reserve up to 1 USDT only from the verified real global fund.
+    // Reserve exactly 0.1 USDT0 only from the verified real global fund.
     const currentPool = currentContest
       ? await getPublicPrizePool(currentContest.id)
       : null;
@@ -50,7 +50,7 @@ export async function getPublicPrizePoolStatsHandler(
         currentRoundPool: currentPool?.pool.available ?? formatMicroUsdt(0n),
         totalRoundAllocations: globalSnapshot.totalRoundAllocations,
         totalPrizesAwarded: formatMicroUsdt(BigInt(awardedTotal._sum.amountMicro ?? 0n)),
-        currency: "USDT",
+        currency: "USDT0",
         updatedAt: now.toISOString(),
       },
     });

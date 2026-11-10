@@ -82,9 +82,9 @@ test("parallel payout processors credit one internal prize exactly once without 
         endsAt: new Date(Date.now() - 15 * 60_000),
         prizePool: {
           create: {
-            currency: "USDT",
-            seededMicro: 1_000_000n,
-            awardedMicro: 1_000_000n,
+            currency: "USDT0",
+            seededMicro: 100_000n,
+            awardedMicro: 100_000n,
             testOnly: true,
             status: "PAYOUT_PENDING",
           },
@@ -98,7 +98,7 @@ test("parallel payout processors credit one internal prize exactly once without 
         userId,
         username: userId,
         rank: 1,
-        amountMicro: 1_000_000n,
+        amountMicro: 100_000n,
         status: "PENDING_PAYMENT",
       },
     });
