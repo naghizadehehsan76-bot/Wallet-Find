@@ -1536,10 +1536,10 @@ export default function AdminControlCenter({ onNavigate }: Props) {
             <section className="admin-wallet-allocation-card">
               <div className="admin-wallet-allocation-card__heading">
                 <div>
-                  <h2>{fa ? "تخصیص از خزانه به صندوق جوایز" : "Allocate treasury funds to prize pool"}</h2>
-                  <p>{fa ? "مبلغ موردنظر را از موجودی آزاد خزانه به موجودی داخلی صندوق جوایز منتقل کن." : "Move an amount from the treasury's unallocated balance into the internal prize fund."}</p>
+                  <h2>{fa ? "تخصیص به صندوق عمومی و رزرو چالش‌ها" : "Allocate to global prize fund and challenge reserves"}</h2>
+                  <p>{fa ? "مبلغ را از موجودی آزاد خزانه به صندوق عمومی منتقل می‌کند؛ سیستم ممکن است آن را برای چالش فعال رزرو کند." : "Moves funds from the treasury's unallocated balance into the global prize fund; the scheduler may reserve them for an active challenge."}</p>
                 </div>
-                <span>{fa ? "USDT" : "USDT"}</span>
+                <span>{fa ? "USDT0" : "USDT0"}</span>
               </div>
               <div className="admin-wallet-allocation-card__balances">
                 <div>
@@ -1549,9 +1549,9 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                     : "—"}</strong>
                 </div>
                 <div>
-                  <span>{fa ? "موجودی صندوق جوایز" : "Prize fund balance"}</span>
+                  <span>{fa ? "ماندهٔ آزاد صندوق عمومی جوایز" : "Unreserved global prize fund balance"}</span>
                   <strong>{treasuryFunding
-                    ? Number(treasuryFunding.prizeFundBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) + " USDT"
+                    ? Number(treasuryFunding.prizeFundBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) + " USDT0"
                     : "—"}</strong>
                 </div>
               </div>
@@ -1566,7 +1566,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                   : "This is an internal accounting entry only. It does not create an on-chain Polygon transaction or transfer."}</p>
               </div>
               <form className="admin-wallet-allocation-card__form" onSubmit={handleTreasuryPrizeAllocation}>
-                <label htmlFor="treasury-prize-allocation-amount">{fa ? "مبلغ تخصیص (USDT)" : "Allocation amount (USDT)"}</label>
+                <label htmlFor="treasury-prize-allocation-amount">{fa ? "مبلغ تخصیص (USDT0)" : "Allocation amount (USDT0)"}</label>
                 <div className="admin-wallet-allocation-card__input-row">
                   <input
                     id="treasury-prize-allocation-amount"
