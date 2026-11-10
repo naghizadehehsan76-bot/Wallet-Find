@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createPublicClient, http, isAddress, parseAbi, parseEventLogs } from "viem";
 import { formatAssetUnits, parseAssetUnits } from "./asset-amount.js";
+import { calculateOutstandingPrizeRoundReserve } from "./prize-treasury-accounting.js";
 import { meetsMinimumDeposit, minimumDepositAtomic } from "./deposit-minimum.js";
 import { isEvmWithdrawalFeeModelSupported, isSupportedEvmChainId } from "./chain-adapters/evm.adapter.js";
 import { polygon } from "viem/chains";
@@ -1051,18 +1052,13 @@ async function getCommittedPrizeTreasuryReserve(client: any = prisma) {
     `,
   ]);
   const globalBalance = BigInt(fund?.balanceMicro ?? 0n);
-  const seeded = BigInt(pools._sum.seededMicro ?? 0n);
-  const rolloverIn = BigInt(pools._sum.rolloverInMicro ?? 0n);
-  // These two columns are mirrored by the legacy return path. Count the
-  // returned amount once, even if both fields contain the same transaction.
-  const rolloverOut = BigInt(pools._sum.rolloverOutMicro ?? 0n);
-  const returnedToGlobal = BigInt(pools._sum.returnedToGlobalMicro ?? 0n);
-  const returned = rolloverOut > returnedToGlobal ? rolloverOut : returnedToGlobal;
-  const paid = BigInt(paidAwards._sum.amountMicro ?? 0n);
-  const committedBeforePaid = seeded + rolloverIn > returned ? seeded + rolloverIn - returned : 0n;
-  // Unpaid awards remain committed to their winners. Paid awards move into
-  // user wallet liabilities below, so subtract them from the round reserve.
-  const outstandingRounds = committedBeforePaid > paid ? committedBeforePaid - paid : 0n;
+  const outstandingRounds = calculateOutstandingPrizeRoundReserve({
+    seededMicro: BigInt(pools._sum.seededMicro ?? 0n),
+    rolloverInMicro: BigInt(pools._sum.rolloverInMicro ?? 0n),
+    rolloverOutMicro: BigInt(pools._sum.rolloverOutMicro ?? 0n),
+    returnedToGlobalMicro: BigInt(pools._sum.returnedToGlobalMicro ?? 0n),
+    paidAwardsMicro: BigInt(paidAwards._sum.amountMicro ?? 0n),
+  });
   const prizeWalletLiabilities = BigInt((prizeWalletLiabilityRows as Array<{ balance: bigint }>)[0]?.balance ?? 0n);
   return globalBalance + outstandingRounds + (prizeWalletLiabilities > 0n ? prizeWalletLiabilities : 0n);
 }
