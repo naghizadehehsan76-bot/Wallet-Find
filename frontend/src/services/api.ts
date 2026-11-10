@@ -600,6 +600,30 @@ export async function getAdminOverview(): Promise<AdminOverview> {
   return request<AdminOverview>("/admin/overview", {}, true);
 }
 
+export type AdminPrizeTreasuryPaymentHistory = {
+  summary: { totalFunded: string; totalPaid: string; pending: string; awardCount: number; paidCount: number };
+  allocations: Array<{
+    id: string; amount: string; effectiveAt: string; createdAt: string; referenceKey: string;
+    note: string; allocatedBy: string | null; allocatedByEmail: string | null; auditLogId: string | null;
+  }>;
+  payments: Array<{
+    id: string; contestId: string; challengeTitle: string; language: string;
+    challengeStartsAt: string | null; challengeEndsAt: string | null; userId: string; username: string;
+    rank: number; amount: string; status: string;
+    paymentMode: "INTERNAL_WALLET_CREDIT" | "ON_CHAIN" | "NOT_CREDITED";
+    creditedAt: string | null; journalId: string | null; journalReference: string | null;
+    ledgerEntryType: string | null; creditedAccount: string | null; creditedAccountReference: string | null;
+    destinationAddress: string | null; transactionHash: string | null; broadcastAt: string | null;
+    confirmedAt: string | null; failureCode: string | null; awardCreatedAt: string; note: string | null;
+  }>;
+  generatedAt: string;
+  accountingNote: string;
+};
+
+export async function getAdminPrizeTreasuryPaymentHistory(): Promise<AdminPrizeTreasuryPaymentHistory> {
+  return request<AdminPrizeTreasuryPaymentHistory>("/admin/prize-treasury-payment-history", {}, true);
+}
+
 export type AdminProjectProfitPool = {
   balance: string;
   totalContributed: string;

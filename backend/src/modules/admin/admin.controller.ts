@@ -162,6 +162,105 @@ export async function getAdminUsersHandler(
   }
 }
 
+export async function getPrizeTreasuryPaymentHistoryHandler(
+  _req: AuthenticatedRequest,
+  res: Response,
+) {
+  try {
+    const [awards, fundingRows, fundingAuditRows, fundingTotal, paidTotal, pendingTotal, awardCount, paidCount] = await Promise.all([
+      prisma.prizeAward.findMany({
+        orderBy: [{ createdAt: "desc" }],
+        take: 500,
+        select: {
+          id: true, contestId: true, userId: true, username: true, rank: true,
+          amountMicro: true, status: true, destinationAddress: true,
+          transactionHash: true, broadcastAt: true, confirmedAt: true,
+          failureCode: true, createdAt: true,
+          contest: { select: { title: true, language: true, startsAt: true, endsAt: true } },
+        },
+      }),
+      prisma.globalPrizeLedger.findMany({
+        where: { type: "TREASURY_FUNDING" },
+        orderBy: [{ effectiveAt: "desc" }, { createdAt: "desc" }],
+        take: 200,
+        select: { id: true, amountMicro: true, effectiveAt: true, createdAt: true, referenceKey: true, note: true },
+      }),
+      prisma.auditLog.findMany({
+        where: { action: "TREASURY_PRIZE_FUND_ALLOCATION" },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+        include: { user: { select: { username: true, email: true } } },
+      }),
+      prisma.globalPrizeLedger.aggregate({ where: { type: "TREASURY_FUNDING" }, _sum: { amountMicro: true } }),
+      prisma.prizeAward.aggregate({ where: { status: "PAID" }, _sum: { amountMicro: true } }),
+      prisma.prizeAward.aggregate({ where: { status: { notIn: ["PAID", "INELIGIBLE"] } }, _sum: { amountMicro: true } }),
+      prisma.prizeAward.count(),
+      prisma.prizeAward.count({ where: { status: "PAID" } }),
+    ]);
+
+    const journalRows = awards.length ? await prisma.walletJournal.findMany({
+      where: { referenceKey: { in: awards.map((award) => "prize-award:" + award.id) } },
+      select: {
+        id: true, referenceKey: true, entryType: true, note: true, createdAt: true,
+        postings: { select: { account: true, direction: true, amountAtomic: true, accountReference: true } },
+      },
+    }) : [];
+    const journalByReference = new Map(journalRows.map((row) => [row.referenceKey, row]));
+    const formatMicro = (value: bigint) => (value / 1_000_000n).toString() + "." + (value % 1_000_000n).toString().padStart(6, "0");
+    const auditByTime = [...fundingAuditRows].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    const matchedAuditIds = new Set<string>();
+
+    const allocations = fundingRows.map((row) => {
+      const amount = BigInt(row.amountMicro);
+      const audit = auditByTime.find((item) => {
+        const metadata = item.metadata && typeof item.metadata === "object" ? item.metadata as Record<string, unknown> : {};
+        return !matchedAuditIds.has(item.id) && metadata.amountMicro === amount.toString() && Math.abs(item.createdAt.getTime() - row.effectiveAt.getTime()) < 120_000;
+      });
+      if (audit) matchedAuditIds.add(audit.id);
+      return {
+        id: row.id, amount: formatMicro(amount), effectiveAt: row.effectiveAt,
+        createdAt: row.createdAt, referenceKey: row.referenceKey, note: row.note,
+        allocatedBy: audit?.user?.username ?? null,
+        allocatedByEmail: audit?.user?.email ?? null,
+        auditLogId: audit?.id ?? null,
+      };
+    });
+
+    const payments = awards.map((award) => {
+      const journal = journalByReference.get("prize-award:" + award.id);
+      const availableCredit = journal?.postings.find((posting) => posting.account === "USER_AVAILABLE" && posting.direction === "CREDIT");
+      return {
+        id: award.id, contestId: award.contestId, challengeTitle: award.contest.title,
+        language: award.contest.language, challengeStartsAt: award.contest.startsAt,
+        challengeEndsAt: award.contest.endsAt, userId: award.userId, username: award.username,
+        rank: award.rank, amount: formatMicro(BigInt(award.amountMicro)), status: award.status,
+        paymentMode: journal ? "INTERNAL_WALLET_CREDIT" : award.transactionHash ? "ON_CHAIN" : "NOT_CREDITED",
+        creditedAt: journal?.createdAt ?? award.confirmedAt,
+        journalId: journal?.id ?? null, journalReference: journal?.referenceKey ?? null,
+        ledgerEntryType: journal?.entryType ?? null,
+        creditedAccount: availableCredit?.account ?? null,
+        creditedAccountReference: availableCredit?.accountReference ?? null,
+        destinationAddress: award.destinationAddress, transactionHash: award.transactionHash,
+        broadcastAt: award.broadcastAt, confirmedAt: award.confirmedAt,
+        failureCode: award.failureCode, awardCreatedAt: award.createdAt,
+        note: journal?.note ?? null,
+      };
+    });
+
+    const totalFundedMicro = BigInt(fundingTotal._sum.amountMicro ?? 0n);
+    const totalPaidMicro = BigInt(paidTotal._sum.amountMicro ?? 0n);
+    const pendingMicro = BigInt(pendingTotal._sum.amountMicro ?? 0n);
+    return res.json({ success: true, data: {
+      summary: { totalFunded: formatMicro(totalFundedMicro), totalPaid: formatMicro(totalPaidMicro), pending: formatMicro(pendingMicro), awardCount, paidCount },
+      allocations, payments, generatedAt: new Date().toISOString(),
+      accountingNote: "Prize awards are credited to users' internal Wallet-Find balances from the shared Polygon prize treasury ledger. These credits are not on-chain USDT0 transfers unless an explicit transaction hash is present.",
+    } });
+  } catch (error) {
+    console.error("Failed to load prize treasury payment history", error);
+    return res.status(503).json({ success: false, error: "PRIZE_TREASURY_PAYMENT_HISTORY_UNAVAILABLE" });
+  }
+}
+
 export async function getProjectProfitPoolAdminHandler(
   _req: AuthenticatedRequest,
   res: Response

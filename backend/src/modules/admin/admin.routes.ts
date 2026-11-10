@@ -14,6 +14,7 @@ import {
   getAuditLogsHandler,
   getAdminUsersHandler,
   getProjectProfitPoolAdminHandler,
+  getPrizeTreasuryPaymentHistoryHandler,
   getContestSourceVisitReportHandler,
 } from "./admin.controller.js";
 import {
@@ -68,6 +69,7 @@ router.post("/wallet-withdrawals/:withdrawalId/review", reviewAdminWithdrawalHan
 router.post("/wallet-withdrawals/:withdrawalId/execute", executeAdminWalletWithdrawalHandler);
 router.post("/wallet-withdrawals/:withdrawalId/reconcile", reconcileAdminWalletWithdrawalHandler);
 router.get("/project-profit-pool", getProjectProfitPoolAdminHandler);
+router.get("/prize-treasury-payment-history", getPrizeTreasuryPaymentHistoryHandler);
 router.get("/prize-pool/:contestId", getPrizePoolHandler);
 
 export default router;
