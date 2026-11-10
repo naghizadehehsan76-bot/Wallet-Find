@@ -1,62 +1,52 @@
 import prisma from "../../config/prisma.js";
-import { reserveRoundPrizeAllocation, returnSettledPrizePoolUnusedToGlobal, settlePrizePool } from "./prize-pool.service.js";
+import { returnSettledPrizePoolUnusedToGlobal, settlePrizePool } from "./prize-pool.service.js";
 import { runWithSystemJobLease } from "../system/system-job-lease.service.js";
 
 export async function runPrizeSettlementProcessorOnce() {
   const now = new Date();
-  const activeRounds = await prisma.contest.findMany({
-    where: { status: "ACTIVE" },
-    select: { id: true },
-  });
-
-  // Do not open a serializable transaction for every active language/round
-  // when the global fund cannot cover even one complete 0.1 USDT0 allocation.
-  const globalFund = await prisma.globalPrizeFund.findUnique({
-    where: { id: "global" },
-    select: { balanceMicro: true },
-  });
-  if (BigInt(globalFund?.balanceMicro ?? 0n) >= 100_000n) {
-    for (const round of activeRounds) {
-      try {
-        await reserveRoundPrizeAllocation(round.id, now);
-      } catch (error) {
-        console.error("Round prize allocation could not be reserved", { contestId: round.id, error });
-      }
-    }
-  }
+  const activeRounds = await prisma.contest.count({ where: { status: "ACTIVE" } });
 
   // Process both newly finished rounds and older finalized USDT0 rounds
   // whose unpaid remainder has not yet been returned to the global fund.
+  // Settle every finished language round against the same global fund.
+  // Legacy pools with a pre-existing reservation are still finalized and repaired.
   const finishedRounds = await prisma.contest.findMany({
     where: {
       status: "FINISHED",
-      prizePool: {
-        is: {
-          currency: "USDT0",
-          testOnly: false,
-          seededMicro: { gt: 0n },
-          returnedToGlobalMicro: 0n,
-          OR: [
-            { status: "OPEN" },
-            { status: { in: ["SETTLED", "PAYOUT_PENDING"] }, awardedMicro: { lt: 100_000n } },
-          ],
+      OR: [
+        { prizePool: { is: null } },
+        { prizePool: { is: { currency: "USDT0", testOnly: false, status: "OPEN" } } },
+        {
+          prizePool: {
+            is: {
+              currency: "USDT0",
+              testOnly: false,
+              seededMicro: { gte: 100_000n },
+              returnedToGlobalMicro: 0n,
+              status: { in: ["SETTLED", "PAYOUT_PENDING"] },
+              awardedMicro: { lt: 100_000n },
+            },
+          },
         },
-      },
+      ],
     },
+    orderBy: [{ endsAt: "asc" }, { startsAt: "asc" }, { id: "asc" }],
     select: { id: true },
     take: 100,
   });
 
   for (const round of finishedRounds) {
     try {
-      await settlePrizePool(round.id, null);
-      await returnSettledPrizePoolUnusedToGlobal(round.id);
+      const result = await settlePrizePool(round.id, null);
+      if (result.status !== "WAITING_FOR_GLOBAL_FUNDS") {
+        await returnSettledPrizePoolUnusedToGlobal(round.id);
+      }
     } catch (error) {
       console.error("Finished round prize settlement/rollover failed", { contestId: round.id, error });
     }
   }
 
-  return { activeRounds: activeRounds.length, finishedRounds: finishedRounds.length };
+  return { activeRounds, finishedRounds: finishedRounds.length };
 }
 
 export function startPrizeSettlementProcessor() {

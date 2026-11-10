@@ -1,0 +1,1 @@
+ALTER TYPE "GlobalPrizeLedgerType" ADD VALUE 'ROUND_AWARD_DEBIT';

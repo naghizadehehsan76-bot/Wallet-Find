@@ -548,6 +548,7 @@ enum GlobalPrizeLedgerType {
   TREASURY_FUNDING
   ROUND_ALLOCATION
   ROUND_UNUSED_RETURN
+  ROUND_AWARD_DEBIT
 }
 
 enum ProjectProfitLedgerType {
