@@ -46,7 +46,7 @@ export async function runPrizeSettlementProcessorOnce() {
     }
   }
 
-  return { activeRounds: activeRounds.length, finishedRounds: finishedRounds.length };
+  return { activeRounds, finishedRounds: finishedRounds.length };
 }
 
 export function startPrizeSettlementProcessor() {
