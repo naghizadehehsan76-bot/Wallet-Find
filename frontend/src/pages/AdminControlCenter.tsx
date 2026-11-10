@@ -5,7 +5,7 @@ import { getAdminPanelCopy } from "../i18n/admin-panel-overrides";
 import {
   getAdminAuditLogs,
   getAdminOverview,
-  getAdminProjectProfitPool,
+  getAdminPrizeTreasuryPaymentHistory,
   provisionPrizeTreasuryWallet,
   getPrizeTreasuryWallet,
   getTreasuryPrizeFunding,
@@ -24,7 +24,7 @@ import {
   saveSystemSetting,
   type AdminAuditLog,
   type AdminOverview,
-  type AdminProjectProfitPool,
+  type AdminPrizeTreasuryPaymentHistory,
   type AdminUserSummary,
   type AdminSourceVisitReport,
   type SystemSettingRecord,
@@ -131,7 +131,9 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const fa = language === "fa";
   const [section, setSection] = useState<Section>("overview");
   const [overview, setOverview] = useState<AdminOverview | null>(null);
-  const [projectProfitPool, setProjectProfitPool] = useState<AdminProjectProfitPool | null>(null);
+  const [prizePaymentHistory, setPrizePaymentHistory] = useState<AdminPrizeTreasuryPaymentHistory | null>(null);
+  const [prizePaymentHistoryLoading, setPrizePaymentHistoryLoading] = useState(false);
+  const [prizePaymentHistoryError, setPrizePaymentHistoryError] = useState(false);
   const [settings, setSettings] = useState<SystemSettingRecord[]>([]);
   const [treasury, setTreasury] = useState<PrizeTreasuryProvisionResult | null>(null);
   const [treasuryLoading, setTreasuryLoading] = useState(false);
@@ -278,13 +280,23 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     conceptBody: fa ? "این بخش فعلاً فقط به‌عنوان جایگاه در پنل مدیریت اضافه شده است. قابلیت‌ها و عملیات آن در مراحل بعدی، جداگانه طراحی و پیاده‌سازی می‌شوند." : "This section is currently a placeholder in the admin panel. Its tools and workflows will be designed and implemented separately in later phases.",
     usersBody: fa ? "جست‌وجو و مشاهدهٔ کاربران، نقش‌ها، وضعیت حساب، تأیید ایمیل و محدودیت‌های دسترسی." : "Search users, review roles and account status, email verification, and access restrictions.",
     financeBody: fa ? "بررسی تراکنش‌ها، درخواست‌های واریز و برداشت، دفترکل و مغایرت‌های مالی." : "Review transactions, deposit and withdrawal requests, the ledger, and financial discrepancies.",
-    prizesBody: fa ? "مشاهدهٔ صندوق کلی، تخصیص ۱٪ به هر دور، جوایز ثبت‌شده و کنترل مدیریتی صندوق سود سهام پروژه." : "Inspect the global fund, 1% per-round allocations, participant awards, and admin-only project dividend fund.",
-    projectProfitTitle: fa ? "صندوق سود سهام پروژه (فقط مدیر)" : "Project dividend fund (admin only)",
-    projectProfitBalance: fa ? "موجودی فعلی صندوق" : "Current fund balance",
-    projectProfitTotal: fa ? "مجموع سهم‌های واریزشده" : "Total contribution shares",
-    projectProfitLedger: fa ? "آخرین ثبت‌های صندوق" : "Recent fund ledger entries",
-    projectProfitEmpty: fa ? "هنوز ثبت مالی برای این صندوق وجود ندارد." : "No ledger entries for this fund yet.",
-    simulatedFundsNote: fa ? "این مبالغ آزمایشی‌اند؛ انتقال واقعی USDT انجام نمی‌شود." : "These are simulated amounts; no real USDT is transferred.",
+    prizesBody: fa ? "مشاهدهٔ موجودی صندوق کلی، تخصیص‌های دستی خزانه و تاریخچهٔ دقیق جوایز پرداخت‌شده به کاربران." : "Review the global fund, manual treasury allocations, and detailed prize payments to users.",
+    prizeHistoryTitle: fa ? "تاریخچه پرداخت‌های خزانه بابت جوایز" : "Treasury prize payment history",
+    prizeHistoryFunded: fa ? "مجموع تخصیص دستی خزانه" : "Total manual treasury allocations",
+    prizeHistoryPaid: fa ? "مجموع جوایز پرداخت‌شده" : "Total prizes credited",
+    prizeHistoryPending: fa ? "جوایز در انتظار پرداخت" : "Prizes pending payment",
+    prizeHistoryAllocations: fa ? "سوابق تخصیص دستی خزانه به صندوق جوایز" : "Manual treasury allocations to the prize fund",
+    prizeHistoryPayments: fa ? "جزئیات پرداخت به برندگان" : "Prize credits to winners",
+    prizeHistoryEmpty: fa ? "هنوز تخصیص دستی یا پرداخت جایزه‌ای ثبت نشده است." : "No manual allocations or prize payments have been recorded yet.",
+    prizeHistoryLoading: fa ? "در حال دریافت تاریخچه مالی…" : "Loading financial history…",
+    prizeHistoryError: fa ? "دریافت تاریخچه پرداخت جوایز ناموفق بود." : "Could not load prize payment history.",
+    prizeHistoryRefresh: fa ? "به‌روزرسانی تاریخچه" : "Refresh history",
+    prizeHistoryPaidStatus: fa ? "اعتبار داخلی واریز شد" : "Credited to internal wallet",
+    prizeHistoryPendingStatus: fa ? "در انتظار پرداخت" : "Pending payment",
+    prizeHistoryIneligibleStatus: fa ? "فاقد شرایط دریافت جایزه" : "Not eligible for prize",
+    prizeHistoryFailedStatus: fa ? "نیازمند بررسی" : "Requires review",
+    prizeHistoryInternalNote: fa ? "این پرداخت‌ها به‌صورت اعتبار داخلی USDT0 در کیف پول Wallet-Find ثبت می‌شوند؛ تا وقتی هش تراکنش وجود نداشته باشد، انتقال بلاک‌چینی انجام نشده است." : "These prizes are credited as internal USDT0 wallet balances. No blockchain transfer occurs unless a transaction hash is explicitly shown.",
+    prizeHistoryAllocationNote: fa ? "تخصیص، ثبت حسابداری داخلی از خزانه Polygon به صندوق مشترک جوایز است و به‌تنهایی انتقال روی شبکه نیست." : "An allocation is an internal accounting entry from the Polygon treasury to the shared prize fund, not an on-chain transfer.",
     adsBody: fa ? "منابع فعال ساخت سرنخ برای هر زبان را ببین، آدرس منابع جدید اضافه کن یا منابع را حذف کن. منابع سفارشی باید صفحهٔ HTTPS عمومی و دارای متن قابل خواندن باشند." : "Review enabled clue sources for each language, add source URLs, or remove sources. Custom sources must be public HTTPS pages with readable text.",
     sourceEn: fa ? "منابع چالش انگلیسی" : "English challenge sources",
     sourceFa: fa ? "منابع چالش فارسی" : "Persian challenge sources",
@@ -391,12 +403,11 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     setLoading(true);
     setError("");
     try {
-      const [stats, settingRows, auditRows, userRows, profitPool] = await Promise.all([
+      const [stats, settingRows, auditRows, userRows] = await Promise.all([
         getAdminOverview(),
         getSystemSettings(),
         getAdminAuditLogs(),
         getAdminUsers(),
-        getAdminProjectProfitPool(),
       ]);
       setOverview(stats);
       setSettings(settingRows);
@@ -409,7 +420,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       setScheduledSources(parseScheduledSourceAssignments(settingRows.find((setting) => setting.key === "scheduled_clue_sources")?.value));
       setLogs(auditRows);
       setUsers(userRows);
-      setProjectProfitPool(profitPool);
     } catch {
       setError(copy.refreshError);
     } finally {
@@ -464,6 +474,25 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       setWalletHistoryLoading(false);
     }
   }, [fa]);
+
+  useEffect(() => {
+    if (section !== "prizes") return;
+    let cancelled = false;
+    const refresh = async () => {
+      setPrizePaymentHistoryLoading(true);
+      setPrizePaymentHistoryError(false);
+      try {
+        const result = await getAdminPrizeTreasuryPaymentHistory();
+        if (!cancelled) setPrizePaymentHistory(result);
+      } catch {
+        if (!cancelled) setPrizePaymentHistoryError(true);
+      } finally {
+        if (!cancelled) setPrizePaymentHistoryLoading(false);
+      }
+    };
+    void refresh();
+    return () => { cancelled = true; };
+  }, [section]);
 
   useEffect(() => {
     if (section !== "wallets") return;
@@ -1137,31 +1166,62 @@ export default function AdminControlCenter({ onNavigate }: Props) {
 
         {section === "prizes" && (
           <section className="admin-panel">
-            <h2>{copy.projectProfitTitle}</h2>
-            <p className="admin-footnote">{copy.simulatedFundsNote}</p>
-            <div className="admin-metrics-grid">
-              <article className="admin-metric-card">
-                <span className="admin-metric-card__label">{copy.projectProfitBalance}</span>
-                <strong>{projectProfitPool ? Number(projectProfitPool.balance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })  + " USDT0" : "—"}</strong>
-              </article>
-              <article className="admin-metric-card">
-                <span className="admin-metric-card__label">{copy.projectProfitTotal}</span>
-                <strong>{projectProfitPool ? Number(projectProfitPool.totalContributed).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) + " USDT" : "—"}</strong>
-              </article>
-            </div>
-            <h3>{copy.projectProfitLedger}</h3>
-            {!projectProfitPool || projectProfitPool.ledger.length === 0 ? <p className="admin-empty">{copy.projectProfitEmpty}</p> : (
-              <div className="admin-settings-list">
-                {projectProfitPool.ledger.map((entry) => (
-                  <article className="admin-setting-row" key={entry.id}>
-                    <div>
-                      <strong>{Number(entry.amount).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</strong>
-                      <small>{fa ? "سهم ۵٪ از واریزی اسپانسر/سرمایه‌گذار" : entry.type} · {new Date(entry.effectiveAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>
-                      <small>{fa ? "انتقال خودکار سهم صندوق سود سهام؛ این مبلغ آزمایشی است و انتقال واقعی انجام نشده." : entry.note}</small>
-                    </div>
-                  </article>
-                ))}
+            <div className="admin-user-wallets__heading">
+              <div>
+                <h2>{copy.prizeHistoryTitle}</h2>
+                <p className="admin-footnote">{copy.prizeHistoryInternalNote}</p>
               </div>
+              <button type="button" onClick={() => { setPrizePaymentHistoryLoading(true); setPrizePaymentHistoryError(false); void getAdminPrizeTreasuryPaymentHistory().then(setPrizePaymentHistory).catch(() => setPrizePaymentHistoryError(true)).finally(() => setPrizePaymentHistoryLoading(false)); }} disabled={prizePaymentHistoryLoading}>
+                {prizePaymentHistoryLoading ? copy.prizeHistoryLoading : copy.prizeHistoryRefresh}
+              </button>
+            </div>
+            {prizePaymentHistoryError && <p className="admin-error">{copy.prizeHistoryError}</p>}
+            {prizePaymentHistoryLoading && !prizePaymentHistory ? <LoadingIndicator /> : prizePaymentHistory && (
+              <>
+                <div className="admin-metrics-grid">
+                  <article className="admin-metric-card"><span className="admin-metric-card__label">{copy.prizeHistoryFunded}</span><strong>{Number(prizePaymentHistory.summary.totalFunded).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></article>
+                  <article className="admin-metric-card"><span className="admin-metric-card__label">{copy.prizeHistoryPaid}</span><strong>{Number(prizePaymentHistory.summary.totalPaid).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></article>
+                  <article className="admin-metric-card"><span className="admin-metric-card__label">{copy.prizeHistoryPending}</span><strong>{Number(prizePaymentHistory.summary.pending).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></article>
+                </div>
+                <h3>{copy.prizeHistoryAllocations}</h3>
+                {prizePaymentHistory.allocations.length === 0 ? <p className="admin-empty">{copy.prizeHistoryEmpty}</p> : (
+                  <div className="admin-settings-list">
+                    {prizePaymentHistory.allocations.map((entry) => (
+                      <article className="admin-setting-row" key={entry.id}>
+                        <div>
+                          <strong>{Number(entry.amount).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong>
+                          <small>{new Date(entry.effectiveAt).toLocaleString(fa ? "fa-IR" : "en-GB")} · {entry.allocatedBy ? (fa ? "تخصیص‌دهنده: " : "Allocated by: ") + entry.allocatedBy : (fa ? "ثبت تخصیص در دفترکل" : "Allocation recorded in ledger")}</small>
+                          <small>{entry.note}</small>
+                          <small>{fa ? "مرجع: " : "Reference: "}{entry.referenceKey}</small>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+                <h3>{copy.prizeHistoryPayments}</h3>
+                {prizePaymentHistory.payments.length === 0 ? <p className="admin-empty">{copy.prizeHistoryEmpty}</p> : (
+                  <div className="admin-settings-list">
+                    {prizePaymentHistory.payments.map((entry) => {
+                      const statusLabel = entry.status === "PAID" ? copy.prizeHistoryPaidStatus : entry.status === "INELIGIBLE" ? copy.prizeHistoryIneligibleStatus : entry.status === "PENDING_PAYMENT" || entry.status === "SIGNING" ? copy.prizeHistoryPendingStatus : copy.prizeHistoryFailedStatus;
+                      return (
+                        <article className="admin-setting-row" key={entry.id}>
+                          <div>
+                            <strong>{Number(entry.amount).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0 · {entry.username} · {fa ? "رتبه " : "Rank "}{entry.rank}</strong>
+                            <small>{entry.challengeTitle} · {getChallengeLanguageName(entry.language)} · {fa ? "شناسه چالش: " : "Challenge ID: "}{entry.contestId}</small>
+                            <small>{fa ? "ثبت جایزه: " : "Award created: "}{new Date(entry.awardCreatedAt).toLocaleString(fa ? "fa-IR" : "en-GB")}{entry.creditedAt ? " · " + (fa ? "اعتباردهی: " : "Credited: ") + new Date(entry.creditedAt).toLocaleString(fa ? "fa-IR" : "en-GB") : ""}</small>
+                            <small>{fa ? "وضعیت: " : "Status: "}{statusLabel} · {entry.paymentMode === "INTERNAL_WALLET_CREDIT" ? (fa ? "اعتبار داخلی کیف پول" : "Internal wallet credit") : entry.paymentMode === "ON_CHAIN" ? (fa ? "تراکنش بلاک‌چینی" : "On-chain transaction") : (fa ? "هنوز اعتباردهی نشده" : "Not credited")}</small>
+                            {entry.journalReference && <small>{fa ? "مرجع دفترکل: " : "Ledger reference: "}{entry.journalReference}</small>}
+                            {entry.transactionHash && <small>{fa ? "هش تراکنش: " : "Transaction hash: "}{entry.transactionHash}</small>}
+                            {entry.failureCode && <small>{fa ? "کد خطا: " : "Failure code: "}{entry.failureCode}</small>}
+                            <small>{fa ? "شناسه کاربر: " : "User ID: "}{entry.userId} · {fa ? "شناسه جایزه: " : "Award ID: "}{entry.id}</small>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+                <p className="admin-footnote">{copy.prizeHistoryAllocationNote}</p>
+              </>
             )}
           </section>
         )}
