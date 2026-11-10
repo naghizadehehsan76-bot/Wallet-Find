@@ -1018,7 +1018,7 @@ async function getCommittedPrizeTreasuryReserve(client: any = prisma) {
     client.globalPrizeFund.findUnique({ where: { id: "global" } }),
     client.prizePool.aggregate({ _sum: { seededMicro: true } }),
     client.prizeAward.aggregate({ where: { status: "PAID" }, _sum: { amountMicro: true } }),
-    client.$queryRaw<Array<{ balance: bigint }>>`
+    client.$queryRaw`
       SELECT COALESCE(SUM(
         CASE WHEN posting."direction"::text = 'CREDIT'
           THEN posting."amountAtomic" ELSE -posting."amountAtomic" END
@@ -1046,7 +1046,7 @@ async function getCommittedPrizeTreasuryReserve(client: any = prisma) {
   const roundAllocations = BigInt(pools._sum.seededMicro ?? 0n);
   const paid = BigInt(paidAwards._sum.amountMicro ?? 0n);
   const outstandingRounds = roundAllocations > paid ? roundAllocations - paid : 0n;
-  const prizeWalletLiabilities = BigInt(prizeWalletLiabilityRows[0]?.balance ?? 0n);
+  const prizeWalletLiabilities = BigInt((prizeWalletLiabilityRows as Array<{ balance: bigint }>)[0]?.balance ?? 0n);
   return globalBalance + outstandingRounds + (prizeWalletLiabilities > 0n ? prizeWalletLiabilities : 0n);
 }
 
