@@ -282,7 +282,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     financeBody: fa ? "بررسی تراکنش‌ها، درخواست‌های واریز و برداشت، دفترکل و مغایرت‌های مالی." : "Review transactions, deposit and withdrawal requests, the ledger, and financial discrepancies.",
     prizesBody: fa ? "مشاهدهٔ موجودی صندوق کلی، تخصیص‌های دستی خزانه و تاریخچهٔ دقیق جوایز پرداخت‌شده به کاربران." : "Review the global fund, manual treasury allocations, and detailed prize payments to users.",
     prizeHistoryTitle: fa ? "تاریخچه پرداخت‌های خزانه بابت جوایز" : "Treasury prize payment history",
-    prizeHistoryFunded: fa ? "مجموع تخصیص دستی خزانه" : "Total manual treasury allocations",
+    prizeHistoryFunded: fa ? "مجموع تخصیص‌های خزانه به صندوق جوایز" : "Total treasury allocations to prize fund",
     prizeHistoryPaid: fa ? "مجموع جوایز پرداخت‌شده" : "Total prizes credited",
     prizeHistoryPending: fa ? "جوایز در انتظار پرداخت" : "Prizes pending payment",
     prizeHistoryAllocations: fa ? "سوابق تخصیص دستی خزانه به صندوق جوایز" : "Manual treasury allocations to the prize fund",
