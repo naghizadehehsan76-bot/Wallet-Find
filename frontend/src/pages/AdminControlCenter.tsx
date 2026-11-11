@@ -169,8 +169,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [key, setKey] = useState("");
-  const [value, setValue] = useState("");
   const [sourceUrlsEn, setSourceUrlsEn] = useState<string[]>(DEFAULT_EN_SOURCES);
   const [sourceUrlsFa, setSourceUrlsFa] = useState<string[]>(DEFAULT_FA_SOURCES);
   const [sourceDraftEn, setSourceDraftEn] = useState("");
@@ -747,54 +745,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     }
   }
 
-  async function handleSave(event: FormEvent) {
-    event.preventDefault();
-    const normalizedKey = key.trim();
-    if (!/^[A-Za-z][A-Za-z0-9._-]{0,79}$/.test(normalizedKey)) {
-      setError(copy.keyError);
-      return;
-    }
-    if (normalizedKey === "hypothetical_prize_pool_per_round") {
-      setError(copy.poolFixedError);
-      return;
-    }
-    if (normalizedKey.startsWith("challenge_schedule_anchor_")) {
-      setError(copy.challengeAnchorProtected);
-      return;
-    }
-    setSaving(true);
-    setError("");
-    setNotice("");
-    try {
-      await saveSystemSetting(normalizedKey, value);
-      setNotice(copy.saved);
-      setKey("");
-      setValue("");
-      await load();
-    } catch {
-      setError(copy.refreshError);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleEdit(setting: SystemSettingRecord) {
-    const edited = window.prompt(fa ? "مقدار جدید برای " + setting.key : "New value for " + setting.key, setting.value);
-    if (edited === null || edited === setting.value) return;
-    setSaving(true);
-    setError("");
-    setNotice("");
-    try {
-      await saveSystemSetting(setting.key, edited);
-      setNotice(copy.saved);
-      await load();
-    } catch {
-      setError(copy.refreshError);
-    } finally {
-      setSaving(false);
-    }
-  }
-
   function updateSourceDraft(language: ChallengeLanguage, draft: string) {
     if (language === "fa") setSourceDraftFa(draft);
     else if (language === "en") setSourceDraftEn(draft);
@@ -981,8 +931,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
   }
-
-  const visibleSettings = settings.filter((setting) => setting.key !== "hypothetical_prize_pool_per_round" && !setting.key.startsWith("challenge_schedule_anchor_"));
 
   const metricCards = overview ? [
     { label: copy.users, value: overview.users, icon: "◎" },
