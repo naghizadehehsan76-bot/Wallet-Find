@@ -29,7 +29,7 @@ export default function WalletChainWithdrawalReview({ fa }: Props) {
     execute: fa ? "ارسال تراکنش" : "Execute transaction",
     reconcile: fa ? "بررسی وضعیت بلاکچین" : "Reconcile chain status",
     recover: fa ? "بازیابی امن درخواست مشخص‌شده" : "Recover this verified pre-broadcast request",
-    recoveryConfirm: fa ? "فقط در صورتی ادامه بده که تأیید می‌کنی همین درخواست ۴ POL بازیابی شود. پس از بازیابی، ارسال تراکنش یک اقدام جداگانه خواهد بود." : "Recover only this verified 4 POL request. Recovery does not send funds; execution will be a separate action.",
+    recoveryConfirm: fa ? "فقط درخواست مشخص‌شده‌ای را بازیابی کن که ارسال آن پیش از ایجاد شناسه تراکنش در Turnkey رد شده است. بازیابی به‌تنهایی وجهی ارسال نمی‌کند." : "Recover only this specifically verified request rejected before Turnkey created a transaction status ID. Recovery itself does not send funds.",
     status: fa ? "وضعیت" : "Status",
     user: fa ? "کاربر" : "User",
     amount: fa ? "مبلغ" : "Amount",
@@ -120,7 +120,7 @@ export default function WalletChainWithdrawalReview({ fa }: Props) {
               <button type="button" disabled={Boolean(busyId)} onClick={() => void act(row.id, "REJECT")}>{copy.reject}</button>
             </>}
             {row.status === "APPROVED" && <button type="button" disabled={Boolean(busyId)} onClick={() => void act(row.id, "EXECUTE")}>{busyId === row.id ? "…" : copy.execute}</button>}
-            {row.id === "ab79dd7e-fa69-4c16-8a5d-b7eb3ebee5a1" &&
+            {(row.id === "ab79dd7e-fa69-4c16-8a5d-b7eb3ebee5a1" || row.id === "c778a886-6b2a-4fd1-8f43-eec992c9170d") &&
               row.status === "SIGNING" &&
               row.failureCode === "SIGNING_OR_BROADCAST_OUTCOME_UNCERTAIN" &&
               !row.transactionHash && !row.broadcastAt &&
