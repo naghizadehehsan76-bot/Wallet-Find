@@ -168,7 +168,7 @@ async function getValidChallenge(email: string, purpose: "EMAIL_VERIFICATION" | 
   return challenge;
 }
 
-export async function registerUser(input: RegisterInput) {
+export async function registerUser(input: Omit<RegisterInput, "turnstileToken">) {
   const email = normalizeEmail(input.email);
   const existingUser = await prisma.user.findFirst({
     where: {
