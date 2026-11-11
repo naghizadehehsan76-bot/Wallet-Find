@@ -237,11 +237,11 @@ export async function reserveChainWithdrawalFunds(
   const sourceAvailable = input.fundingSource === "PRIZE_TREASURY"
     ? prizeAvailable
     : availableAmount - prizeAvailable;
+  // Sponsored gas is still charged to the withdrawing user; reserve the
+  // native fee asset from that user's ledger before the transaction is sent.
   const availableFee = sameAsset
     ? availableAmount
-    : input.useTurnkeySponsorship || input.fundingSource === "PRIZE_TREASURY"
-      ? 0n
-      : await readAvailableBalance(tx, input.userId, input.networkId, input.feeAssetId);
+    : await readAvailableBalance(tx, input.userId, input.networkId, input.feeAssetId);
 
   if (sourceAvailable < input.amount) throw new Error("INSUFFICIENT_WALLET_BALANCE");
   if (sameAsset) {
@@ -250,8 +250,7 @@ export async function reserveChainWithdrawalFunds(
     }
   } else {
     if (availableAmount < input.amount) throw new Error("INSUFFICIENT_WALLET_BALANCE");
-    if (!input.useTurnkeySponsorship && input.fundingSource === "USER_WALLET"
-        && availableFee < input.feeQuoteAtomic) {
+    if (availableFee < input.feeQuoteAtomic) {
       throw new Error("INSUFFICIENT_NATIVE_FEE_BALANCE");
     }
   }
@@ -515,7 +514,9 @@ export async function requestChainWalletWithdrawal(input: {
   }
   const useTurnkeySponsorship = process.env.TURNKEY_GAS_SPONSORSHIP_ENABLED === "true"
     && network.chainId === 137;
-  const reservedFeeAmount = fundingSource === "PRIZE_TREASURY" || useTurnkeySponsorship ? 0n : feeQuote.feeAtomic;
+  // Reserve a bounded maximum in POL. The exact fee is known only from the
+  // canonical receipt and the unused part is released at settlement.
+  const reservedFeeAmount = feeQuote.feeAtomic;
 
   const id = randomUUID();
   return prisma.$transaction(async (tx) => {
@@ -570,6 +571,7 @@ export async function requestChainWalletWithdrawal(input: {
         walletAssetId: asset.id,
         feeAssetId: feeAsset.id,
         fundingSource,
+        gasSponsorship: useTurnkeySponsorship,
         destinationAddress,
         amountAtomic: amount.toString(),
         feeAtomic: reservedFeeAmount.toString(),
@@ -841,13 +843,12 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
     contractAddress: withdrawal.asset.contractAddress,
     amountAtomic: amount,
   });
-  const useTurnkeySponsorship = process.env.TURNKEY_GAS_SPONSORSHIP_ENABLED === "true"
-    && withdrawal.network.chainId === 137
-    && atomic(withdrawal.feeAtomic) === 0n;
-  const reservedFee = treasuryFunding || useTurnkeySponsorship ? 0n : await refreshWithdrawalFeeReservation({
-    withdrawal,
-    newQuote: freshQuote,
-  });
+  const useTurnkeySponsorship = withdrawal.gasSponsorship;
+  // For sponsored transfers, reserve the user's native POL balance even
+  // though Turnkey pays the chain validator/relayer gas cost.
+  const reservedFee = treasuryFunding && !useTurnkeySponsorship
+    ? 0n
+    : await refreshWithdrawalFeeReservation({ withdrawal, newQuote: freshQuote });
   const gasLimit = freshQuote.gasLimit;
   const maxFeePerGas = freshQuote.maxFeePerGas;
   const maxPriorityFeePerGas = freshQuote.maxPriorityFeePerGas ?? 0n;
@@ -868,7 +869,10 @@ export async function executeChainWalletWithdrawal(withdrawalId: string, adminUs
 
     if (withdrawal.asset.assetType === "NATIVE") {
       const nativeBalance = await client.getBalance({ address: fromAddress });
-      if (nativeBalance < amount + reservedFee) throw new Error("ONCHAIN_NATIVE_BALANCE_INSUFFICIENT");
+      const userPaysGasDirectly = !useTurnkeySponsorship && !treasuryFunding;
+      if (nativeBalance < amount + (userPaysGasDirectly ? reservedFee : 0n)) {
+        throw new Error("ONCHAIN_NATIVE_BALANCE_INSUFFICIENT");
+      }
     } else {
       if (!withdrawal.asset.contractAddress) throw new Error("INVALID_TOKEN_ASSET_CONFIGURATION");
       const tokenBalance = treasuryFunding
@@ -1233,7 +1237,9 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
   const reservedFee = atomic(withdrawal.feeAtomic);
   // A zero reserved fee identifies either a sponsored request or a prize-funded
   // treasury withdrawal: network gas is not charged to the user's POL ledger.
-  const actualFee = reservedFee === 0n ? 0n : receipt.gasUsed * receipt.effectiveGasPrice;
+  const actualFee = (reservedFee > 0n || withdrawal.gasSponsorship)
+    ? receipt.gasUsed * receipt.effectiveGasPrice
+    : 0n;
 
   await prisma.walletChainWithdrawal.updateMany({
     where: { id: withdrawalId, status: "BROADCAST" },
@@ -1340,10 +1346,10 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
             accountReference: withdrawalId,
           },
           {
-            account: "CUSTODY_ASSET",
+            account: withdrawal.gasSponsorship ? "TURNKEY_FEE_FUND" : "CUSTODY_ASSET",
             direction: "CREDIT",
             amountAtomic: actualFee.toString(),
-            accountReference: current.walletAccountId,
+            accountReference: withdrawal.gasSponsorship ? "turnkey-fee-fund:polygon" : current.walletAccountId,
           },
         ],
       });
