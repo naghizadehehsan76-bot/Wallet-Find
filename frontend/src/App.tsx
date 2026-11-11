@@ -651,7 +651,8 @@ function App() {
         if (cancelled) return;
         const message = error instanceof Error ? error.message : "";
         if (
-          message === "SESSION_EXPIRED" ||\n          message === "TOKEN_EXPIRED" ||
+          message === "SESSION_EXPIRED" ||
+          message === "TOKEN_EXPIRED" ||
           message === "INVALID_TOKEN" ||
           message === "INVALID_AUTHORIZATION_HEADER" ||
           message === "AUTHENTICATION_REQUIRED"
@@ -743,6 +744,7 @@ function App() {
   }
 
   function handleLogout() {
+    void logout().catch(() => undefined);
     localStorage.removeItem("walletFindUser");
     setAuthNotice("");
     setAuthStatus("unauthenticated");
