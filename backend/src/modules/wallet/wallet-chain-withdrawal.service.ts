@@ -1235,8 +1235,8 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
   const confirmations = Number(confirmationsBig > 1_000_000n ? 1_000_000n : confirmationsBig);
   const required = withdrawal.network.finalityDepth;
   const reservedFee = atomic(withdrawal.feeAtomic);
-  // A zero reserved fee identifies either a sponsored request or a prize-funded
-  // treasury withdrawal: network gas is not charged to the user's POL ledger.
+  // Legacy non-sponsored prize-treasury withdrawals have no user fee reserve.
+  // Sponsored requests always reserve POL and settle their exact receipt cost.
   const actualFee = (reservedFee > 0n || withdrawal.gasSponsorship)
     ? receipt.gasUsed * receipt.effectiveGasPrice
     : 0n;
