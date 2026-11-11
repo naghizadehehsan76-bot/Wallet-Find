@@ -258,7 +258,9 @@ export default function WalletPage({ onNavigate }: Props) {
     amount: fa ? "مقدار" : "Amount",
     destination: fa ? "آدرس مقصد" : "Destination address",
     fee: fa ? "حداکثر کارمزد رزروشده" : "Maximum network fee reserved",
-    feePaidInPol: fa ? "این مبلغ موقتاً از موجودی دارایی بومی رزرو می‌شود. پس از تأیید تراکنش، فقط هزینه واقعی شبکه به صندوق کارمزد Turnkey منتقل و باقی‌مانده آزاد می‌شود." : "This amount is temporarily reserved from the native asset balance. After confirmation, only the exact network cost is allocated to the Turnkey fee fund and the unused reserve is released.",
+    actualFeeLabel: fa ? "کارمزد نهایی شبکه" : "Final network fee",
+    estimatedFeeLabel: fa ? "برآورد کارمزد (موقت)" : "Estimated fee (temporary)",
+    feePaidInPol: fa ? "این مبلغ موقتاً از موجودی POL رزرو می‌شود. پس از دریافت رسید معتبر شبکه، فقط هزینه واقعی گس از موجودی داخلی شما کسر و در صندوق حسابداری کارمزد Turnkey ثبت می‌شود؛ باقی‌مانده رزرو آزاد خواهد شد. این ثبت، انتقال واقعی POL به کیف پول جداگانه نیست." : "This amount is temporarily reserved from your POL balance. Once a canonical network receipt is available, only the exact gas cost is deducted from your internal balance and recorded in the Turnkey fee ledger; the unused reserve is released. This is not an on-chain POL transfer to a separate wallet.",
     polGasBalance: fa ? "موجودی دارایی بومی برای کارمزد" : "Native asset available for gas",
     youReceive: fa ? "مقدار درخواستی" : "Requested amount",
     submitWithdrawal: fa ? "ثبت درخواست برداشت" : "Submit withdrawal request",
@@ -570,6 +572,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
       confirmationCount: null as number | null,
       fee: null as string | null,
       feeAsset: null as string | null,
+      feeIsFinal: false,
     })),
     ...(wallet?.onChainDeposits ?? []).map((item) => ({
       id: "deposit:" + item.id,
@@ -602,6 +605,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
       confirmationCount: item.confirmationCount,
       fee: item.actualFee ?? item.estimatedFee ?? null,
       feeAsset: item.feeAsset ?? null,
+      feeIsFinal: item.actualFee !== null && item.actualFee !== undefined,
     })),
   ].sort((a, b) => new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime());
 
@@ -722,7 +726,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
                   <small>{new Date(item.sortAt).toLocaleString(locale)}{item.network ? " · " + item.network : ""}</small>
                   <small>{item.asset}{item.status ? " · " + item.status : ""}{item.note ? " · " + item.note : ""}</small>
                   {item.confirmationCount !== null && <small>{fa ? "تأییدیه‌ها" : "Confirmations"}: {item.confirmationCount}</small>}
-                  {item.fee && <small>{fa ? "کارمزد" : "Fee"}: {fmt(item.fee)} {item.feeAsset ?? item.asset}</small>}
+                  {item.fee && <small>{item.feeIsFinal ? copy.actualFeeLabel : copy.estimatedFeeLabel}: {fmt(item.fee)} {item.feeAsset ?? item.asset}</small>}
                   {item.transactionHash && (item.explorerUrl
                     ? <a href={item.explorerUrl} target="_blank" rel="noreferrer" className="wallet-activity-tx-link">{fa ? "مشاهده تراکنش در مرورگر بلاک‌چین" : "View transaction on block explorer"}</a>
                     : <small>{item.transactionHash}</small>)}
