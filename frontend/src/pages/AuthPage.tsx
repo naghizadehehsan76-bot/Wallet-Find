@@ -24,7 +24,7 @@ declare global {
         "expired-callback": () => void;
         "error-callback": () => void;
       }) => string;
-      remove: (widgetId: string) => void;
+      remove: (widgetId: string) => void;\n      reset: () => void;
     };
   }
 }
@@ -32,7 +32,7 @@ declare global {
 const TURNSTILE_SITE_KEY = "0x4AAAAAAF8nIV8BHJygTnN-";
 
 type AuthPageProps = {
-  onAuthenticated: (token: string) => void;
+  onAuthenticated: (user: AuthUser) => void;
   onBack: () => void;
   onOpenTerms: () => void;
   initialMode?: "login" | "signup";
@@ -56,7 +56,7 @@ function AuthPage({
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");\n  const [loginTurnstileRequired, setLoginTurnstileRequired] = useState(false);\n  const [rememberMe, setRememberMe] = useState(true);
 
   useEffect(() => {
     if (mode !== "signup") {
@@ -71,7 +71,7 @@ function AuthPage({
       if (cancelled || !window.turnstile || widgetId) return;
       widgetId = window.turnstile.render(container, {
         sitekey: TURNSTILE_SITE_KEY,
-        action: "signup",
+        action: mode === "signup" ? "signup" : "login",
         callback: (token) => setTurnstileToken(token),
         "expired-callback": () => setTurnstileToken(""),
         "error-callback": () => {
@@ -95,7 +95,7 @@ function AuthPage({
       cancelled = true;
       if (widgetId && window.turnstile) window.turnstile.remove(widgetId);
     };
-  }, [mode]);
+  }, [mode, loginTurnstileRequired]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -154,7 +154,7 @@ function AuthPage({
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "NETWORK_ERROR";
-      if (mode === "login" && message === "EMAIL_NOT_VERIFIED") {
+      if (mode === "login" && message === "TURNSTILE_REQUIRED") {\n        setLoginTurnstileRequired(true);\n        setTurnstileToken("");\n        setError("");\n      } else if (mode === "login" && message === "TURNSTILE_VERIFICATION_FAILED") {\n        setTurnstileToken("");\n        window.turnstile?.reset();\n        setError(message);\n      } else if (mode === "login" && message === "EMAIL_NOT_VERIFIED") {
         setMode("verify");
         setSuccess(t.auth.verifyExistingNotice);
       } else if (mode === "signup" && message === "EMAIL_SEND_FAILED") {
@@ -349,7 +349,7 @@ function AuthPage({
           <button
             className="cta-button"
             type="submit"
-            disabled={loading || (mode === "signup" && (!acceptedTerms || !turnstileToken))}
+            disabled={loading || (mode === "signup" && (!acceptedTerms || !turnstileToken)) || (mode === "login" && loginTurnstileRequired && !turnstileToken)}
           >
             {loading ? <LoadingIndicator compact label={t.auth.loading} /> : submitLabel}
           </button>
