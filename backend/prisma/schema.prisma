@@ -682,6 +682,7 @@ enum WalletLedgerAccount {
   CUSTODY_ASSET
   EXTERNAL_COUNTERPARTY
   NETWORK_FEE_EXPENSE
+  TURNKEY_FEE_FUND
   SYSTEM_CLEARING
 }
 
@@ -1073,6 +1074,7 @@ model WalletChainWithdrawal {
   walletAssetId              String
   feeAssetId                 String?
   fundingSource              String @default("USER_WALLET")
+  gasSponsorship             Boolean @default(false)
   destinationAddress         String
   amountAtomic               Decimal @db.Decimal(78, 0)
   feeAtomic                  Decimal? @db.Decimal(78, 0)
