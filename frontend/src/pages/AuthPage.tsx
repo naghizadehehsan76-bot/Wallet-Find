@@ -162,6 +162,7 @@ function AuthPage({
       if (mode === "login" && message === "TURNSTILE_REQUIRED") {
         setLoginTurnstileRequired(true);
         setTurnstileToken("");
+        window.turnstile?.reset();
         setError("");
       } else if (mode === "login" && message === "TURNSTILE_VERIFICATION_FAILED") {
         setTurnstileToken("");
