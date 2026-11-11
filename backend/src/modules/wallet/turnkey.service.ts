@@ -457,8 +457,11 @@ export async function sendSponsoredEvmTransaction(input: {
   if (input.chainId !== 137) throw new Error("TURNKEY_GAS_SPONSORSHIP_CHAIN_NOT_ENABLED");
 
   let client: any;
+  let organizationId: string;
   if (input.parentOrganization) {
-    client = turnkeyConfig().client;
+    const config = turnkeyConfig();
+    client = config.client;
+    organizationId = config.organizationId;
   } else {
     const wallet = await prisma.walletAccount.findFirst({
       where: { address: input.address.toLowerCase() },
@@ -471,19 +474,19 @@ export async function sendSponsoredEvmTransaction(input: {
     if (!wallet?.turnkeyOrganizationId || !wallet.turnkeyApiPublicKey || !wallet.turnkeyApiPrivateKeyEncrypted) {
       throw new Error("TURNKEY_USER_ORGANIZATION_NOT_FOUND");
     }
+    organizationId = wallet.turnkeyOrganizationId;
     client = new Turnkey({
       apiBaseUrl: process.env.TURNKEY_API_BASE_URL?.trim() || "https://api.turnkey.com",
       apiPublicKey: wallet.turnkeyApiPublicKey,
       apiPrivateKey: decryptApiPrivateKey(wallet.turnkeyApiPrivateKeyEncrypted),
-      defaultOrganizationId: wallet.turnkeyOrganizationId,
+      defaultOrganizationId: organizationId,
     }).apiClient();
   }
 
-  // apiClient() from @turnkey/sdk-server is the low-level TurnkeyApiClient.
-  // Its generated ethSendTransaction method accepts the V2 intent fields
-  // directly (not wrapped in { transaction: ... }). The high-level core
-  // Turnkey client uses the wrapper, but this server API client does not.
-  const submission = await client.ethSendTransaction({
+  // Submit an explicit V2 activity body through the SDK's low-level command
+  // method. This avoids any ambiguity between the high-level transaction
+  // wrapper and the server client's generated request signature.
+  const transactionParameters = {
     from: getAddress(input.address),
     caip2: `eip155:${input.chainId}`,
     sponsor: true,
@@ -492,7 +495,24 @@ export async function sendSponsoredEvmTransaction(input: {
       value: (input.value ?? 0n).toString(),
       data: input.data ?? "0x",
     }],
+  };
+  console.info("Turnkey sponsored EVM request shape", {
+    hasFrom: Boolean(transactionParameters.from),
+    hasCaip2: Boolean(transactionParameters.caip2),
+    hasCalls: transactionParameters.calls.length > 0,
+    sponsor: transactionParameters.sponsor,
+    organizationIdConfigured: Boolean(organizationId),
   });
+  const submission = await client.command(
+    "/public/v1/submit/eth_send_transaction",
+    {
+      parameters: transactionParameters,
+      organizationId,
+      timestampMs: String(Date.now()),
+      type: "ACTIVITY_TYPE_ETH_SEND_TRANSACTION_V2",
+    },
+    "ethSendTransactionResultV2",
+  );
   const statusId = typeof submission === "string"
     ? submission
     : submission?.sendTransactionStatusId;
