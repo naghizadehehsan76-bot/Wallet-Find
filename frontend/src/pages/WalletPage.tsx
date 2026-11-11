@@ -284,7 +284,7 @@ export default function WalletPage({ onNavigate }: Props) {
     insufficientUsdt0: fa ? "موجودی قابل برداشت USDT0 کافی نیست." : "Your available USDT0 balance is insufficient.",
     invalidDestination: fa ? "آدرس مقصد معتبر نیست." : "The destination address is invalid.",
     reviewRequired: fa ? "این کیف پول برای بررسی دستی علامت‌گذاری شده است؛ تا رفع مشکل به آدرس قدیمی آن وجه ارسال نکنید." : "This wallet requires manual review. Do not send funds to its legacy address until it has been reconciled.",
-    withdrawalSubmitted: fa ? "درخواست برداشت ثبت شد و منتظر بررسی مدیر است. هنوز هیچ تراکنشی روی بلاک‌چین ارسال نشده است." : "Your withdrawal request is recorded and awaiting admin review. No blockchain transaction has been sent yet.",
+    withdrawalSubmitted: fa ? "درخواست برداشت به‌صورت خودکار تأیید شد و بدون نیاز به تأیید مدیر، پس از بررسی‌های فنی به شبکه ارسال می‌شود. تا زمان ارسال، تراکنشی روی بلاک‌چین ثبت نشده است." : "Your withdrawal request is automatically approved and will be sent to the network after technical checks, without admin approval. No blockchain transaction has been sent yet.",
     status: fa ? "وضعیت" : "Status",
     assetsTitle: fa ? "موجودی دفترکل Wallet-Find" : "Wallet-Find account records",
     assetsNote: fa ? "سوابق داخلی موجودی و مبالغ قابل استفاده؛ این بخش برای حسابداری و رزروهای داخلی است." : "Internal balances and available amounts used for accounting and reservations.",
