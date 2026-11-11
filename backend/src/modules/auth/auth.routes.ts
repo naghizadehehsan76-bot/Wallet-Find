@@ -1,7 +1,7 @@
 import { Router } from "express";
 import {
   register,
-  login,
+  login,\n  logout,
   me,
   verifyEmailCode,
   resendVerificationCode,
@@ -13,7 +13,7 @@ import { requireAuth } from "../../middleware/auth.middleware.js";
 const router = Router();
 
 router.post("/register", register);
-router.post("/login", login);
+router.post("/login", login);\nrouter.post("/logout", requireAuth, logout);
 router.post("/verify-email", verifyEmailCode);
 router.post("/resend-verification", resendVerificationCode);
 router.post("/forgot-password", forgotPassword);
