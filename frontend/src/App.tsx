@@ -618,7 +618,7 @@ function App() {
     localStorage.removeItem("walletFindUser");
     setAuthStatus("unauthenticated");
     setAuthMode("login");
-    setAuthNotice("TOKEN_EXPIRED");
+    setAuthNotice("SESSION_EXPIRED");
     navigatePage("auth");
   }, []);
 
