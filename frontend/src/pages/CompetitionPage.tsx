@@ -438,13 +438,20 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
         try {
           const prizeResult = await getContestPrizePool(contestId);
           if (cancelled) return;
-          prizeFinalized = prizeResult.pool.status === "SETTLED";
+          prizeFinalized = ["PAYOUT_PENDING", "SETTLED"].includes(prizeResult.pool.status);
           const recordedAward = prizeResult.awards.find(
             (award) => award.username === profile?.username,
           );
-          prizeAmount = prizeFinalized
-            ? (recordedAward?.amount ?? "0.000000")
-            : estimateCurrentPrize(leaderboard.entries, profile.id, prizeResult.pool.total);
+          if (prizeFinalized) {
+            prizeAmount = recordedAward?.amount ?? "0.000000";
+          } else {
+            // Challenges share one global fund across every language. An active
+            // round has no separately funded pool, so estimate from the live
+            // global balance rather than the round-local pool (which is zero).
+            const globalPool = await getPublicPrizePoolStats(isPersian ? "fa" : "en");
+            if (cancelled) return;
+            prizeAmount = estimateCurrentPrize(leaderboard.entries, profile.id, globalPool.totalPool);
+          }
           prizeAvailable = true;
         } catch {
           // Keep the rank and server-recorded elapsed time visible; retry the
@@ -953,11 +960,11 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                               : "Your rank and completion time are from the server. The prize amount could not be loaded and will be retried automatically.")
                           : completionSummary.prizeFinalized
                             ? (isPersian
-                                ? "این مبلغ تا زمان تأیید و فعال‌شدن پرداخت واقعی، جایزهٔ قابل‌برداشت محسوب نمی‌شود."
-                                : "This amount is not a withdrawable prize until real payout processing is enabled.")
+                                ? "این جایزه در تسویهٔ رسمی به موجودی داخلی کیف پول Wallet-Find ثبت می‌شود؛ برداشت آن تابع موجودی قابل‌برداشت و شرایط برداشت است."
+                                : "This prize is credited to your Wallet-Find balance after official settlement; withdrawal remains subject to your available balance and withdrawal requirements.")
                             : (isPersian
-                                ? "رتبه بر اساس زمان ثبت‌شدهٔ سرور است. مبلغ جایزه تا پایان رسمی دور و تسویهٔ خودکار، برآوردی است و ممکن است تغییر کند؛ پرداخت واقعی فعال نیست."
-                                : "Your rank uses server-recorded completion time. The prize is an estimate until the official round ends and automatic settlement completes; real payouts are not enabled.")}
+                                ? "رتبه بر اساس زمان ثبت‌شدهٔ سرور است. مبلغ نمایش‌داده‌شده برآورد سهم تو از صندوق مشترک است و پس از پایان دور و تسویهٔ رسمی نهایی می‌شود. جایزه پس از ثبت تسویه به موجودی داخلی کیف پول Wallet-Find اضافه می‌شود."
+                                : "Your rank uses server-recorded completion time. This is an estimate from the shared prize fund and is finalized after the round closes and settlement completes. The prize is then credited to your Wallet-Find balance.")}
                       </p>
                     </>
                   ) : (
