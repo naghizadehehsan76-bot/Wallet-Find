@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
+import { createAuthSession } from "./auth-session.js";
 import prisma from "../../config/prisma.js";
 import type { ChallengeLanguage } from "../contest/supported-languages.js";
 import type {
@@ -17,6 +18,8 @@ const RESET_CODE_TTL_MINUTES = 15;
 const MAX_CODE_ATTEMPTS = 5;
 const MIN_RESEND_INTERVAL_MS = 60_000;
 const MAX_CODES_PER_DAY = 5;
+const LOGIN_GUARD_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_TURNSTILE_THRESHOLD = 3;
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -24,13 +27,60 @@ function getJwtSecret(): string {
   return secret;
 }
 
-function createToken(userId: string, role: string): string {
-  return jwt.sign({ userId, role }, getJwtSecret(), { expiresIn: "7d" });
-}
-
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
+
+
+function loginGuardKey(email: string, ipAddress: string): string {
+  return createHmac("sha256", getJwtSecret())
+    .update(`${normalizeEmail(email)}|${ipAddress}`)
+    .digest("hex");
+}
+
+export async function getLoginGuardFailures(email: string, ipAddress: string): Promise<number> {
+  const guard = await prisma.authLoginGuard.findUnique({
+    where: { key: loginGuardKey(email, ipAddress) },
+    select: { failures: true, windowStartedAt: true },
+  });
+  if (!guard || Date.now() - guard.windowStartedAt.getTime() >= LOGIN_GUARD_WINDOW_MS) return 0;
+  return guard.failures;
+}
+
+export async function recordLoginFailure(email: string, ipAddress: string): Promise<number> {
+  const key = loginGuardKey(email, ipAddress);
+  const now = new Date();
+  const existing = await prisma.authLoginGuard.findUnique({ where: { key } });
+  if (!existing) {
+    try {
+      await prisma.authLoginGuard.create({ data: { key, failures: 1, windowStartedAt: now } });
+      return 1;
+    } catch {
+      // A concurrent request may have created the same guard record.
+    }
+  }
+  const current = await prisma.authLoginGuard.findUnique({ where: { key } });
+  if (!current || now.getTime() - current.windowStartedAt.getTime() >= LOGIN_GUARD_WINDOW_MS) {
+    await prisma.authLoginGuard.upsert({
+      where: { key },
+      create: { key, failures: 1, windowStartedAt: now },
+      update: { failures: 1, windowStartedAt: now },
+    });
+    return 1;
+  }
+  const updated = await prisma.authLoginGuard.update({
+    where: { key },
+    data: { failures: { increment: 1 } },
+    select: { failures: true },
+  });
+  return updated.failures;
+}
+
+export async function clearLoginGuard(email: string, ipAddress: string): Promise<void> {
+  await prisma.authLoginGuard.deleteMany({ where: { key: loginGuardKey(email, ipAddress) } });
+}
+
+export const LOGIN_CHALLENGE_THRESHOLD = LOGIN_TURNSTILE_THRESHOLD;
 
 function hashCode(code: string): string {
   return createHmac("sha256", getJwtSecret()).update(code).digest("hex");
@@ -228,7 +278,8 @@ export async function verifyEmail(input: VerifyEmailInput) {
     select: { id: true, email: true, username: true, role: true, createdAt: true },
   });
   if (!user) throw new Error("EMAIL_ALREADY_VERIFIED_OR_NOT_FOUND");
-  return { user, token: createToken(user.id, user.role) };
+  const session = await createAuthSession(user.id, true);
+  return { user, sessionToken: session.token, rememberMe: true };
 }
 
 export async function loginUser(input: LoginInput) {
@@ -242,7 +293,8 @@ export async function loginUser(input: LoginInput) {
   if (!passwordValid) throw new Error("INVALID_PASSWORD");
   if (!user.emailVerifiedAt) throw new Error("EMAIL_NOT_VERIFIED");
 
-  const token = createToken(user.id, user.role);
+  const rememberMe = input.rememberMe !== false;
+  const session = await createAuthSession(user.id, rememberMe);
   return {
     user: {
       id: user.id,
@@ -251,7 +303,8 @@ export async function loginUser(input: LoginInput) {
       role: user.role,
       createdAt: user.createdAt,
     },
-    token,
+    sessionToken: session.token,
+    rememberMe,
   };
 }
 
@@ -290,6 +343,7 @@ export async function resetPassword(input: ResetPasswordInput) {
     });
     if (consumed.count !== 1) throw new Error("INVALID_OR_EXPIRED_CODE");
     await tx.user.update({ where: { id: user.id }, data: { passwordHash } });
+    await tx.authSession.updateMany({ where: { userId: user.id, revokedAt: null }, data: { revokedAt: new Date() } });
     await tx.authChallenge.updateMany({
       where: { email, purpose: "PASSWORD_RESET", usedAt: null },
       data: { usedAt: new Date() },
