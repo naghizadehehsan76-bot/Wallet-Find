@@ -89,8 +89,27 @@ test("parallel payout processors credit one internal prize exactly once without 
             status: "PAYOUT_PENDING",
           },
         },
+        clues: {
+          create: {
+            sequence: 1,
+            type: "TEXT",
+            source: "SYSTEM",
+            content: "CI test clue",
+            correctAnswer: "yes",
+          },
+        },
       },
-      select: { id: true },
+      select: { id: true, clues: { select: { id: true } } },
+    });
+    await prisma.submission.create({
+      data: {
+        userId,
+        contestId: contest.id,
+        clueId: contest.clues[0]!.id,
+        answer: "yes",
+        isCorrect: true,
+        prizeEligibleAtJoin: true,
+      },
     });
     const award = await prisma.prizeAward.create({
       data: {
