@@ -141,6 +141,12 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [ledgerRows, setLedgerRows] = useState<Array<{ id: string; kind: "PRIZE" | "RESERVED" | "CONFIRMED" | "FEE"; username: string; amount: string; asset: string; status: string; createdAt: string; reference: string | null; note: string | null }>>([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [ledgerError, setLedgerError] = useState(false);
+  const [ledgerSearch, setLedgerSearch] = useState("");
+  const [ledgerKindFilter, setLedgerKindFilter] = useState("all");
+  const [ledgerAssetFilter, setLedgerAssetFilter] = useState("all");
+  const [ledgerStatusFilter, setLedgerStatusFilter] = useState("all");
+  const [ledgerFromDate, setLedgerFromDate] = useState("");
+  const [ledgerToDate, setLedgerToDate] = useState("");
   const [treasury, setTreasury] = useState<PrizeTreasuryProvisionResult | null>(null);
   const [treasuryLoading, setTreasuryLoading] = useState(false);
   const [treasuryFunding, setTreasuryFunding] = useState<TreasuryPrizeFundingSnapshot | null>(null);
@@ -248,6 +254,18 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     ledgerConfirmed: fa ? "برداشت تأییدشده" : "Withdrawal confirmed",
     ledgerFee: fa ? "کارمزد واقعی کسرشده" : "Actual fee deducted",
     ledgerRefresh: fa ? "به‌روزرسانی دفتر کل" : "Refresh ledger",
+    ledgerSearchPlaceholder: fa ? "جست‌وجوی نام کاربر، مبلغ، شناسه یا هش تراکنش…" : "Search username, amount, reference or transaction hash…",
+    ledgerAllTypes: fa ? "همه رویدادها" : "All event types",
+    ledgerAllAssets: fa ? "همه دارایی‌ها" : "All assets",
+    ledgerAllStatuses: fa ? "همه وضعیت‌ها" : "All statuses",
+    ledgerAsset: fa ? "دارایی" : "Asset",
+    ledgerType: fa ? "نوع رویداد" : "Event type",
+    ledgerFrom: fa ? "از تاریخ" : "From date",
+    ledgerTo: fa ? "تا تاریخ" : "To date",
+    ledgerClearFilters: fa ? "پاک‌کردن فیلترها" : "Clear filters",
+    ledgerNoMatches: fa ? "هیچ رویدادی با فیلترهای انتخاب‌شده پیدا نشد." : "No events match the selected filters.",
+    ledgerResults: fa ? "رویداد منطبق" : "matching events",
+    ledgerRefreshing: fa ? "در حال بروزرسانی…" : "Refreshing…",
     ledgerUser: fa ? "کاربر" : "User",
     ledgerAmount: fa ? "مبلغ" : "Amount",
     ledgerStatus: fa ? "وضعیت" : "Status",
@@ -1747,13 +1765,20 @@ export default function AdminControlCenter({ onNavigate }: Props) {
 
         {section === "settings" && (
           <section className="admin-panel admin-ledger-panel">
-            <div className="admin-wallet-overview__heading">
-              <div>
+            <div className="admin-ledger-toolbar">
+              <div className="admin-ledger-toolbar__copy">
                 <h2>{copy.settings}</h2>
                 <p className="admin-footnote">{copy.ledgerSourceNote}</p>
               </div>
-              <button type="button" onClick={() => void loadLedger()} disabled={ledgerLoading}>
-                {ledgerLoading ? copy.ledgerLoadingLabel : copy.ledgerRefresh}
+              <button
+                className="admin-ledger-refresh"
+                type="button"
+                onClick={() => void loadLedger()}
+                disabled={ledgerLoading}
+                aria-label={ledgerLoading ? copy.ledgerRefreshing : copy.ledgerRefresh}
+              >
+                <span className={ledgerLoading ? "admin-ledger-refresh__icon is-spinning" : "admin-ledger-refresh__icon"} aria-hidden="true">↻</span>
+                <span>{ledgerLoading ? copy.ledgerRefreshing : copy.ledgerRefresh}</span>
               </button>
             </div>
             {ledgerLoading && ledgerRows.length === 0 && <div className="admin-empty"><LoadingIndicator label={copy.ledgerLoadingLabel} /></div>}
@@ -1768,34 +1793,96 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                 <article key={kind}><span>{label}</span><strong>{ledgerRows.filter((row) => row.kind === kind).length.toLocaleString(fa ? "fa-IR" : "en-US")}</strong></article>
               ))}
             </div>
-            {(["PRIZE", "RESERVED", "CONFIRMED", "FEE"] as const).map((kind) => {
-              const items = ledgerRows.filter((row) => row.kind === kind);
-              const heading = kind === "PRIZE" ? copy.ledgerPrize : kind === "RESERVED" ? copy.ledgerReserved : kind === "CONFIRMED" ? copy.ledgerConfirmed : copy.ledgerFee;
+            <div className="admin-ledger-filters" aria-label={fa ? "فیلترهای دفتر کل" : "General ledger filters"}>
+              <label className="admin-ledger-filters__search">
+                <span>{fa ? "جست‌وجو" : "Search"}</span>
+                <input type="search" value={ledgerSearch} onChange={(event) => setLedgerSearch(event.target.value)} placeholder={copy.ledgerSearchPlaceholder} />
+              </label>
+              <label>
+                <span>{copy.ledgerType}</span>
+                <select value={ledgerKindFilter} onChange={(event) => setLedgerKindFilter(event.target.value)}>
+                  <option value="all">{copy.ledgerAllTypes}</option>
+                  <option value="PRIZE">{copy.ledgerPrize}</option>
+                  <option value="RESERVED">{copy.ledgerReserved}</option>
+                  <option value="CONFIRMED">{copy.ledgerConfirmed}</option>
+                  <option value="FEE">{copy.ledgerFee}</option>
+                </select>
+              </label>
+              <label>
+                <span>{copy.ledgerAsset}</span>
+                <select value={ledgerAssetFilter} onChange={(event) => setLedgerAssetFilter(event.target.value)}>
+                  <option value="all">{copy.ledgerAllAssets}</option>
+                  {Array.from(new Set(ledgerRows.map((row) => row.asset))).sort().map((asset) => <option key={asset} value={asset}>{asset}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>{copy.ledgerStatus}</span>
+                <select value={ledgerStatusFilter} onChange={(event) => setLedgerStatusFilter(event.target.value)}>
+                  <option value="all">{copy.ledgerAllStatuses}</option>
+                  {Array.from(new Set(ledgerRows.map((row) => row.status))).sort().map((status) => <option key={status} value={status}>{status}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>{copy.ledgerFrom}</span>
+                <input type="date" value={ledgerFromDate} onChange={(event) => setLedgerFromDate(event.target.value)} />
+              </label>
+              <label>
+                <span>{copy.ledgerTo}</span>
+                <input type="date" value={ledgerToDate} min={ledgerFromDate || undefined} onChange={(event) => setLedgerToDate(event.target.value)} />
+              </label>
+              <button
+                className="admin-ledger-clear"
+                type="button"
+                onClick={() => { setLedgerSearch(""); setLedgerKindFilter("all"); setLedgerAssetFilter("all"); setLedgerStatusFilter("all"); setLedgerFromDate(""); setLedgerToDate(""); }}
+              >{copy.ledgerClearFilters}</button>
+            </div>
+            {(() => {
+              const query = ledgerSearch.trim().toLocaleLowerCase();
+              const filteredRows = ledgerRows.filter((row) => {
+                const searchable = [row.username, row.amount, row.asset, row.status, row.reference ?? "", row.note ?? "", row.id].join(" ").toLocaleLowerCase();
+                const rowDate = new Date(row.createdAt);
+                const afterFrom = !ledgerFromDate || rowDate >= new Date(ledgerFromDate + "T00:00:00");
+                const beforeTo = !ledgerToDate || rowDate < new Date(new Date(ledgerToDate + "T00:00:00").getTime() + 86400000);
+                return (!query || searchable.includes(query))
+                  && (ledgerKindFilter === "all" || row.kind === ledgerKindFilter)
+                  && (ledgerAssetFilter === "all" || row.asset === ledgerAssetFilter)
+                  && (ledgerStatusFilter === "all" || row.status === ledgerStatusFilter)
+                  && afterFrom && beforeTo;
+              });
               return (
-                <section className="admin-ledger-group" key={kind}>
-                  <div className="admin-wallet-overview__heading">
-                    <h3>{heading}</h3>
-                    <span>{items.length.toLocaleString(fa ? "fa-IR" : "en-US")}</span>
-                  </div>
-                  {items.length === 0 ? <p className="admin-empty">{copy.ledgerEmpty}</p> : (
-                    <div className="admin-settings-list">
-                      {items.map((row) => (
-                        <article className="admin-setting-row admin-ledger-row" key={row.id}>
-                          <div>
-                            <strong>{row.username}</strong>
-                            <small>{copy.ledgerAmount}: {Number(row.amount).toLocaleString(fa ? "fa-IR" : "en-US", { maximumFractionDigits: 9 })} {row.asset}</small>
-                            <small>{copy.ledgerStatus}: {row.status}</small>
-                            <small>{copy.ledgerTime}: {new Date(row.createdAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>
-                            {row.reference && <code>{copy.ledgerReference}: {row.reference}</code>}
-                            {row.note && <small>{row.note}</small>}
+                <>
+                  <p className="admin-ledger-results">{filteredRows.length.toLocaleString(fa ? "fa-IR" : "en-US")} {copy.ledgerResults}</p>
+                  {(["PRIZE", "RESERVED", "CONFIRMED", "FEE"] as const).map((kind) => {
+                    const items = filteredRows.filter((row) => row.kind === kind);
+                    const heading = kind === "PRIZE" ? copy.ledgerPrize : kind === "RESERVED" ? copy.ledgerReserved : kind === "CONFIRMED" ? copy.ledgerConfirmed : copy.ledgerFee;
+                    return (
+                      <section className="admin-ledger-group" key={kind}>
+                        <div className="admin-wallet-overview__heading">
+                          <h3>{heading}</h3>
+                          <span>{items.length.toLocaleString(fa ? "fa-IR" : "en-US")}</span>
+                        </div>
+                        {items.length === 0 ? <p className="admin-empty">{copy.ledgerNoMatches}</p> : (
+                          <div className="admin-settings-list">
+                            {items.map((row) => (
+                              <article className="admin-setting-row admin-ledger-row" key={row.id}>
+                                <div>
+                                  <strong>{row.username}</strong>
+                                  <small>{copy.ledgerAmount}: {Number(row.amount).toLocaleString(fa ? "fa-IR" : "en-US", { maximumFractionDigits: 9 })} {row.asset}</small>
+                                  <small>{copy.ledgerStatus}: {row.status}</small>
+                                  <small>{copy.ledgerTime}: {new Date(row.createdAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>
+                                  {row.reference && <code>{copy.ledgerReference}: {row.reference}</code>}
+                                  {row.note && <small>{row.note}</small>}
+                                </div>
+                              </article>
+                            ))}
                           </div>
-                        </article>
-                      ))}
-                    </div>
-                  )}
-                </section>
+                        )}
+                      </section>
+                    );
+                  })}
+                </>
               );
-            })}
+            })()}
           </section>
         )}
 
