@@ -1259,6 +1259,30 @@ export async function getAdminTreasuryLedgerHistory(): Promise<AdminTreasuryLedg
   return request<AdminTreasuryLedgerHistoryResult>("/admin/treasury-wallet/ledger-history", {}, true);
 }
 
+export type AdminTurnkeyFeeFundSnapshot = {
+  network: string;
+  asset: string;
+  decimals: number;
+  balance: string;
+  totalCollected: string;
+  totalPaid: string;
+  paymentCurrency: string;
+  paymentMode: string;
+  recentCollections: Array<{
+    withdrawalId: string;
+    username: string;
+    amount: string;
+    transactionHash: string | null;
+    status: string;
+    collectedAt: string | null;
+  }>;
+  updatedAt: string;
+};
+
+export async function getAdminTurnkeyFeeFund(): Promise<AdminTurnkeyFeeFundSnapshot> {
+  return request<AdminTurnkeyFeeFundSnapshot>("/admin/turnkey-fee-fund", {}, true);
+}
+
 export async function getTreasuryPrizeFunding(): Promise<TreasuryPrizeFundingSnapshot> {
   return request<TreasuryPrizeFundingSnapshot>("/admin/treasury-wallet/prize-funding", {}, true);
 }

@@ -14,6 +14,14 @@ test("accepts a balanced journal with large atomic integer amounts", () => {
   assert.equal(postings[0]?.amountAtomic, amount);
 });
 
+test("accepts the dedicated Turnkey fee-fund account", () => {
+  const postings = validateBalancedWalletJournalPostings([
+    { account: "USER_RESERVED", direction: "DEBIT", amountAtomic: "1250000000000000", accountReference: "withdrawal-1" },
+    { account: "TURNKEY_FEE_FUND", direction: "CREDIT", amountAtomic: "1250000000000000", accountReference: "turnkey-fee-fund:polygon" },
+  ]);
+  assert.equal(postings[1]?.account, "TURNKEY_FEE_FUND");
+});
+
 test("rejects unbalanced journals", () => {
   assert.throws(() => validateBalancedWalletJournalPostings([
     { account: "CUSTODY_ASSET", direction: "DEBIT", amountAtomic: "100" },
