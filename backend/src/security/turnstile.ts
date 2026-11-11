@@ -9,6 +9,7 @@ type TurnstileResponse = {
 
 export async function verifyTurnstileToken(
   token: string,
+  expectedAction: "signup" | "login" = "signup",
 ): Promise<"VERIFIED" | "REJECTED" | "NOT_CONFIGURED"> {
   const secret = process.env.TURNSTILE_SECRET_KEY?.trim();
   if (!secret) return "NOT_CONFIGURED";
@@ -24,7 +25,7 @@ export async function verifyTurnstileToken(
 
     const result = await response.json() as TurnstileResponse;
     return result.success === true &&
-      result.action === "signup" &&
+      result.action === expectedAction &&
       typeof result.hostname === "string" &&
       ALLOWED_HOSTNAMES.has(result.hostname.toLowerCase())
       ? "VERIFIED"
