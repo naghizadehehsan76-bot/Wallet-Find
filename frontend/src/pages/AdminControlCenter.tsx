@@ -396,17 +396,23 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     }
   }, [copy.sourceReportError]);
 
-  useEffect(() => {
-    if (section !== "wallets") return;
-    let active = true;
+  const loadTurnkeyFeeFund = useCallback(async () => {
     setTurnkeyFeeFundLoading(true);
     setTurnkeyFeeFundError(false);
-    void getAdminTurnkeyFeeFund()
-      .then((snapshot) => { if (active) setTurnkeyFeeFund(snapshot); })
-      .catch(() => { if (active) setTurnkeyFeeFundError(true); })
-      .finally(() => { if (active) setTurnkeyFeeFundLoading(false); });
-    return () => { active = false; };
-  }, [section]);
+    try {
+      setTurnkeyFeeFund(await getAdminTurnkeyFeeFund());
+    } catch {
+      setTurnkeyFeeFundError(true);
+    } finally {
+      setTurnkeyFeeFundLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (section !== "wallets") return;
+    const timer = window.setTimeout(() => { void loadTurnkeyFeeFund(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [section, loadTurnkeyFeeFund]);
 
   useEffect(() => {
     if (section !== "support") return;
@@ -1685,11 +1691,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                   ? "این صندوق ثبت حسابداری داخلی کارمزد واقعی گس برداشت‌های اسپانسری Polygon است؛ موجودی آن انتقال واقعی POL یا پرداخت انجام‌شده به Turnkey نیست."
                   : "This is an internal ledger of exact Polygon gas costs for sponsored withdrawals. It is not an on-chain POL balance or a payment already made to Turnkey."}</p>
               </div>
-              <button type="button" onClick={() => {
-                setTurnkeyFeeFundLoading(true);
-                setTurnkeyFeeFundError(false);
-                void getAdminTurnkeyFeeFund().then(setTurnkeyFeeFund).catch(() => setTurnkeyFeeFundError(true)).finally(() => setTurnkeyFeeFundLoading(false));
-              }} disabled={turnkeyFeeFundLoading}>
+              <button type="button" onClick={() => void loadTurnkeyFeeFund()} disabled={turnkeyFeeFundLoading}>
                 {turnkeyFeeFundLoading ? (fa ? "در حال دریافت…" : "Loading…") : (fa ? "به‌روزرسانی" : "Refresh")}
               </button>
             </div>
