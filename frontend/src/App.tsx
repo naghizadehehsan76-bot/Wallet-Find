@@ -682,7 +682,7 @@ function App() {
       });
 
     return () => { cancelled = true; };
-  }, [handleSessionExpired]);
+  }, [handleSessionExpired, navigatePage]);
 
   useEffect(() => {
     if (authStatus !== "authenticated") return;
