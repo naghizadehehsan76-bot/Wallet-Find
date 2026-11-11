@@ -9,6 +9,7 @@ import {
   resetPasswordSchema,
 } from "./auth.schema.js";
 import { verifyTurnstileToken } from "../../security/turnstile.js";
+import { AUTH_SESSION_COOKIE, revokeAuthSession } from "./auth-session.js";
 import {
   loginUser,
   registerUser,
@@ -16,6 +17,10 @@ import {
   resendVerification,
   requestPasswordReset,
   resetPassword as resetUserPassword,
+  getLoginGuardFailures,
+  recordLoginFailure,
+  clearLoginGuard,
+  LOGIN_CHALLENGE_THRESHOLD,
 } from "./auth.service.js";
 
 function sendInputError(res: Response, details: unknown) {
