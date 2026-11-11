@@ -1117,6 +1117,9 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
   const expectedFrom = (treasuryFunding ? prizeTreasury!.address! : withdrawal.walletAddress.address).toLowerCase();
   const expectedTo = withdrawal.destinationAddress.toLowerCase();
   let transactionMatches = transaction.from.toLowerCase() === expectedFrom;
+  let decodedFunctionName: string | null = null;
+  let decodedRecipient: string | null = null;
+  let decodedAmountAtomic: string | null = null;
   if (withdrawal.asset.assetType === "NATIVE") {
     transactionMatches = transactionMatches &&
       transaction.to?.toLowerCase() === expectedTo &&
@@ -1128,14 +1131,30 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
     } catch {
       decoded = null;
     }
+    decodedFunctionName = decoded?.functionName ?? null;
+    decodedRecipient = decoded ? String(decoded.args?.[0]).toLowerCase() : null;
+    decodedAmountAtomic = decoded ? BigInt(String(decoded.args?.[1])).toString() : null;
     transactionMatches = transactionMatches &&
       !!withdrawal.asset.contractAddress &&
       transaction.to?.toLowerCase() === withdrawal.asset.contractAddress.toLowerCase() &&
-      decoded?.functionName === "transfer" &&
-      String(decoded.args?.[0]).toLowerCase() === expectedTo &&
-      BigInt(String(decoded.args?.[1])) === atomic(withdrawal.amountAtomic);
+      decodedFunctionName === "transfer" &&
+      decodedRecipient === expectedTo &&
+      decodedAmountAtomic === atomic(withdrawal.amountAtomic).toString();
   }
   if (!transactionMatches) {
+    console.error("Withdrawal transaction details mismatch", {
+      withdrawalId,
+      transactionHash: withdrawal.transactionReference,
+      expectedFrom,
+      actualFrom: transaction.from.toLowerCase(),
+      expectedDestination: expectedTo,
+      actualTransactionTo: transaction.to?.toLowerCase() ?? null,
+      expectedTokenContract: withdrawal.asset.contractAddress?.toLowerCase() ?? null,
+      actualValueAtomic: transaction.value.toString(),
+      actualFunctionName: decodedFunctionName,
+      actualTokenRecipient: decodedRecipient,
+      actualTokenAmountAtomic: decodedAmountAtomic,
+    });
     await prisma.walletChainWithdrawal.updateMany({
       where: { id: withdrawalId, status: "BROADCAST" },
       data: {
