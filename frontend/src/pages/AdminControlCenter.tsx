@@ -30,6 +30,7 @@ import {
   type SystemSettingRecord,
 } from "../services/api";
 import LoadingIndicator from "../components/LoadingIndicator";
+import WalletChainWithdrawalReview from "../components/WalletChainWithdrawalReview";
 import { CHALLENGE_LANGUAGES, getChallengeLanguageName, isChallengeLanguage, type ChallengeLanguage } from "../i18n/challenge-languages";
 
 type AdminDestination = "home" | "admin-manage";
@@ -1384,6 +1385,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
               </section>
               </div>
             )}
+            <WalletChainWithdrawalReview fa={fa} />
           </section>
         )}
 
