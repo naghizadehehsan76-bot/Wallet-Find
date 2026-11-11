@@ -983,8 +983,13 @@ export async function recoverKnownPreBroadcastTurnkeyFailure(
   rawReason: unknown,
 ) {
   const reason = requireReason(rawReason);
-  const expectedId = "ab79dd7e-fa69-4c16-8a5d-b7eb3ebee5a1";
-  if (withdrawalId !== expectedId) throw new Error("WITHDRAWAL_RECOVERY_NOT_ALLOWED");
+  const legacyPolRecoveryId = "ab79dd7e-fa69-4c16-8a5d-b7eb3ebee5a1";
+  const sponsoredUsdt0RecoveryId = "c778a886-6b2a-4fd1-8f43-eec992c9170d";
+  const isLegacyPolRecovery = withdrawalId === legacyPolRecoveryId;
+  const isSponsoredUsdt0Recovery = withdrawalId === sponsoredUsdt0RecoveryId;
+  if (!isLegacyPolRecovery && !isSponsoredUsdt0Recovery) {
+    throw new Error("WITHDRAWAL_RECOVERY_NOT_ALLOWED");
+  }
 
   return prisma.$transaction(async (tx) => {
     await tx.$queryRawUnsafe(
@@ -997,22 +1002,41 @@ export async function recoverKnownPreBroadcastTurnkeyFailure(
     });
     if (!withdrawal) throw new Error("WALLET_WITHDRAWAL_NOT_FOUND");
 
-    // This one-off recovery is restricted to the exact request whose Render
-    // logs establish a Turnkey resource lookup failure before any broadcast.
-    if (
-      withdrawal.status !== "SIGNING" ||
-      withdrawal.failureCode !== "SIGNING_OR_BROADCAST_OUTCOME_UNCERTAIN" ||
-      withdrawal.transactionReference !== null ||
-      withdrawal.broadcastAt !== null ||
-      withdrawal.signerActivityId !== null ||
-      withdrawal.network.chainId !== 137 ||
-      withdrawal.networkId !== "eip155:137" ||
-      withdrawal.asset.assetType !== "NATIVE" ||
-      withdrawal.asset.symbol !== "POL" ||
-      withdrawal.amountAtomic.toFixed(0) !== "4000000000000000000" ||
-      withdrawal.destinationAddress.toLowerCase() !== "0xad2d384361fcdc90eafbf9255ebd38179e43216b" ||
-      withdrawal.walletAddress.address.toLowerCase() !== "0x0e1a39734f21baa1f6d9f5205bc90f42fdce89d7"
-    ) {
+    const prizeTreasury = isSponsoredUsdt0Recovery
+      ? await tx.treasuryWallet.findUnique({
+          where: { id: PRIZE_TREASURY_ID },
+          select: { address: true, status: true },
+        })
+      : null;
+    // These allow-listed requests have independent evidence of a failure
+    // before Turnkey issued a status ID or broadcast a transaction.
+    const commonPreconditions =
+      withdrawal.status === "SIGNING" &&
+      withdrawal.failureCode === "SIGNING_OR_BROADCAST_OUTCOME_UNCERTAIN" &&
+      withdrawal.transactionReference === null &&
+      withdrawal.broadcastAt === null &&
+      withdrawal.signerActivityId === null &&
+      withdrawal.network.chainId === 137 &&
+      withdrawal.networkId === "eip155:137";
+    const legacyPolPreconditions =
+      isLegacyPolRecovery &&
+      withdrawal.asset.assetType === "NATIVE" &&
+      withdrawal.asset.symbol === "POL" &&
+      withdrawal.amountAtomic.toFixed(0) === "4000000000000000000" &&
+      withdrawal.destinationAddress.toLowerCase() === "0xad2d384361fcdc90eafbf9255ebd38179e43216b" &&
+      withdrawal.walletAddress.address.toLowerCase() === "0x0e1a39734f21baa1f6d9f5205bc90f42fdce89d7";
+    const sponsoredUsdt0Preconditions =
+      isSponsoredUsdt0Recovery &&
+      withdrawal.fundingSource === "PRIZE_TREASURY" &&
+      withdrawal.asset.assetType === "TOKEN" &&
+      withdrawal.asset.symbol === "USDT0" &&
+      withdrawal.asset.contractAddress?.toLowerCase() === POLYGON_USDT0_CONTRACT &&
+      withdrawal.amountAtomic.toFixed(0) === "250000" &&
+      withdrawal.feeAtomic?.toFixed(0) === "0" &&
+      withdrawal.destinationAddress.toLowerCase() === "0xad2d384361fcdc90eafbf9255ebd38179e43216b" &&
+      prizeTreasury?.status === "ACTIVE" &&
+      prizeTreasury.address?.toLowerCase() === "0xa0d7cc6394b64adf3e07792ef2bc4950da2d578f";
+    if (!commonPreconditions || (!legacyPolPreconditions && !sponsoredUsdt0Preconditions)) {
       throw new Error("WITHDRAWAL_RECOVERY_PRECONDITIONS_FAILED");
     }
 
@@ -1041,7 +1065,9 @@ export async function recoverKnownPreBroadcastTurnkeyFailure(
         entityId: withdrawalId,
         metadata: {
           reason,
-          recoveryBasis: "Verified Turnkey signWith resource lookup failure before transaction broadcast; no hash, broadcast timestamp, or signer activity ID.",
+          recoveryBasis: isSponsoredUsdt0Recovery
+            ? "Render recorded Turnkey invalid-request rejection with missing from/caip2/calls fields before a status ID was stored; no transaction hash, broadcast timestamp, or signer activity ID exists."
+            : "Verified Turnkey signWith resource lookup failure before transaction broadcast; no hash, broadcast timestamp, or signer activity ID.",
         },
       },
     });

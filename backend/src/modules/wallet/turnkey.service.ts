@@ -479,14 +479,19 @@ export async function sendSponsoredEvmTransaction(input: {
     }).apiClient();
   }
 
+  // sdk-server 8.8 routes the calls-based payload through Turnkey's
+  // ETH_SEND_TRANSACTION_V2 activity. A legacy to/value/data payload here
+  // is serialized as an empty V2 intent by this SDK version.
   const submission = await client.ethSendTransaction({
     transaction: {
       from: getAddress(input.address),
-      to: getAddress(input.to),
       caip2: `eip155:${input.chainId}`,
       sponsor: true,
-      value: (input.value ?? 0n).toString(),
-      data: input.data ?? "0x",
+      calls: [{
+        to: getAddress(input.to),
+        value: (input.value ?? 0n).toString(),
+        data: input.data ?? "0x",
+      }],
     },
   });
   const statusId = typeof submission === "string"
