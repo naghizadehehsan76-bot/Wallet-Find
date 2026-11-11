@@ -228,7 +228,7 @@ export async function provisionTurnkeyWallet(userId: string) {
       intentId: intent.id,
       apiPublicKey: intent.turnkeyApiPublicKey,
     };
-  }, { isolationLevel: "Serializable" });
+  }, { isolationLevel: "ReadCommitted" });
 
   if (preparation.kind === "READY") {
     return prisma.walletAccount.findUniqueOrThrow({
@@ -367,7 +367,7 @@ export async function provisionTurnkeyWallet(userId: string) {
         },
       });
       return wallet.id;
-    }, { isolationLevel: "Serializable" });
+    }, { isolationLevel: "ReadCommitted" });
 
     return prisma.walletAccount.findUniqueOrThrow({
       where: { id: walletAccountId },
