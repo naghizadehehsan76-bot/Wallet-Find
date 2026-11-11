@@ -94,7 +94,6 @@ type WalletSnapshot = { wallet: WalletResult; savedAt: number };
 
 function getWalletSnapshotKey(): string | null {
   try {
-    if (!localStorage.getItem("walletFindToken")) return null;
     const rawUser = localStorage.getItem("walletFindUser");
     if (!rawUser) return null;
     const user = JSON.parse(rawUser) as { id?: unknown };
