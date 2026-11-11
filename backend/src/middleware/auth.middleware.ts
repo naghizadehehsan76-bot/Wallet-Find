@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import jwt from "jsonwebtoken";
 import prisma from "../config/prisma.js";
 import {
   AUTH_SESSION_COOKIE,
@@ -6,6 +7,12 @@ import {
   STANDARD_IDLE_TIMEOUT_MS,
   hashSessionToken,
 } from "../modules/auth/auth-session.js";
+
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error("JWT_SECRET is not defined");
+  return secret;
+}
 
 export interface AuthenticatedRequest extends Request {
   user?: { userId: string; role: string };
@@ -71,8 +78,22 @@ export async function requireAuth(
       return next();
     }
 
+    // Compatibility only for previously issued seven-day JWTs and trusted automation clients.
+    // The browser no longer stores or sends bearer tokens.
+    const authorization = req.headers.authorization;
+    if (authorization?.startsWith("Bearer ")) {
+      const decoded = jwt.verify(authorization.substring(7).trim(), getJwtSecret());
+      if (typeof decoded === "object" && decoded !== null &&
+          typeof decoded.userId === "string" && typeof decoded.role === "string") {
+        req.user = { userId: decoded.userId, role: decoded.role };
+        return next();
+      }
+    }
     return res.status(401).json({ success: false, error: "AUTHENTICATION_REQUIRED" });
   } catch (error) {
+    if (error instanceof jwt.TokenExpiredError || error instanceof jwt.JsonWebTokenError) {
+      return res.status(401).json({ success: false, error: "AUTHENTICATION_REQUIRED" });
+    }
     console.error("Authentication middleware failed", error);
     return res.status(500).json({ success: false, error: "INTERNAL_SERVER_ERROR" });
   }
