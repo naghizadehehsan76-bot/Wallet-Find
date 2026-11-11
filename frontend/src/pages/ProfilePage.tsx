@@ -74,7 +74,6 @@ function ProfilePage({ onNavigate, onLogout }: ProfilePageProps) {
     setDeletingAccount(true);
     try {
       await deleteOwnAccount();
-      localStorage.removeItem("walletFindToken");
       localStorage.removeItem("walletFindUser");
       onLogout();
     } catch (err) {
