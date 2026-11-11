@@ -29,7 +29,6 @@ import {
   type AdminPrizeTreasuryPaymentHistory,
   type AdminUserSummary,
   type AdminSourceVisitReport,
-  type SystemSettingRecord,
 } from "../services/api";
 import LoadingIndicator from "../components/LoadingIndicator";
 import { CHALLENGE_LANGUAGES, getChallengeLanguageName, isChallengeLanguage, type ChallengeLanguage } from "../i18n/challenge-languages";
@@ -142,7 +141,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [ledgerRows, setLedgerRows] = useState<Array<{ id: string; kind: "PRIZE" | "RESERVED" | "CONFIRMED" | "FEE"; username: string; amount: string; asset: string; status: string; createdAt: string; reference: string | null; note: string | null }>>([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [ledgerError, setLedgerError] = useState(false);
-  const [settings, setSettings] = useState<SystemSettingRecord[]>([]);
   const [treasury, setTreasury] = useState<PrizeTreasuryProvisionResult | null>(null);
   const [treasuryLoading, setTreasuryLoading] = useState(false);
   const [treasuryFunding, setTreasuryFunding] = useState<TreasuryPrizeFundingSnapshot | null>(null);
@@ -499,7 +497,6 @@ export default function AdminControlCenter({ onNavigate }: Props) {
         getAdminUsers(),
       ]);
       setOverview(stats);
-      setSettings(settingRows);
       setSourceUrlsEn(parseSourceUrls(settingRows.find((setting) => setting.key === "clue_sources_en")?.value, DEFAULT_EN_SOURCES));
       setSourceUrlsFa(parseSourceUrls(settingRows.find((setting) => setting.key === "clue_sources_fa")?.value, DEFAULT_FA_SOURCES));
       setSourceUrlsOther(Object.fromEntries(CHALLENGE_LANGUAGES.filter(({ code }) => code !== "fa" && code !== "en").map(({ code }) => [
