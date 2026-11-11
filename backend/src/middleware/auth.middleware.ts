@@ -1,5 +1,4 @@
 import type { NextFunction, Request, Response } from "express";
-import jwt from "jsonwebtoken";
 import prisma from "../config/prisma.js";
 import {
   AUTH_SESSION_COOKIE,
@@ -12,12 +11,6 @@ export interface AuthenticatedRequest extends Request {
   user?: { userId: string; role: string };
   authSessionId?: string;
   authSessionToken?: string;
-}
-
-function getJwtSecret(): string {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) throw new Error("JWT_SECRET is not defined");
-  return secret;
 }
 
 function readCookie(req: Request, name: string): string | undefined {
@@ -78,28 +71,8 @@ export async function requireAuth(
       return next();
     }
 
-    // Temporary compatibility for already-issued seven-day JWTs. New logins
-    // use only the revocable HttpOnly session cookie.
-    const authorization = req.headers.authorization;
-    if (!authorization?.startsWith("Bearer ")) {
-      return res.status(401).json({ success: false, error: "AUTHENTICATION_REQUIRED" });
-    }
-    const token = authorization.substring(7).trim();
-    if (!token) return res.status(401).json({ success: false, error: "INVALID_TOKEN" });
-    const decoded = jwt.verify(token, getJwtSecret());
-    if (typeof decoded !== "object" || decoded === null ||
-        typeof decoded.userId !== "string" || typeof decoded.role !== "string") {
-      return res.status(401).json({ success: false, error: "INVALID_TOKEN" });
-    }
-    req.user = { userId: decoded.userId, role: decoded.role };
-    next();
+    return res.status(401).json({ success: false, error: "AUTHENTICATION_REQUIRED" });
   } catch (error) {
-    if (error instanceof jwt.TokenExpiredError) {
-      return res.status(401).json({ success: false, error: "TOKEN_EXPIRED" });
-    }
-    if (error instanceof jwt.JsonWebTokenError) {
-      return res.status(401).json({ success: false, error: "INVALID_TOKEN" });
-    }
     console.error("Authentication middleware failed", error);
     return res.status(500).json({ success: false, error: "INTERNAL_SERVER_ERROR" });
   }
