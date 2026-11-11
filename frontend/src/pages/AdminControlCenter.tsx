@@ -139,6 +139,9 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [turnkeyFeeFund, setTurnkeyFeeFund] = useState<AdminTurnkeyFeeFundSnapshot | null>(null);
   const [turnkeyFeeFundLoading, setTurnkeyFeeFundLoading] = useState(false);
   const [turnkeyFeeFundError, setTurnkeyFeeFundError] = useState(false);
+  const [ledgerRows, setLedgerRows] = useState<Array<{ id: string; kind: "PRIZE" | "RESERVED" | "CONFIRMED" | "FEE"; username: string; amount: string; asset: string; status: string; createdAt: string; reference: string | null; note: string | null }>>([]);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+  const [ledgerError, setLedgerError] = useState(false);
   const [settings, setSettings] = useState<SystemSettingRecord[]>([]);
   const [treasury, setTreasury] = useState<PrizeTreasuryProvisionResult | null>(null);
   const [treasuryLoading, setTreasuryLoading] = useState(false);
@@ -201,7 +204,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     ads: fa ? "تبلیغات و اسپانسرها" : "Ads & sponsors",
     security: fa ? "امنیت و ضدتقلب" : "Security & anti-fraud",
     support: fa ? "پشتیبانی و گزارش‌ها" : "Support & reports",
-    settings: fa ? "تنظیمات سایت" : "Site settings",
+    settings: fa ? "دفتر کل" : "General ledger",
     wallets: fa ? "خزانه و جوایز" : "Treasury & Prizes",
     treasuryTitle: fa ? "خزانه اصلی جوایز (Polygon)" : "Main prize treasury (Polygon)",
     treasuryLiveBalance: fa ? "موجودی واقعی خزانه (USDT0)" : "Live treasury balance (USDT0)",
@@ -241,6 +244,20 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     noWallets: fa ? "کاربری برای نمایش وجود ندارد." : "No users to display.",
     walletNote: fa ? "فقط تراکنش‌های واقعی و تأییدشده باید در این فهرست موجودی ایجاد کنند؛ واریز و برداشت شبکه هنوز فعال نیست." : "Only real, verified transactions may create balances; on-chain deposits and withdrawals are not operational yet.",
     audit: fa ? "گزارش فعالیت‌ها" : "Activity log",
+    ledgerLoadingLabel: fa ? "در حال دریافت رویدادهای مالی…" : "Loading financial events…",
+    ledgerErrorLabel: fa ? "دریافت رویدادهای دفتر کل ناموفق بود." : "Could not load ledger events.",
+    ledgerEmpty: fa ? "هنوز رویداد مالی از این چهار نوع ثبت نشده است." : "No events of these four financial types have been recorded yet.",
+    ledgerPrize: fa ? "جایزه دریافتی" : "Prize received",
+    ledgerReserved: fa ? "برداشت رزروشده" : "Withdrawal reserved",
+    ledgerConfirmed: fa ? "برداشت تأییدشده" : "Withdrawal confirmed",
+    ledgerFee: fa ? "کارمزد واقعی کسرشده" : "Actual fee deducted",
+    ledgerRefresh: fa ? "به‌روزرسانی دفتر کل" : "Refresh ledger",
+    ledgerUser: fa ? "کاربر" : "User",
+    ledgerAmount: fa ? "مبلغ" : "Amount",
+    ledgerStatus: fa ? "وضعیت" : "Status",
+    ledgerTime: fa ? "زمان ثبت" : "Recorded at",
+    ledgerReference: fa ? "شناسه / هش مرجع" : "Reference / transaction hash",
+    ledgerSourceNote: fa ? "رویدادها از سوابق حسابداری و رسیدهای برداشت استخراج می‌شوند. کارمزد فقط پس از تأیید رسید و محاسبه gasUsed × effectiveGasPrice ثبت می‌شود؛ مبلغ رزروشدهٔ تخمینی، کارمزد واقعی نیست." : "Events are derived from accounting journals and withdrawal receipts. Fees are recorded only after receipt confirmation using gasUsed × effectiveGasPrice; an estimated reservation is not an actual fee.",
     users: fa ? "کاربران" : "Users",
     userEmail: fa ? "ایمیل" : "Email",
     userCreated: fa ? "تاریخ ساخت حساب" : "Account created",
@@ -396,6 +413,51 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     }
   }, [copy.sourceReportError]);
 
+  const loadLedger = useCallback(async () => {
+    setLedgerLoading(true);
+    setLedgerError(false);
+    try {
+      const [wallets, prizes, fees] = await Promise.all([
+        getAdminWalletAccounts(),
+        getAdminPrizeTreasuryPaymentHistory(),
+        getAdminTurnkeyFeeFund(),
+      ]);
+      const histories = await Promise.all(wallets.map((wallet) => getAdminWalletAccountTransactions(wallet.id)));
+      const rows: Array<{ id: string; kind: "PRIZE" | "RESERVED" | "CONFIRMED" | "FEE"; username: string; amount: string; asset: string; status: string; createdAt: string; reference: string | null; note: string | null }> = [];
+      for (const award of prizes.payments) {
+        if (award.paymentMode === "INTERNAL_WALLET_CREDIT" && award.creditedAt) rows.push({
+          id: "prize:" + award.id, kind: "PRIZE", username: award.username, amount: award.amount,
+          asset: "USDT0", status: award.status, createdAt: award.creditedAt,
+          reference: award.journalReference ?? award.journalId, note: award.note,
+        });
+      }
+      for (const history of histories) {
+        for (const tx of history.transactions) {
+          if (tx.source === "WALLET_JOURNAL" && tx.type.includes("WITHDRAWAL_RESERVE")) rows.push({
+            id: "reserve:" + tx.id, kind: "RESERVED", username: history.wallet.username, amount: tx.amount,
+            asset: tx.asset, status: tx.status, createdAt: tx.createdAt, reference: tx.id, note: tx.note,
+          });
+          if ((tx.source === "ONCHAIN_WITHDRAWAL" || tx.source === "LEGACY_ONCHAIN_WITHDRAWAL") && tx.status === "CONFIRMED") rows.push({
+            id: "confirmed:" + tx.id, kind: "CONFIRMED", username: history.wallet.username, amount: tx.amount,
+            asset: tx.asset, status: tx.status, createdAt: tx.confirmedAt ?? tx.createdAt,
+            reference: tx.transactionHash ?? tx.id, note: tx.note,
+          });
+        }
+      }
+      for (const fee of fees.recentCollections) rows.push({
+        id: "fee:" + fee.withdrawalId, kind: "FEE", username: fee.username, amount: fee.amount,
+        asset: fees.asset, status: fee.status, createdAt: fee.collectedAt ?? fees.updatedAt,
+        reference: fee.transactionHash ?? fee.withdrawalId, note: fa ? "کارمزد واقعی ثبت‌شده در حساب داخلی TURNKEY_FEE_FUND" : "Actual fee posted to internal TURNKEY_FEE_FUND",
+      });
+      rows.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+      setLedgerRows(rows);
+    } catch {
+      setLedgerError(true);
+    } finally {
+      setLedgerLoading(false);
+    }
+  }, [fa]);
+  
   const loadTurnkeyFeeFund = useCallback(async () => {
     setTurnkeyFeeFundLoading(true);
     setTurnkeyFeeFundError(false);
@@ -407,6 +469,12 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       setTurnkeyFeeFundLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (section !== "settings") return;
+    const timer = window.setTimeout(() => { void loadLedger(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [section, loadLedger]);
 
   useEffect(() => {
     if (section !== "wallets") return;
@@ -1733,27 +1801,45 @@ export default function AdminControlCenter({ onNavigate }: Props) {
         )}
 
         {section === "settings" && (
-          <section className="admin-panel">
-            <h2>{copy.settings}</h2>
-            <section className="admin-setting-form">
-              <h3>{copy.poolTitle}</h3>
-              <p><strong>{copy.poolFixed}</strong></p>
-              <p className="admin-footnote">{copy.poolHelp}</p>
-            </section>
-            <form className="admin-setting-form" onSubmit={handleSave}>
-              <label>{copy.keyLabel}<input value={key} onChange={(event) => setKey(event.target.value)} required maxLength={80} autoComplete="off" /></label>
-              <label>{copy.valueLabel}<textarea value={value} onChange={(event) => setValue(event.target.value)} required maxLength={4000} rows={3} /></label>
-              <button className="cta-button" type="submit" disabled={saving}>{saving ? copy.saving : copy.save}</button>
-            </form>
-            <div className="admin-settings-list">
-              {visibleSettings.length === 0 && <p className="admin-empty">{copy.empty}</p>}
-              {visibleSettings.map((setting) => (
-                <article className="admin-setting-row" key={setting.key}>
-                  <div><strong>{setting.key}</strong><code>{setting.value}</code><small>{new Date(setting.updatedAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small></div>
-                  <button type="button" onClick={() => void handleEdit(setting)} disabled={saving}>{fa ? "ویرایش" : "Edit"}</button>
-                </article>
+          <section className="admin-panel admin-ledger-panel">
+            <div className="admin-wallet-overview__heading">
+              <div>
+                <h2>{copy.settings}</h2>
+                <p className="admin-footnote">{copy.ledgerSourceNote}</p>
+              </div>
+              <button type="button" onClick={() => void loadLedger()} disabled={ledgerLoading}>
+                {ledgerLoading ? copy.ledgerLoadingLabel : copy.ledgerRefresh}
+              </button>
+            </div>
+            {ledgerLoading && ledgerRows.length === 0 && <div className="admin-empty"><LoadingIndicator label={copy.ledgerLoadingLabel} /></div>}
+            {ledgerError && <p className="admin-message admin-message--error" role="alert">{copy.ledgerErrorLabel}</p>}
+            <div className="admin-wallet-overview__metrics">
+              {([
+                ["PRIZE", copy.ledgerPrize],
+                ["RESERVED", copy.ledgerReserved],
+                ["CONFIRMED", copy.ledgerConfirmed],
+                ["FEE", copy.ledgerFee],
+              ] as const).map(([kind, label]) => (
+                <article key={kind}><span>{label}</span><strong>{ledgerRows.filter((row) => row.kind === kind).length.toLocaleString(fa ? "fa-IR" : "en-US")}</strong></article>
               ))}
             </div>
+            {ledgerRows.length === 0 && !ledgerLoading ? <p className="admin-empty">{copy.ledgerEmpty}</p> : (
+              <div className="admin-settings-list">
+                {ledgerRows.map((row) => (
+                  <article className="admin-setting-row admin-ledger-row" key={row.id}>
+                    <div>
+                      <strong>{row.kind === "PRIZE" ? copy.ledgerPrize : row.kind === "RESERVED" ? copy.ledgerReserved : row.kind === "CONFIRMED" ? copy.ledgerConfirmed : copy.ledgerFee}</strong>
+                      <small>{copy.ledgerUser}: {row.username}</small>
+                      <small>{copy.ledgerAmount}: {Number(row.amount).toLocaleString(fa ? "fa-IR" : "en-US", { maximumFractionDigits: 9 })} {row.asset}</small>
+                      <small>{copy.ledgerStatus}: {row.status}</small>
+                      <small>{copy.ledgerTime}: {new Date(row.createdAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>
+                      {row.reference && <code>{copy.ledgerReference}: {row.reference}</code>}
+                      {row.note && <small>{row.note}</small>}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
           </section>
         )}
 
