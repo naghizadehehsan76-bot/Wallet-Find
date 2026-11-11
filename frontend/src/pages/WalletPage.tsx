@@ -589,6 +589,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
       confirmationCount: item.confirmationCount,
       fee: null as string | null,
       feeAsset: null as string | null,
+      feeIsFinal: false,
     })),
     ...(wallet?.onChainWithdrawals ?? []).map((item) => ({
       id: "withdrawal:" + item.id,
