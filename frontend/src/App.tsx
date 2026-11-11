@@ -615,7 +615,6 @@ function App() {
   }, [language, isRTL]);
 
   const handleSessionExpired = useCallback(() => {
-    localStorage.removeItem("walletFindToken");
     localStorage.removeItem("walletFindUser");
     setAuthStatus("unauthenticated");
     setAuthMode("login");
@@ -630,10 +629,8 @@ function App() {
   }, [handleSessionExpired]);
 
   useEffect(() => {
-    const token = localStorage.getItem("walletFindToken");
-    if (!token) {
-      localStorage.removeItem("walletFindUser");
-      // Initial state already matches the no-token case; avoid redundant state updates here.
+    if (!safelyReadSavedUser()) {
+      setAuthStatus("unauthenticated");
       return;
     }
 
@@ -663,8 +660,7 @@ function App() {
           return;
         }
         if (message === "USER_NOT_FOUND") {
-          localStorage.removeItem("walletFindToken");
-          localStorage.removeItem("walletFindUser");
+                localStorage.removeItem("walletFindUser");
           setAuthStatus("unauthenticated");
           setAuthMode("signup");
           setAuthNotice("");
@@ -739,15 +735,14 @@ function App() {
     navigatePage("auth");
   }
 
-  function handleAuthenticated(token: string) {
-    localStorage.setItem("walletFindToken", token);
+  function handleAuthenticated(user: AuthUser) {
+    localStorage.setItem("walletFindUser", JSON.stringify(user));
     setAuthNotice("");
     setAuthStatus("authenticated");
     navigatePage("competition");
   }
 
   function handleLogout() {
-    localStorage.removeItem("walletFindToken");
     localStorage.removeItem("walletFindUser");
     setAuthNotice("");
     setAuthStatus("unauthenticated");
