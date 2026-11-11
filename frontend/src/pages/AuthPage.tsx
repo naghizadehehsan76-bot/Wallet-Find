@@ -7,6 +7,7 @@ import {
   resendVerification,
   forgotPassword,
   resetPassword,
+  type AuthUser,
 } from "../services/api";
 import { useI18n } from "../i18n";
 import { localizeApiError } from "../i18n/localize";
@@ -25,6 +26,7 @@ declare global {
         "error-callback": () => void;
       }) => string;
       remove: (widgetId: string) => void;
+      reset: () => void;
     };
   }
 }
@@ -32,7 +34,7 @@ declare global {
 const TURNSTILE_SITE_KEY = "0x4AAAAAAF8nIV8BHJygTnN-";
 
 type AuthPageProps = {
-  onAuthenticated: (token: string) => void;
+  onAuthenticated: (user: AuthUser) => void;
   onBack: () => void;
   onOpenTerms: () => void;
   initialMode?: "login" | "signup";
@@ -57,12 +59,11 @@ function AuthPage({
   const [loading, setLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [loginTurnstileRequired, setLoginTurnstileRequired] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
 
   useEffect(() => {
-    if (mode !== "signup") {
-      setTurnstileToken("");
-      return;
-    }
+    if (!(mode === "signup" || (mode === "login" && loginTurnstileRequired))) return;
     let cancelled = false;
     let widgetId: string | undefined;
     const container = document.getElementById("wallet-find-turnstile");
@@ -71,7 +72,7 @@ function AuthPage({
       if (cancelled || !window.turnstile || widgetId) return;
       widgetId = window.turnstile.render(container, {
         sitekey: TURNSTILE_SITE_KEY,
-        action: "signup",
+        action: mode === "signup" ? "signup" : "login",
         callback: (token) => setTurnstileToken(token),
         "expired-callback": () => setTurnstileToken(""),
         "error-callback": () => {
@@ -95,7 +96,7 @@ function AuthPage({
       cancelled = true;
       if (widgetId && window.turnstile) window.turnstile.remove(widgetId);
     };
-  }, [mode]);
+  }, [mode, loginTurnstileRequired]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -104,10 +105,9 @@ function AuthPage({
     return () => window.clearTimeout(timer);
   }, [initialNotice]);
 
-  function saveSession(result: { token: string; user: unknown }) {
-    localStorage.setItem("walletFindToken", result.token);
+  function saveSession(result: { user: AuthUser }) {
     localStorage.setItem("walletFindUser", JSON.stringify(result.user));
-    onAuthenticated(result.token);
+    onAuthenticated(result.user);
   }
 
   function changeMode(nextMode: AuthMode) {
@@ -117,6 +117,7 @@ function AuthPage({
     setCode("");
     setPassword("");
     setTurnstileToken("");
+    setLoginTurnstileRequired(false);
     if (nextMode === "login" || nextMode === "signup") setAcceptedTerms(false);
   }
 
@@ -128,7 +129,8 @@ function AuthPage({
 
     try {
       if (mode === "login") {
-        const result = await login(email, password);
+        const result = await login(email, password, loginTurnstileRequired ? turnstileToken : undefined, rememberMe);
+        setLoginTurnstileRequired(false);
         saveSession(result);
       } else if (mode === "signup") {
         await register(email, username, password, turnstileToken, language);
@@ -154,7 +156,16 @@ function AuthPage({
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "NETWORK_ERROR";
-      if (mode === "login" && message === "EMAIL_NOT_VERIFIED") {
+      if (mode === "login" && message === "TURNSTILE_REQUIRED") {
+        setLoginTurnstileRequired(true);
+        setTurnstileToken("");
+        window.turnstile?.reset();
+        setError("");
+      } else if (mode === "login" && message === "TURNSTILE_VERIFICATION_FAILED") {
+        setTurnstileToken("");
+        window.turnstile?.reset();
+        setError(message);
+      } else if (mode === "login" && message === "EMAIL_NOT_VERIFIED") {
         setMode("verify");
         setSuccess(t.auth.verifyExistingNotice);
       } else if (mode === "signup" && message === "EMAIL_SEND_FAILED") {
@@ -304,12 +315,19 @@ function AuthPage({
             </div>
           )}
 
-          {mode === "signup" && (
+          {mode === "login" && (
+            <label className="auth-remember" htmlFor="auth-remember">
+              <input id="auth-remember" type="checkbox" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} />
+              <span>{{fa:"مرا به خاطر بسپار",en:"Remember me",de:"Angemeldet bleiben",es:"Recordarme",fr:"Se souvenir de moi",ar:"تذكرني",tr:"Beni hatırla",pt:"Lembrar-me",ru:"Запомнить меня","zh-CN":"记住我"}[language]}</span>
+            </label>
+          )}
+
+          {(mode === "signup" || (mode === "login" && loginTurnstileRequired)) && (
             <div className="field">
               <label htmlFor="wallet-find-turnstile">{language === "fa" ? "بررسی امنیتی" : "Security verification"}</label>
               <div id="wallet-find-turnstile" aria-label="Cloudflare security verification" />
               {!turnstileToken && (
-                <small role="status">{language === "fa" ? "برای ادامه ثبت‌نام، بررسی امنیتی را کامل کن." : "Complete the security check to continue registration."}</small>
+                <small role="status">{language === "fa" ? "برای ادامه، بررسی امنیتی را کامل کن." : "Complete the security check to continue."}</small>
               )}
             </div>
           )}
@@ -349,7 +367,7 @@ function AuthPage({
           <button
             className="cta-button"
             type="submit"
-            disabled={loading || (mode === "signup" && (!acceptedTerms || !turnstileToken))}
+            disabled={loading || (mode === "signup" && (!acceptedTerms || !turnstileToken)) || (mode === "login" && loginTurnstileRequired && !turnstileToken)}
           >
             {loading ? <LoadingIndicator compact label={t.auth.loading} /> : submitLabel}
           </button>

@@ -11,7 +11,7 @@ import { useI18n, type Language } from "./i18n";
 import { getPageCopy } from "./i18n/page-overrides";
 import SharedLanguageSwitcher from "./components/LanguageSwitcher";
 import LoadingIndicator from "./components/LoadingIndicator";
-import { getProfile, getPublicPrizePoolStats, getPublicSiteStats, sendOnlineHeartbeat, type PublicPrizePoolStats, type PublicSiteStats } from "./services/api";
+import { getProfile, getPublicPrizePoolStats, getPublicSiteStats, sendOnlineHeartbeat, logout, type AuthUser, type PublicPrizePoolStats, type PublicSiteStats } from "./services/api";
 import "./App.css";
 
 type AuthMode = "login" | "signup";
@@ -528,25 +528,25 @@ function isPublicPage(page: Page): boolean {
 function App() {
   const { language, isRTL } = useI18n();
   const [authStatus, setAuthStatus] = useState<"checking" | "authenticated" | "unauthenticated">(
-    () => localStorage.getItem("walletFindToken") ? "checking" : "unauthenticated",
+    () => safelyReadSavedUser() ? "checking" : "unauthenticated",
   );
   const [authNotice, setAuthNotice] = useState("");
   const initialSavedUser = safelyReadSavedUser();
   const initialIsAdmin = initialSavedUser?.role === "ADMIN";
 
   const [page, setPageState] = useState<Page>(() => {
-    const hasToken = Boolean(localStorage.getItem("walletFindToken"));
+    const hasSavedSession = Boolean(safelyReadSavedUser());
     const requestedPage = getPageFromPath(window.location.pathname);
 
     if (window.location.pathname === "/admin-setup") {
-      const destination = initialIsAdmin && hasToken ? "admin" : "home";
+      const destination = initialIsAdmin && hasSavedSession ? "admin" : "home";
       window.history.replaceState({}, "", getPathFromPage(destination));
       return destination;
     }
 
     if (requestedPage) {
-      if (!hasToken && !isPublicPage(requestedPage)) return "auth";
-      if ((requestedPage === "admin" || requestedPage === "admin-manage") && !initialIsAdmin) return hasToken ? "home" : "auth";
+      if (!hasSavedSession && !isPublicPage(requestedPage)) return "auth";
+      if ((requestedPage === "admin" || requestedPage === "admin-manage") && !initialIsAdmin) return hasSavedSession ? "home" : "auth";
       return requestedPage;
     }
 
@@ -559,9 +559,9 @@ function App() {
       // Fall back to the default page when session storage is unavailable.
     }
 
-    if (hasToken && savedPage && (savedPage !== "admin" && savedPage !== "admin-manage" || initialIsAdmin)) return savedPage;
-    if (!hasToken && savedPage && isPublicPage(savedPage)) return savedPage;
-    return hasToken ? "competition" : "home";
+    if (hasSavedSession && savedPage && (savedPage !== "admin" && savedPage !== "admin-manage" || initialIsAdmin)) return savedPage;
+    if (!hasSavedSession && savedPage && isPublicPage(savedPage)) return savedPage;
+    return hasSavedSession ? "competition" : "home";
   });
   const navigatePage = useCallback((nextPage: Page) => {
     const nextPath = getPathFromPage(nextPage);
@@ -571,8 +571,13 @@ function App() {
     setPageState(nextPage);
   }, []);
   const [authMode, setAuthMode] = useState<AuthMode>(() =>
-    localStorage.getItem("walletFindToken") ? "login" : "signup",
+    safelyReadSavedUser() ? "login" : "signup",
   );
+
+  useEffect(() => {
+    // Remove the legacy browser-stored bearer credential after migration.
+    localStorage.removeItem("walletFindToken");
+  }, []);
 
   useEffect(() => {
     try {
@@ -591,15 +596,15 @@ function App() {
   useEffect(() => {
     const handlePopState = () => {
       const requestedPage = getPageFromPath(window.location.pathname) ?? "home";
-      const hasToken = Boolean(localStorage.getItem("walletFindToken"));
+      const hasSavedSession = Boolean(safelyReadSavedUser());
       const userIsAdmin = safelyReadSavedUser()?.role === "ADMIN";
 
-      if (!hasToken && !isPublicPage(requestedPage)) {
+      if (!hasSavedSession && !isPublicPage(requestedPage)) {
         setPageState("auth");
         return;
       }
       if ((requestedPage === "admin" || requestedPage === "admin-manage") && !userIsAdmin) {
-        setPageState(hasToken ? "home" : "auth");
+        setPageState(hasSavedSession ? "home" : "auth");
         return;
       }
       setPageState(requestedPage);
@@ -615,27 +620,21 @@ function App() {
   }, [language, isRTL]);
 
   const handleSessionExpired = useCallback(() => {
-    localStorage.removeItem("walletFindToken");
     localStorage.removeItem("walletFindUser");
     setAuthStatus("unauthenticated");
     setAuthMode("login");
-    setAuthNotice("TOKEN_EXPIRED");
+    setAuthNotice("SESSION_EXPIRED");
     navigatePage("auth");
-  }, []);
+  }, [navigatePage]);
 
   useEffect(() => {
     const handleSessionExpiredEvent = () => handleSessionExpired();
     window.addEventListener("wallet-find:session-expired", handleSessionExpiredEvent);
     return () => window.removeEventListener("wallet-find:session-expired", handleSessionExpiredEvent);
-  }, [handleSessionExpired]);
+  }, [handleSessionExpired, navigatePage]);
 
   useEffect(() => {
-    const token = localStorage.getItem("walletFindToken");
-    if (!token) {
-      localStorage.removeItem("walletFindUser");
-      // Initial state already matches the no-token case; avoid redundant state updates here.
-      return;
-    }
+    if (!safelyReadSavedUser()) return;
 
     let cancelled = false;
     getProfile()
@@ -654,6 +653,7 @@ function App() {
         if (cancelled) return;
         const message = error instanceof Error ? error.message : "";
         if (
+          message === "SESSION_EXPIRED" ||
           message === "TOKEN_EXPIRED" ||
           message === "INVALID_TOKEN" ||
           message === "INVALID_AUTHORIZATION_HEADER" ||
@@ -663,7 +663,6 @@ function App() {
           return;
         }
         if (message === "USER_NOT_FOUND") {
-          localStorage.removeItem("walletFindToken");
           localStorage.removeItem("walletFindUser");
           setAuthStatus("unauthenticated");
           setAuthMode("signup");
@@ -683,7 +682,7 @@ function App() {
       });
 
     return () => { cancelled = true; };
-  }, [handleSessionExpired]);
+  }, [handleSessionExpired, navigatePage]);
 
   useEffect(() => {
     if (authStatus !== "authenticated") return;
@@ -706,7 +705,7 @@ function App() {
     let inFlight = false;
 
     async function recordOnlinePresence() {
-      if (cancelled || inFlight || !localStorage.getItem("walletFindToken")) return;
+      if (cancelled || inFlight) return;
       inFlight = true;
       try {
         await sendOnlineHeartbeat();
@@ -739,15 +738,15 @@ function App() {
     navigatePage("auth");
   }
 
-  function handleAuthenticated(token: string) {
-    localStorage.setItem("walletFindToken", token);
+  function handleAuthenticated(user: AuthUser) {
+    localStorage.setItem("walletFindUser", JSON.stringify(user));
     setAuthNotice("");
     setAuthStatus("authenticated");
     navigatePage("competition");
   }
 
   function handleLogout() {
-    localStorage.removeItem("walletFindToken");
+    void logout().catch(() => undefined);
     localStorage.removeItem("walletFindUser");
     setAuthNotice("");
     setAuthStatus("unauthenticated");

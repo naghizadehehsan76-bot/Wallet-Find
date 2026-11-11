@@ -14,6 +14,7 @@ const SESSION_INVALIDATION_ERRORS = new Set([
   "INVALID_TOKEN",
   "INVALID_AUTHORIZATION_HEADER",
   "AUTHENTICATION_REQUIRED",
+  "SESSION_EXPIRED",
 ]);
 
 
@@ -36,10 +37,7 @@ export type AuthUser = {
   createdAt: string;
 };
 
-export type AuthResult = {
-  user: AuthUser;
-  token: string;
-};
+export type AuthResult = { user: AuthUser };
 
 export type PublicSiteStats = {
   onlineUsers: number;
@@ -193,17 +191,13 @@ async function request<T>(
   options: RequestInit = {},
   authenticated = false,
 ): Promise<T> {
-  const token = localStorage.getItem("walletFindToken");
   const headers = new Headers(options.headers);
   headers.set("Content-Type", "application/json");
-
-  if (authenticated && token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers,
+    credentials: "include",
   });
 
   let result: ApiResponse<T>;
@@ -217,13 +211,10 @@ async function request<T>(
     const errorCode = result.error ?? "REQUEST_FAILED";
     const isCurrentSessionFailure =
       authenticated &&
-      Boolean(token) &&
-      localStorage.getItem("walletFindToken") === token &&
       response.status === 401 &&
       SESSION_INVALIDATION_ERRORS.has(errorCode);
 
     if (isCurrentSessionFailure) {
-      localStorage.removeItem("walletFindToken");
       localStorage.removeItem("walletFindUser");
       window.dispatchEvent(new Event("wallet-find:session-expired"));
     }
@@ -282,11 +273,17 @@ export async function resetPassword(email: string, code: string, password: strin
 export async function login(
   email: string,
   password: string,
+  turnstileToken?: string,
+  rememberMe = true,
 ): Promise<AuthResult> {
   return request<AuthResult>("/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, rememberMe, ...(turnstileToken ? { turnstileToken } : {}) }),
   });
+}
+
+export async function logout(): Promise<{ loggedOut: boolean }> {
+  return request<{ loggedOut: boolean }>("/auth/logout", { method: "POST" }, true);
 }
 
 export async function getActiveContest(language?: ChallengeLanguage): Promise<ActiveContest> {

@@ -4319,3 +4319,25 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   .admin-ledger-group { margin-top: 20px; }
   .admin-ledger-row { padding-inline: 12px; }
 }
+
+
+/* Remember-me control follows the compact auth form layout on mobile and desktop. */
+.auth-remember {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: fit-content;
+  margin: 4px 0 14px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.auth-remember input {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: var(--verdigris);
+  cursor: pointer;
+}

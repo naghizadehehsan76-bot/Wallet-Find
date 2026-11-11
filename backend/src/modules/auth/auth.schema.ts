@@ -21,6 +21,8 @@ export const registerSchema = z.object({
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1).max(100),
+  rememberMe: z.boolean().optional().default(true),
+  turnstileToken: z.string().min(1).max(2048).optional(),
 });
 
 export const verifyEmailSchema = z.object({

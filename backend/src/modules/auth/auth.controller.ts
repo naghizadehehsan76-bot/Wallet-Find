@@ -9,6 +9,7 @@ import {
   resetPasswordSchema,
 } from "./auth.schema.js";
 import { verifyTurnstileToken } from "../../security/turnstile.js";
+import { AUTH_SESSION_COOKIE, revokeAuthSession } from "./auth-session.js";
 import {
   loginUser,
   registerUser,
@@ -16,6 +17,10 @@ import {
   resendVerification,
   requestPasswordReset,
   resetPassword as resetUserPassword,
+  getLoginGuardFailures,
+  recordLoginFailure,
+  clearLoginGuard,
+  LOGIN_CHALLENGE_THRESHOLD,
 } from "./auth.service.js";
 
 function sendInputError(res: Response, details: unknown) {
@@ -63,14 +68,60 @@ export async function register(req: AuthenticatedRequest, res: Response) {
   }
 }
 
+function setSessionCookie(res: Response, token: string, rememberMe: boolean) {
+  res.cookie(AUTH_SESSION_COOKIE, token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    ...(rememberMe ? { maxAge: 30 * 24 * 60 * 60 * 1000 } : {}),
+  });
+}
+
 export async function login(req: AuthenticatedRequest, res: Response) {
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) return sendInputError(res, parsed.error.flatten());
+  const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
   try {
+    const failures = await getLoginGuardFailures(parsed.data.email, ipAddress);
+    if (failures >= LOGIN_CHALLENGE_THRESHOLD && !parsed.data.turnstileToken) {
+      return res.status(428).json({ success: false, error: "TURNSTILE_REQUIRED" });
+    }
+    if (parsed.data.turnstileToken) {
+      const verification = await verifyTurnstileToken(parsed.data.turnstileToken, "login");
+      if (verification === "NOT_CONFIGURED") {
+        return res.status(503).json({ success: false, error: "TURNSTILE_NOT_CONFIGURED" });
+      }
+      if (verification !== "VERIFIED") {
+        return res.status(403).json({ success: false, error: "TURNSTILE_VERIFICATION_FAILED" });
+      }
+    }
     const result = await loginUser(parsed.data);
-    return res.status(200).json({ success: true, data: result });
+    await clearLoginGuard(parsed.data.email, ipAddress);
+    setSessionCookie(res, result.sessionToken, result.rememberMe);
+    return res.status(200).json({ success: true, data: { user: result.user } });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message === "EMAIL_NOT_REGISTERED" || message === "INVALID_PASSWORD") {
+      const failures = await recordLoginFailure(parsed.data.email, ipAddress);
+      if (failures >= LOGIN_CHALLENGE_THRESHOLD) {
+        return res.status(428).json({ success: false, error: "TURNSTILE_REQUIRED" });
+      }
+    }
     return sendAuthError(res, error);
+  }
+}
+
+export async function logout(req: AuthenticatedRequest, res: Response) {
+  try {
+    await revokeAuthSession(req.authSessionToken);
+    res.clearCookie(AUTH_SESSION_COOKIE, {
+      httpOnly: true, secure: true, sameSite: "lax", path: "/",
+    });
+    return res.status(200).json({ success: true, data: { loggedOut: true } });
+  } catch (error) {
+    console.error("Could not revoke authentication session", error instanceof Error ? error.message : "unknown error");
+    return res.status(503).json({ success: false, error: "LOGOUT_TEMPORARILY_UNAVAILABLE" });
   }
 }
 
@@ -79,7 +130,8 @@ export async function verifyEmailCode(req: AuthenticatedRequest, res: Response) 
   if (!parsed.success) return sendInputError(res, parsed.error.flatten());
   try {
     const result = await verifyEmail(parsed.data);
-    return res.status(200).json({ success: true, data: result });
+    setSessionCookie(res, result.sessionToken, true);
+    return res.status(200).json({ success: true, data: { user: result.user } });
   } catch (error) {
     return sendAuthError(res, error);
   }
