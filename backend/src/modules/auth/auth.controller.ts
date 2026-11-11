@@ -8,6 +8,7 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
 } from "./auth.schema.js";
+import { verifyTurnstileToken } from "../../security/turnstile.js";
 import {
   loginUser,
   registerUser,
@@ -47,7 +48,15 @@ export async function register(req: AuthenticatedRequest, res: Response) {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) return sendInputError(res, parsed.error.flatten());
   try {
-    const result = await registerUser(parsed.data);
+    const verification = await verifyTurnstileToken(parsed.data.turnstileToken);
+    if (verification === "NOT_CONFIGURED") {
+      return res.status(503).json({ success: false, error: "TURNSTILE_NOT_CONFIGURED" });
+    }
+    if (verification !== "VERIFIED") {
+      return res.status(403).json({ success: false, error: "TURNSTILE_VERIFICATION_FAILED" });
+    }
+    const { turnstileToken: _turnstileToken, ...registrationInput } = parsed.data;
+    const result = await registerUser(registrationInput);
     return res.status(201).json({ success: true, data: result });
   } catch (error) {
     return sendAuthError(res, error);

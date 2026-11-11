@@ -15,6 +15,7 @@ export const registerSchema = z.object({
     .regex(/^[a-zA-Z0-9_]+$/),
   password: z.string().min(8).max(100),
   language: languageSchema,
+  turnstileToken: z.string().min(1).max(2048),
 });
 
 export const loginSchema = z.object({

@@ -242,11 +242,12 @@ export async function register(
   email: string,
   username: string,
   password: string,
+  turnstileToken: string,
   language: ChallengeLanguage = "en",
 ): Promise<{ email: string; verificationRequired: boolean }> {
   return request<{ email: string; verificationRequired: boolean }>("/auth/register", {
     method: "POST",
-    body: JSON.stringify({ email, username, password, language }),
+    body: JSON.stringify({ email, username, password, language, turnstileToken }),
   });
 }
 

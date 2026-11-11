@@ -14,6 +14,23 @@ import LoadingIndicator from "../components/LoadingIndicator";
 
 type AuthMode = "login" | "signup" | "verify" | "forgot" | "reset";
 
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (container: HTMLElement, options: {
+        sitekey: string;
+        action: string;
+        callback: (token: string) => void;
+        "expired-callback": () => void;
+        "error-callback": () => void;
+      }) => string;
+      remove: (widgetId: string) => void;
+    };
+  }
+}
+
+const TURNSTILE_SITE_KEY = "0x4AAAAAAF8nIV8BHJygTnN-";
+
 type AuthPageProps = {
   onAuthenticated: (token: string) => void;
   onBack: () => void;
@@ -39,6 +56,46 @@ function AuthPage({
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+
+  useEffect(() => {
+    if (mode !== "signup") {
+      setTurnstileToken("");
+      return;
+    }
+    let cancelled = false;
+    let widgetId: string | undefined;
+    const container = document.getElementById("wallet-find-turnstile");
+    if (!container) return;
+    const renderWidget = () => {
+      if (cancelled || !window.turnstile || widgetId) return;
+      widgetId = window.turnstile.render(container, {
+        sitekey: TURNSTILE_SITE_KEY,
+        action: "signup",
+        callback: (token) => setTurnstileToken(token),
+        "expired-callback": () => setTurnstileToken(""),
+        "error-callback": () => {
+          setTurnstileToken("");
+          setError("TURNSTILE_VERIFICATION_FAILED");
+        },
+      });
+    };
+    let script = document.querySelector<HTMLScriptElement>("script[data-wallet-find-turnstile]");
+    if (!script) {
+      script = document.createElement("script");
+      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      script.async = true;
+      script.defer = true;
+      script.dataset.walletFindTurnstile = "true";
+      document.head.appendChild(script);
+    }
+    if (window.turnstile) renderWidget();
+    else script.addEventListener("load", renderWidget, { once: true });
+    return () => {
+      cancelled = true;
+      if (widgetId && window.turnstile) window.turnstile.remove(widgetId);
+    };
+  }, [mode]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -59,6 +116,7 @@ function AuthPage({
     setSuccess("");
     setCode("");
     setPassword("");
+    setTurnstileToken("");
     if (nextMode === "login" || nextMode === "signup") setAcceptedTerms(false);
   }
 
@@ -73,7 +131,7 @@ function AuthPage({
         const result = await login(email, password);
         saveSession(result);
       } else if (mode === "signup") {
-        await register(email, username, password, language);
+        await register(email, username, password, turnstileToken, language);
         setPassword("");
         setCode("");
         setMode("verify");
@@ -246,6 +304,16 @@ function AuthPage({
             </div>
           )}
 
+          {mode === "signup" && (
+            <div className="field">
+              <label htmlFor="wallet-find-turnstile">{language === "fa" ? "بررسی امنیتی" : "Security verification"}</label>
+              <div id="wallet-find-turnstile" aria-label="Cloudflare security verification" />
+              {!turnstileToken && (
+                <small role="status">{language === "fa" ? "برای ادامه ثبت‌نام، بررسی امنیتی را کامل کن." : "Complete the security check to continue registration."}</small>
+              )}
+            </div>
+          )}
+
           {error && (
             <div className="auth-error" role="alert">
               {localizeApiError(error, language)}
@@ -281,7 +349,7 @@ function AuthPage({
           <button
             className="cta-button"
             type="submit"
-            disabled={loading || (mode === "signup" && !acceptedTerms)}
+            disabled={loading || (mode === "signup" && (!acceptedTerms || !turnstileToken))}
           >
             {loading ? <LoadingIndicator compact label={t.auth.loading} /> : submitLabel}
           </button>

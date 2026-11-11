@@ -38,6 +38,15 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "script-src": [
+          ...(helmet.contentSecurityPolicy.getDefaultDirectives()["script-src"] ?? ["'self'"]),
+          "https://challenges.cloudflare.com",
+        ],
+        "frame-src": ["https://challenges.cloudflare.com"],
+        "connect-src": [
+          ...(helmet.contentSecurityPolicy.getDefaultDirectives()["connect-src"] ?? ["'self'"]),
+          "https://challenges.cloudflare.com",
+        ],
         "style-src-attr": ["'unsafe-inline'"],
       },
     },
