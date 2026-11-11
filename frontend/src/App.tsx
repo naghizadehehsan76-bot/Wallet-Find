@@ -625,19 +625,16 @@ function App() {
     setAuthMode("login");
     setAuthNotice("SESSION_EXPIRED");
     navigatePage("auth");
-  }, []);
+  }, [navigatePage]);
 
   useEffect(() => {
     const handleSessionExpiredEvent = () => handleSessionExpired();
     window.addEventListener("wallet-find:session-expired", handleSessionExpiredEvent);
     return () => window.removeEventListener("wallet-find:session-expired", handleSessionExpiredEvent);
-  }, [handleSessionExpired]);
+  }, [handleSessionExpired, navigatePage]);
 
   useEffect(() => {
-    if (!safelyReadSavedUser()) {
-      setAuthStatus("unauthenticated");
-      return;
-    }
+    if (!safelyReadSavedUser()) return;
 
     let cancelled = false;
     getProfile()
@@ -666,7 +663,7 @@ function App() {
           return;
         }
         if (message === "USER_NOT_FOUND") {
-                localStorage.removeItem("walletFindUser");
+          localStorage.removeItem("walletFindUser");
           setAuthStatus("unauthenticated");
           setAuthMode("signup");
           setAuthNotice("");
