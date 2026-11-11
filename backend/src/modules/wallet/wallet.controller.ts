@@ -233,6 +233,20 @@ export async function getAdminTreasuryLedgerHistoryHandler(_req: AuthenticatedRe
   }
 }
 
+export async function getTurnkeyFeeFundHandler(_req: AuthenticatedRequest, res: Response) {
+  try {
+    const { getTurnkeyFeeFundSnapshot } = await import("./wallet.service.js");
+    return res.json({ success: true, data: await getTurnkeyFeeFundSnapshot() });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    const known = ["WALLET_NATIVE_FEE_ASSET_NOT_CONFIGURED"];
+    return res.status(known.includes(message) ? 503 : 500).json({
+      success: false,
+      error: known.includes(message) ? message : "TURNKEY_FEE_FUND_UNAVAILABLE",
+    });
+  }
+}
+
 export async function allocateTreasuryPrizeFundHandler(req: AuthenticatedRequest, res: Response) {
   const adminUserId = req.user?.userId;
   if (!adminUserId) return res.status(401).json({ success: false, error: "AUTHENTICATION_REQUIRED" });
