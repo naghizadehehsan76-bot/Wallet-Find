@@ -6,6 +6,8 @@ import {
   getAdminAuditLogs,
   getAdminOverview,
   getAdminPrizeTreasuryPaymentHistory,
+  getAdminTurnkeyFeeFund,
+  type AdminTurnkeyFeeFundSnapshot,
   provisionPrizeTreasuryWallet,
   getPrizeTreasuryWallet,
   getTreasuryPrizeFunding,
@@ -134,6 +136,9 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const [prizePaymentHistory, setPrizePaymentHistory] = useState<AdminPrizeTreasuryPaymentHistory | null>(null);
   const [prizePaymentHistoryLoading, setPrizePaymentHistoryLoading] = useState(false);
   const [prizePaymentHistoryError, setPrizePaymentHistoryError] = useState(false);
+  const [turnkeyFeeFund, setTurnkeyFeeFund] = useState<AdminTurnkeyFeeFundSnapshot | null>(null);
+  const [turnkeyFeeFundLoading, setTurnkeyFeeFundLoading] = useState(false);
+  const [turnkeyFeeFundError, setTurnkeyFeeFundError] = useState(false);
   const [settings, setSettings] = useState<SystemSettingRecord[]>([]);
   const [treasury, setTreasury] = useState<PrizeTreasuryProvisionResult | null>(null);
   const [treasuryLoading, setTreasuryLoading] = useState(false);
@@ -390,6 +395,18 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       setSourceVisitLoading(false);
     }
   }, [copy.sourceReportError]);
+
+  useEffect(() => {
+    if (section !== "wallets") return;
+    let active = true;
+    setTurnkeyFeeFundLoading(true);
+    setTurnkeyFeeFundError(false);
+    void getAdminTurnkeyFeeFund()
+      .then((snapshot) => { if (active) setTurnkeyFeeFund(snapshot); })
+      .catch(() => { if (active) setTurnkeyFeeFundError(true); })
+      .finally(() => { if (active) setTurnkeyFeeFundLoading(false); });
+    return () => { active = false; };
+  }, [section]);
 
   useEffect(() => {
     if (section !== "support") return;
@@ -1656,6 +1673,60 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                   : "Enter a positive amount with up to 6 decimal places. The maximum is the treasury's available balance."}</small>
               </form>
             </section>
+          </section>
+        )}
+
+        {section === "wallets" && (
+          <section className="admin-panel">
+            <div className="admin-wallet-overview__heading">
+              <div>
+                <h2>{fa ? "صندوق حسابداری کارمزد Turnkey" : "Turnkey fee accounting fund"}</h2>
+                <p className="admin-footnote">{fa
+                  ? "این صندوق ثبت حسابداری داخلی کارمزد واقعی گس برداشت‌های اسپانسری Polygon است؛ موجودی آن انتقال واقعی POL یا پرداخت انجام‌شده به Turnkey نیست."
+                  : "This is an internal ledger of exact Polygon gas costs for sponsored withdrawals. It is not an on-chain POL balance or a payment already made to Turnkey."}</p>
+              </div>
+              <button type="button" onClick={() => {
+                setTurnkeyFeeFundLoading(true);
+                setTurnkeyFeeFundError(false);
+                void getAdminTurnkeyFeeFund().then(setTurnkeyFeeFund).catch(() => setTurnkeyFeeFundError(true)).finally(() => setTurnkeyFeeFundLoading(false));
+              }} disabled={turnkeyFeeFundLoading}>
+                {turnkeyFeeFundLoading ? (fa ? "در حال دریافت…" : "Loading…") : (fa ? "به‌روزرسانی" : "Refresh")}
+              </button>
+            </div>
+            {turnkeyFeeFundLoading && !turnkeyFeeFund && <div className="admin-empty"><LoadingIndicator label={fa ? "در حال دریافت صندوق کارمزد…" : "Loading fee fund…"} /></div>}
+            {turnkeyFeeFundError && <p className="admin-message admin-message--error" role="alert">{fa ? "دریافت اطلاعات صندوق کارمزد ناموفق بود." : "Could not load the Turnkey fee fund."}</p>}
+            {turnkeyFeeFund && (
+              <>
+                <div className="admin-wallet-overview__balance">
+                  <div>
+                    <span>{fa ? "مانده حسابداری صندوق" : "Ledger fund balance"}</span>
+                    <strong>{Number(turnkeyFeeFund.balance).toLocaleString(fa ? "fa-IR" : "en-US", { maximumFractionDigits: 9 })} {turnkeyFeeFund.asset}</strong>
+                  </div>
+                  <div>
+                    <span>{fa ? "مجموع کارمزدهای ثبت‌شده" : "Total fees recorded"}</span>
+                    <strong>{Number(turnkeyFeeFund.totalCollected).toLocaleString(fa ? "fa-IR" : "en-US", { maximumFractionDigits: 9 })} {turnkeyFeeFund.asset}</strong>
+                  </div>
+                </div>
+                <p className="admin-footnote">{fa
+                  ? "صورتحساب ماهانه Turnkey همچنان از روش پرداخت متصل به حساب سازمان پرداخت می‌شود. این صندوق فقط مبالغ کارمزد را به واحد POL ثبت و قابل‌پیگیری می‌کند."
+                  : turnkeyFeeFund.paymentMode}</p>
+                <h3>{fa ? "آخرین کارمزدهای برداشت" : "Recent withdrawal fees"}</h3>
+                {turnkeyFeeFund.recentCollections.length === 0
+                  ? <p className="admin-empty">{fa ? "هنوز کارمزدی در این صندوق ثبت نشده است." : "No fees have been recorded yet."}</p>
+                  : <div className="admin-settings-list">
+                    {turnkeyFeeFund.recentCollections.map((entry) => (
+                      <article className="admin-setting-row" key={entry.withdrawalId}>
+                        <div>
+                          <strong>{entry.username} · {Number(entry.amount).toLocaleString(fa ? "fa-IR" : "en-US", { maximumFractionDigits: 9 })} {turnkeyFeeFund.asset}</strong>
+                          <small>{entry.status} · {entry.collectedAt ? new Date(entry.collectedAt).toLocaleString(fa ? "fa-IR" : "en-GB") : (fa ? "زمان نهایی‌سازی ثبت نشده" : "Settlement time unavailable")}</small>
+                          {entry.transactionHash && <small>{entry.transactionHash}</small>}
+                        </div>
+                      </article>
+                    ))}
+                  </div>}
+                <p className="admin-footnote">{fa ? "آخرین به‌روزرسانی: " : "Updated: "}{new Date(turnkeyFeeFund.updatedAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</p>
+              </>
+            )}
           </section>
         )}
 
