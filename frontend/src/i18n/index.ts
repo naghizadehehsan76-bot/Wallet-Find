@@ -91,7 +91,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const persistPreferences = useCallback((ui: Language, challenge: ChallengeLanguage) => {
     window.localStorage.setItem("walletFindLanguage", ui);
     window.localStorage.setItem("walletFindContestLanguage", challenge);
-    if (window.localStorage.getItem("walletFindToken")) {
+    if (window.localStorage.getItem("walletFindUser")) {
       void updateLanguagePreferences(ui, challenge).catch(() => {
         // Keep local preferences available during temporary API failures.
       });
