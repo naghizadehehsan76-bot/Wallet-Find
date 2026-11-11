@@ -114,7 +114,7 @@ async function readAvailableBalanceByReference(
 async function assertPrizeTreasuryReserve(client: any, treasuryAddress: Address): Promise<bigint> {
   const [fund, pools, paidAwards, custodyPostings] = await Promise.all([
     prisma.globalPrizeFund.findUnique({ where: { id: "global" }, select: { balanceMicro: true } }),
-    prisma.prizePool.aggregate({ _sum: { seededMicro: true } }),
+    prisma.prizePool.aggregate({ _sum: { seededMicro: true, returnedToGlobalMicro: true } }),
     prisma.prizeAward.aggregate({ where: { status: "PAID" }, _sum: { amountMicro: true } }),
     prisma.walletJournalPosting.findMany({
       where: {
@@ -128,7 +128,11 @@ async function assertPrizeTreasuryReserve(client: any, treasuryAddress: Address)
   const globalBalance = BigInt(fund?.balanceMicro ?? 0n);
   const seeded = BigInt(pools._sum.seededMicro ?? 0n);
   const paid = BigInt(paidAwards._sum.amountMicro ?? 0n);
-  const outstandingRounds = seeded > paid ? seeded - paid : 0n;
+  const returnedToGlobal = BigInt(pools._sum.returnedToGlobalMicro ?? 0n);
+  // Funds already returned from settled rounds are included in the global
+  // fund balance; subtract them here to avoid reserving the same USDT0 twice.
+  const committedToRounds = paid + returnedToGlobal;
+  const outstandingRounds = seeded > committedToRounds ? seeded - committedToRounds : 0n;
   const internalLiability = custodyPostings.reduce((total: bigint, posting: any) => {
     const amount = BigInt(posting.amountAtomic.toFixed(0));
     return total + (posting.direction === "DEBIT" ? amount : -amount);
