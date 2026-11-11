@@ -105,6 +105,7 @@ model User {
   walletJournals WalletJournal[]
   walletProvisioningIntent WalletProvisioningIntent?
   contestSourceVisits ContestSourceVisit[]
+  authSessions AuthSession[]
 
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -1229,4 +1230,35 @@ model RateLimitCounter {
 
   @@index([resetAt])
   @@map("rate_limit_counters")
+}
+
+
+/// Server-side authentication sessions. Only a SHA-256 digest of the random
+/// browser secret is stored; the raw secret exists only in the HttpOnly cookie.
+model AuthSession {
+  id          String   @id @default(cuid())
+  tokenHash   String   @unique
+  userId      String
+  rememberMe  Boolean  @default(true)
+  lastSeenAt  DateTime @default(now())
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt, expiresAt])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+/// Persistent failed-login counters keyed by an HMAC of email and client IP.
+model AuthLoginGuard {
+  key              String   @id
+  failures         Int      @default(0)
+  windowStartedAt  DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([windowStartedAt])
+  @@map("auth_login_guards")
 }
