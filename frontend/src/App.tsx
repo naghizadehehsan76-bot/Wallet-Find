@@ -575,6 +575,11 @@ function App() {
   );
 
   useEffect(() => {
+    // Remove the legacy browser-stored bearer credential after migration.
+    localStorage.removeItem("walletFindToken");
+  }, []);
+
+  useEffect(() => {
     try {
       sessionStorage.setItem("walletFindCurrentPage", page);
     } catch {
