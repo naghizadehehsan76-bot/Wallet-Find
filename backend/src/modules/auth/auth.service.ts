@@ -1,5 +1,4 @@
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import { createAuthSession } from "./auth-session.js";
 import prisma from "../../config/prisma.js";
