@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { decodeFunctionData, encodeFunctionData, isAddress, type Address } from "viem";
+import { decodeEventLog, decodeFunctionData, encodeFunctionData, isAddress, type Address } from "viem";
 import prisma from "../../config/prisma.js";
 import { formatAssetUnits, parseAssetUnits } from "./asset-amount.js";
 import {
@@ -24,6 +24,19 @@ const TOKEN_TRANSFER_ABI = [
       { name: "amount", type: "uint256" },
     ],
     outputs: [{ name: "", type: "bool" }],
+  },
+] as const;
+
+const TOKEN_TRANSFER_EVENT_ABI = [
+  {
+    type: "event",
+    name: "Transfer",
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "from", type: "address" },
+      { indexed: true, name: "to", type: "address" },
+      { indexed: false, name: "value", type: "uint256" },
+    ],
   },
 ] as const;
 
@@ -1107,64 +1120,6 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
     return { id: withdrawalId, status: "BROADCAST", note: "Transaction details are not available yet." };
   }
 
-  const treasuryFunding = withdrawal.fundingSource === "PRIZE_TREASURY";
-  const prizeTreasury = treasuryFunding
-    ? await prisma.treasuryWallet.findUnique({ where: { id: PRIZE_TREASURY_ID }, select: { address: true, status: true } })
-    : null;
-  if (treasuryFunding && (!prizeTreasury || prizeTreasury.status !== "ACTIVE" || !prizeTreasury.address)) {
-    throw new Error("PRIZE_TREASURY_NOT_READY");
-  }
-  const expectedFrom = (treasuryFunding ? prizeTreasury!.address! : withdrawal.walletAddress.address).toLowerCase();
-  const expectedTo = withdrawal.destinationAddress.toLowerCase();
-  let transactionMatches = transaction.from.toLowerCase() === expectedFrom;
-  let decodedFunctionName: string | null = null;
-  let decodedRecipient: string | null = null;
-  let decodedAmountAtomic: string | null = null;
-  if (withdrawal.asset.assetType === "NATIVE") {
-    transactionMatches = transactionMatches &&
-      transaction.to?.toLowerCase() === expectedTo &&
-      transaction.value === atomic(withdrawal.amountAtomic);
-  } else {
-    let decoded: ReturnType<typeof decodeFunctionData> | null = null;
-    try {
-      decoded = decodeFunctionData({ abi: TOKEN_TRANSFER_ABI, data: transaction.input });
-    } catch {
-      decoded = null;
-    }
-    decodedFunctionName = decoded?.functionName ?? null;
-    decodedRecipient = decoded ? String(decoded.args?.[0]).toLowerCase() : null;
-    decodedAmountAtomic = decoded ? BigInt(String(decoded.args?.[1])).toString() : null;
-    transactionMatches = transactionMatches &&
-      !!withdrawal.asset.contractAddress &&
-      transaction.to?.toLowerCase() === withdrawal.asset.contractAddress.toLowerCase() &&
-      decodedFunctionName === "transfer" &&
-      decodedRecipient === expectedTo &&
-      decodedAmountAtomic === atomic(withdrawal.amountAtomic).toString();
-  }
-  if (!transactionMatches) {
-    console.error("Withdrawal transaction details mismatch", {
-      withdrawalId,
-      transactionHash: withdrawal.transactionReference,
-      expectedFrom,
-      actualFrom: transaction.from.toLowerCase(),
-      expectedDestination: expectedTo,
-      actualTransactionTo: transaction.to?.toLowerCase() ?? null,
-      expectedTokenContract: withdrawal.asset.contractAddress?.toLowerCase() ?? null,
-      actualValueAtomic: transaction.value.toString(),
-      actualFunctionName: decodedFunctionName,
-      actualTokenRecipient: decodedRecipient,
-      actualTokenAmountAtomic: decodedAmountAtomic,
-    });
-    await prisma.walletChainWithdrawal.updateMany({
-      where: { id: withdrawalId, status: "BROADCAST" },
-      data: {
-        failureCode: "WITHDRAWAL_TRANSACTION_DETAILS_MISMATCH",
-        lastCheckedAt: new Date(),
-      },
-    });
-    return { id: withdrawalId, status: "BROADCAST", error: "WITHDRAWAL_TRANSACTION_DETAILS_MISMATCH" };
-  }
-
   let receipt;
   try {
     receipt = await client.getTransactionReceipt({
@@ -1176,6 +1131,87 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
       data: { lastCheckedAt: new Date() },
     });
     return { id: withdrawalId, status: "BROADCAST", note: "Transaction receipt is not available yet." };
+  }
+
+  const treasuryFunding = withdrawal.fundingSource === "PRIZE_TREASURY";
+  const prizeTreasury = treasuryFunding
+    ? await prisma.treasuryWallet.findUnique({ where: { id: PRIZE_TREASURY_ID }, select: { address: true, status: true } })
+    : null;
+  if (treasuryFunding && (!prizeTreasury || prizeTreasury.status !== "ACTIVE" || !prizeTreasury.address)) {
+    throw new Error("PRIZE_TREASURY_NOT_READY");
+  }
+  const expectedFrom = (treasuryFunding ? prizeTreasury!.address! : withdrawal.walletAddress.address).toLowerCase();
+  const expectedTo = withdrawal.destinationAddress.toLowerCase();
+  const expectedAmount = atomic(withdrawal.amountAtomic);
+  let transactionMatches = false;
+  let decodedFunctionName: string | null = null;
+  let decodedRecipient: string | null = null;
+  let decodedSender: string | null = null;
+  let decodedAmountAtomic: string | null = null;
+
+  if (withdrawal.asset.assetType === "NATIVE") {
+    // Native transfers still use a direct EOA transaction. Sponsored ERC-20
+    // transfers are verified from the token's canonical Transfer event below.
+    transactionMatches = transaction.from.toLowerCase() === expectedFrom &&
+      transaction.to?.toLowerCase() === expectedTo &&
+      transaction.value === expectedAmount;
+  } else if (withdrawal.asset.contractAddress) {
+    const matchingTransfer = receipt.logs
+      .filter((log) => log.address.toLowerCase() === withdrawal.asset.contractAddress!.toLowerCase())
+      .map((log) => {
+        try {
+          const decoded = decodeEventLog({
+            abi: TOKEN_TRANSFER_EVENT_ABI,
+            data: log.data,
+            topics: log.topics,
+          });
+          if (decoded.eventName !== "Transfer") return null;
+          return {
+            from: String(decoded.args.from).toLowerCase(),
+            to: String(decoded.args.to).toLowerCase(),
+            amount: BigInt(decoded.args.value),
+          };
+        } catch {
+          return null;
+        }
+      })
+      .filter((transfer): transfer is { from: string; to: string; amount: bigint } => transfer !== null)
+      .filter((transfer) =>
+        transfer.from === expectedFrom &&
+        transfer.to === expectedTo &&
+        transfer.amount === expectedAmount
+      );
+
+    const verifiedTransfer = matchingTransfer[0] ?? null;
+    transactionMatches = receipt.status === "reverted" || matchingTransfer.length === 1;
+    decodedFunctionName = verifiedTransfer ? "Transfer" : null;
+    decodedSender = verifiedTransfer?.from ?? null;
+    decodedRecipient = verifiedTransfer?.to ?? null;
+    decodedAmountAtomic = verifiedTransfer?.amount.toString() ?? null;
+  }
+
+  if (!transactionMatches) {
+    console.error("Withdrawal transaction details mismatch", {
+      withdrawalId,
+      transactionHash: withdrawal.transactionReference,
+      expectedFrom,
+      actualOuterTransactionFrom: transaction.from.toLowerCase(),
+      expectedDestination: expectedTo,
+      actualOuterTransactionTo: transaction.to?.toLowerCase() ?? null,
+      expectedTokenContract: withdrawal.asset.contractAddress?.toLowerCase() ?? null,
+      receiptStatus: receipt.status,
+      actualTokenTransferSender: decodedSender,
+      actualTokenTransferRecipient: decodedRecipient,
+      actualTokenTransferAmountAtomic: decodedAmountAtomic,
+    });
+    await prisma.walletChainWithdrawal.updateMany({
+      where: { id: withdrawalId, status: "BROADCAST" },
+      data: {
+        failureCode: "WITHDRAWAL_TRANSACTION_DETAILS_MISMATCH",
+        lastCheckedAt: new Date(),
+      },
+    });
+    return { id: withdrawalId, status: "BROADCAST", error: "WITHDRAWAL_TRANSACTION_DETAILS_MISMATCH" };
   }
 
   const block = await client.getBlock({ blockNumber: receipt.blockNumber });
