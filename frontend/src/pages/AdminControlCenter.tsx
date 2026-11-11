@@ -434,7 +434,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
       for (const history of histories) {
         for (const tx of history.transactions) {
           if (tx.source === "WALLET_JOURNAL" && tx.type.includes("WITHDRAWAL_RESERVE")) rows.push({
-            id: "reserve:" + tx.id, kind: "RESERVED", username: history.wallet.username, amount: tx.amount,
+            id: "reserve:" + tx.id, kind: "RESERVED", username: history.wallet.username, amount: tx.amount.replace(/^-/, ""),
             asset: tx.asset, status: tx.status, createdAt: tx.createdAt, reference: tx.id, note: tx.note,
           });
           if ((tx.source === "ONCHAIN_WITHDRAWAL" || tx.source === "LEGACY_ONCHAIN_WITHDRAWAL") && tx.status === "CONFIRMED") rows.push({
@@ -1823,23 +1823,34 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                 <article key={kind}><span>{label}</span><strong>{ledgerRows.filter((row) => row.kind === kind).length.toLocaleString(fa ? "fa-IR" : "en-US")}</strong></article>
               ))}
             </div>
-            {ledgerRows.length === 0 && !ledgerLoading ? <p className="admin-empty">{copy.ledgerEmpty}</p> : (
-              <div className="admin-settings-list">
-                {ledgerRows.map((row) => (
-                  <article className="admin-setting-row admin-ledger-row" key={row.id}>
-                    <div>
-                      <strong>{row.kind === "PRIZE" ? copy.ledgerPrize : row.kind === "RESERVED" ? copy.ledgerReserved : row.kind === "CONFIRMED" ? copy.ledgerConfirmed : copy.ledgerFee}</strong>
-                      <small>{copy.ledgerUser}: {row.username}</small>
-                      <small>{copy.ledgerAmount}: {Number(row.amount).toLocaleString(fa ? "fa-IR" : "en-US", { maximumFractionDigits: 9 })} {row.asset}</small>
-                      <small>{copy.ledgerStatus}: {row.status}</small>
-                      <small>{copy.ledgerTime}: {new Date(row.createdAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>
-                      {row.reference && <code>{copy.ledgerReference}: {row.reference}</code>}
-                      {row.note && <small>{row.note}</small>}
+            {(["PRIZE", "RESERVED", "CONFIRMED", "FEE"] as const).map((kind) => {
+              const items = ledgerRows.filter((row) => row.kind === kind);
+              const heading = kind === "PRIZE" ? copy.ledgerPrize : kind === "RESERVED" ? copy.ledgerReserved : kind === "CONFIRMED" ? copy.ledgerConfirmed : copy.ledgerFee;
+              return (
+                <section className="admin-ledger-group" key={kind}>
+                  <div className="admin-wallet-overview__heading">
+                    <h3>{heading}</h3>
+                    <span>{items.length.toLocaleString(fa ? "fa-IR" : "en-US")}</span>
+                  </div>
+                  {items.length === 0 ? <p className="admin-empty">{copy.ledgerEmpty}</p> : (
+                    <div className="admin-settings-list">
+                      {items.map((row) => (
+                        <article className="admin-setting-row admin-ledger-row" key={row.id}>
+                          <div>
+                            <strong>{row.username}</strong>
+                            <small>{copy.ledgerAmount}: {Number(row.amount).toLocaleString(fa ? "fa-IR" : "en-US", { maximumFractionDigits: 9 })} {row.asset}</small>
+                            <small>{copy.ledgerStatus}: {row.status}</small>
+                            <small>{copy.ledgerTime}: {new Date(row.createdAt).toLocaleString(fa ? "fa-IR" : "en-GB")}</small>
+                            {row.reference && <code>{copy.ledgerReference}: {row.reference}</code>}
+                            {row.note && <small>{row.note}</small>}
+                          </div>
+                        </article>
+                      ))}
                     </div>
-                  </article>
-                ))}
-              </div>
-            )}
+                  )}
+                </section>
+              );
+            })}
           </section>
         )}
 
