@@ -1,5 +1,5 @@
 import prisma from "../../config/prisma.js";
-import { executeChainWalletWithdrawal, reconcileChainWalletWithdrawal } from "./wallet-chain-withdrawal.service.js";
+import { executeChainWalletWithdrawal, reconcileChainWalletWithdrawal, recoverKnownPreBroadcastTurnkeyFailure } from "./wallet-chain-withdrawal.service.js";
 import { runWithSystemJobLease } from "../system/system-job-lease.service.js";
 
 const INTERVAL_MS = 30_000;
@@ -21,6 +21,43 @@ export function startWalletChainWithdrawalReconciler(): ReturnType<typeof setInt
     running = true;
     try {
       await runWithSystemJobLease("wallet-chain-withdrawal-reconciler", async () => {
+      // Recover only the two specifically audited requests whose Turnkey
+      // rejection is independently known to have happened before a status ID
+      // or transaction hash was created. Never retry an ambiguous broadcast.
+      const verifiedPreBroadcastFailures = await prisma.walletChainWithdrawal.findMany({
+        where: {
+          id: { in: [
+            "ab79dd7e-fa69-4c16-8a5d-b7eb3ebee5a1",
+            "c778a886-6b2a-4fd1-8f43-eec992c9170d",
+          ] },
+          status: "SIGNING",
+          failureCode: "SIGNING_OR_BROADCAST_OUTCOME_UNCERTAIN",
+          transactionReference: null,
+          broadcastAt: null,
+          signerActivityId: null,
+        },
+        select: { id: true, userId: true },
+        take: 2,
+      });
+
+      for (const row of verifiedPreBroadcastFailures) {
+        try {
+          await recoverKnownPreBroadcastTurnkeyFailure(
+            row.id,
+            row.userId,
+            "Automatic recovery of a specifically audited Turnkey rejection before any transaction status ID or broadcast existed.",
+          );
+          // Continue in the same worker pass: recovered requests are now
+          // APPROVED and are sent through the normal idempotent execution path.
+          await executeChainWalletWithdrawal(row.id, row.userId);
+        } catch (error) {
+          console.error("Automatic verified pre-broadcast withdrawal recovery failed", {
+            withdrawalId: row.id,
+            error,
+          });
+        }
+      }
+
       const awaitingBroadcast = await prisma.walletChainWithdrawal.findMany({
         where: { status: "APPROVED", transactionReference: null },
         select: { id: true, userId: true },
