@@ -1160,6 +1160,63 @@ export async function getAdminTreasuryLedgerHistory() {
  * prize treasury into the shared global prize fund. This is an internal
  * accounting allocation; it never broadcasts a blockchain transaction.
  */
+/**
+ * Dedicated internal accrual account for exact Polygon gas costs paid by
+ * Turnkey sponsorship. Amounts are denominated in POL, the chain's native fee
+ * asset. This is an accounting reserve, not an on-chain transfer.
+ */
+export async function getTurnkeyFeeFundSnapshot() {
+  const asset = await prisma.walletAsset.findFirst({
+    where: { networkId: "eip155:137", symbol: "POL", assetType: "NATIVE" },
+    select: { id: true, symbol: true, decimals: true },
+  });
+  if (!asset) throw new Error("WALLET_NATIVE_FEE_ASSET_NOT_CONFIGURED");
+
+  const [totals, withdrawals] = await Promise.all([
+    prisma.walletJournalPosting.groupBy({
+      by: ["direction"],
+      where: {
+        account: "TURNKEY_FEE_FUND",
+        accountReference: "turnkey-fee-fund:polygon",
+        journal: { networkId: "eip155:137", walletAssetId: asset.id },
+      },
+      _sum: { amountAtomic: true },
+    }),
+    prisma.walletChainWithdrawal.findMany({
+      where: {
+        gasSponsorship: true,
+        feeAssetId: asset.id,
+        actualFeeAtomic: { gt: 0 },
+        status: { in: ["CONFIRMED", "FAILED"] },
+      },
+      include: { user: { select: { username: true } } },
+      orderBy: { confirmedAt: "desc" },
+      take: 100,
+    }),
+  ]);
+  const credited = BigInt(totals.find((row) => row.direction === "CREDIT")?._sum.amountAtomic?.toFixed(0) ?? "0");
+  const debited = BigInt(totals.find((row) => row.direction === "DEBIT")?._sum.amountAtomic?.toFixed(0) ?? "0");
+  return {
+    network: "Polygon PoS",
+    asset: asset.symbol,
+    decimals: asset.decimals,
+    balance: formatAssetUnits(credited - debited, asset.decimals),
+    totalCollected: formatAssetUnits(credited, asset.decimals),
+    totalPaid: formatAssetUnits(debited, asset.decimals),
+    paymentCurrency: "USD",
+    paymentMode: "Turnkey invoices remain payable through the organization's configured billing method; this ledger tracks the POL-denominated recovery reserve.",
+    recentCollections: withdrawals.map((row) => ({
+      withdrawalId: row.id,
+      username: row.user.username,
+      amount: formatAssetUnits(BigInt(row.actualFeeAtomic!.toFixed(0)), asset.decimals),
+      transactionHash: row.transactionReference,
+      status: row.status,
+      collectedAt: row.confirmedAt?.toISOString() ?? null,
+    })),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 export async function syncUnallocatedTreasuryToPrizeFund() {
   const snapshot = await getTreasuryPrizeFundingSnapshot();
   if (snapshot.accountingStatus !== "MATCH") {
