@@ -131,7 +131,7 @@ function AuthPage({
         const result = await login(email, password);
         saveSession(result);
       } else if (mode === "signup") {
-        await register(email, username, password, language, turnstileToken);
+        await register(email, username, password, turnstileToken, language);
         setPassword("");
         setCode("");
         setMode("verify");
@@ -306,10 +306,10 @@ function AuthPage({
 
           {mode === "signup" && (
             <div className="field">
-              <label htmlFor="wallet-find-turnstile">Security verification</label>
+              <label htmlFor="wallet-find-turnstile">{language === "fa" ? "بررسی امنیتی" : "Security verification"}</label>
               <div id="wallet-find-turnstile" aria-label="Cloudflare security verification" />
               {!turnstileToken && (
-                <small role="status">Complete the security check to continue registration.</small>
+                <small role="status">{language === "fa" ? "برای ادامه ثبت‌نام، بررسی امنیتی را کامل کن." : "Complete the security check to continue registration."}</small>
               )}
             </div>
           )}
