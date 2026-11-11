@@ -63,10 +63,7 @@ function AuthPage({
   const [rememberMe, setRememberMe] = useState(true);
 
   useEffect(() => {
-    if (!(mode === "signup" || (mode === "login" && loginTurnstileRequired))) {
-      setTurnstileToken("");
-      return;
-    }
+    if (!(mode === "signup" || (mode === "login" && loginTurnstileRequired))) return;
     let cancelled = false;
     let widgetId: string | undefined;
     const container = document.getElementById("wallet-find-turnstile");
