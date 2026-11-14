@@ -37,7 +37,6 @@ class FakeLeaseStore implements SystemJobLeaseStore {
     }
 
     if (args.where.OR) {
-      const now = new Date();
       const canClaim = args.where.OR.some((condition) => {
         const expected = condition.leaseExpiresAt;
         if (expected === null) return row.leaseExpiresAt === null;
