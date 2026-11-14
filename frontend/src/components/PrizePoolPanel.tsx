@@ -24,8 +24,8 @@ export default function PrizePoolPanel({ contestId }: Props) {
       <h2 className="page-title" style={{ marginTop: 8 }}>{isFa ? "موجودی واقعی جوایز" : "Real prize funds"}</h2>
       <p className="hero-description">
         {isFa
-          ? "فقط تتر واقعیِ واریزشده و تأییدشده در صندوق قابل تخصیص است. برای هر دور حداکثر ۱ تتر از موجودی واقعی کنار گذاشته می‌شود. تا زمان فعال‌شدن واریز و پرداخت واقعی، هیچ جایزه‌ای پرداخت نمی‌شود."
-          : "Only real, confirmed USDT deposits can be allocated. Up to 1 USDT is reserved from the real global fund for each round. No prizes are paid until real deposit and payout processing is operational."}
+          ? "مبنای محاسبهٔ جوایز هر مسابقه ۰٫۱ USDT0 است. مجموع جوایز قابل‌پرداخت از صندوق جهانی واقعی و تأییدشده کسر می‌شود؛ اگر موجودی کافی نباشد، تسویه تا تأمین موجودی لازم انجام نمی‌شود."
+          : "The prize calculation budget is fixed at 0.1 USDT0 per contest. Only the total payable awards are debited from the verified global fund; settlement waits if the available balance is insufficient."}
       </p>
       {data && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, margin: "16px 0" }}>
