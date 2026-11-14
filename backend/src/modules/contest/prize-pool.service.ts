@@ -301,7 +301,7 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
         const returnedToGlobal = usesLegacyReservation
           ? await returnUnusedWithinTransaction(
             tx,
-            { ...pool, seededMicro: legacySeeded, awardedMicro: 0n, status: cancelledPool.status },
+            { ...pool, seededMicro: legacySeeded, rolloverInMicro: 0n, awardedMicro: 0n, status: cancelledPool.status },
             contestId,
             settledAt,
           )
@@ -350,10 +350,10 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
     if (awarded === 0n) {
       const updated = await tx.prizePool.update({
         where: { contestId },
-        data: { seededMicro: legacySeeded, awardedMicro: 0n, status: "SETTLED", settledAt: new Date() },
+        data: { seededMicro: legacySeeded, rolloverInMicro: 0n, awardedMicro: 0n, status: "SETTLED", settledAt: new Date() },
       });
       const returned = usesLegacyReservation
-        ? await returnUnusedWithinTransaction(tx, { ...pool, seededMicro: legacySeeded, awardedMicro: 0n, status: updated.status }, contestId, updated.settledAt ?? new Date())
+        ? await returnUnusedWithinTransaction(tx, { ...pool, seededMicro: legacySeeded, rolloverInMicro: 0n, awardedMicro: 0n, status: updated.status }, contestId, updated.settledAt ?? new Date())
         : 0n;
       await tx.auditLog.create({
         data: {
