@@ -147,8 +147,8 @@ function HomePage({
       label: homeCopy.globalPrizeFund ?? (isPersian ? "موجودی صندوق کلی جایزه" : "Available global prize fund"),
     },
     {
-      value: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.totalPrizesAwarded)} USDT` : "—",
-      label: homeCopy.totalPrizesPaid ?? (isPersian ? "مجموع جوایز پرداخت‌شده" : "Total prizes paid"),
+      value: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.totalPrizesAwarded)} USDT0` : "—",
+      label: homeCopy.totalPrizesPaid ?? (isPersian ? "مجموع جوایز ثبت‌شده" : "Total awards recorded"),
     },
   ];
   const steps = isPersian ? faSteps : enSteps;
