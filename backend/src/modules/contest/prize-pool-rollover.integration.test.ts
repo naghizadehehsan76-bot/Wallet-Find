@@ -128,7 +128,7 @@ test("cancels a round prize permanently when the shared fund is below 0.1 USDT0"
         where: {
           entity: "PrizePool",
           entityId: contestId,
-          action: "PRIZE_POOL_CANCELLED_INSUFFICIENT_GLOBAL_FUNDS",
+          action: "PRIZE_POOL_CANCELLED_FUNDING_INVALIDATED",
         },
       });
       await prisma.contest.deleteMany({ where: { id: contestId } });
@@ -227,7 +227,7 @@ test("keeps a round cancelled if its fund briefly falls below 0.1 before being t
         where: {
           entity: "PrizePool",
           entityId: contestId,
-          action: "PRIZE_POOL_CANCELLED_INSUFFICIENT_GLOBAL_FUNDS",
+          action: "PRIZE_POOL_CANCELLED_FUNDING_INVALIDATED",
         },
       });
       await prisma.contest.deleteMany({ where: { id: contestId } });
