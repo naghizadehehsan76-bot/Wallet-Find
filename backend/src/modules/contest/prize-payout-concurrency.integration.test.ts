@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, test } from "node:test";
 import prisma from "../../config/prisma.js";
+import { shouldRunFinancialIntegrationTests } from "./financial-integration-test-safety.js";
 import { runPrizePayoutProcessorOnce } from "./prize-payout.service.js";
 
-const shouldRun = Boolean(process.env.DATABASE_URL);
+const shouldRun = shouldRunFinancialIntegrationTests();
 
 after(async () => {
   if (shouldRun) await prisma.$disconnect();
