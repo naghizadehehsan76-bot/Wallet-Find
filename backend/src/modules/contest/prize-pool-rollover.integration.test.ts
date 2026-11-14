@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, test } from "node:test";
 import prisma from "../../config/prisma.js";
-import { returnSettledPrizePoolUnusedToGlobal } from "./prize-pool.service.js";
+import { returnSettledPrizePoolUnusedToGlobal, settlePrizePool } from "./prize-pool.service.js";
 
 const shouldRun = Boolean(process.env.DATABASE_URL);
 
@@ -70,6 +70,67 @@ test("returns an unpaid finalized USDT0 remainder to the global fund exactly onc
     if (contestId) {
       await prisma.prizeLedger.deleteMany({ where: { contestId } });
       await prisma.contest.delete({ where: { id: contestId } });
+    }
+    await prisma.globalPrizeFund.update({
+      where: { id: "global" },
+      data: { balanceMicro: beforeFund.balanceMicro },
+    });
+  }
+});
+
+
+test("cancels a round prize permanently when the shared fund is below 0.1 USDT0", {
+  skip: !shouldRun,
+  timeout: 60_000,
+}, async () => {
+  const suffix = randomUUID();
+  let contestId: string | undefined;
+  await prisma.globalPrizeFund.upsert({
+    where: { id: "global" },
+    update: {},
+    create: { id: "global" },
+  });
+  const beforeFund = await prisma.globalPrizeFund.findUniqueOrThrow({ where: { id: "global" } });
+
+  try {
+    await prisma.globalPrizeFund.update({
+      where: { id: "global" },
+      data: { balanceMicro: 50_000n },
+    });
+    const contest = await prisma.contest.create({
+      data: {
+        title: "CI insufficient prize funding " + suffix,
+        status: "FINISHED",
+        language: "en",
+        startsAt: new Date(Date.now() - 30 * 60_000),
+        endsAt: new Date(Date.now() - 15 * 60_000),
+      },
+      select: { id: true },
+    });
+    contestId = contest.id;
+
+    const result = await settlePrizePool(contest.id, null);
+    const [pool, awards, afterFund] = await Promise.all([
+      prisma.prizePool.findUniqueOrThrow({ where: { contestId: contest.id } }),
+      prisma.prizeAward.count({ where: { contestId: contest.id } }),
+      prisma.globalPrizeFund.findUniqueOrThrow({ where: { id: "global" } }),
+    ]);
+
+    assert.equal(result.status, "CANCELLED_INSUFFICIENT_FUNDS");
+    assert.equal(pool.status, "SETTLED");
+    assert.equal(pool.awardedMicro, 0n);
+    assert.equal(awards, 0);
+    assert.equal(afterFund.balanceMicro, 50_000n);
+  } finally {
+    if (contestId) {
+      await prisma.auditLog.deleteMany({
+        where: {
+          entity: "PrizePool",
+          entityId: contestId,
+          action: "PRIZE_POOL_CANCELLED_INSUFFICIENT_GLOBAL_FUNDS",
+        },
+      });
+      await prisma.contest.deleteMany({ where: { id: contestId } });
     }
     await prisma.globalPrizeFund.update({
       where: { id: "global" },
