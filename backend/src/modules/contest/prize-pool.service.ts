@@ -324,7 +324,6 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
           awards: [],
           settledAt: cancelledPool.settledAt,
         };
-      }
     }
 
     const distributionBase = usesLegacyReservation ? legacySeeded : ROUND_PRIZE_BUDGET_MICRO;
