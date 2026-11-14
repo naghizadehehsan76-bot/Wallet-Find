@@ -309,12 +309,15 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
         await tx.auditLog.create({
           data: {
             userId: actorUserId ?? null,
-            action: "PRIZE_POOL_CANCELLED_INSUFFICIENT_GLOBAL_FUNDS",
+            action: "PRIZE_POOL_CANCELLED_FUNDING_INVALIDATED",
             entity: "PrizePool",
             entityId: contestId,
             metadata: {
               requiredMicro: ROUND_PRIZE_BUDGET_MICRO.toString(),
               availableMicro: available.toString(),
+              cancellationReason: fundingState?.prizeFundingInvalidatedAt
+                ? "FUNDING_SHORTFALL_DURING_ROUND"
+                : "INSUFFICIENT_AT_SETTLEMENT",
               invalidatedAt: fundingState?.prizeFundingInvalidatedAt?.toISOString() ?? null,
               returnedToGlobalMicro: returnedToGlobal.toString(),
               payoutCount: 0,
