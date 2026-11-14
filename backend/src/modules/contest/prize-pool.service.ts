@@ -272,6 +272,57 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
 
     const legacySeeded = BigInt(pool.seededMicro) + BigInt(pool.rolloverInMicro ?? 0n);
     const usesLegacyReservation = legacySeeded > 0n;
+
+    // A new round is payable only when the shared fund can cover the full
+    // fixed 0.1 USDT0 calculation budget. Insufficient funding cancels this
+    // round's prize payout permanently; it is never queued for later funding.
+    if (!usesLegacyReservation) {
+      await tx.globalPrizeFund.upsert({ where: { id: "global" }, update: {}, create: { id: "global" } });
+      const fund = await tx.globalPrizeFund.findUnique({
+        where: { id: "global" },
+        select: { balanceMicro: true },
+      });
+      const available = BigInt(fund?.balanceMicro ?? 0n);
+      if (available < ROUND_PRIZE_BUDGET_MICRO) {
+        const settledAt = new Date();
+        const cancelledPool = await tx.prizePool.update({
+          where: { contestId },
+          data: {
+            seededMicro: 0n,
+            rolloverInMicro: 0n,
+            awardedMicro: 0n,
+            status: "SETTLED",
+            settledAt,
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            userId: actorUserId ?? null,
+            action: "PRIZE_POOL_CANCELLED_INSUFFICIENT_GLOBAL_FUNDS",
+            entity: "PrizePool",
+            entityId: contestId,
+            metadata: {
+              requiredMicro: ROUND_PRIZE_BUDGET_MICRO.toString(),
+              availableMicro: available.toString(),
+              payoutCount: 0,
+              payoutMode: "SHARED_GLOBAL_FUND",
+            },
+          },
+        });
+        return {
+          contestId,
+          status: "CANCELLED_INSUFFICIENT_FUNDS",
+          seeded: "0.000000",
+          awarded: "0.000000",
+          required: formatMicro(ROUND_PRIZE_BUDGET_MICRO),
+          available: formatMicro(available),
+          payoutCount: 0,
+          awards: [],
+          settledAt: cancelledPool.settledAt,
+        };
+      }
+    }
+
     const distributionBase = usesLegacyReservation ? legacySeeded : ROUND_PRIZE_BUDGET_MICRO;
     const allocations = calculatePrizeAllocations(
       distributionBase,
