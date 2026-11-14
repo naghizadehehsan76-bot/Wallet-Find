@@ -217,7 +217,12 @@ test("parallel payout processors credit one internal prize exactly once without 
         data: { balanceMicro: globalFundBefore.balanceMicro },
       });
     } else {
-      await prisma.globalPrizeFund.deleteMany({ where: { id: "global" } });
+      // The singleton fund row may be required by unrelated ledger records.
+      // Keep the row but restore its empty default balance.
+      await prisma.globalPrizeFund.update({
+        where: { id: "global" },
+        data: { balanceMicro: 0n },
+      });
     }
   }
 });
