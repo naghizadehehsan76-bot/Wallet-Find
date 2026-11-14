@@ -117,11 +117,11 @@ export async function updateContestSettings(
         publishIntervalMinutes:
           data.publishIntervalMinutes ?? 2,
         firstPrizePercent:
-          data.firstPrizePercent ?? 70,
+          data.firstPrizePercent ?? 50,
         secondPrizePercent:
-          data.secondPrizePercent ?? 20,
+          data.secondPrizePercent ?? 25,
         thirdPrizePercent:
-          data.thirdPrizePercent ?? 10,
+          data.thirdPrizePercent ?? 12.5,
         maxParticipants:
           data.maxParticipants ?? null,
       },
