@@ -29,21 +29,18 @@ export const updateContestSettingSchema = z.object({
 
   firstPrizePercent: z
     .number()
-    .int()
     .min(0)
     .max(100)
     .optional(),
 
   secondPrizePercent: z
     .number()
-    .int()
     .min(0)
     .max(100)
     .optional(),
 
   thirdPrizePercent: z
     .number()
-    .int()
     .min(0)
     .max(100)
     .optional(),
