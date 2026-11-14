@@ -17,4 +17,8 @@ UPDATE "contest_settings"
 SET
   "firstPrizePercent" = 50.00,
   "secondPrizePercent" = 25.00,
-  "thirdPrizePercent" = 12.50;
+  "thirdPrizePercent" = 12.50
+WHERE
+  ("firstPrizePercent" = 70 AND "secondPrizePercent" = 20 AND "thirdPrizePercent" = 10)
+  OR
+  ("firstPrizePercent" = 50 AND "secondPrizePercent" = 20 AND "thirdPrizePercent" = 10);
