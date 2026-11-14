@@ -211,7 +211,7 @@ export const en = {
   contestRules: {
     kicker: "CHALLENGE GUIDE",
     title: "How to Play & Challenge Rules",
-    description: "Find all 12 words in order. Search the exact hint phrase on its source page; the answer is the first matching token in the selected challenge language immediately after the phrase. Word boundaries are not defined by spaces alone.",
+    description: "Complete all 12 words in order before the challenge deadline. Find the exact hint phrase on its source page; the answer is the first matching token in the challenge language immediately after the phrase. Word boundaries are not defined by spaces alone.",
     stepsTitle: "Steps to enter the challenge",
     steps: [
       {
@@ -224,15 +224,15 @@ export const en = {
       },
       {
         title: "Enter the complete answer token",
-        description: "Include prefixes or suffixes joined directly to the word, and preserve the Persian zero-width non-joiner. For example, enter “unhelpful” or “played” in full; in Persian, keep “می‌رود” or “کتاب‌ها” whole. Do not enter punctuation. In English, hyphens and apostrophes break letter sequences. A correct answer unlocks the next box.",
+        description: "Include prefixes or suffixes joined directly to the word, and preserve the Persian zero-width non-joiner. For example, enter “unhelpful” or “played” in full; in Persian, keep “می‌رود” or “کتاب‌ها” whole. Do not enter punctuation. In English, hyphens and apostrophes break letter sequences. A correct answer unlocks the next box. A wrong answer locks only that clue for 60 seconds.",
       },
       {
         title: "Compete with your speed",
-        description: "Your solving speed affects the challenge result. Under the planned challenge model, reaching the final word sooner means a larger reward.",
+        description: "Your official completion time determines your rank among eligible participants. Faster completion can improve your rank and reward; only participants who solve all 12 words before the deadline qualify.",
       },
     ],
     rewardsTitle: "How are rewards determined?",
-    rewardsDetail: "The prize calculation budget is fixed at 0.1 USDT0 per contest. Only the total payable awards are debited from the verified global prize fund; settlement waits if the available balance is insufficient.",
+    rewardsDetail: "Each challenge uses 0.1 USDT0 as its prize-calculation basis; this amount is not reserved or deducted when a challenge starts. At settlement, payable awards are calculated from this basis and only the actual payable total is debited from the verified shared global prize fund. Settlement waits if that fund cannot cover the payable awards.",
     previewNotice: "Rewards are funded only by real, verified USDT deposits. No payouts occur until real payment processing is operational.",
   },
   infoPages: {
@@ -241,13 +241,13 @@ export const en = {
       description: "Learn how the prize pool is funded and how rewards are distributed after each round.",
       detail: "Balances and prizes are based only on real, verified USDT deposits. No prize transfers or withdrawals are available until real transfer processing is operational.",
       fundingTitle: "Where does the prize pool come from?",
-      fundingDetail: "The prize pool increases only through real, verified deposits. Each contest uses a fixed 0.1 USDT0 prize-calculation budget. Only payable awards are debited from the shared global fund; settlement waits if the available balance is insufficient.",
+      fundingDetail: "The shared global prize fund increases only through real, verified funding. Each challenge uses 0.1 USDT0 as a calculation basis, not as an upfront reservation. At settlement, only actual payable awards are debited; settlement waits if the global fund cannot cover them.",
       distributionTitle: "How are prizes distributed?",
-      distributionFirst: "50% of the round's pool goes to first place, 22.5% to second place, and 12.5% to third place.",
-      distributionRemainder: "10% of the round pool is shared by finishers ranked fourth or lower, weighted by completion speed. The project dividend share is taken from sponsor and investor contributions and is not deducted from each round pool.",
-      distributionTies: "If multiple participants finish at exactly the same time and share a rank, the prize shares for the rank slots they occupy are combined and split equally among them.",
+      distributionFirst: "Of the 0.1 USDT0 calculation basis: 50% is assigned to first place, 25% to second place, and 12.5% to third place.",
+      distributionRemainder: "The remaining 12.5% is shared by eligible finishers ranked fourth or lower, weighted by inverse completion time (faster finishers receive a larger share). Shares for unfilled ranks are not redistributed. Only payable awards are charged to the global fund.",
+      distributionTies: "If participants tie for first, second, or third, they split only that tied rank’s share equally; shares for other ranks are not added. Equal completion times among fourth-place-and-lower finishers receive equal weighting.",
       rolloverTitle: "Do unused prize shares roll over?",
-      rolloverDetail: "If no participant submits an answer during a round, the entire unused allocation is returned to the global prize fund and becomes available for future round allocations. The 5% project dividend share is calculated immediately from each sponsor or investor contribution, so it is not deducted again at round settlement. Participants who do not complete all 12 keys before the deadline receive no prize.",
+      rolloverDetail: "New challenges do not receive a separate upfront allocation, so there is no unused new-round reservation to roll over. If a legacy or previously reserved round has an unpaid remainder, that remainder is returned to the shared global prize fund after settlement. Missing rank shares are left unused and are not redistributed. Participants who do not complete all 12 words before the deadline receive no award.",
       statusTitle: "Payment status",
       statusDetail: "A balance is considered real only after its on-chain deposit is verified. Prize payouts remain disabled until real transfer processing is operational.",
     },
