@@ -273,9 +273,9 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
     const legacySeeded = BigInt(pool.seededMicro) + BigInt(pool.rolloverInMicro ?? 0n);
     const usesLegacyReservation = legacySeeded > 0n;
 
-    // A new round is payable only when the shared fund can cover the full
-    // fixed 0.1 USDT0 calculation budget. Insufficient funding cancels this
-    // round's prize payout permanently; it is never queued for later funding.
+    // Every round is payable only when the shared fund can cover the full
+    // fixed 0.1 USDT0 calculation budget and the round was never invalidated.
+    // Insufficient funding cancels payouts permanently; it is never queued.
     await tx.globalPrizeFund.upsert({ where: { id: "global" }, update: {}, create: { id: "global" } });
     const fund = await tx.globalPrizeFund.findUnique({
       where: { id: "global" },
@@ -291,13 +291,21 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
         const cancelledPool = await tx.prizePool.update({
           where: { contestId },
           data: {
-            seededMicro: 0n,
+            seededMicro: usesLegacyReservation ? legacySeeded : 0n,
             rolloverInMicro: 0n,
             awardedMicro: 0n,
             status: "SETTLED",
             settledAt,
           },
         });
+        const returnedToGlobal = usesLegacyReservation
+          ? await returnUnusedWithinTransaction(
+            tx,
+            { ...pool, seededMicro: legacySeeded, awardedMicro: 0n, status: cancelledPool.status },
+            contestId,
+            settledAt,
+          )
+          : 0n;
         await tx.auditLog.create({
           data: {
             userId: actorUserId ?? null,
@@ -308,6 +316,7 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
               requiredMicro: ROUND_PRIZE_BUDGET_MICRO.toString(),
               availableMicro: available.toString(),
               invalidatedAt: fundingState?.prizeFundingInvalidatedAt?.toISOString() ?? null,
+              returnedToGlobalMicro: returnedToGlobal.toString(),
               payoutCount: 0,
               payoutMode: "SHARED_GLOBAL_FUND",
             },
@@ -320,6 +329,7 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
           awarded: "0.000000",
           required: formatMicro(ROUND_PRIZE_BUDGET_MICRO),
           available: formatMicro(available),
+          returnedToGlobal: formatMicro(returnedToGlobal),
           payoutCount: 0,
           awards: [],
           settledAt: cancelledPool.settledAt,
