@@ -72,7 +72,7 @@ export default function WalletWithdrawalReview({ fa }: Props) {
           {rows.map((row) => (
             <article className="admin-setting-row admin-wallet-row" key={row.id}>
               <div>
-                <strong>{row.username} · {Number(row.amount).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong>
+                <strong>{row.username} · {Number(row.amount).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</strong>
                 <small>{copy.user}: {row.email}</small>
                 <small>{row.network} · {row.asset}</small>
                 <small>{copy.destination}</small>
