@@ -23,6 +23,7 @@ test("parallel payout processors credit one internal prize exactly once without 
   const oldReady = process.env.PRIZE_PAYOUTS_PRODUCTION_READY;
   const networkBefore = await prisma.walletNetwork.findUnique({ where: { id: polygonNetworkId } });
   const assetBefore = await prisma.walletAsset.findUnique({ where: { id: polygonUsdt0AssetId } });
+  const globalFundBefore = await prisma.globalPrizeFund.findUnique({ where: { id: "global" } });
   let contestId: string | null = null;
 
   try {
@@ -174,6 +175,8 @@ test("parallel payout processors credit one internal prize exactly once without 
     // Remove every row created by this test, including its isolated network
     // and asset records, so repeated CI runs cannot accumulate test data.
     if (contestId) {
+      await prisma.globalPrizeLedger.deleteMany({ where: { contestId } });
+      await prisma.prizeLedger.deleteMany({ where: { contestId } });
       await prisma.contest.deleteMany({ where: { id: contestId } });
     }
     const testUserIds = [userId, ineligibleUserId];
@@ -207,6 +210,14 @@ test("parallel payout processors credit one internal prize exactly once without 
       });
     } else {
       await prisma.walletNetwork.deleteMany({ where: { id: polygonNetworkId } });
+    }
+    if (globalFundBefore) {
+      await prisma.globalPrizeFund.update({
+        where: { id: "global" },
+        data: { balanceMicro: globalFundBefore.balanceMicro },
+      });
+    } else {
+      await prisma.globalPrizeFund.deleteMany({ where: { id: "global" } });
     }
   }
 });
