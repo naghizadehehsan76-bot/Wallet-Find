@@ -25,6 +25,7 @@ function createIdempotencyKey(): string {
 function AssetLogo({ symbol }: { symbol: string }) {
   const code = symbol.toUpperCase();
   const supported = new Set(["ETH", "BNB", "USDT", "USDT0", "POL"]);
+const displayAssetSymbol = (symbol: string) => symbol.toUpperCase() === "USDT0" ? "USDT" : symbol;
   if (!supported.has(code)) return <span className="wallet-asset-symbol" aria-hidden="true">{code.slice(0, 4)}</span>;
   return (
     <span className={`wallet-asset-symbol wallet-asset-symbol--${code.toLowerCase()}`} aria-hidden="true">
@@ -282,7 +283,7 @@ export default function WalletPage({ onNavigate }: Props) {
     loadingAddress: fa ? "در حال دریافت آدرس واریز..." : "Preparing deposit address...",
     scannerNotReady: fa ? "اسکنر شبکه هنوز آماده نیست؛ چند لحظه دیگر دوباره تلاش کنید." : "The network scanner is not ready yet. Please try again shortly.",
     insufficientPol: fa ? "موجودی POL برای پرداخت کارمزد شبکه کافی نیست." : "Your POL balance is not sufficient to cover the network fee.",
-    insufficientUsdt0: fa ? "موجودی قابل برداشت USDT0 کافی نیست." : "Your available USDT0 balance is insufficient.",
+    insufficientUsdt0: fa ? "موجودی قابل برداشت USDT کافی نیست." : "Your available USDT balance is insufficient.",
     invalidDestination: fa ? "آدرس مقصد معتبر نیست." : "The destination address is invalid.",
     reviewRequired: fa ? "این کیف پول برای بررسی دستی علامت‌گذاری شده است؛ تا رفع مشکل به آدرس قدیمی آن وجه ارسال نکنید." : "This wallet requires manual review. Do not send funds to its legacy address until it has been reconciled.",
     withdrawalSubmitted: fa ? "درخواست برداشت به‌صورت خودکار تأیید شد و بدون نیاز به تأیید مدیر، پس از بررسی‌های فنی به شبکه ارسال می‌شود. تا زمان ارسال، تراکنشی روی بلاک‌چین ثبت نشده است." : "Your withdrawal request is automatically approved and will be sent to the network after technical checks, without admin approval. No blockchain transaction has been sent yet.",
@@ -680,7 +681,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
                     <div className="wallet-asset-row__identity">
                       <AssetLogo symbol={asset.symbol} />
                       <div>
-                        <strong>{asset.symbol}</strong>
+                        <strong>{displayAssetSymbol(asset.symbol)}</strong>
                         <small>{asset.displayName}</small>
                         <small>{fa ? "موجودی" : "Balance"}: {hasBalance ? formatAmount(asset.balance, asset.decimals, locale, 8) : "0"} {asset.symbol}</small>
                       </div>
@@ -724,14 +725,14 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
                 <div>
                   <strong>{typeLabel}</strong>
                   <small>{new Date(item.sortAt).toLocaleString(locale)}{item.network ? " · " + item.network : ""}</small>
-                  <small>{item.asset}{item.status ? " · " + item.status : ""}{item.note ? " · " + item.note : ""}</small>
+                  <small>{displayAssetSymbol(item.asset)}{item.status ? " · " + item.status : ""}{item.note ? " · " + item.note : ""}</small>
                   {item.confirmationCount !== null && <small>{fa ? "تأییدیه‌ها" : "Confirmations"}: {item.confirmationCount}</small>}
-                  {item.fee && <small>{item.feeIsFinal ? copy.actualFeeLabel : copy.estimatedFeeLabel}: {fmt(item.fee)} {item.feeAsset ?? item.asset}</small>}
+                  {item.fee && <small>{item.feeIsFinal ? copy.actualFeeLabel : copy.estimatedFeeLabel}: {fmt(item.fee)} {displayAssetSymbol(item.feeAsset ?? item.asset)}</small>}
                   {item.transactionHash && (item.explorerUrl
                     ? <a href={item.explorerUrl} target="_blank" rel="noreferrer" className="wallet-activity-tx-link">{fa ? "مشاهده تراکنش در مرورگر بلاک‌چین" : "View transaction on block explorer"}</a>
                     : <small>{item.transactionHash}</small>)}
                 </div>
-                <strong>{item.type === "PRIZE_AWARD" ? "+" : ""}{fmt(item.amount)} {item.asset}</strong>
+                <strong>{item.type === "PRIZE_AWARD" ? "+" : ""}{fmt(item.amount)} {displayAssetSymbol(item.asset)}</strong>
               </div>
             );
           })}
@@ -780,7 +781,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
           <label>{copy.asset}</label>
           <div className="wallet-custom-select">
             <button type="button" className="wallet-custom-select__trigger" aria-haspopup="listbox" aria-expanded={openDepositFilter === "asset"} onClick={() => setOpenDepositFilter((current) => current === "asset" ? null : "asset")}>
-              <span>{selectedDepositAsset ? <><AssetLogo symbol={selectedDepositAsset.symbol} /><span className="wallet-custom-select__asset-copy"><strong>{selectedDepositAsset.symbol}</strong><small>{selectedDepositAsset.displayName}</small></span></> : (fa ? "انتخاب دارایی" : "Select asset")}</span>
+              <span>{selectedDepositAsset ? <><AssetLogo symbol={selectedDepositAsset.symbol} /><span className="wallet-custom-select__asset-copy"><strong>{displayAssetSymbol(selectedDepositAsset.symbol)}</strong><small>{selectedDepositAsset.displayName}</small></span></> : (fa ? "انتخاب دارایی" : "Select asset")}</span>
               <span className={"wallet-custom-select__chevron" + (openDepositFilter === "asset" ? " is-open" : "")}>⌄</span>
             </button>
             {openDepositFilter === "asset" && <div className="wallet-custom-select__menu" role="listbox" aria-label={copy.asset}>
@@ -794,7 +795,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
                     setDepositDetails(null);
                   }
                 }}>
-                  <span className="wallet-custom-select__option-main"><AssetLogo symbol={asset.symbol} /><span className="wallet-custom-select__asset-copy"><strong>{asset.symbol}</strong><small>{asset.displayName}</small></span></span>
+                  <span className="wallet-custom-select__option-main"><AssetLogo symbol={asset.symbol} /><span className="wallet-custom-select__asset-copy"><strong>{displayAssetSymbol(asset.symbol)}</strong><small>{asset.displayName}</small></span></span>
                   {!asset.depositEnabled && <small className="wallet-custom-select__disabled">{copy.unavailable}</small>}
                   <span className="wallet-custom-select__check">{depositAssetId === asset.id ? "✓" : ""}</span>
                 </button>
@@ -891,7 +892,7 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
           <label>{copy.asset}</label>
           <div className="wallet-custom-select">
             <button type="button" className="wallet-custom-select__trigger" aria-haspopup="listbox" aria-expanded={openWithdrawFilter === "asset"} onClick={() => setOpenWithdrawFilter((current) => current === "asset" ? null : "asset")}>
-              <span>{selectedWithdrawAsset ? <><AssetLogo symbol={selectedWithdrawAsset.symbol} /><span className="wallet-custom-select__asset-copy"><strong>{selectedWithdrawAsset.symbol}</strong><small>{selectedWithdrawAsset.displayName}</small></span></> : (fa ? "انتخاب دارایی" : "Select asset")}</span>
+              <span>{selectedWithdrawAsset ? <><AssetLogo symbol={selectedWithdrawAsset.symbol} /><span className="wallet-custom-select__asset-copy"><strong>{displayAssetSymbol(selectedWithdrawAsset.symbol)}</strong><small>{selectedWithdrawAsset.displayName}</small></span></> : (fa ? "انتخاب دارایی" : "Select asset")}</span>
               <span className={"wallet-custom-select__chevron" + (openWithdrawFilter === "asset" ? " is-open" : "")}>⌄</span>
             </button>
             {openWithdrawFilter === "asset" && <div className="wallet-custom-select__menu" role="listbox" aria-label={copy.asset}>
