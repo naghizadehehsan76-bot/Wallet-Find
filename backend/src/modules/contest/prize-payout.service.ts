@@ -166,7 +166,7 @@ async function creditPendingAward(awardId: string) {
     });
 
     const remaining = await tx.prizeAward.count({
-      where: { contestId: award.contestId, status: { not: "PAID" } },
+      where: { contestId: award.contestId, status: { notIn: ["PAID", "INELIGIBLE"] } },
     });
     if (remaining === 0) {
       await tx.prizePool.updateMany({
