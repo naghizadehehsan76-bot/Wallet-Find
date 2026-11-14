@@ -125,6 +125,8 @@ model Contest {
 
   startsAt DateTime?
   endsAt   DateTime?
+  // Set permanently when the shared prize fund falls below the fixed round budget during an active challenge.
+  prizeFundingInvalidatedAt DateTime?
 
   clues       ContestClue[]
   submissions Submission[]
