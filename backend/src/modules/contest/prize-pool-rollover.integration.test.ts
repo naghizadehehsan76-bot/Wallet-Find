@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { after, test } from "node:test";
 import prisma from "../../config/prisma.js";
 import { returnSettledPrizePoolUnusedToGlobal, settlePrizePool } from "./prize-pool.service.js";
+import { invalidateActivePrizeRoundsIfUnderfunded } from "./prize-settlement-runner.service.js";
 
 const shouldRun = Boolean(process.env.DATABASE_URL);
 
@@ -140,11 +141,12 @@ test("cancels a round prize permanently when the shared fund is below 0.1 USDT0"
 });
 
 
-test("does not restore prize eligibility after the shared fund is topped up", {
+test("keeps a round cancelled if its fund briefly falls below 0.1 before being topped up", {
   skip: !shouldRun,
   timeout: 60_000,
 }, async () => {
   const suffix = randomUUID();
+  const userId = "ci-prize-funding-" + suffix;
   let contestId: string | undefined;
   await prisma.globalPrizeFund.upsert({
     where: { id: "global" },
@@ -156,20 +158,62 @@ test("does not restore prize eligibility after the shared fund is topped up", {
   try {
     await prisma.globalPrizeFund.update({
       where: { id: "global" },
-      data: { balanceMicro: 150_000n },
+      data: { balanceMicro: 50_000n },
+    });
+    await prisma.user.create({
+      data: {
+        id: userId,
+        email: userId + "@example.invalid",
+        username: userId,
+        passwordHash: "ci-only-not-a-real-password",
+      },
     });
     const contest = await prisma.contest.create({
       data: {
-        title: "CI invalidated prize funding " + suffix,
-        status: "FINISHED",
+        title: "CI temporary prize funding shortfall " + suffix,
+        status: "ACTIVE",
         language: "en",
         startsAt: new Date(Date.now() - 30 * 60_000),
-        endsAt: new Date(Date.now() - 15 * 60_000),
-        prizeFundingInvalidatedAt: new Date(Date.now() - 10 * 60_000),
+        endsAt: new Date(Date.now() + 15 * 60_000),
+        clues: {
+          create: {
+            sequence: 1,
+            type: "TEXT",
+            source: "SYSTEM",
+            content: "CI funding monitor clue",
+            correctAnswer: "yes",
+          },
+        },
       },
-      select: { id: true },
+      select: { id: true, clues: { select: { id: true } } },
     });
     contestId = contest.id;
+    await prisma.submission.create({
+      data: {
+        userId,
+        contestId,
+        clueId: contest.clues[0]!.id,
+        answer: "yes",
+        isCorrect: true,
+        prizeEligibleAtJoin: true,
+      },
+    });
+
+    await invalidateActivePrizeRoundsIfUnderfunded();
+    const invalidated = await prisma.contest.findUniqueOrThrow({
+      where: { id: contest.id },
+      select: { prizeFundingInvalidatedAt: true },
+    });
+    assert.ok(invalidated.prizeFundingInvalidatedAt);
+
+    await prisma.globalPrizeFund.update({
+      where: { id: "global" },
+      data: { balanceMicro: 150_000n },
+    });
+    await prisma.contest.update({
+      where: { id: contest.id },
+      data: { status: "FINISHED", endsAt: new Date(Date.now() - 15 * 60_000) },
+    });
 
     const result = await settlePrizePool(contest.id, null);
     const pool = await prisma.prizePool.findUniqueOrThrow({ where: { contestId: contest.id } });
@@ -188,6 +232,7 @@ test("does not restore prize eligibility after the shared fund is topped up", {
       });
       await prisma.contest.deleteMany({ where: { id: contestId } });
     }
+    await prisma.user.deleteMany({ where: { id: userId } });
     await prisma.globalPrizeFund.update({
       where: { id: "global" },
       data: { balanceMicro: beforeFund.balanceMicro },
