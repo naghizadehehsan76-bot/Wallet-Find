@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { decodeEventLog, decodeFunctionData, encodeFunctionData, isAddress, type Address } from "viem";
+import { decodeEventLog, encodeFunctionData, isAddress, type Address } from "viem";
 import prisma from "../../config/prisma.js";
 import { formatAssetUnits, parseAssetUnits } from "./asset-amount.js";
 import {
@@ -50,24 +50,7 @@ const TOKEN_BALANCE_ABI = [
   },
 ] as const;
 
-type WithdrawalSnapshot = {
-  id: string;
-  userId: string;
-  walletAccountId: string;
-  walletAddressId: string;
-  networkId: string;
-  walletAssetId: string;
-  feeAssetId: string | null;
-  fundingSource: string;
-  destinationAddress: string;
-  amountAtomic: { toFixed(decimalPlaces?: number): string };
-  feeAtomic: { toFixed(decimalPlaces?: number): string } | null;
-  estimatedGasLimit: { toFixed(decimalPlaces?: number): string } | null;
-  maxFeePerGasAtomic: { toFixed(decimalPlaces?: number): string } | null;
-  maxPriorityFeePerGasAtomic: { toFixed(decimalPlaces?: number): string } | null;
-  transactionReference: string | null;
-  status: string;
-};
+
 
 function requireWithdrawalReadiness(): void {
   if (
@@ -1148,7 +1131,6 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
   const expectedTo = withdrawal.destinationAddress.toLowerCase();
   const expectedAmount = atomic(withdrawal.amountAtomic);
   let transactionMatches = false;
-  let decodedFunctionName: string | null = null;
   let decodedRecipient: string | null = null;
   let decodedSender: string | null = null;
   let decodedAmountAtomic: string | null = null;
@@ -1188,7 +1170,6 @@ export async function reconcileChainWalletWithdrawal(withdrawalId: string, admin
 
     const verifiedTransfer = matchingTransfer[0] ?? null;
     transactionMatches = receipt.status === "reverted" || matchingTransfer.length === 1;
-    decodedFunctionName = verifiedTransfer ? "Transfer" : null;
     decodedSender = verifiedTransfer?.from ?? null;
     decodedRecipient = verifiedTransfer?.to ?? null;
     decodedAmountAtomic = verifiedTransfer?.amount.toString() ?? null;
