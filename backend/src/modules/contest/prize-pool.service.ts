@@ -358,16 +358,9 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
     if (!usesLegacyReservation) {
       const fund = await tx.globalPrizeFund.findUnique({ where: { id: "global" }, select: { balanceMicro: true } });
       const available = BigInt(fund?.balanceMicro ?? 0n);
-      if (available < awarded) {
-        // Leave the round OPEN and retry later; never create an unfunded award.
-        return {
-          contestId,
-          status: "WAITING_FOR_GLOBAL_FUNDS",
-          required: formatMicro(awarded),
-          available: formatMicro(available),
-          awards: [],
-        };
-      }
+      // The full 0.1 USDT0 threshold was checked above while holding the
+      // global-fund lock, so the calculated awards must be fully covered.
+      if (available < awarded) throw new Error("GLOBAL_PRIZE_FUND_BUDGET_INVARIANT");
       const debitKey = "round-award-debit:" + contestId;
       const existingDebit = await tx.globalPrizeLedger.findUnique({ where: { referenceKey: debitKey } });
       if (!existingDebit) {
