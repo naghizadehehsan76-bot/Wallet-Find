@@ -276,14 +276,17 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
     // A new round is payable only when the shared fund can cover the full
     // fixed 0.1 USDT0 calculation budget. Insufficient funding cancels this
     // round's prize payout permanently; it is never queued for later funding.
-    if (!usesLegacyReservation) {
-      await tx.globalPrizeFund.upsert({ where: { id: "global" }, update: {}, create: { id: "global" } });
-      const fund = await tx.globalPrizeFund.findUnique({
-        where: { id: "global" },
-        select: { balanceMicro: true },
-      });
-      const available = BigInt(fund?.balanceMicro ?? 0n);
-      if (available < ROUND_PRIZE_BUDGET_MICRO) {
+    await tx.globalPrizeFund.upsert({ where: { id: "global" }, update: {}, create: { id: "global" } });
+    const fund = await tx.globalPrizeFund.findUnique({
+      where: { id: "global" },
+      select: { balanceMicro: true },
+    });
+    const available = BigInt(fund?.balanceMicro ?? 0n);
+    const fundingState = await tx.contest.findUnique({
+      where: { id: contestId },
+      select: { prizeFundingInvalidatedAt: true },
+    });
+    if (fundingState?.prizeFundingInvalidatedAt || available < ROUND_PRIZE_BUDGET_MICRO) {
         const settledAt = new Date();
         const cancelledPool = await tx.prizePool.update({
           where: { contestId },
@@ -304,6 +307,7 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
             metadata: {
               requiredMicro: ROUND_PRIZE_BUDGET_MICRO.toString(),
               availableMicro: available.toString(),
+              invalidatedAt: fundingState?.prizeFundingInvalidatedAt?.toISOString() ?? null,
               payoutCount: 0,
               payoutMode: "SHARED_GLOBAL_FUND",
             },
@@ -382,6 +386,17 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
             updatedAt: new Date(),
           },
         });
+        const remainingGlobalBalance = available - awarded;
+        if (remainingGlobalBalance < ROUND_PRIZE_BUDGET_MICRO) {
+          await tx.contest.updateMany({
+            where: {
+              status: "ACTIVE",
+              prizeFundingInvalidatedAt: null,
+              submissions: { some: {} },
+            },
+            data: { prizeFundingInvalidatedAt: new Date() },
+          });
+        }
       } else if (BigInt(existingDebit.amountMicro) !== awarded) {
         throw new Error("GLOBAL_PRIZE_DEBIT_AMOUNT_MISMATCH");
       }
