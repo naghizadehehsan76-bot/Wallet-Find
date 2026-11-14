@@ -232,7 +232,7 @@ export const en = {
       },
     ],
     rewardsTitle: "How are rewards determined?",
-    rewardsDetail: "Up to 1 USDT is allocated to each round from the verified real global prize fund. If less than 1 USDT is available, only the available amount is allocated; if the balance is zero, the round prize is zero. No prizes are paid until real deposit and payout processing is operational.",
+    rewardsDetail: "The prize calculation budget is fixed at 0.1 USDT0 per contest. Only the total payable awards are debited from the verified global prize fund; settlement waits if the available balance is insufficient.",
     previewNotice: "Rewards are funded only by real, verified USDT deposits. No payouts occur until real payment processing is operational.",
   },
   infoPages: {
@@ -241,7 +241,7 @@ export const en = {
       description: "Learn how the prize pool is funded and how rewards are distributed after each round.",
       detail: "Balances and prizes are based only on real, verified USDT deposits. No prize transfers or withdrawals are available until real transfer processing is operational.",
       fundingTitle: "Where does the prize pool come from?",
-      fundingDetail: "The prize pool increases only through real, verified deposits. Up to 1 USDT is allocated from the real global balance to each round. If less than 1 USDT is available, only that amount is allocated; if the balance is zero, the round prize is zero.",
+      fundingDetail: "The prize pool increases only through real, verified deposits. Each contest uses a fixed 0.1 USDT0 prize-calculation budget. Only payable awards are debited from the shared global fund; settlement waits if the available balance is insufficient.",
       distributionTitle: "How are prizes distributed?",
       distributionFirst: "50% of the round's pool goes to first place, 22.5% to second place, and 12.5% to third place.",
       distributionRemainder: "10% of the round pool is shared by finishers ranked fourth or lower, weighted by completion speed. The project dividend share is taken from sponsor and investor contributions and is not deducted from each round pool.",
