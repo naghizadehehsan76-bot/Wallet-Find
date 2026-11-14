@@ -1,362 +1,111 @@
-# Wallet-Find / 12Keys — Architecture
+# Wallet-Find Architecture
 
-## 1. Repository Structure
+## 1. System Overview
 
-The repository contains two main applications:
+Wallet-Find is a production-oriented, multilingual web platform built as two applications:
 
-- `frontend/`
-- `backend/`
+- `frontend/`: React, TypeScript and Vite.
+- `backend/`: Node.js, Express, TypeScript and Prisma.
+- PostgreSQL is the authoritative persistent store.
 
-The root directory contains project documentation and shared development instructions.
+The backend owns business rules and security-sensitive decisions. The frontend presents state and collects user input; it is never authoritative for financial balances, answer correctness, contest progression, ranking, or official time.
 
-## 2. Frontend Architecture
+## 2. Backend Structure
 
-Technology:
+Backend capabilities are organized by domain under `backend/src/modules/`. Domain services own business logic and database operations; controllers and routes expose HTTP interfaces; schemas validate external input.
 
-- React
-- TypeScript
-- Vite
+Important domains include:
 
-Main responsibilities:
+- Authentication and authorization.
+- Contest lifecycle, submissions, progression and leaderboard.
+- Wallet operations, deposits, withdrawals and transaction history.
+- Prize funding, allocation, settlement and payout.
+- Turnkey integration and webhook processing.
+- Shared system jobs and background processing.
 
-- render the user interface
-- manage local UI state
-- manage authentication state
-- display contest state
-- collect user answers
-- communicate with backend APIs
-- manage language and text direction
+Keep dependencies directed toward domain services and shared infrastructure. Avoid duplicating financial or contest rules in controllers and frontend components.
 
-Frontend must never be the authority for:
+## 3. Contest and Prize Rules
 
-- answer correctness
-- contest progression
-- ranking
-- permissions
-- official timing
+The backend is authoritative for contest timing, eligibility, answer validation, progression, completion and ranking.
 
-## 3. Backend Architecture
+Contest rounds use server-controlled time boundaries. A player's official completion and ranking are determined by backend records, not by the browser clock.
 
-Technology:
+Prize accounting is maintained internally in PostgreSQL. Internal prize allocations are ledger/accounting operations and must not be represented as on-chain transfers unless an actual blockchain transaction is submitted.
 
-- Node.js
-- Express
-- TypeScript
+The prize pool is global and shared across supported languages. Language-specific contest content does not create separate prize funds. Funding eligibility, settlement and payout must remain transactional, concurrency-safe and idempotent.
 
-Main responsibilities:
+## 4. Wallet and Blockchain Integration
 
-- authentication
-- authorization
-- contest management
-- clue management
-- answer validation
-- progression
-- response timing
-- leaderboard calculation
-- player statistics
+The wallet subsystem uses Turnkey for supported wallet operations and Polygon PoS assets configured by the application. The backend is responsible for wallet provisioning, deposit observation, withdrawal authorization, transaction recording and reconciliation.
 
-The backend is the authoritative application layer.
+Security requirements:
 
-## 4. Database
+- Never expose private keys, signing material or provider secrets to the frontend.
+- Verify provider webhook authenticity before processing events.
+- Make webhook processing and financial credits idempotent.
+- Keep provider activity/history distinct from Wallet-Find's internal accounting records.
+- Use database transactions and appropriate locks for balance-affecting operations.
+- Never treat a displayed balance or client-submitted amount as authoritative.
 
-Technology:
+Production financial tests must use a dedicated test database and explicit opt-in safeguards. They must never run against the production database.
 
-- PostgreSQL
-- Neon
-- Prisma ORM
+## 5. Background Processing and Scaling
 
-The database stores persistent application state.
+The backend can run in separate process roles:
 
-Important domain entities currently include:
+- `all`: HTTP API and background processors.
+- `web`: HTTP API only.
+- `worker`: background processors only.
 
-- User
-- Contest
-- ContestClue
-- Submission
+The role is controlled by `APP_ROLE`. The worker entry point is `backend/src/worker.ts`.
 
-Additional entities already exist for future advertising and system functionality.
+Work that must execute once across multiple instances uses database-backed leases, atomic claims or resource-specific locks. PostgreSQL remains the source of truth; process-local memory must not be authoritative for shared business or financial state.
 
-## 5. Authentication
+Each process uses a bounded database connection pool. Total pool capacity must be planned across all API and worker instances before scaling.
 
-Authentication uses JWT.
+See [docs/SCALABILITY.md](docs/SCALABILITY.md) for deployment and horizontal-scaling guidance.
 
-Frontend:
-- stores the authentication token locally
-- sends the token using the Authorization header
+## 6. Frontend and Internationalization
 
-Backend:
-- validates JWT
-- identifies the user
-- identifies the user's role
+Frontend code is organized into pages, reusable components, services and internationalization resources.
 
-Required format:
+- Pages compose user-facing workflows.
+- Shared components provide reusable presentation.
+- Services centralize API communication.
+- The i18n layer owns locale selection, translations and text direction.
 
-Authorization: Bearer <token>
+Supported locales currently include Persian, English, German, Spanish, French, Arabic, Turkish, Portuguese, Russian and Simplified Chinese. Some locales use English base resources with locale-specific overrides; this is an implementation detail that must be reflected in translation coverage checks.
 
-Server-side authorization is mandatory.
+Every user-facing change must be reviewed across all supported locales. Persian and Arabic require right-to-left presentation; other supported locales use left-to-right presentation.
 
-## 6. Contest Domain
+Do not move authoritative business logic into React components or duplicate raw API requests across unrelated pages.
 
-A Contest contains:
+## 7. Database and Data Integrity
 
-- title
-- description
-- status
-- start time
-- end time
-- clues
+Prisma schema and migrations define the database model. Schema changes must be accompanied by reviewed migrations.
 
-A ContestClue contains:
+Financial and contest records require clear transaction boundaries, uniqueness constraints where appropriate, and safe handling of concurrent requests. Migrations must preserve existing production data unless a separately approved data migration explicitly changes it.
 
-- contest ID
-- sequence number
-- clue type
-- clue content
-- correct answer
-- publication information
+Test cleanup must be scoped to test-owned records and isolated test databases. Never run broad cleanup against production data.
 
-A contest contains exactly 12 logical clue positions for the MVP.
+## 8. Quality and Security Gates
 
-## 7. Contest Progression
+Changes should pass the repository's applicable automated checks:
 
-Progression is server-controlled.
+- Backend TypeScript build and tests.
+- Frontend TypeScript build and lint.
+- Prisma migration validation against a disposable PostgreSQL database.
+- Dependency security checks in CI.
 
-The backend determines:
-
-- which clue is currently active for the player
-- whether the player has solved a clue
-- whether the player may submit an answer
-- whether a submission is correct
-- whether the next clue becomes available
-
-The frontend only displays the state returned by the backend.
-
-## 8. Submission Flow
-
-Expected flow:
-
-Frontend:
-1. player enters answer
-2. frontend sends contest ID, clue ID and answer
-
-Backend:
-1. authenticate user
-2. validate request
-3. validate contest
-4. determine the player's current clue
-5. reject attempts to skip clues
-6. normalize/validate the answer
-7. compare with the stored correct answer
-8. store the Submission
-9. calculate authoritative response timing
-10. return the result
-
-The correct answer must never be returned to normal clients.
-
-## 9. API Organization
-
-Contest functionality belongs in the Contest module.
-
-Current structure:
-
-`src/modules/contest/`
-
-Expected responsibilities:
-
-- routes
-- controllers
-- services
-- schemas
-
-Controllers should handle:
-
-- HTTP input
-- validation
-- HTTP response codes
-
-Services should handle:
-
-- business logic
-- Prisma/database operations
-- contest rules
-
-Schemas should handle:
-
-- request validation
-
-## 10. Frontend Services
-
-API communication belongs in:
-
-`frontend/src/services/`
-
-The frontend should not scatter raw fetch calls across multiple components.
-
-Reusable API operations should be centralized in the service layer.
-
-## 11. Internationalization
-
-Translations belong in:
-
-`frontend/src/i18n/`
-
-Current languages:
-
-- Persian
-- English
-
-Language selection should be persistent.
-
-The active language controls:
-
-- displayed translations
-- HTML `lang`
-- HTML `dir`
-
-Direction:
-
-- Persian / Arabic → RTL
-- English → LTR
-
-## 12. UI Component Structure
-
-Reusable interface elements should live in:
-
-`frontend/src/components/`
-
-Page-level components should live in:
-
-`frontend/src/pages/`
-
-Do not duplicate common UI elements unnecessarily.
-
-The bottom navigation is a shared component.
-
-## 13. Contest UI Architecture
-
-The Competition page is the primary contest interface.
-
-The contest grid is:
-
-3 columns × 4 rows
-
-for 12 total positions.
-
-The current key contains the answer input directly inside the key cell.
-
-A separate answer page is not part of the normal contest flow.
-
-## 14. Leaderboard Architecture
-
-Leaderboard data must eventually come from backend APIs.
-
-The backend calculates ranking.
-
-The frontend displays the returned ranking.
-
-The frontend must not calculate official rankings.
-
-## 15. Profile Architecture
-
-Profile information should come from authenticated backend APIs.
-
-The frontend should not hardcode player statistics in production.
-
-## 16. Wallet Architecture
-
-Wallet is a future subsystem.
-
-For MVP:
-- wallet UI may remain mocked
-- no real withdrawal flow is required
-- no private keys or sensitive wallet secrets belong in the frontend
-
-Real wallet functionality should be implemented only after the core contest engine is stable.
-
-## 17. Error Handling
-
-Backend uses stable machine-readable error identifiers.
-
-Frontend maps those identifiers to localized human-readable messages.
-
-Do not expose raw stack traces to users.
-
-Production responses must not leak secrets or internal implementation details.
-
-## 18. Data Authority
-
-Server authority:
-
-- authentication
-- authorization
-- contest status
-- clue progression
-- answer correctness
-- official timing
-- ranking
-- completion state
-
-Client authority:
-
-- presentation
-- local UI state
-- input collection
-- language preference
-
-## 19. Development Principle
-
-Prefer the smallest safe change that satisfies the requirement.
-
-Inspect existing code before editing.
-
-Reuse existing modules and services.
-
-Avoid unnecessary rewrites.
-
-Never replace working architecture simply to make implementation easier.
-
-## 20. Deployment Principle
-
-Production deployment must be reproducible.
-
-The project should eventually support:
-
-- frontend deployment
-- backend deployment
-- production database
-- environment variables
-- HTTPS
-- health checks
-
-No production secret may be committed to Git.
-
-## 21. Definition of Architectural Completion
-
-The architecture is considered stable when:
-
-- frontend and backend responsibilities are clearly separated
-- contest logic is server authoritative
-- API access is centralized
-- authentication is secure
-- i18n is centralized
-- UI components are reusable
-- automated testing covers critical business logic
-- production deployment is reproducible
-
-
-## 22. Horizontal Scaling
-
-See [docs/SCALABILITY.md](docs/SCALABILITY.md) for the production scaling design and safe Render migration order.
-
-The backend supports three process roles from one build:
-- `all`: backwards-compatible HTTP API plus background processors
-- `web`: stateless HTTP API only
-- `worker`: background processors only
-
-The role split is controlled by `APP_ROLE`. The standalone Worker entry point is `backend/src/worker.ts` and the Render start script is `npm run start:worker`.
-
-Background work that must execute once across multiple instances uses a renewable PostgreSQL lease, per-resource scanner lease, or atomic record claim. Rate-limit counters are shared through PostgreSQL. Business state and financial accounting remain in PostgreSQL; no process-local cache is authoritative.
-
-Each process uses one bounded Prisma/PostgreSQL pool. Pool size must be budgeted across all API and Worker instances.
-
-Leaderboard reads aggregate answer attempts in PostgreSQL and return bounded participant summaries rather than loading every submission into API memory.
+Financial integration tests require their dedicated test-database safeguards and explicit opt-in. A successful build alone does not prove that every integration test has run.
+
+## 9. Engineering Principles
+
+1. Prefer the smallest safe change that satisfies the requirement.
+2. Keep each module and file focused on a clear responsibility.
+3. Preserve existing external behavior unless a requirement explicitly changes it.
+4. Keep financial rules server-side, transactional and idempotent.
+5. Avoid unnecessary dependencies, duplicate implementations and generated artifacts in source control.
+6. Validate changes with automated checks before deployment.
+7. Scale API and worker capacity horizontally before considering an architectural rewrite.
