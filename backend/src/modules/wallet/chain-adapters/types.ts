@@ -1,5 +1,3 @@
-import type { Address } from "viem";
-
 export type AdapterAsset = {
   id: string;
   assetType: "NATIVE" | "TOKEN";
