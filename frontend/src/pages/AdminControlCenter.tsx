@@ -209,7 +209,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     settings: fa ? "دفتر کل" : "General ledger",
     wallets: fa ? "خزانه و جوایز" : "Treasury & Prizes",
     treasuryTitle: fa ? "خزانه اصلی جوایز (Polygon)" : "Main prize treasury (Polygon)",
-    treasuryLiveBalance: fa ? "موجودی واقعی خزانه (USDT0)" : "Live treasury balance (USDT0)",
+    treasuryLiveBalance: fa ? "موجودی واقعی خزانه (USDT)" : "Live treasury balance (USDT)",
     treasuryDepositTitle: fa ? "واریزهای خزانه" : "Treasury deposits",
     treasuryDepositHelp: fa ? "واریزها به‌صورت خودکار از بلاک‌چین شناسایی می‌شوند. پس از ۱۲۸ تأیید شبکه، دفتر حسابداری خزانه به‌روزرسانی می‌شود." : "Deposits are detected automatically from Polygon. Treasury accounting is credited after 128 network confirmations.",
     treasuryNoDeposits: fa ? "هنوز واریزی برای خزانه شناسایی نشده است." : "No treasury deposits detected yet.",
@@ -224,7 +224,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     treasuryAllocated: fa ? "تخصیص‌یافته و رزروشده برای صندوق و چالش‌ها" : "Allocated and reserved for prize fund and rounds",
     treasuryFree: fa ? "موجودی آزاد خزانه" : "Unallocated treasury balance",
     internalPrizeBalance: fa ? "ماندهٔ آزاد صندوق عمومی جوایز" : "Unreserved global prize fund balance",
-    fundingAmount: fa ? "مبلغ تخصیص (USDT0)" : "Allocation amount (USDT0)",
+    fundingAmount: fa ? "مبلغ تخصیص (USDT)" : "Allocation amount (USDT)",
     allocateFunding: fa ? "تخصیص به صندوق جوایز" : "Allocate to prize fund",
     fundingHelp: fa ? "آدرس زیر تنها آدرس واریز بلاک‌چینی است. تخصیص فقط ثبت حسابداری داخلی است؛ پس از تخصیص، سیستم ممکن است مبلغ را برای چالش فعال رزرو کند. در این حالت ماندهٔ آزاد صندوق عمومی کم یا صفر می‌شود، اما مبلغ رزروشده همچنان در صندوق همان چالش باقی می‌ماند و هیچ انتقالی روی شبکه Polygon انجام نمی‌شود." : "The treasury address below is the only on-chain deposit address. Allocation is an internal accounting entry; the scheduler may reserve it for an active challenge. The unreserved global fund balance can then decrease to zero while the amount remains reserved in that challenge's prize pool. No Polygon transaction is created.",
     treasuryHelp: fa ? "این عملیات یک کیف پول مستقل برای نگهداری جوایز در Turnkey ایجاد می‌کند. فعلاً هیچ وجهی منتقل نمی‌شود و قابلیت برداشت یا امضای تراکنش فعال نمی‌شود." : "This creates a dedicated Turnkey wallet for prize funds. No funds are transferred and signing or withdrawals are not enabled.",
@@ -331,7 +331,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     prizeHistoryPendingStatus: fa ? "در انتظار پرداخت" : "Pending payment",
     prizeHistoryIneligibleStatus: fa ? "فاقد شرایط دریافت جایزه" : "Not eligible for prize",
     prizeHistoryFailedStatus: fa ? "نیازمند بررسی" : "Requires review",
-    prizeHistoryInternalNote: fa ? "این پرداخت‌ها به‌صورت اعتبار داخلی USDT0 در کیف پول Wallet-Find ثبت می‌شوند؛ تا وقتی هش تراکنش وجود نداشته باشد، انتقال بلاک‌چینی انجام نشده است." : "These prizes are credited as internal USDT0 wallet balances. No blockchain transfer occurs unless a transaction hash is explicitly shown.",
+    prizeHistoryInternalNote: fa ? "این پرداخت‌ها به‌صورت اعتبار داخلی USDT در کیف پول Wallet-Find ثبت می‌شوند؛ تا وقتی هش تراکنش وجود نداشته باشد، انتقال بلاک‌چینی انجام نشده است." : "These prizes are credited as internal USDT wallet balances. No blockchain transfer occurs unless a transaction hash is explicitly shown.",
     prizeHistoryAllocationNote: fa ? "تخصیص، ثبت حسابداری داخلی از خزانه Polygon به صندوق مشترک جوایز است و به‌تنهایی انتقال روی شبکه نیست." : "An allocation is an internal accounting entry from the Polygon treasury to the shared prize fund, not an on-chain transfer.",
     adsBody: fa ? "منابع فعال ساخت سرنخ برای هر زبان را ببین، آدرس منابع جدید اضافه کن یا منابع را حذف کن. منابع سفارشی باید صفحهٔ HTTPS عمومی و دارای متن قابل خواندن باشند." : "Review enabled clue sources for each language, add source URLs, or remove sources. Custom sources must be public HTTPS pages with readable text.",
     sourceEn: fa ? "منابع چالش انگلیسی" : "English challenge sources",
@@ -1233,9 +1233,9 @@ export default function AdminControlCenter({ onNavigate }: Props) {
             {prizePaymentHistoryLoading && !prizePaymentHistory ? <LoadingIndicator /> : prizePaymentHistory && (
               <>
                 <div className="admin-metrics-grid">
-                  <article className="admin-metric-card"><span className="admin-metric-card__label">{copy.prizeHistoryFunded}</span><strong>{Number(prizePaymentHistory.summary.totalFunded).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></article>
-                  <article className="admin-metric-card"><span className="admin-metric-card__label">{copy.prizeHistoryPaid}</span><strong>{Number(prizePaymentHistory.summary.totalPaid).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></article>
-                  <article className="admin-metric-card"><span className="admin-metric-card__label">{copy.prizeHistoryPending}</span><strong>{Number(prizePaymentHistory.summary.pending).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></article>
+                  <article className="admin-metric-card"><span className="admin-metric-card__label">{copy.prizeHistoryFunded}</span><strong>{Number(prizePaymentHistory.summary.totalFunded).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</strong></article>
+                  <article className="admin-metric-card"><span className="admin-metric-card__label">{copy.prizeHistoryPaid}</span><strong>{Number(prizePaymentHistory.summary.totalPaid).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</strong></article>
+                  <article className="admin-metric-card"><span className="admin-metric-card__label">{copy.prizeHistoryPending}</span><strong>{Number(prizePaymentHistory.summary.pending).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</strong></article>
                 </div>
                 <h3>{copy.prizeHistoryAllocations}</h3>
                 {prizePaymentHistory.allocations.length === 0 ? <p className="admin-empty">{copy.prizeHistoryEmpty}</p> : (
@@ -1243,7 +1243,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                     {prizePaymentHistory.allocations.map((entry) => (
                       <article className="admin-setting-row" key={entry.id}>
                         <div>
-                          <strong>{Number(entry.amount).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong>
+                          <strong>{Number(entry.amount).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</strong>
                           <small>{new Date(entry.effectiveAt).toLocaleString(fa ? "fa-IR" : "en-GB")} · {entry.allocatedBy ? (fa ? "تخصیص‌دهنده: " : "Allocated by: ") + entry.allocatedBy : (fa ? "ثبت تخصیص در دفترکل" : "Allocation recorded in ledger")}</small>
                           <small>{entry.note}</small>
                           <small>{fa ? "مرجع: " : "Reference: "}{entry.referenceKey}</small>
@@ -1587,7 +1587,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                     <span>{copy.treasuryLiveBalance}</span>
                     <strong>
                       {treasuryFunding
-                        ? Number(treasuryFunding.onChainBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) + " USDT0"
+                        ? Number(treasuryFunding.onChainBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) + " USDT"
                         : treasuryFundingLoading
                           ? (fa ? "در حال دریافت…" : "Loading…")
                           : treasuryFundingError
@@ -1604,9 +1604,9 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                 {treasuryFunding && (
                   <>
                     <div className="admin-wallet-overview__metrics">
-                      <article><span>{copy.treasuryAllocated}</span><strong>{Number(treasuryFunding.allocatedToPrizeFund).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></article>
-                      <article><span>{copy.treasuryFree}</span><strong>{Number(treasuryFunding.accountingStatus === "MATCH" ? treasuryFunding.unallocatedTreasuryBalance : "0").toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></article>
-                      <article><span>{copy.internalPrizeBalance}</span><strong>{Number(treasuryFunding.prizeFundBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></article>
+                      <article><span>{copy.treasuryAllocated}</span><strong>{Number(treasuryFunding.allocatedToPrizeFund).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</strong></article>
+                      <article><span>{copy.treasuryFree}</span><strong>{Number(treasuryFunding.accountingStatus === "MATCH" ? treasuryFunding.unallocatedTreasuryBalance : "0").toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</strong></article>
+                      <article><span>{copy.internalPrizeBalance}</span><strong>{Number(treasuryFunding.prizeFundBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</strong></article>
                     </div>
 
                     <div className="admin-wallet-overview__reconciliation">
@@ -1617,10 +1617,10 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                         </span>
                       </div>
                       <div className="admin-wallet-overview__reconciliation-values">
-                        <div><span>{fa ? "موجودی دفتر خزانه" : "Treasury ledger balance"}</span><strong>{Number(treasuryFunding.treasuryLedgerBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></div>
-                        <div><span>{fa ? "اختلاف حسابداری" : "Accounting difference"}</span><strong>{Number(treasuryFunding.accountingDifference).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></div>
+                        <div><span>{fa ? "موجودی دفتر خزانه" : "Treasury ledger balance"}</span><strong>{Number(treasuryFunding.treasuryLedgerBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</strong></div>
+                        <div><span>{fa ? "اختلاف حسابداری" : "Accounting difference"}</span><strong>{Number(treasuryFunding.accountingDifference).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</strong></div>
                         {treasuryFunding.accountingStatus !== "MATCH" && (
-                          <div><span>{fa ? "موجودی در انتظار تطبیق" : "Balance pending reconciliation"}</span><strong>{Math.abs(Number(treasuryFunding.accountingDifference)).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0</strong></div>
+                          <div><span>{fa ? "موجودی در انتظار تطبیق" : "Balance pending reconciliation"}</span><strong>{Math.abs(Number(treasuryFunding.accountingDifference)).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</strong></div>
                         )}
                       </div>
                     </div>
@@ -1659,13 +1659,13 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                 <div>
                   <span>{fa ? "موجودی آزاد خزانه" : "Available treasury balance"}</span>
                   <strong>{treasuryFunding
-                    ? Number(treasuryFunding.accountingStatus === "MATCH" ? treasuryFunding.unallocatedTreasuryBalance : "0").toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) + " USDT0"
+                    ? Number(treasuryFunding.accountingStatus === "MATCH" ? treasuryFunding.unallocatedTreasuryBalance : "0").toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) + " USDT"
                     : "—"}</strong>
                 </div>
                 <div>
                   <span>{fa ? "ماندهٔ آزاد صندوق عمومی جوایز" : "Unreserved global prize fund balance"}</span>
                   <strong>{treasuryFunding
-                    ? Number(treasuryFunding.prizeFundBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) + " USDT0"
+                    ? Number(treasuryFunding.prizeFundBalance).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) + " USDT"
                     : "—"}</strong>
                 </div>
               </div>
@@ -1680,7 +1680,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                   : "This is an internal accounting entry only. It does not create an on-chain Polygon transaction or transfer."}</p>
               </div>
               <form className="admin-wallet-allocation-card__form" onSubmit={handleTreasuryPrizeAllocation}>
-                <label htmlFor="treasury-prize-allocation-amount">{fa ? "مبلغ تخصیص (USDT0)" : "Allocation amount (USDT0)"}</label>
+                <label htmlFor="treasury-prize-allocation-amount">{fa ? "مبلغ تخصیص (USDT)" : "Allocation amount (USDT)"}</label>
                 <div className="admin-wallet-allocation-card__input-row">
                   <input
                     id="treasury-prize-allocation-amount"
