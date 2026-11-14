@@ -31,7 +31,7 @@ export default function PrizePoolPanel({ contestId }: Props) {
       </p>
       {data && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, margin: "16px 0" }}>
-          <div className="stat-card"><strong>{data.pool.awarded} USDT0</strong><span>{isFa ? "مجموع جوایز ثبت‌شده برای این چالش" : "Awards recorded for this challenge"}</span></div>
+          <div className="stat-card"><strong>{data.pool.awarded} USDT</strong><span>{isFa ? "مجموع جوایز ثبت‌شده برای این چالش" : "Awards recorded for this challenge"}</span></div>
           <div className="stat-card"><strong>{data.pool.status}</strong><span>{isFa ? "وضعیت تسویه" : "Settlement status"}</span></div>
         </div>
       )}
