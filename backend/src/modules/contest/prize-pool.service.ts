@@ -3,7 +3,8 @@ import { getContestLeaderboard } from "./leaderboard.service.js";
 import { calculatePrizeAllocations } from "./prize-distribution.js";
 
 const MICRO = 1_000_000n;
-const ROUND_ALLOCATION_MICRO = MICRO / 10n;
+// Every contest uses a fixed 0.1 USDT0 calculation budget. Only payable awards are debited at settlement.
+const ROUND_PRIZE_BUDGET_MICRO = MICRO / 10n;
 
 function formatMicro(value: bigint) {
   const safe = value > 0n ? value : 0n;
@@ -271,7 +272,7 @@ export async function settlePrizePool(contestId?: string, actorUserId?: string |
 
     const legacySeeded = BigInt(pool.seededMicro) + BigInt(pool.rolloverInMicro ?? 0n);
     const usesLegacyReservation = legacySeeded > 0n;
-    const distributionBase = usesLegacyReservation ? legacySeeded : ROUND_ALLOCATION_MICRO;
+    const distributionBase = usesLegacyReservation ? legacySeeded : ROUND_PRIZE_BUDGET_MICRO;
     const allocations = calculatePrizeAllocations(
       distributionBase,
       completed.map(({ userId, rank, elapsedMs }) => ({ userId, rank, elapsedMs })),
