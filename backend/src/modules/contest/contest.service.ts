@@ -448,7 +448,9 @@ export async function submitAnswer(
         where: { id: "global" },
         select: { balanceMicro: true },
       });
-      prizeEligibleAtJoin = BigInt(globalFund?.balanceMicro ?? 0n) > 0n;
+      // A participant is prize-eligible only when the shared fund can cover
+      // the full fixed 0.1 USDT0 budget at their first accepted submission.
+      prizeEligibleAtJoin = BigInt(globalFund?.balanceMicro ?? 0n) >= 100_000n;
     }
 
     const solvedClueIds = new Set(
