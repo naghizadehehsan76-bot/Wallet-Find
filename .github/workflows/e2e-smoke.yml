@@ -1,0 +1,41 @@
+name: Wallet-Find Production Browser Smoke Tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/e2e/**"
+      - "frontend/playwright.config.cjs"
+      - "frontend/scripts/wait-for-site.mjs"
+      - ".github/workflows/e2e-smoke.yml"
+
+concurrency:
+  group: wallet-find-production-e2e
+  cancel-in-progress: false
+
+jobs:
+  production-browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      BASE_URL: https://wallet-find.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --include=dev
+      - name: Install isolated browser-test dependency
+        run: npm install --no-save --package-lock=false @playwright/test
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Wait for production API
+        run: node scripts/wait-for-site.mjs
+      - name: Run read-only production browser checks
+        run: npx playwright test --config=playwright.config.cjs
