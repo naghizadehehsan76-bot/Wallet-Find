@@ -5,8 +5,6 @@ import prisma from "../../config/prisma.js";
 import { runPrizePayoutProcessorOnce } from "./prize-payout.service.js";
 
 const shouldRun = Boolean(process.env.DATABASE_URL);
-const polygonNetworkId = "eip155:137";
-const polygonUsdt0AssetId = "eip155:137/erc20:0xc2132d05d31c914a87c6611c10748aeb04b58e8f";
 
 after(async () => {
   if (shouldRun) await prisma.$disconnect();
@@ -17,10 +15,13 @@ test("parallel payout processors credit one internal prize exactly once without 
   timeout: 120_000,
 }, async () => {
   const suffix = randomUUID();
+  const polygonNetworkId = "ci-polygon-" + suffix;
+  const polygonUsdt0AssetId = polygonNetworkId + "/usdt0";
   const userId = "ci-prize-payout-" + suffix;
   const ineligibleUserId = "ci-prize-ineligible-" + suffix;
   const oldEnabled = process.env.PRIZE_PAYOUTS_ENABLED;
   const oldReady = process.env.PRIZE_PAYOUTS_PRODUCTION_READY;
+  let contestId: string | null = null;
 
   try {
     await prisma.walletNetwork.upsert({
@@ -110,6 +111,7 @@ test("parallel payout processors credit one internal prize exactly once without 
       },
       select: { id: true, clues: { select: { id: true } } },
     });
+    contestId = contest.id;
     await prisma.submission.create({
       data: {
         userId,
@@ -166,5 +168,14 @@ test("parallel payout processors credit one internal prize exactly once without 
     else process.env.PRIZE_PAYOUTS_ENABLED = oldEnabled;
     if (oldReady === undefined) delete process.env.PRIZE_PAYOUTS_PRODUCTION_READY;
     else process.env.PRIZE_PAYOUTS_PRODUCTION_READY = oldReady;
+
+    // Remove every row created by this test, including its isolated network
+    // and asset records, so repeated CI runs cannot accumulate test data.
+    if (contestId) {
+      await prisma.contest.deleteMany({ where: { id: contestId } });
+    }
+    await prisma.user.deleteMany({ where: { id: { in: [userId, ineligibleUserId] } } });
+    await prisma.walletAsset.deleteMany({ where: { id: polygonUsdt0AssetId } });
+    await prisma.walletNetwork.deleteMany({ where: { id: polygonNetworkId } });
   }
 });
