@@ -18,6 +18,7 @@ test("parallel payout processors credit one internal prize exactly once without 
 }, async () => {
   const suffix = randomUUID();
   const userId = "ci-prize-payout-" + suffix;
+  const ineligibleUserId = "ci-prize-ineligible-" + suffix;
   const oldEnabled = process.env.PRIZE_PAYOUTS_ENABLED;
   const oldReady = process.env.PRIZE_PAYOUTS_PRODUCTION_READY;
 
@@ -73,6 +74,14 @@ test("parallel payout processors credit one internal prize exactly once without 
         passwordHash: "ci-only-not-a-real-password",
       },
     });
+    await prisma.user.create({
+      data: {
+        id: ineligibleUserId,
+        email: ineligibleUserId + "@example.invalid",
+        username: ineligibleUserId,
+        passwordHash: "ci-only-not-a-real-password",
+      },
+    });
     const contest = await prisma.contest.create({
       data: {
         title: "CI internal payout test",
@@ -83,8 +92,8 @@ test("parallel payout processors credit one internal prize exactly once without 
         prizePool: {
           create: {
             currency: "USDT0",
-            seededMicro: 100_000n,
-            awardedMicro: 100_000n,
+            seededMicro: 200_000n,
+            awardedMicro: 200_000n,
             testOnly: true,
             status: "PAYOUT_PENDING",
           },
@@ -111,12 +120,22 @@ test("parallel payout processors credit one internal prize exactly once without 
         prizeEligibleAtJoin: true,
       },
     });
+    const ineligibleAward = await prisma.prizeAward.create({
+      data: {
+        contestId: contest.id,
+        userId: ineligibleUserId,
+        username: ineligibleUserId,
+        rank: 1,
+        amountMicro: 100_000n,
+        status: "PENDING_PAYMENT",
+      },
+    });
     const award = await prisma.prizeAward.create({
       data: {
         contestId: contest.id,
         userId,
         username: userId,
-        rank: 1,
+        rank: 2,
         amountMicro: 100_000n,
         status: "PENDING_PAYMENT",
       },
@@ -130,7 +149,9 @@ test("parallel payout processors credit one internal prize exactly once without 
     await runPrizePayoutProcessorOnce();
 
     const finalAward = await prisma.prizeAward.findUnique({ where: { id: award.id } });
+    const finalIneligibleAward = await prisma.prizeAward.findUnique({ where: { id: ineligibleAward.id } });
     assert.equal(finalAward?.status, "PAID");
+    assert.equal(finalIneligibleAward?.status, "INELIGIBLE");
     assert.equal(await prisma.walletJournal.count({ where: { referenceKey: "prize-award:" + award.id } }), 1);
     assert.equal(await prisma.walletJournalPosting.count({
       where: {
