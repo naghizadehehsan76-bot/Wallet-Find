@@ -753,7 +753,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                 placeholder={
                   isSolved
                     ? (isPersian ? "پاسخ درست" : "Correct")
-                    : (isPersian ? "کلمه..." : "Type word...")
+                    : (isPersian ? "کلمه…" : "Type word...")
                 }
                 disabled={submitting || isSolved || (roundRemainingMs !== null && roundRemainingMs <= 0)}
                 readOnly={isSolved}
