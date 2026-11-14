@@ -138,3 +138,59 @@ test("cancels a round prize permanently when the shared fund is below 0.1 USDT0"
     });
   }
 });
+
+
+test("does not restore prize eligibility after the shared fund is topped up", {
+  skip: !shouldRun,
+  timeout: 60_000,
+}, async () => {
+  const suffix = randomUUID();
+  let contestId: string | undefined;
+  await prisma.globalPrizeFund.upsert({
+    where: { id: "global" },
+    update: {},
+    create: { id: "global" },
+  });
+  const beforeFund = await prisma.globalPrizeFund.findUniqueOrThrow({ where: { id: "global" } });
+
+  try {
+    await prisma.globalPrizeFund.update({
+      where: { id: "global" },
+      data: { balanceMicro: 150_000n },
+    });
+    const contest = await prisma.contest.create({
+      data: {
+        title: "CI invalidated prize funding " + suffix,
+        status: "FINISHED",
+        language: "en",
+        startsAt: new Date(Date.now() - 30 * 60_000),
+        endsAt: new Date(Date.now() - 15 * 60_000),
+        prizeFundingInvalidatedAt: new Date(Date.now() - 10 * 60_000),
+      },
+      select: { id: true },
+    });
+    contestId = contest.id;
+
+    const result = await settlePrizePool(contest.id, null);
+    const pool = await prisma.prizePool.findUniqueOrThrow({ where: { contestId: contest.id } });
+    assert.equal(result.status, "CANCELLED_INSUFFICIENT_FUNDS");
+    assert.equal(pool.status, "SETTLED");
+    assert.equal(pool.awardedMicro, 0n);
+    assert.equal(await prisma.prizeAward.count({ where: { contestId: contest.id } }), 0);
+  } finally {
+    if (contestId) {
+      await prisma.auditLog.deleteMany({
+        where: {
+          entity: "PrizePool",
+          entityId: contestId,
+          action: "PRIZE_POOL_CANCELLED_INSUFFICIENT_GLOBAL_FUNDS",
+        },
+      });
+      await prisma.contest.deleteMany({ where: { id: contestId } });
+    }
+    await prisma.globalPrizeFund.update({
+      where: { id: "global" },
+      data: { balanceMicro: beforeFund.balanceMicro },
+    });
+  }
+});
