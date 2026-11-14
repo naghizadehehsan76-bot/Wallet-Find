@@ -17,6 +17,7 @@ import { QRCodeSVG } from "qrcode.react";
 type Page = "home" | "auth" | "competition" | "key" | "leaderboard" | "profile" | "wallet";
 type Props = { onNavigate: (page: Page) => void };
 type WalletView = "overview" | "deposit" | "withdraw" | "history";
+const displayAssetSymbol = (symbol: string) => symbol.toUpperCase() === "USDT0" ? "USDT" : symbol;
 function createIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
@@ -24,8 +25,7 @@ function createIdempotencyKey(): string {
 
 function AssetLogo({ symbol }: { symbol: string }) {
   const code = symbol.toUpperCase();
-  const supported = new Set(["ETH", "BNB", "USDT", "USDT0", "POL"]);
-const displayAssetSymbol = (symbol: string) => symbol.toUpperCase() === "USDT0" ? "USDT" : symbol;
+   const supported = new Set(["ETH", "BNB", "USDT", "USDT0", "POL"]);
   if (!supported.has(code)) return <span className="wallet-asset-symbol" aria-hidden="true">{code.slice(0, 4)}</span>;
   return (
     <span className={`wallet-asset-symbol wallet-asset-symbol--${code.toLowerCase()}`} aria-hidden="true">
