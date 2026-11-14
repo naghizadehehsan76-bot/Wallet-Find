@@ -178,7 +178,7 @@ test("parallel payout processors credit one internal prize exactly once without 
     }
     const testUserIds = [userId, ineligibleUserId];
     await prisma.walletJournalPosting.deleteMany({
-      where: { journal: { userId: { in: testUserIds } } },
+      where: { journal: { is: { userId: { in: testUserIds } } } },
     });
     await prisma.walletJournal.deleteMany({ where: { userId: { in: testUserIds } } });
     await prisma.auditLog.deleteMany({ where: { userId: { in: testUserIds } } });
