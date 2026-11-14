@@ -52,7 +52,6 @@ export function parseAssetUnits(value: string, decimals: number): bigint {
  * ledger reversals and reconciliation differences.
  */
 export function formatAssetUnits(amount: bigint, decimals: number): string {
-  const scale = scaleFor(decimals);
   const negative = amount < 0n;
   const absolute = negative ? -amount : amount;
 
