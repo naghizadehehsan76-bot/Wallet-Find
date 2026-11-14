@@ -36,10 +36,8 @@ export async function runPrizeSettlementProcessorOnce() {
 
   for (const round of finishedRounds) {
     try {
-      const result = await settlePrizePool(round.id, null);
-      if (result.status !== "WAITING_FOR_GLOBAL_FUNDS") {
-        await returnSettledPrizePoolUnusedToGlobal(round.id);
-      }
+      await settlePrizePool(round.id, null);
+      await returnSettledPrizePoolUnusedToGlobal(round.id);
     } catch (error) {
       console.error("Finished round prize settlement/rollover failed", { contestId: round.id, error });
     }
