@@ -15,12 +15,14 @@ test("parallel payout processors credit one internal prize exactly once without 
   timeout: 120_000,
 }, async () => {
   const suffix = randomUUID();
-  const polygonNetworkId = "ci-polygon-" + suffix;
-  const polygonUsdt0AssetId = polygonNetworkId + "/usdt0";
+  const polygonNetworkId = "eip155:137";
+  const polygonUsdt0AssetId = "eip155:137/erc20:0xc2132d05d31c914a87c6611c10748aeb04b58e8f";
   const userId = "ci-prize-payout-" + suffix;
   const ineligibleUserId = "ci-prize-ineligible-" + suffix;
   const oldEnabled = process.env.PRIZE_PAYOUTS_ENABLED;
   const oldReady = process.env.PRIZE_PAYOUTS_PRODUCTION_READY;
+  const networkBefore = await prisma.walletNetwork.findUnique({ where: { id: polygonNetworkId } });
+  const assetBefore = await prisma.walletAsset.findUnique({ where: { id: polygonUsdt0AssetId } });
   let contestId: string | null = null;
 
   try {
@@ -179,8 +181,32 @@ test("parallel payout processors credit one internal prize exactly once without 
       where: { journal: { userId: { in: testUserIds } } },
     });
     await prisma.walletJournal.deleteMany({ where: { userId: { in: testUserIds } } });
+    await prisma.auditLog.deleteMany({ where: { userId: { in: testUserIds } } });
     await prisma.user.deleteMany({ where: { id: { in: testUserIds } } });
-    await prisma.walletAsset.deleteMany({ where: { id: polygonUsdt0AssetId } });
-    await prisma.walletNetwork.deleteMany({ where: { id: polygonNetworkId } });
+
+    // Restore shared Polygon configuration exactly as it was before the test.
+    // If the test had to create either row, remove only that test-created row.
+    if (assetBefore) {
+      await prisma.walletAsset.update({
+        where: { id: polygonUsdt0AssetId },
+        data: {
+          verificationStatus: assetBefore.verificationStatus,
+          symbol: assetBefore.symbol,
+          decimals: assetBefore.decimals,
+          assetType: assetBefore.assetType,
+          contractAddress: assetBefore.contractAddress,
+        },
+      });
+    } else {
+      await prisma.walletAsset.deleteMany({ where: { id: polygonUsdt0AssetId } });
+    }
+    if (networkBefore) {
+      await prisma.walletNetwork.update({
+        where: { id: polygonNetworkId },
+        data: { isEnabled: networkBefore.isEnabled },
+      });
+    } else {
+      await prisma.walletNetwork.deleteMany({ where: { id: polygonNetworkId } });
+    }
   }
 });
