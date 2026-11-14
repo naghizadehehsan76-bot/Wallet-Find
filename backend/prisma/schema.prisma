@@ -232,7 +232,7 @@ model Submission {
 
   answer    String
   isCorrect Boolean @default(false)
-  // Snapshotted on the participant's first accepted answer. Later funding cannot grant retroactive eligibility.
+  // Snapshotted on first participation; a round-wide funding shortfall can permanently clear eligibility.
   prizeEligibleAtJoin Boolean @default(false)
 
   submittedAt    DateTime @default(now())
