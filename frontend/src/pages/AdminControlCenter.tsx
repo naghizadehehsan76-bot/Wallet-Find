@@ -1260,7 +1260,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                       return (
                         <article className="admin-setting-row" key={entry.id}>
                           <div>
-                            <strong>{Number(entry.amount).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT0 · {entry.username} · {fa ? "رتبه " : "Rank "}{entry.rank}</strong>
+                            <strong>{Number(entry.amount).toLocaleString(fa ? "fa-IR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT · {entry.username} · {fa ? "رتبه " : "Rank "}{entry.rank}</strong>
                             <small>{entry.challengeTitle} · {isChallengeLanguage(entry.language) ? getChallengeLanguageName(entry.language) : entry.language} · {fa ? "شناسه چالش: " : "Challenge ID: "}{entry.contestId}</small>
                             <small>{fa ? "ثبت جایزه: " : "Award created: "}{new Date(entry.awardCreatedAt).toLocaleString(fa ? "fa-IR" : "en-GB")}{entry.creditedAt ? " · " + (fa ? "اعتباردهی: " : "Credited: ") + new Date(entry.creditedAt).toLocaleString(fa ? "fa-IR" : "en-GB") : ""}</small>
                             <small>{fa ? "وضعیت: " : "Status: "}{statusLabel} · {entry.paymentMode === "INTERNAL_WALLET_CREDIT" ? (fa ? "اعتبار داخلی کیف پول" : "Internal wallet credit") : entry.paymentMode === "ON_CHAIN" ? (fa ? "تراکنش بلاک‌چینی" : "On-chain transaction") : (fa ? "هنوز اعتباردهی نشده" : "Not credited")}</small>
@@ -1653,7 +1653,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                   <h2>{fa ? "تخصیص به صندوق عمومی و رزرو چالش‌ها" : "Allocate to global prize fund and challenge reserves"}</h2>
                   <p>{fa ? "مبلغ را از موجودی آزاد خزانه به صندوق عمومی منتقل می‌کند؛ سیستم ممکن است آن را برای چالش فعال رزرو کند." : "Moves funds from the treasury's unallocated balance into the global prize fund; the scheduler may reserve them for an active challenge."}</p>
                 </div>
-                <span>{fa ? "USDT0" : "USDT0"}</span>
+                <span>USDT</span>
               </div>
               <div className="admin-wallet-allocation-card__balances">
                 <div>
