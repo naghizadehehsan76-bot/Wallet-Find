@@ -2,13 +2,8 @@ import prisma from "../../config/prisma.js";
 import { returnSettledPrizePoolUnusedToGlobal, settlePrizePool } from "./prize-pool.service.js";
 import { runWithSystemJobLease } from "../system/system-job-lease.service.js";
 
-export async function runPrizeSettlementProcessorOnce() {
-  const activeRounds = await prisma.contest.count({ where: { status: "ACTIVE" } });
-
-  // Also monitor active rounds between user submissions. If the shared fund
-  // falls below 0.1 USDT0 at any processor check, those rounds are permanently
-  // marked ineligible even if the fund is topped up later.
-  await prisma.$transaction(async (tx) => {
+export async function invalidateActivePrizeRoundsIfUnderfunded() {
+  return prisma.$transaction(async (tx) => {
     await tx.$queryRawUnsafe(
       "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
       "global-prize-fund-settlement",
@@ -19,7 +14,7 @@ export async function runPrizeSettlementProcessorOnce() {
     });
     if (BigInt(fund?.balanceMicro ?? 0n) < 100_000n) {
       const invalidatedAt = new Date();
-      await tx.contest.updateMany({
+      return tx.contest.updateMany({
         where: {
           status: "ACTIVE",
           prizeFundingInvalidatedAt: null,
@@ -28,7 +23,16 @@ export async function runPrizeSettlementProcessorOnce() {
         data: { prizeFundingInvalidatedAt: invalidatedAt },
       });
     }
+    return { count: 0 };
   }, { isolationLevel: "Serializable", maxWait: 10_000, timeout: 20_000 });
+}
+
+export async function runPrizeSettlementProcessorOnce() {
+  const activeRounds = await prisma.contest.count({ where: { status: "ACTIVE" } });
+
+  // Also monitor active rounds between user submissions. Any observed
+  // shortfall permanently invalidates those rounds, even after a later top-up.
+  await invalidateActivePrizeRoundsIfUnderfunded();
 
   // Process both newly finished rounds and older finalized USDT0 rounds
   // whose unpaid remainder has not yet been returned to the global fund.
