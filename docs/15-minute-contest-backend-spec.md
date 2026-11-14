@@ -16,7 +16,7 @@ Define the backend behavior for a shared, server-timed, 12-answer contest round.
 - No answer is accepted at or after `endsAt`. Incomplete participants receive no prize; previously accepted correct answers remain saved.
 - Contest scheduling, activation, expiry, answer validation, and rankings operate independently of prize-fund and payment services.
 - The global prize fund may increase only from real deposits verified on-chain and reconciled by the deposit processor. No simulated daily contribution, manual test funding, or virtual credit is permitted.
-- At the start of each round, up to 1.000000 USDT is reserved from the confirmed global fund exactly once. If less than 1 USDT is available, only the available balance is reserved. If the available balance is zero, the round prize is zero.
+- Each contest uses a fixed 0.100000 USDT0 prize-calculation budget. At settlement, the system debits only the sum of payable awards from the verified shared global fund; it does not pre-reserve a separate balance at round start. If the fund cannot cover the payable awards, settlement remains waiting and no unfunded awards are created.
 - Real prize transfers are processed by a separate feature-gated worker. The worker checks treasury reconciliation, all outstanding round reservations, USDT0 balance, POL gas balance, the parent Turnkey signer address, the canonical transaction receipt, the exact Transfer event, and configured finality before marking an award paid.
 - A winner's wallet is credited by the existing Polygon deposit scanner after the prize transfer is detected and confirmed. Prize transfers are exempt from the ordinary minimum-deposit threshold.
 - A broadcast whose outcome is uncertain is never retried automatically. It is marked for manual review to prevent duplicate payments.
@@ -55,10 +55,10 @@ For each authenticated submission:
 
 ## 6. Prize calculation and real-fund safeguards
 
-- The maximum per-round allocation is 1.000000 USDT from the verified global prize-fund balance.
+- The fixed prize-calculation budget is 0.100000 USDT0 per contest. The total debit is the sum of payable awards calculated from this budget and can never exceed 0.100000 USDT0; unused percentage shares are not charged to the global fund.
 - Participant awards are 50% for first, 25% for second, and 12.5% for third. The remaining 12.5% is distributed among all finishers ranked fourth and below in proportion to inverse server-measured completion time (weight = 1 / elapsed time), so faster finishers receive a larger share. Exact equal completion times receive equal weights. If there are no rank-four-or-below finishers, this 12.5% remains unused and does not roll over. Missing podium shares also remain unused.
-- The reservation must be atomic and idempotent. Use integer micro-USDT units and database uniqueness constraints.
-- If the global fund has less than 1 USDT, reserve only the available amount. If it has no confirmed funds, the round allocation and prize are zero.
+- The settlement debit must be atomic and idempotent. Use integer micro-USDT0 units and database uniqueness constraints.
+- If the global fund cannot cover the calculated payable awards, leave settlement waiting; never create an unfunded award. If no participant earns a payable award, debit zero.
 - Ranking and contest completion must never depend on successful prize allocation, settlement, or transfer.
 - The system may store a pending award instruction after ranking, but no user wallet balance is credited and no award is marked paid until the actual on-chain transfer is confirmed and reconciled.
 
@@ -67,7 +67,7 @@ For each authenticated submission:
 Recommended lifecycle: `SCHEDULED -> ACTIVE -> FINISHED`.
 
 - Prepare the next round before its start boundary with 12 complete, ordered clues.
-- At `startsAt`, initialize that round's fixed 1 USDT allocation from the global fund exactly once.
+- At settlement, calculate awards using the fixed 0.1 USDT0 budget and debit only the total payable awards from the shared global fund exactly once.
 - At `endsAt`, submissions are rejected immediately. The scheduler marks the round finished, snapshots ranking, computes pending awards, and lets the payout worker process them independently.
 - Simulated daily funding is disabled. The global fund can increase only through an administrator allocation backed by a reconciled real Polygon treasury balance.
 - No unused round balance is rolled into a later round.
@@ -106,7 +106,7 @@ Recommended lifecycle: `SCHEDULED -> ACTIVE -> FINISHED`.
 10. The fixed 50% / 25% / 12.5% podium allocation plus the inverse-completion-time 12.5% tail for rank four and below never exceeds the round allocation.
 11. Exact ties spanning podium positions split the combined occupied podium shares equally.
 12. No simulated daily funding is recorded or backfilled.
-13. Each active round reserves up to 1 USDT from the verified global fund exactly once.
+13. Each contest calculates awards from the fixed 0.1 USDT0 budget and debits only the total payable awards from the verified global fund exactly once.
 14. A round with no completed participants creates no payout and leaves its allocation unused; nothing rolls over.
 15. Ranks four and lower share the final 12.5% in proportion to inverse completion time; faster finishers receive more, and equal times receive equal weights.
 16. Payouts are sent only from the Polygon prize treasury to the winner's verified Turnkey wallet address.
