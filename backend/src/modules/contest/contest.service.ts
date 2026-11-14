@@ -362,6 +362,7 @@ export async function submitAnswer(
         language: true,
         startsAt: true,
         endsAt: true,
+        prizeFundingInvalidatedAt: true,
       },
     });
   
@@ -431,27 +432,43 @@ export async function submitAnswer(
       },
     });
   
-    // Eligibility is fixed on the user's first accepted submission for this round.
-    // Serialize the balance check with settlement and admin funding; later top-ups
-    // cannot make an existing participant eligible retroactively.
+    // The first submission snapshots eligibility, but any observed funding
+    // shortfall during an active round permanently invalidates the whole round.
+    // The same global lock serializes this check with prize settlement/debits.
     const priorParticipation = await tx.submission.findFirst({
       where: { userId, contestId },
       select: { id: true },
     });
-    let prizeEligibleAtJoin = false;
-    if (!priorParticipation) {
-      await tx.$queryRawUnsafe(
-        "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
-        "global-prize-fund-settlement",
-      );
-      const globalFund = await tx.globalPrizeFund.findUnique({
+    await tx.$queryRawUnsafe(
+      "SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtext($1))) AS advisory_lock",
+      "global-prize-fund-settlement",
+    );
+    const [globalFund, currentContest] = await Promise.all([
+      tx.globalPrizeFund.findUnique({
         where: { id: "global" },
         select: { balanceMicro: true },
+      }),
+      tx.contest.findUnique({
+        where: { id: contestId },
+        select: { prizeFundingInvalidatedAt: true },
+      }),
+    ]);
+    const availablePrizeFunds = BigInt(globalFund?.balanceMicro ?? 0n);
+    let prizeFundingInvalidated = Boolean(currentContest?.prizeFundingInvalidatedAt);
+    if (!prizeFundingInvalidated && availablePrizeFunds < 100_000n) {
+      await tx.contest.update({
+        where: { id: contestId },
+        data: { prizeFundingInvalidatedAt: now },
       });
-      // A participant is prize-eligible only when the shared fund can cover
-      // the full fixed 0.1 USDT0 budget at their first accepted submission.
-      prizeEligibleAtJoin = BigInt(globalFund?.balanceMicro ?? 0n) >= 100_000n;
+      await tx.submission.updateMany({
+        where: { contestId, prizeEligibleAtJoin: true },
+        data: { prizeEligibleAtJoin: false },
+      });
+      prizeFundingInvalidated = true;
     }
+    const prizeEligibleAtJoin = !priorParticipation
+      && !prizeFundingInvalidated
+      && availablePrizeFunds >= 100_000n;
 
     const solvedClueIds = new Set(
       correctSubmissions.map((submission) => submission.clueId),
