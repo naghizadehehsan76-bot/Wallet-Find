@@ -26,8 +26,8 @@ export default function PrizePoolPanel({ contestId }: Props) {
       <h2 className="page-title" style={{ marginTop: 8 }}>{isFa ? "موجودی واقعی جوایز" : "Real prize funds"}</h2>
       <p className="hero-description">
         {isFa
-          ? "مبنای محاسبهٔ جوایز هر چالش ۰٫۱ USDT0 است و در شروع چالش رزرو نمی‌شود. پس از پایان چالش، فقط مجموع جوایز قابل‌پرداخت از صندوق جهانی مشترک کسر می‌شود؛ در صورت ناکافی‌بودن موجودی، تسویه منتظر می‌ماند."
-          : "Each challenge uses 0.1 USDT0 as its prize-calculation basis; it is not reserved when the challenge starts. After the challenge ends, only payable awards are debited from the shared global fund. Settlement waits if the fund balance is insufficient."}
+          ? "مبنای محاسبهٔ جوایز هر چالش ۰٫۱ USDT است و در شروع چالش رزرو نمی‌شود. پس از پایان چالش، فقط مجموع جوایز قابل‌پرداخت از صندوق جهانی مشترک کسر می‌شود؛ در صورت ناکافی‌بودن موجودی، تسویه منتظر می‌ماند."
+          : "Each challenge uses 0.1 USDT as its prize-calculation basis; it is not reserved when the challenge starts. After the challenge ends, only payable awards are debited from the shared global fund. Settlement waits if the fund balance is insufficient."}
       </p>
       {data && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, margin: "16px 0" }}>
