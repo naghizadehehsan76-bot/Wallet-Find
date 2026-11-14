@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useI18n } from "../i18n";
 import { getPrizePool, type PrizePoolResult } from "../services/api";
 
 type Props = { contestId: string; contestStatus: string };
@@ -6,7 +7,8 @@ type Props = { contestId: string; contestStatus: string };
 export default function PrizePoolPanel({ contestId }: Props) {
   const [data, setData] = useState<PrizePoolResult | null>(null);
   const [error, setError] = useState("");
-  const isFa = typeof document !== "undefined" && document.documentElement.dir === "rtl";
+  const { language } = useI18n();
+  const isFa = language === "fa";
 
   useEffect(() => {
     let cancelled = false;
