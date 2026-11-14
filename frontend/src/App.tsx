@@ -143,10 +143,8 @@ function HomePage({
       secondaryLabel: homeCopy.totalSiteUsers ?? (isPersian ? "کل کاربران سایت" : "Total site users"),
     },
     {
-      value: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.totalPool)} USDT` : "—",
+      value: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.totalPool)} USDT0` : "—",
       label: homeCopy.globalPrizeFund ?? (isPersian ? "موجودی صندوق کلی جایزه" : "Available global prize fund"),
-      secondaryValue: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.currentRoundPool)} USDT` : "—",
-      secondaryLabel: homeCopy.currentRoundPool ?? (isPersian ? "تخصیص دور جاری" : "Allocated to this round"),
     },
     {
       value: prizePoolStats ? `${formatPrizeAmount(prizePoolStats.totalPrizesAwarded)} USDT` : "—",
