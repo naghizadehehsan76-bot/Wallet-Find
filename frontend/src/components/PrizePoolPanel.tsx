@@ -24,13 +24,13 @@ export default function PrizePoolPanel({ contestId }: Props) {
       <h2 className="page-title" style={{ marginTop: 8 }}>{isFa ? "موجودی واقعی جوایز" : "Real prize funds"}</h2>
       <p className="hero-description">
         {isFa
-          ? "مبنای محاسبهٔ جوایز هر مسابقه ۰٫۱ USDT0 است. مجموع جوایز قابل‌پرداخت از صندوق جهانی واقعی و تأییدشده کسر می‌شود؛ اگر موجودی کافی نباشد، تسویه تا تأمین موجودی لازم انجام نمی‌شود."
-          : "The prize calculation budget is fixed at 0.1 USDT0 per contest. Only the total payable awards are debited from the verified global fund; settlement waits if the available balance is insufficient."}
+          ? "مبنای محاسبهٔ جوایز هر چالش ۰٫۱ USDT0 است و در شروع چالش رزرو نمی‌شود. پس از پایان چالش، فقط مجموع جوایز قابل‌پرداخت از صندوق جهانی مشترک کسر می‌شود؛ در صورت ناکافی‌بودن موجودی، تسویه منتظر می‌ماند."
+          : "Each challenge uses 0.1 USDT0 as its prize-calculation basis; it is not reserved when the challenge starts. After the challenge ends, only payable awards are debited from the shared global fund. Settlement waits if the fund balance is insufficient."}
       </p>
       {data && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, margin: "16px 0" }}>
-          <div className="stat-card"><strong>{data.pool.total} USDT</strong><span>{isFa ? "موجودی اختصاص‌یافته به این دور" : "Allocated to this round"}</span></div>
-          <div className="stat-card"><strong>{data.pool.available} USDT</strong><span>{isFa ? "موجودی قابل‌استفاده" : "Available"}</span></div>
+          <div className="stat-card"><strong>{data.pool.awarded} USDT0</strong><span>{isFa ? "مجموع جوایز ثبت‌شده برای این چالش" : "Awards recorded for this challenge"}</span></div>
+          <div className="stat-card"><strong>{data.pool.status}</strong><span>{isFa ? "وضعیت تسویه" : "Settlement status"}</span></div>
         </div>
       )}
       {error && <p className="inline-feedback">{error}</p>}
