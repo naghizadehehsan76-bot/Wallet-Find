@@ -3,6 +3,7 @@ import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js
 import { ensureMvpActiveContest, ensureScheduledMvpContest } from "./mvp-contest-seed.service.js";
 import { CHALLENGE_LANGUAGES } from "./supported-languages.js";
 import { runWithSystemJobLease } from "../system/system-job-lease.service.js";
+import { cleanupExpiredEmptyChallenges } from "./empty-contest-cleanup.service.js";
 
 /**
  * The scheduler manages round activation/expiry only. Clues are no longer
@@ -100,9 +101,19 @@ export async function runContestScheduler(now = new Date()) {
     languageResults[language] = { activeReady, scheduled: scheduledRound };
   }
 
+  let emptyChallengeCleanup = { deletedContests: 0, deletedClues: 0 };
+  try {
+    // Keep an empty round only while it is needed for live participation.
+    // The cleanup waits one minute after expiry to allow final submissions to commit.
+    emptyChallengeCleanup = await cleanupExpiredEmptyChallenges(now);
+  } catch (error) {
+    console.error("Expired empty challenge cleanup failed; it will retry on the next scheduler tick.", error);
+  }
+
   return {
     scheduledChecked: scheduled.length,
     languageResults,
+    emptyChallengeCleanup,
     now: now.toISOString(),
   };
 }
