@@ -79,6 +79,15 @@ export async function runContestScheduler(now = new Date()) {
     });
   }
 
+  let emptyChallengeCleanup = { deletedContests: 0, deletedClues: 0 };
+  try {
+    // Keep an empty round only while it is needed for live participation.
+    // The cleanup waits one minute after expiry to allow final submissions to commit.
+    emptyChallengeCleanup = await cleanupExpiredEmptyChallenges(now);
+  } catch (error) {
+    console.error("Expired empty challenge cleanup failed; it will retry on the next scheduler tick.", error);
+  }
+
   const languageResults: Record<string, { activeReady: boolean; scheduled: unknown }> = {};
   for (const language of CHALLENGE_LANGUAGES) {
     let activeReady = false;
@@ -99,15 +108,6 @@ export async function runContestScheduler(now = new Date()) {
       };
     }
     languageResults[language] = { activeReady, scheduled: scheduledRound };
-  }
-
-  let emptyChallengeCleanup = { deletedContests: 0, deletedClues: 0 };
-  try {
-    // Keep an empty round only while it is needed for live participation.
-    // The cleanup waits one minute after expiry to allow final submissions to commit.
-    emptyChallengeCleanup = await cleanupExpiredEmptyChallenges(now);
-  } catch (error) {
-    console.error("Expired empty challenge cleanup failed; it will retry on the next scheduler tick.", error);
   }
 
   return {
