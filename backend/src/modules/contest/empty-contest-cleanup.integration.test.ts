@@ -8,8 +8,13 @@ const shouldRun = (() => {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) return false;
   try {
-    const databaseName = decodeURIComponent(new URL(connectionString).pathname.replace(/^\//, ""));
-    return /(?:^|[_-])(ci|test|testing|integration)(?:$|[_-])/i.test(databaseName);
+    const parsedUrl = new URL(connectionString);
+    const databaseName = decodeURIComponent(parsedUrl.pathname.replace(/^\//, ""));
+    const explicitlyNamedTestDatabase = /(?:^|[_-])(ci|test|testing|integration)(?:$|[_-])/i.test(databaseName);
+    const isolatedGitHubActionsDatabase = process.env.GITHUB_ACTIONS === "true"
+      && ["localhost", "127.0.0.1", "postgres"].includes(parsedUrl.hostname)
+      && !/(?:^|[_-])(prod|production)(?:$|[_-])/i.test(databaseName);
+    return explicitlyNamedTestDatabase || isolatedGitHubActionsDatabase;
   } catch {
     return false;
   }
