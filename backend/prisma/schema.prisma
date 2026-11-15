@@ -528,6 +528,7 @@ model PrizeAward {
   @@unique([contestId, userId])
   @@index([contestId, rank])
   @@index([status, createdAt])
+  @@index([userId, status])
   @@map("prize_awards")
 }
 
