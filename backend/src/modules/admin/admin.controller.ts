@@ -453,9 +453,7 @@ export async function getContestSourceVisitReportHandler(
   }
 }
 
-const ADMIN_HISTORY_PAGE_SIZE = 25;
-const ADMIN_HISTORY_MAX_PAGE_SIZE = 50;
-const ARCHIVABLE_CONTEST_STATUSES = ["FINISHED", "CANCELLED"] as const;
+const ADMIN_HISTORY_PAGE_SIZE = 20;
 
 export async function getAdminChallengeHistoryHandler(
   req: AuthenticatedRequest,
@@ -463,46 +461,37 @@ export async function getAdminChallengeHistoryHandler(
 ) {
   try {
     const requestedPage = typeof req.query.page === "string" ? Number(req.query.page) : 1;
-    const requestedPageSize = typeof req.query.pageSize === "string" ? Number(req.query.pageSize) : ADMIN_HISTORY_PAGE_SIZE;
-    const pageSize = Number.isFinite(requestedPageSize)
-      ? Math.max(1, Math.min(ADMIN_HISTORY_MAX_PAGE_SIZE, Math.floor(requestedPageSize)))
-      : ADMIN_HISTORY_PAGE_SIZE;
-    const archived = req.query.archived === "true";
-    const baseWhere = {
-      startsAt: { not: null },
-      status: { in: [...ARCHIVABLE_CONTEST_STATUSES] },
-    };
+    const safeRequestedPage = Number.isFinite(requestedPage)
+      ? Math.max(1, Math.floor(requestedPage))
+      : 1;
     const where = {
-      ...baseWhere,
-      archivedAt: archived ? { not: null } : null,
+      startsAt: { not: null },
+      status: { in: ["ACTIVE", "FINISHED"] as const },
+      submissions: { some: {} },
     };
 
-    const [total, activeCount, archivedCount, scheduleAnchor] = await Promise.all([
-      prisma.contest.count({ where }),
-      prisma.contest.count({ where: { ...baseWhere, archivedAt: null } }),
-      prisma.contest.count({ where: { ...baseWhere, archivedAt: { not: null } } }),
+    const total = await prisma.contest.count({ where });
+    const pageCount = Math.max(1, Math.ceil(total / ADMIN_HISTORY_PAGE_SIZE));
+    const page = Math.min(safeRequestedPage, pageCount);
+
+    const [contests, scheduleAnchor] = await Promise.all([
+      prisma.contest.findMany({
+        where,
+        orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }],
+        skip: (page - 1) * ADMIN_HISTORY_PAGE_SIZE,
+        take: ADMIN_HISTORY_PAGE_SIZE,
+        select: {
+          id: true,
+          title: true,
+          language: true,
+          status: true,
+          startsAt: true,
+          endsAt: true,
+          _count: { select: { submissions: true, clues: true } },
+        },
+      }),
       getChallengeScheduleAnchor(),
     ]);
-    const pageCount = Math.max(1, Math.ceil(total / pageSize));
-    const page = Number.isFinite(requestedPage)
-      ? Math.min(pageCount, Math.max(1, Math.floor(requestedPage)))
-      : 1;
-    const contests = await prisma.contest.findMany({
-      where,
-      orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }],
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-      select: {
-        id: true,
-        title: true,
-        language: true,
-        status: true,
-        startsAt: true,
-        endsAt: true,
-        archivedAt: true,
-        _count: { select: { submissions: true, clues: true } },
-      },
-    });
 
     return res.json({
       success: true,
@@ -515,16 +504,13 @@ export async function getAdminChallengeHistoryHandler(
           challengeNumber: challengeNumberAt(contest.startsAt, scheduleAnchor),
           startsAt: contest.startsAt?.toISOString() ?? null,
           endsAt: contest.endsAt?.toISOString() ?? null,
-          archivedAt: contest.archivedAt?.toISOString() ?? null,
           submissionCount: contest._count.submissions,
           clueCount: contest._count.clues,
         })),
         page,
-        pageSize,
+        pageSize: ADMIN_HISTORY_PAGE_SIZE,
         pageCount,
         total,
-        activeCount,
-        archivedCount,
       },
     });
   } catch (error) {
@@ -532,58 +518,3 @@ export async function getAdminChallengeHistoryHandler(
     return res.status(503).json({ success: false, error: "ADMIN_CHALLENGE_HISTORY_UNAVAILABLE" });
   }
 }
-
-export async function updateAdminChallengeHistoryHandler(
-  req: AuthenticatedRequest,
-  res: Response,
-) {
-  const action = req.body?.action;
-  const archiveAll = req.body?.all === true;
-  const ids: unknown = req.body?.ids;
-  if (
-    (action !== "ARCHIVE" && action !== "RESTORE") ||
-    (archiveAll && (action !== "ARCHIVE" || ids !== undefined)) ||
-    (!archiveAll && (!Array.isArray(ids) || ids.length === 0 || ids.length > 100 ||
-      !ids.every((id: unknown) => typeof id === "string" && id.length > 0 && id.length <= 128)))
-  ) {
-    return res.status(400).json({ success: false, error: "INVALID_CHALLENGE_HISTORY_ACTION" });
-  }
-
-  const now = new Date();
-  const where = {
-    ...(archiveAll ? {} : { id: { in: ids as string[] } }),
-    startsAt: { not: null },
-    status: { in: [...ARCHIVABLE_CONTEST_STATUSES] },
-    archivedAt: action === "ARCHIVE" ? null : { not: null },
-  };
-
-  try {
-    const changedCount = await prisma.$transaction(async (tx) => {
-      const result = await tx.contest.updateMany({
-        where,
-        data: { archivedAt: action === "ARCHIVE" ? now : null },
-      });
-      if (result.count > 0) {
-        await tx.auditLog.create({
-          data: {
-            userId: req.user?.userId ?? null,
-            action: action === "ARCHIVE" ? "ADMIN_ARCHIVE_CHALLENGE_HISTORY" : "ADMIN_RESTORE_CHALLENGE_HISTORY",
-            entity: "Contest",
-            metadata: {
-              archiveAll,
-              requestedIds: archiveAll ? [] : ids as string[],
-              affectedCount: result.count,
-            },
-          },
-        });
-      }
-      return result.count;
-    }, { maxWait: 5000, timeout: 15000 });
-
-    return res.json({ success: true, data: { changedCount, action } });
-  } catch (error) {
-    console.error("Unable to update admin challenge history", error);
-    return res.status(503).json({ success: false, error: "ADMIN_CHALLENGE_HISTORY_UPDATE_FAILED" });
-  }
-}
-
