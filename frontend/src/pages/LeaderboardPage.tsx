@@ -42,29 +42,51 @@ function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
   const copy = getPageCopy(language, "leaderboardPage");
   const [rounds, setRounds] = useState<LeaderboardRound[]>([]);
   const [selectedRoundId, setSelectedRoundId] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageInfo, setPageInfo] = useState({ page: 1, pageSize: 20, pageCount: 1, total: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
-    getLeaderboardHistory()
-      .then((result) => {
-        if (cancelled) return;
-        const newestFirst = [...result.rounds]
-          .filter((round) => round.entries.length > 0)
-          .sort((a, b) => (b.startsAt ?? "").localeCompare(a.startsAt ?? ""));
-        setRounds(newestFirst);
-        setSelectedRoundId((current) =>
-          newestFirst.some((round) => round.id === current) ? current : newestFirst[0]?.id || "",
-        );
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : (isPersian ? "خطا در دریافت رتبه‌بندی" : "Unable to load leaderboard."));
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [isPersian]);
+    const timer = window.setTimeout(() => {
+      getLeaderboardHistory(page)
+        .then((result) => {
+          if (cancelled) return;
+          const currentPageRounds = result.rounds;
+          setRounds(currentPageRounds);
+          setPageInfo({
+            page: result.page,
+            pageSize: result.pageSize,
+            pageCount: result.pageCount,
+            total: result.total,
+          });
+          setSelectedRoundId((current) =>
+            currentPageRounds.some((round) => round.id === current)
+              ? current
+              : currentPageRounds[0]?.id || "",
+          );
+          if (result.page !== page) setPage(result.page);
+        })
+        .catch((err: unknown) => {
+          if (cancelled) return;
+          setError(err instanceof Error ? err.message : "Unable to load leaderboard.");
+        })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [page]);
+
+  function navigateHistoryPage(nextPage: number) {
+    if (loading || nextPage < 1 || nextPage > pageInfo.pageCount || nextPage === page) return;
+    setError("");
+    setLoading(true);
+    setPage(nextPage);
+  }
 
   const selectedRound = useMemo(
     () => rounds.find((round) => round.id === selectedRoundId) ?? null,
@@ -86,6 +108,22 @@ function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
             <div className="date">{copy.subtitle ?? (isPersian ? "نتایج هر دور و مجموع جوایز ثبت‌شده" : "Round results and total recorded prizes")}</div>
           </div>
         </section>
+
+        {pageInfo.pageCount > 1 && (
+          <nav className="leaderboard-history-pagination" aria-label={isPersian ? "صفحه‌بندی تاریخچه" : "Leaderboard history pagination"}>
+            <button type="button" onClick={() => navigateHistoryPage(page - 1)} disabled={loading || page <= 1}>
+              {copy.previous ?? (isPersian ? "صفحهٔ قبل" : "Previous")}
+            </button>
+            <span>
+              {isPersian
+                ? `صفحهٔ ${pageInfo.page.toLocaleString("fa-IR")} از ${pageInfo.pageCount.toLocaleString("fa-IR")} · ${pageInfo.total.toLocaleString("fa-IR")} چالش دارای شرکت‌کننده`
+                : `Page ${pageInfo.page.toLocaleString("en-US")} of ${pageInfo.pageCount.toLocaleString("en-US")} · ${pageInfo.total.toLocaleString("en-US")} challenges with participants`}
+            </span>
+            <button type="button" onClick={() => navigateHistoryPage(page + 1)} disabled={loading || page >= pageInfo.pageCount}>
+              {copy.next ?? (isPersian ? "صفحهٔ بعد" : "Next")}
+            </button>
+          </nav>
+        )}
 
         {loading ? (
           <div className="inline-feedback"><LoadingIndicator label={copy.loading ?? (isPersian ? "در حال دریافت رتبه‌بندی..." : "Loading leaderboard...")} /></div>
