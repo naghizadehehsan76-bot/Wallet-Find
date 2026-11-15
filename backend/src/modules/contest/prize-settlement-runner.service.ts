@@ -41,6 +41,9 @@ export async function runPrizeSettlementProcessorOnce() {
   const finishedRounds = await prisma.contest.findMany({
     where: {
       status: "FINISHED",
+      // No participant means no prize settlement, no prize-pool row and no financial ledger.
+      // Any submitted answer (including an incorrect attempt) counts as participation.
+      submissions: { some: {} },
       OR: [
         { prizePool: { is: null } },
         { prizePool: { is: { currency: "USDT0", testOnly: false, status: "OPEN" } } },
