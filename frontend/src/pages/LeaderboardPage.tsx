@@ -115,9 +115,7 @@ function LeaderboardPage({ onNavigate }: LeaderboardPageProps) {
               {copy.previous ?? (isPersian ? "صفحهٔ قبل" : "Previous")}
             </button>
             <span>
-              {isPersian
-                ? `صفحهٔ ${pageInfo.page.toLocaleString("fa-IR")} از ${pageInfo.pageCount.toLocaleString("fa-IR")} · ${pageInfo.total.toLocaleString("fa-IR")} چالش دارای شرکت‌کننده`
-                : `Page ${pageInfo.page.toLocaleString("en-US")} of ${pageInfo.pageCount.toLocaleString("en-US")} · ${pageInfo.total.toLocaleString("en-US")} challenges with participants`}
+              ${copy.page ?? (isPersian ? "صفحهٔ" : "Page")} {pageInfo.page.toLocaleString(isPersian ? "fa-IR" : "en-US")} {copy.of ?? (isPersian ? "از" : "of")} {pageInfo.pageCount.toLocaleString(isPersian ? "fa-IR" : "en-US")} · {pageInfo.total.toLocaleString(isPersian ? "fa-IR" : "en-US")} {copy.challengesWithParticipants ?? (isPersian ? "چالش دارای شرکت‌کننده" : "challenges with participants")}
             </span>
             <button type="button" onClick={() => navigateHistoryPage(page + 1)} disabled={loading || page >= pageInfo.pageCount}>
               {copy.next ?? (isPersian ? "صفحهٔ بعد" : "Next")}
