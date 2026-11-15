@@ -4396,17 +4396,6 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   cursor:pointer;
 }
 .admin-challenge-history__back { flex:0 0 auto; }
-.admin-challenge-history__summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
-.admin-challenge-history__summary article {
-  display:grid;
-  gap:5px;
-  padding:13px 15px;
-  border:1px solid var(--line);
-  border-radius:11px;
-  background:rgba(5,6,7,.48);
-}
-.admin-challenge-history__summary span { color:var(--muted); font-size:10px; }
-.admin-challenge-history__summary strong { color:var(--verdigris); font-size:22px; }
 .admin-challenge-history__safety {
   margin:0;
   padding:11px 13px;
@@ -4417,46 +4406,6 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   font-size:10px;
   line-height:1.8;
 }
-.admin-challenge-history__toolbar,
-.admin-challenge-history__bulk {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  flex-wrap:wrap;
-}
-.admin-challenge-history__view-switch { display:flex; gap:6px; padding:4px; border:1px solid var(--line); border-radius:10px; background:var(--ink-2); }
-.admin-challenge-history__view-switch button {
-  min-height:33px;
-  padding:7px 11px;
-  border:1px solid transparent;
-  border-radius:7px;
-  background:transparent;
-  color:var(--muted);
-  font:inherit;
-  font-size:10px;
-  font-weight:750;
-  cursor:pointer;
-}
-.admin-challenge-history__view-switch button.is-active { border-color:var(--line-cyan); background:rgba(66,232,212,.09); color:var(--verdigris); }
-.admin-challenge-history__bulk { padding:11px 12px; border:1px solid var(--line); border-radius:10px; background:rgba(5,6,7,.45); }
-.admin-challenge-history__bulk > label { display:flex; align-items:center; gap:8px; color:var(--paper); font-size:10px; cursor:pointer; }
-.admin-challenge-history__bulk > span { color:var(--muted); font-size:10px; }
-.admin-challenge-history input[type="checkbox"] { width:16px; height:16px; margin:0; accent-color:var(--verdigris); cursor:pointer; }
-.admin-challenge-history__actions { display:flex; gap:8px; flex-wrap:wrap; }
-.admin-challenge-history__actions button {
-  min-height:34px;
-  padding:7px 10px;
-  border:1px solid var(--line-cyan);
-  border-radius:8px;
-  background:rgba(66,232,212,.08);
-  color:var(--verdigris);
-  font:inherit;
-  font-size:10px;
-  font-weight:750;
-  cursor:pointer;
-}
-.admin-challenge-history__actions button.is-danger { border-color:rgba(255,120,120,.35); background:rgba(255,95,95,.07); color:#ffaaaa; }
 .admin-challenge-history button:disabled { opacity:.45; cursor:not-allowed; }
 .admin-challenge-history__table-wrap { max-width:100%; overflow-x:auto; border:1px solid var(--line); border-radius:11px; }
 .admin-challenge-history__table { width:100%; border-collapse:collapse; min-width:690px; text-align:start; }
@@ -4469,7 +4418,6 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 .admin-challenge-history__table td small { max-width:180px; margin-top:3px; color:var(--muted); overflow-wrap:anywhere; }
 .admin-challenge-history__status { display:inline-flex; padding:4px 7px; border:1px solid var(--line); border-radius:20px; color:var(--muted); white-space:nowrap; }
 .admin-challenge-history__status--finished { border-color:rgba(66,232,212,.25); color:var(--verdigris); }
-.admin-challenge-history__status--cancelled { border-color:rgba(255,180,100,.25); color:#e8ba82; }
 .admin-challenge-history__pagination { display:flex; justify-content:space-between; align-items:center; gap:12px; color:var(--muted); font-size:10px; }
 .admin-challenge-history__pagination > div { display:flex; gap:7px; }
 .admin-challenge-history__pagination button:disabled { opacity:.4; cursor:not-allowed; }
