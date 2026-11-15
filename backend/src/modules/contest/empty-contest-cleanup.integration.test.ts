@@ -57,7 +57,7 @@ test("deletes expired empty challenge content while preserving linked financial 
           },
         },
       },
-      select: { id: true, clues: { select: { id: true } } },
+      select: { id: true, title: true, clues: { select: { id: true } } },
     });
     contestIds.push(removable.id);
 
