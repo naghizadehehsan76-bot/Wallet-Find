@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "../i18n";
+import { getAdminPanelCopy } from "../i18n/admin-panel-overrides";
 import { getChallengeLanguageName, isChallengeLanguage } from "../i18n/challenge-languages";
 import {
   getAdminChallengeHistory,
@@ -17,6 +18,7 @@ function formatDate(value: string | null, locale: string): string {
 export default function AdminChallengeHistoryPage({ onBack }: Props) {
   const { language } = useI18n();
   const fa = language === "fa";
+  const panelCopy = getAdminPanelCopy(language);
   const locale = fa ? "fa-IR" : "en-GB";
   const [page, setPage] = useState(1);
   const [data, setData] = useState<AdminChallengeHistoryPage | null>(null);
@@ -24,28 +26,28 @@ export default function AdminChallengeHistoryPage({ onBack }: Props) {
   const [error, setError] = useState("");
 
   const copy = {
-    title: fa ? "تاریخچهٔ چالش‌ها" : "Challenge history",
-    subtitle: fa ? "فهرست صفحه‌بندی‌شدهٔ چالش‌هایی که حداقل یک شرکت‌کننده داشته‌اند" : "A paginated list of challenges that had at least one participant",
-    back: fa ? "بازگشت به تبلیغات و چالش‌ها" : "Back to Ads & Challenges",
-    refresh: fa ? "به‌روزرسانی" : "Refresh",
-    loading: fa ? "در حال دریافت تاریخچه…" : "Loading challenge history…",
-    loadError: fa ? "دریافت تاریخچهٔ چالش‌ها ناموفق بود." : "Could not load challenge history.",
-    empty: fa ? "هنوز چالشی با شرکت‌کننده برای نمایش وجود ندارد." : "No challenges with participants are available yet.",
-    note: fa ? "این صفحه فقط سوابق را می‌خواند. هیچ چالشی یا سابقهٔ مالی از دیتابیس حذف یا بایگانی نمی‌شود." : "This page is read-only. No challenges or financial records are deleted or archived.",
-    challenge: fa ? "چالش" : "Challenge",
-    language: fa ? "زبان" : "Language",
-    status: fa ? "وضعیت" : "Status",
-    start: fa ? "زمان شروع" : "Started",
-    submissions: fa ? "تعداد پاسخ‌ها" : "Submissions",
-    clues: fa ? "خانه‌ها" : "Clues",
-    finished: fa ? "پایان‌یافته" : "Finished",
-    active: fa ? "در حال اجرا" : "Active",
-    page: fa ? "صفحه" : "Page",
-    of: fa ? "از" : "of",
-    previous: fa ? "قبلی" : "Previous",
-    next: fa ? "بعدی" : "Next",
-    records: fa ? "چالش دارای شرکت‌کننده" : "challenges with participants",
-    statusUnknown: fa ? "نامشخص" : "Unknown",
+    title: panelCopy.challengeHistoryTitle ?? (fa ? "تاریخچهٔ چالش‌ها" : "Challenge history"),
+    subtitle: panelCopy.challengeHistorySubtitle ?? (fa ? "فهرست صفحه‌بندی‌شدهٔ چالش‌هایی که حداقل یک شرکت‌کننده داشته‌اند" : "A paginated list of challenges that had at least one participant"),
+    back: panelCopy.challengeHistoryBack ?? (fa ? "بازگشت به تبلیغات و چالش‌ها" : "Back to Ads & Challenges"),
+    refresh: panelCopy.challengeHistoryRefresh ?? (fa ? "به‌روزرسانی" : "Refresh"),
+    loading: panelCopy.challengeHistoryLoading ?? (fa ? "در حال دریافت تاریخچه…" : "Loading challenge history…"),
+    loadError: panelCopy.challengeHistoryError ?? (fa ? "دریافت تاریخچهٔ چالش‌ها ناموفق بود." : "Could not load challenge history."),
+    empty: panelCopy.challengeHistoryEmpty ?? (fa ? "هنوز چالشی با شرکت‌کننده برای نمایش وجود ندارد." : "No challenges with participants are available yet."),
+    note: panelCopy.challengeHistoryNote ?? (fa ? "این صفحه فقط سوابق را می‌خواند. هیچ چالشی یا سابقهٔ مالی از دیتابیس حذف یا بایگانی نمی‌شود." : "This page is read-only. No challenges or financial records are deleted or archived."),
+    challenge: panelCopy.challengeHistoryChallenge ?? (fa ? "چالش" : "Challenge"),
+    language: panelCopy.challengeHistoryLanguage ?? (fa ? "زبان" : "Language"),
+    status: panelCopy.challengeHistoryStatus ?? (fa ? "وضعیت" : "Status"),
+    start: panelCopy.challengeHistoryStarted ?? (fa ? "زمان شروع" : "Started"),
+    submissions: panelCopy.challengeHistoryAnswers ?? (fa ? "تعداد پاسخ‌ها" : "Submissions"),
+    clues: panelCopy.challengeHistoryClues ?? (fa ? "خانه‌ها" : "Clues"),
+    finished: panelCopy.challengeHistoryFinished ?? (fa ? "پایان‌یافته" : "Finished"),
+    active: panelCopy.challengeHistoryActive ?? (fa ? "در حال اجرا" : "Active"),
+    page: panelCopy.challengeHistoryPage ?? (fa ? "صفحه" : "Page"),
+    of: panelCopy.challengeHistoryOf ?? (fa ? "از" : "of"),
+    previous: panelCopy.challengeHistoryPrevious ?? (fa ? "قبلی" : "Previous"),
+    next: panelCopy.challengeHistoryNext ?? (fa ? "بعدی" : "Next"),
+    records: panelCopy.challengeHistoryRecords ?? (fa ? "چالش دارای شرکت‌کننده" : "challenges with participants"),
+    statusUnknown: panelCopy.challengeHistoryUnknown ?? (fa ? "نامشخص" : "Unknown"),
   };
 
   const load = useCallback(async () => {
