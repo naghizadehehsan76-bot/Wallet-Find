@@ -26,9 +26,10 @@ export async function getLeaderboardHistoryHandler(req: AuthenticatedRequest, re
 
     // A history round must have at least one participant submission.
     // This excludes generated/scheduled empty rounds without deleting any data.
+    const historyStatuses: Array<"ACTIVE" | "FINISHED"> = ["ACTIVE", "FINISHED"];
     const historyWhere = {
       startsAt: { not: null },
-      status: { in: ["ACTIVE", "FINISHED"] as const },
+      status: { in: historyStatuses },
       submissions: { some: {} },
     };
 
