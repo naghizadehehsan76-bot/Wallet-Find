@@ -34,19 +34,41 @@ test("batches requested contest leaderboards and applies the per-contest entry l
   ];
 
   try {
-    const [firstContest, secondContest, emptyContest] = await Promise.all(
-      ["first", "second", "empty"].map((name) => prisma.contest.create({
-        data: {
-          title: `CI leaderboard history ${name} ${suffix}`,
-          status: "FINISHED",
-          language: "en",
-          startsAt,
-          endsAt,
-        },
-        select: { id: true },
-      })),
-    );
-    contestIds.push(firstContest.id, secondContest.id, emptyContest.id);
+    const firstContest = await prisma.contest.create({
+      data: {
+        title: `CI leaderboard history first ${suffix}`,
+        status: "FINISHED",
+        language: "en",
+        startsAt,
+        endsAt,
+      },
+      select: { id: true },
+    });
+    contestIds.push(firstContest.id);
+
+    const secondContest = await prisma.contest.create({
+      data: {
+        title: `CI leaderboard history second ${suffix}`,
+        status: "FINISHED",
+        language: "en",
+        startsAt,
+        endsAt,
+      },
+      select: { id: true },
+    });
+    contestIds.push(secondContest.id);
+
+    const emptyContest = await prisma.contest.create({
+      data: {
+        title: `CI leaderboard history empty ${suffix}`,
+        status: "FINISHED",
+        language: "en",
+        startsAt,
+        endsAt,
+      },
+      select: { id: true },
+    });
+    contestIds.push(emptyContest.id);
 
     await prisma.user.createMany({
       data: userIds.map((id) => ({
