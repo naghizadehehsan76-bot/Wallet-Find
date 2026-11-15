@@ -127,6 +127,7 @@ model Contest {
   endsAt   DateTime?
   // Set permanently when the shared prize fund falls below the fixed round budget during an active challenge.
   prizeFundingInvalidatedAt DateTime?
+  archivedAt DateTime?
 
   clues       ContestClue[]
   submissions Submission[]
@@ -145,6 +146,7 @@ model Contest {
   @@index([status])
   @@index([startsAt])
   @@index([language, status, startsAt])
+  @@index([archivedAt, status, startsAt])
   @@map("contests")
 }
 
