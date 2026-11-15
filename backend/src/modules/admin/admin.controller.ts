@@ -464,9 +464,10 @@ export async function getAdminChallengeHistoryHandler(
     const safeRequestedPage = Number.isFinite(requestedPage)
       ? Math.max(1, Math.floor(requestedPage))
       : 1;
+    const historyStatuses: Array<"ACTIVE" | "FINISHED"> = ["ACTIVE", "FINISHED"];
     const where = {
       startsAt: { not: null },
-      status: { in: ["ACTIVE", "FINISHED"] as const },
+      status: { in: historyStatuses },
       submissions: { some: {} },
     };
 
@@ -487,11 +488,28 @@ export async function getAdminChallengeHistoryHandler(
           status: true,
           startsAt: true,
           endsAt: true,
-          _count: { select: { submissions: true, clues: true } },
         },
       }),
       getChallengeScheduleAnchor(),
     ]);
+
+    const contestIds = contests.map((contest) => contest.id);
+    const [submissionCounts, clueCounts] = contestIds.length === 0
+      ? [[], []]
+      : await Promise.all([
+          prisma.submission.groupBy({
+            by: ["contestId"],
+            where: { contestId: { in: contestIds } },
+            _count: { _all: true },
+          }),
+          prisma.contestClue.groupBy({
+            by: ["contestId"],
+            where: { contestId: { in: contestIds } },
+            _count: { _all: true },
+          }),
+        ]);
+    const submissionCountByContest = new Map(submissionCounts.map((row) => [row.contestId, row._count._all]));
+    const clueCountByContest = new Map(clueCounts.map((row) => [row.contestId, row._count._all]));
 
     return res.json({
       success: true,
@@ -504,8 +522,8 @@ export async function getAdminChallengeHistoryHandler(
           challengeNumber: challengeNumberAt(contest.startsAt, scheduleAnchor),
           startsAt: contest.startsAt?.toISOString() ?? null,
           endsAt: contest.endsAt?.toISOString() ?? null,
-          submissionCount: contest._count.submissions,
-          clueCount: contest._count.clues,
+          submissionCount: submissionCountByContest.get(contest.id) ?? 0,
+          clueCount: clueCountByContest.get(contest.id) ?? 0,
         })),
         page,
         pageSize: ADMIN_HISTORY_PAGE_SIZE,
