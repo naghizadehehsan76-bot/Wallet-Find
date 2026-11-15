@@ -552,6 +552,48 @@ export async function getAdminSourceVisitReport(): Promise<AdminSourceVisitRepor
   return request<AdminSourceVisitReport>("/admin/source-visit-report", {}, true);
 }
 
+export type AdminChallengeHistoryItem = {
+  id: string;
+  title: string;
+  language: string;
+  status: string;
+  challengeNumber: number | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  archivedAt: string | null;
+  submissionCount: number;
+  clueCount: number;
+};
+
+export type AdminChallengeHistoryPage = {
+  items: AdminChallengeHistoryItem[];
+  page: number;
+  pageSize: number;
+  pageCount: number;
+  total: number;
+  activeCount: number;
+  archivedCount: number;
+};
+
+export async function getAdminChallengeHistory(
+  page = 1,
+  archived = false,
+): Promise<AdminChallengeHistoryPage> {
+  const params = new URLSearchParams({ page: String(page), pageSize: "25", archived: String(archived) });
+  return request<AdminChallengeHistoryPage>(`/admin/challenge-history?${params.toString()}`, {}, true);
+}
+
+export async function updateAdminChallengeHistory(input: {
+  action: "ARCHIVE" | "RESTORE";
+  ids?: string[];
+  all?: boolean;
+}): Promise<{ changedCount: number; action: "ARCHIVE" | "RESTORE" }> {
+  return request<{ changedCount: number; action: "ARCHIVE" | "RESTORE" }>("/admin/challenge-history", {
+    method: "POST",
+    body: JSON.stringify(input),
+  }, true);
+}
+
 export type AdminAuditLog = {
   id: string;
   userId: string | null;
