@@ -31,6 +31,7 @@ import {
   type AdminSourceVisitReport,
 } from "../services/api";
 import LoadingIndicator from "../components/LoadingIndicator";
+import AdminChallengeHistoryPage from "./AdminChallengeHistoryPage";
 import { CHALLENGE_LANGUAGES, getChallengeLanguageName, isChallengeLanguage, type ChallengeLanguage } from "../i18n/challenge-languages";
 
 type AdminDestination = "home" | "admin-manage";
@@ -131,6 +132,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
   const { language } = useI18n();
   const fa = language === "fa";
   const [section, setSection] = useState<Section>("overview");
+  const [showChallengeHistory, setShowChallengeHistory] = useState(false);
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [prizePaymentHistory, setPrizePaymentHistory] = useState<AdminPrizeTreasuryPaymentHistory | null>(null);
   const [prizePaymentHistoryLoading, setPrizePaymentHistoryLoading] = useState(false);
@@ -203,7 +205,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
     usersTab: fa ? "مدیریت کاربران" : "Users",
     finance: fa ? "کیف پول و تراکنش‌ها" : "Wallets & Transactions",
     prizes: fa ? "صندوق جوایز و تسویه" : "Prize pool & settlement",
-    ads: fa ? "تبلیغات و اسپانسرها" : "Ads & sponsors",
+    ads: fa ? "تبلیغات و چالش‌ها" : "Ads & Challenges",
     security: fa ? "امنیت و ضدتقلب" : "Security & anti-fraud",
     support: fa ? "پشتیبانی و گزارش‌ها" : "Support & reports",
     settings: fa ? "دفتر کل" : "General ledger",
@@ -1053,9 +1055,21 @@ export default function AdminControlCenter({ onNavigate }: Props) {
         )}
 
         {section === "ads" && (
+          showChallengeHistory ? (
+            <AdminChallengeHistoryPage onBack={() => setShowChallengeHistory(false)} />
+          ) : (
           <section className="admin-panel admin-ads-panel">
             <h2>{copy.ads}</h2>
             <p className="admin-footnote">{copy.adsBody}</p>
+            <div className="admin-history-launch">
+              <div>
+                <strong>{fa ? "تاریخچهٔ چالش‌ها" : "Challenge history"}</strong>
+                <small>{fa ? "مشاهده، انتخاب و بایگانی سوابق چالش‌های گذشته" : "Review, select and archive past challenge records"}</small>
+              </div>
+              <button type="button" onClick={() => setShowChallengeHistory(true)}>
+                {fa ? "مدیریت تاریخچه" : "Manage history"} <span aria-hidden="true">←</span>
+              </button>
+            </div>
 
             <div className="admin-ads-toolbar">
               <div>
@@ -1216,6 +1230,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
               );
             })()}
           </section>
+          )
         )}
 
         {section === "prizes" && (
