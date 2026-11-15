@@ -16,6 +16,8 @@ import {
   getProjectProfitPoolAdminHandler,
   getPrizeTreasuryPaymentHistoryHandler,
   getContestSourceVisitReportHandler,
+  getAdminChallengeHistoryHandler,
+  updateAdminChallengeHistoryHandler,
 } from "./admin.controller.js";
 import {
   activateContestHandler,
@@ -43,6 +45,8 @@ router.post("/contests/:contestId/finish", finishContestHandler);
 
 router.get("/audit-logs", getAuditLogsHandler);
 router.get("/source-visit-report", getContestSourceVisitReportHandler);
+router.get("/challenge-history", getAdminChallengeHistoryHandler);
+router.post("/challenge-history", updateAdminChallengeHistoryHandler);
 router.get("/wallets", getAdminWalletsHandler);
 router.get("/wallet-accounts", getAdminWalletAccountsHandler);
 router.get("/wallet-accounts/:walletAccountId/transactions", getAdminWalletAccountTransactionsHandler);
