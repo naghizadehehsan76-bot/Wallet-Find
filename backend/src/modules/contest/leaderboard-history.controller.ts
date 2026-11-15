@@ -14,6 +14,7 @@ export async function getLeaderboardHistoryHandler(req: AuthenticatedRequest, re
       where: {
         startsAt: { not: null },
         status: { in: ["ACTIVE", "FINISHED"] },
+        archivedAt: null,
       },
       orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
       select: { id: true, title: true, status: true, language: true, startsAt: true, endsAt: true },
