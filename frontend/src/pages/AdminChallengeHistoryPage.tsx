@@ -80,7 +80,8 @@ export default function AdminChallengeHistoryPage({ onBack }: Props) {
   }, [page, showArchived, copy.loadError]);
 
   useEffect(() => {
-    void load();
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
   }, [load]);
 
   const items = data?.items ?? [];
