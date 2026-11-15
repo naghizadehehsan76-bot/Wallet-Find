@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "../i18n";
-import { getChallengeLanguageName } from "../i18n/challenge-languages";
+import { getChallengeLanguageName, isChallengeLanguage } from "../i18n/challenge-languages";
 import {
   getAdminChallengeHistory,
   updateAdminChallengeHistory,
@@ -234,7 +234,7 @@ export default function AdminChallengeHistoryPage({ onBack }: Props) {
                     <strong>{item.challengeNumber === null ? "—" : number(item.challengeNumber)}</strong>
                     <small>{item.title}</small>
                   </td>
-                  <td>{getChallengeLanguageName(item.language as never) || item.language}</td>
+                  <td>{isChallengeLanguage(item.language) ? getChallengeLanguageName(item.language) : item.language}</td>
                   <td><span className={`admin-challenge-history__status admin-challenge-history__status--${item.status.toLowerCase()}`}>{item.status === "FINISHED" ? copy.finished : item.status === "CANCELLED" ? copy.cancelled : copy.statusUnknown}</span></td>
                   <td>{formatDate(item.startsAt, locale)}</td>
                   <td>{number(item.submissionCount)}</td>
