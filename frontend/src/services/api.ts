@@ -153,8 +153,17 @@ export type LeaderboardRound = {
   entries: LeaderboardHistoryEntry[];
 };
 
-export async function getLeaderboardHistory(): Promise<{ rounds: LeaderboardRound[] }> {
-  return request<{ rounds: LeaderboardRound[] }>("/contests/leaderboard-history", {}, true);
+export type LeaderboardHistoryPage = {
+  rounds: LeaderboardRound[];
+  page: number;
+  pageSize: number;
+  pageCount: number;
+  total: number;
+};
+
+export async function getLeaderboardHistory(page = 1): Promise<LeaderboardHistoryPage> {
+  const params = new URLSearchParams({ page: String(page) });
+  return request<LeaderboardHistoryPage>(`/contests/leaderboard-history?${params.toString()}`, {}, true);
 }
 
 export type ProfileResult = {
