@@ -37,7 +37,7 @@ export default function AdminChallengeHistoryPage({ onBack }: Props) {
     showArchived: fa ? "نمایش بایگانی" : "View archived",
     showActive: fa ? "نمایش تاریخچه" : "View history",
     allOnPage: fa ? "انتخاب همهٔ این صفحه" : "Select this page",
-    selected: fa ? "انتخاب‌شده" : "selected",
+    selected: fa ? "انتخاب‌شده (حداکثر ۱۰۰)" : "selected (max 100)",
     archiveSelected: fa ? "حذف موارد انتخاب‌شده از تاریخچه" : "Remove selected from history",
     restoreSelected: fa ? "بازگردانی موارد انتخاب‌شده" : "Restore selected",
     archiveAll: fa ? "حذف همهٔ تاریخچه" : "Remove all history",
@@ -174,7 +174,7 @@ export default function AdminChallengeHistoryPage({ onBack }: Props) {
               onChange={(event) => {
                 const pageIds = items.map((item) => item.id);
                 setSelectedIds((current) => event.target.checked
-                  ? [...new Set([...current, ...pageIds])]
+                  ? [...new Set([...current, ...pageIds])].slice(0, 100)
                   : current.filter((id) => !pageIds.includes(id)));
               }}
             />
@@ -225,7 +225,7 @@ export default function AdminChallengeHistoryPage({ onBack }: Props) {
                     <input
                       type="checkbox"
                       checked={selectedIds.includes(item.id)}
-                      disabled={saving}
+                      disabled={saving || loading || (!selectedIds.includes(item.id) && selectedIds.length >= 100)}
                       aria-label={`${copy.challenge} ${item.challengeNumber ?? item.title}`}
                       onChange={(event) => toggleItem(item.id, event.target.checked)}
                     />
