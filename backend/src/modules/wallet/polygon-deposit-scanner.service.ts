@@ -490,10 +490,10 @@ export async function scanPolygonUsdtDepositsOnce() {
       const end = start + BigInt(chunkSize) - 1n > safeHead
         ? safeHead
         : start + BigInt(chunkSize) - 1n;
-      const treasuryLogs = await client.getLogs({
-        address: tokenAddress,
+      const treasuryLogs: Awaited<ReturnType<typeof client.getLogs>> = await client.getLogs({
+        address: tokenAddress as Address,
         event: transferEvent,
-        args: { to: treasuryAddress },
+        args: { to: treasuryAddress as Address },
         fromBlock: start,
         toBlock: end,
       });
