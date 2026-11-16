@@ -470,6 +470,62 @@ export async function scanPolygonUsdtDepositsOnce() {
     });
   }
 
+  // Treasury deposits receive a bounded rolling backfill independent of the
+  // shared user-deposit cursor. A finalized Turnkey balance event can arrive
+  // after the chain scanner has already advanced past its block (for example
+  // immediately after scanner activation). Re-scan only the treasury address
+  // over the recent confirmation-safe window; never backfill user wallets.
+  // The compound (chainId, transactionHash, logIndex) key keeps this idempotent.
+  if (treasuryAddress && treasury) {
+    const treasuryRescanFromBlock = safeHead >= BigInt(reorgLookback - 1)
+      ? (safeHead - BigInt(reorgLookback - 1) > initialBlock
+        ? safeHead - BigInt(reorgLookback - 1)
+        : initialBlock)
+      : initialBlock;
+    for (
+      let start = treasuryRescanFromBlock;
+      start <= safeHead;
+      start += BigInt(chunkSize)
+    ) {
+      const end = start + BigInt(chunkSize) - 1n > safeHead
+        ? safeHead
+        : start + BigInt(chunkSize) - 1n;
+      const treasuryLogs = await client.getLogs({
+        address: tokenAddress,
+        event: transferEvent,
+        args: { to: treasuryAddress },
+        fromBlock: start,
+        toBlock: end,
+      });
+      for (const log of treasuryLogs) {
+        if (!log.args.to || !log.args.from || log.args.value === undefined ||
+            log.blockNumber === null || !log.blockHash || log.transactionHash === null) continue;
+        if (log.args.to.toLowerCase() !== treasuryAddress) continue;
+        const amountMicro = toMicro(log.args.value, asset.decimals);
+        if (amountMicro === null || amountMicro <= 0n) continue;
+        const inserted = await prisma.treasuryDeposit.createMany({
+          data: [{
+            treasuryWalletId: treasury.id,
+            chainAssetId: asset.id,
+            chainId,
+            transactionHash: log.transactionHash,
+            logIndex: log.logIndex,
+            blockNumber: log.blockNumber,
+            blockHash: log.blockHash,
+            fromAddress: log.args.from.toLowerCase(),
+            toAddress: treasuryAddress,
+            rawAmount: log.args.value.toString(),
+            amountMicro,
+            status: "CONFIRMING",
+            confirmationCount: Number(latestBlock - log.blockNumber + 1n),
+          }],
+          skipDuplicates: true,
+        });
+        if (inserted.count === 1) treasuryDetected++;
+      }
+    }
+  }
+
   const mature = globallyPaused ? [] : await prisma.walletDeposit.findMany({
     where: { chainId, status: "CONFIRMING", blockNumber: { lte: safeHead } },
     take: 250,
