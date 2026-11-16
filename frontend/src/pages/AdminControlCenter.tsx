@@ -1721,7 +1721,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                   <button
                     className="cta-button"
                     type="submit"
-                    disabled={!treasury || !treasuryFunding || treasuryFunding.accountingStatus !== "MATCH" || Number(treasuryFunding.unallocatedTreasuryBalance) <= 0 || !/^\\d+(?:\\.\\d{1,6})?$/.test(treasuryAllocationAmount.trim()) || Number(treasuryAllocationAmount) <= 0 || Number(treasuryAllocationAmount) > Number(treasuryFunding?.unallocatedTreasuryBalance ?? 0) || treasuryAllocating || treasuryFundingLoading}
+                    disabled={!treasury || !treasuryFunding || treasuryFunding.accountingStatus !== "MATCH" || Number(treasuryFunding.unallocatedTreasuryBalance) <= 0 || !/^[0-9]+(?:\.[0-9]{1,6})?$/.test(treasuryAllocationAmount.trim()) || Number(treasuryAllocationAmount) <= 0 || Number(treasuryAllocationAmount) > Number(treasuryFunding?.unallocatedTreasuryBalance ?? 0) || treasuryAllocating || treasuryFundingLoading}
                   >
                     {treasuryAllocating
                       ? (fa ? "در حال تخصیص…" : "Allocating…")
