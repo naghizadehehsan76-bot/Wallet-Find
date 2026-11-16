@@ -33,6 +33,16 @@ type CompetitionPageProps = {
   onNavigate: (page: Page) => void;
 };
 
+function getSafeHttpsUrl(value: string): string | null {
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
 type CompletionSummary = {
   rank: number;
   elapsedMs: number;
@@ -341,20 +351,13 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
 
     // Temporarily disable sponsor/source click reporting. Open the validated
     // source directly without calling the tracking API.
-    let target: URL;
-    try {
-      target = new URL(sourceUrl);
-    } catch {
+    const safeSourceUrl = getSafeHttpsUrl(sourceUrl);
+    if (!safeSourceUrl) {
       setError(isPersian ? "نشانی صفحهٔ منبع معتبر نیست." : (messages.sourceInvalid ?? "The source URL is invalid."));
       return;
     }
 
-    if (target.protocol !== "https:" || target.username || target.password) {
-      setError(isPersian ? "نشانی صفحهٔ منبع معتبر نیست." : (messages.sourceInvalid ?? "The source URL is invalid."));
-      return;
-    }
-
-    const destinationTab = window.open(target.toString(), "_blank");
+    const destinationTab = window.open(safeSourceUrl, "_blank");
     if (!destinationTab) {
       setError(
         isPersian
@@ -1052,7 +1055,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                       {isPersian ? "لینک صفحه‌ی منبع" : "SOURCE PAGE"}
                     </div>
                     <a
-                      href={sourceUrl}
+                      href={getSafeHttpsUrl(sourceUrl) ?? "#"}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="round-source-link"
