@@ -19,6 +19,22 @@ function toMicro(raw: bigint, decimals: number): bigint | null {
   return decimals === 6 ? raw : null;
 }
 
+async function getTreasuryTransferLogs(
+  client: ReturnType<typeof getClient>,
+  tokenAddress: Address,
+  treasuryAddress: Address,
+  fromBlock: bigint,
+  toBlock: bigint,
+) {
+  return client.getLogs({
+    address: tokenAddress,
+    event: transferEvent,
+    args: { to: treasuryAddress },
+    fromBlock,
+    toBlock,
+  });
+}
+
 /**
  * Reconcile deposits around a cursor whose saved block hash is no longer
  * canonical. A credited deposit that disappeared is marked REORGED and its
@@ -490,16 +506,17 @@ export async function scanPolygonUsdtDepositsOnce() {
       const end = start + BigInt(chunkSize) - 1n > safeHead
         ? safeHead
         : start + BigInt(chunkSize) - 1n;
-      const treasuryLogs: Awaited<ReturnType<typeof client.getLogs>> = await client.getLogs({
-        address: tokenAddress as Address,
-        event: transferEvent,
-        args: { to: treasuryAddress as Address },
-        fromBlock: start,
-        toBlock: end,
-      });
+      const treasuryLogs = await getTreasuryTransferLogs(
+        client,
+        tokenAddress,
+        treasuryAddress as Address,
+        start,
+        end,
+      );
       for (const log of treasuryLogs) {
         if (!log.args.to || !log.args.from || log.args.value === undefined ||
-            log.blockNumber === null || !log.blockHash || log.transactionHash === null) continue;
+            log.blockNumber === null || log.logIndex === null ||
+            !log.blockHash || log.transactionHash === null) continue;
         if (log.args.to.toLowerCase() !== treasuryAddress) continue;
         const amountMicro = toMicro(log.args.value, asset.decimals);
         if (amountMicro === null || amountMicro <= 0n) continue;
