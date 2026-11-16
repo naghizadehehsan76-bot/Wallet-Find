@@ -115,26 +115,28 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: "2mb" }));
 
-const authLimiter = rateLimit({
-  store: new PostgresRateLimitStore("auth:"),
-  windowMs: 15 * 60 * 1000,
-  limit: 20,
-  standardHeaders: "draft-7",
-  legacyHeaders: false,
-  message: { success: false, error: "TOO_MANY_REQUESTS" },
-});
+function createApiLimiter(prefix: string, windowMs: number, limit: number) {
+  return rateLimit({
+    store: new PostgresRateLimitStore(prefix),
+    windowMs,
+    limit,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    message: { success: false, error: "TOO_MANY_REQUESTS" },
+  });
+}
 
-const answerLimiter = rateLimit({
-  store: new PostgresRateLimitStore("contest-answer:"),
-  // Legitimate users can submit twelve correct answers quickly, but should
-  // not need dozens of requests in a minute. This is an IP-level outer guard;
-  // the authoritative per-user game rules remain enforced in the service.
-  windowMs: 60 * 1000,
-  limit: 20,
-  standardHeaders: "draft-7",
-  legacyHeaders: false,
-  message: { success: false, error: "TOO_MANY_REQUESTS" },
-});
+// Keep database-backed counters on sensitive or expensive route groups only.
+// A global limiter would add a PostgreSQL write to every request and could
+// turn a traffic spike into additional database pressure.
+const authLimiter = createApiLimiter("auth:", 15 * 60 * 1000, 20);
+const answerLimiter = createApiLimiter("contest-answer:", 60 * 1000, 20);
+const contestNextLimiter = createApiLimiter("contest-next:", 60 * 1000, 10);
+const contestReadLimiter = createApiLimiter("contest-read:", 60 * 1000, 60);
+const adminLimiter = createApiLimiter("admin-api:", 60 * 1000, 120);
+const walletWriteLimiter = createApiLimiter("wallet-write:", 60 * 1000, 10);
+const profileWriteLimiter = createApiLimiter("profile-write:", 60 * 1000, 15);
+const statsLimiter = createApiLimiter("stats-api:", 60 * 1000, 60);
 
 
 const marketPriceIds = [
@@ -324,19 +326,54 @@ app.get("/health", (_req, res) => {
   });
 });
 
-app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/auth", (req, res, next) => {
+  // Authentication throttling is for credential/code operations, not the
+  // authenticated session lookup endpoint used during normal navigation.
+  const protectedAuthPaths = new Set([
+    "/register",
+    "/login",
+    "/verify-email",
+    "/resend-verification",
+    "/forgot-password",
+    "/reset-password",
+  ]);
+  if (req.method === "POST" && protectedAuthPaths.has(req.path)) {
+    return authLimiter(req, res, next);
+  }
+  return next();
+}, authRoutes);
+
 app.use("/api/contests", (req, res, next) => {
   if (req.method === "POST" && req.path.endsWith("/submit")) {
     return answerLimiter(req, res, next);
+  }
+  if (req.method === "POST" && req.path.endsWith("/next")) {
+    return contestNextLimiter(req, res, next);
+  }
+  if (
+    req.method === "GET" &&
+    (req.path === "/leaderboard-history" || req.path.endsWith("/leaderboard"))
+  ) {
+    return contestReadLimiter(req, res, next);
   }
   return next();
 });
 app.use("/api/contests", contestRoutes);
 app.use("/api/admin-bootstrap", authLimiter, adminBootstrapRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/profile", profileRoutes);
-app.use("/api/wallet", walletRoutes);
-app.use("/api/stats", statsRoutes);
+app.use("/api/admin", adminLimiter, adminRoutes);
+app.use("/api/profile", (req, res, next) => {
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+    return profileWriteLimiter(req, res, next);
+  }
+  return next();
+}, profileRoutes);
+app.use("/api/wallet", (req, res, next) => {
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+    return walletWriteLimiter(req, res, next);
+  }
+  return next();
+}, walletRoutes);
+app.use("/api/stats", statsLimiter, statsRoutes);
 
 const frontendDist = path.resolve(process.cwd(), "../frontend/dist");
 if (existsSync(frontendDist)) {
