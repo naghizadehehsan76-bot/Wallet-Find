@@ -64,7 +64,15 @@ export const createClueSchema = z.object({
     .string()
     .trim()
     .url()
-    .max(2_000),
+    .max(2_000)
+    .refine((value) => {
+      try {
+        const parsed = new URL(value);
+        return parsed.protocol === "https:" && !parsed.username && !parsed.password;
+      } catch {
+        return false;
+      }
+    }, "INVALID_SOURCE_URL"),
 
   hintAnchor: z
     .string()
