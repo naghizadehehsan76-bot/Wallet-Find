@@ -46,6 +46,15 @@ function sourceHostname(value: string): string {
   try { return new URL(value).hostname; } catch { return value; }
 }
 
+function normalizeTreasuryAllocationInput(value: string): string {
+  return value
+    .replace(/[۰-۹]/g, (digit) => String(digit.charCodeAt(0) - 0x06f0))
+    .replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 0x0660))
+    .replace(/\u066B/g, ".")
+    .replace(/\u066C/g, "")
+    .replace(/\s/g, "");
+}
+
 const CHALLENGE_INTERVAL_MS = 15 * 60_000;
 
 type ChallengeScheduleAnchor = {
@@ -1699,13 +1708,12 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                 <div className="admin-wallet-allocation-card__input-row">
                   <input
                     id="treasury-prize-allocation-amount"
-                    type="number"
+                    type="text"
                     inputMode="decimal"
-                    min="0.000001"
-                    step="0.000001"
-                    max={treasuryFunding?.accountingStatus === "MATCH" ? treasuryFunding.unallocatedTreasuryBalance : "0"}
+                    maxLength={32}
+                    autoComplete="off"
                     value={treasuryAllocationAmount}
-                    onChange={(event) => setTreasuryAllocationAmount(event.target.value)}
+                    onChange={(event) => setTreasuryAllocationAmount(normalizeTreasuryAllocationInput(event.target.value))}
                     placeholder={fa ? "مثلاً ۱۰ یا ۰٫۵" : "e.g. 10 or 0.5"}
                     disabled={!treasuryFunding || treasuryAllocating}
                     required
@@ -1713,7 +1721,7 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                   <button
                     className="cta-button"
                     type="submit"
-                    disabled={!treasury || !treasuryFunding || treasuryFunding.accountingStatus !== "MATCH" || Number(treasuryFunding.unallocatedTreasuryBalance) <= 0 || !treasuryAllocationAmount.trim() || treasuryAllocating || treasuryFundingLoading}
+                    disabled={!treasury || !treasuryFunding || treasuryFunding.accountingStatus !== "MATCH" || Number(treasuryFunding.unallocatedTreasuryBalance) <= 0 || !/^\\d+(?:\\.\\d{1,6})?$/.test(treasuryAllocationAmount.trim()) || Number(treasuryAllocationAmount) <= 0 || Number(treasuryAllocationAmount) > Number(treasuryFunding?.unallocatedTreasuryBalance ?? 0) || treasuryAllocating || treasuryFundingLoading}
                   >
                     {treasuryAllocating
                       ? (fa ? "در حال تخصیص…" : "Allocating…")
