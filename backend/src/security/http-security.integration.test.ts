@@ -51,3 +51,44 @@ test("SQL-injection-shaped identifiers cannot bypass admin authentication", asyn
   const response = await fetch(`${baseUrl}/api/admin/contest-settings/%27%20OR%20%271%27%3D%271`);
   assert.equal(response.status, 401);
 });
+
+
+test("CSRF guard rejects state-changing requests from untrusted origins", async () => {
+  const response = await fetch(`${baseUrl}/api/auth/login`, {
+    method: "POST",
+    headers: { Origin: "https://attacker.example", "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).error, "CSRF_ORIGIN_NOT_ALLOWED");
+});
+
+test("CSRF guard rejects cookie-authenticated state changes without Origin", async () => {
+  const response = await fetch(`${baseUrl}/api/stats/heartbeat`, {
+    method: "POST",
+    headers: { Cookie: "__Host-wf_session=invalid-session", "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).error, "CSRF_ORIGIN_REQUIRED");
+});
+
+test("CSRF guard lets first-party authentication requests reach route validation", async () => {
+  const response = await fetch(`${baseUrl}/api/auth/login`, {
+    method: "POST",
+    headers: { Origin: "https://wallet-find.com", "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error, "INVALID_INPUT");
+});
+
+test("CSRF guard preserves non-browser API clients that send no session cookie", async () => {
+  const response = await fetch(`${baseUrl}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error, "INVALID_INPUT");
+});
