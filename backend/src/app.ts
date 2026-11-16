@@ -89,6 +89,30 @@ app.post(
 
 // Register the raw-body webhook route before the JSON parser because Turnkey
 // signatures must be verified against the exact original request bytes.
+// Cookie-authenticated browser requests and authentication form submissions must
+// originate from a configured first-party site. The signed Turnkey webhook is
+// registered above this guard and therefore remains server-to-server compatible.
+const unsafeMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const sessionCookiePattern = /(?:^|;\\s*)__Host-wf_session=/;
+
+app.use((req, res, next) => {
+  if (!unsafeMethods.has(req.method.toUpperCase())) return next();
+
+  const origin = req.get("origin");
+  if (origin && !corsOrigins.has(origin)) {
+    return res.status(403).json({ success: false, error: "CSRF_ORIGIN_NOT_ALLOWED" });
+  }
+
+  // Browsers send Origin on state-changing fetch/form requests. For requests
+  // without Origin, reject whenever the session cookie is present; requests
+  // from trusted non-browser clients without cookies remain compatible.
+  if (!origin && sessionCookiePattern.test(req.headers.cookie ?? "")) {
+    return res.status(403).json({ success: false, error: "CSRF_ORIGIN_REQUIRED" });
+  }
+
+  return next();
+});
+
 app.use(express.json({ limit: "2mb" }));
 
 const authLimiter = rateLimit({
