@@ -93,7 +93,7 @@ app.post(
 // originate from a configured first-party site. The signed Turnkey webhook is
 // registered above this guard and therefore remains server-to-server compatible.
 const unsafeMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-const sessionCookiePattern = /(?:^|;\\s*)__Host-wf_session=/;
+const sessionCookiePattern = /(?:^|;\s*)__Host-wf_session=/;
 
 app.use((req, res, next) => {
   if (!unsafeMethods.has(req.method.toUpperCase())) return next();
