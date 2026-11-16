@@ -133,7 +133,10 @@ const authLimiter = createApiLimiter("auth:", 15 * 60 * 1000, 20);
 const answerLimiter = createApiLimiter("contest-answer:", 60 * 1000, 20);
 const contestNextLimiter = createApiLimiter("contest-next:", 60 * 1000, 10);
 const contestReadLimiter = createApiLimiter("contest-read:", 60 * 1000, 60);
+const contestAdminWriteLimiter = createApiLimiter("contest-admin-write:", 60 * 1000, 10);
 const adminLimiter = createApiLimiter("admin-api:", 60 * 1000, 120);
+const adminWriteLimiter = createApiLimiter("admin-write:", 60 * 1000, 20);
+const walletReadLimiter = createApiLimiter("wallet-read:", 60 * 1000, 60);
 const walletWriteLimiter = createApiLimiter("wallet-write:", 60 * 1000, 10);
 const profileWriteLimiter = createApiLimiter("profile-write:", 60 * 1000, 15);
 const statsLimiter = createApiLimiter("stats-api:", 60 * 1000, 60);
@@ -350,17 +353,22 @@ app.use("/api/contests", (req, res, next) => {
   if (req.method === "POST" && req.path.endsWith("/next")) {
     return contestNextLimiter(req, res, next);
   }
-  if (
-    req.method === "GET" &&
-    (req.path === "/leaderboard-history" || req.path.endsWith("/leaderboard"))
-  ) {
+  if (req.method === "POST" && (req.path === "/" || req.path.endsWith("/clues"))) {
+    return contestAdminWriteLimiter(req, res, next);
+  }
+  if (req.method === "GET") {
     return contestReadLimiter(req, res, next);
   }
   return next();
 });
 app.use("/api/contests", contestRoutes);
 app.use("/api/admin-bootstrap", authLimiter, adminBootstrapRoutes);
-app.use("/api/admin", adminLimiter, adminRoutes);
+app.use("/api/admin", adminLimiter, (req, res, next) => {
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+    return adminWriteLimiter(req, res, next);
+  }
+  return next();
+}, adminRoutes);
 app.use("/api/profile", (req, res, next) => {
   if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
     return profileWriteLimiter(req, res, next);
@@ -370,6 +378,9 @@ app.use("/api/profile", (req, res, next) => {
 app.use("/api/wallet", (req, res, next) => {
   if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
     return walletWriteLimiter(req, res, next);
+  }
+  if (req.method === "GET") {
+    return walletReadLimiter(req, res, next);
   }
   return next();
 }, walletRoutes);
