@@ -97,3 +97,56 @@ test("mobile navigation opens and public content remains visible", async ({ page
   await menu.click();
   await expect(page.locator(".global-sidebar.global-sidebar--open")).toBeVisible();
 });
+
+
+test("all public pages render in every supported interface language", async ({ page }) => {
+  const pageErrors = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+
+  const routes = ["/", "/leaderboard", "/rewards", "/help", "/terms", "/rules", "/auth"];
+  for (const locale of locales) {
+    await page.addInitScript((code) => {
+      localStorage.setItem("walletFindLanguage", code);
+      localStorage.setItem("walletFindContestLanguage", code);
+    }, locale.code);
+
+    for (const route of routes) {
+      await page.goto(route, { waitUntil: "domcontentloaded" });
+      await expect(page.locator("html")).toHaveAttribute("lang", locale.code);
+      await expect(page.locator("html")).toHaveAttribute("dir", locale.direction);
+      await expect(page.locator("#root")).not.toBeEmpty();
+      await expect(page.locator("main h1").first(), `${locale.code} heading on ${route}`).toBeVisible();
+    }
+  }
+
+  expect(pageErrors).toEqual([]);
+});
+
+test("core navigation labels are localized in all ten interface languages", async ({ page }) => {
+  const expectedLabels = {
+    fa: ["خانه", "چالش", "جدول رتبه‌بندی", "کیف پول", "پروفایل"],
+    en: ["Home", "Challenge", "Leaderboard", "Wallet", "Profile"],
+    de: ["Startseite", "Challenge", "Rangliste", "Wallet", "Profil"],
+    es: ["Inicio", "Desafío", "Clasificación", "Billetera", "Perfil"],
+    fr: ["Accueil", "Défi", "Classement", "Portefeuille", "Profil"],
+    ar: ["الرئيسية", "التحدي", "لوحة المتصدرين", "المحفظة", "الملف الشخصي"],
+    tr: ["Ana sayfa", "Meydan okuma", "Sıralama", "Cüzdan", "Profil"],
+    pt: ["Início", "Desafio", "Classificação", "Carteira", "Perfil"],
+    ru: ["Главная", "Испытание", "Рейтинг", "Кошелёк", "Профиль"],
+    "zh-CN": ["首页", "挑战", "排行榜", "钱包", "个人资料"],
+  };
+
+  for (const locale of locales) {
+    await page.goto("/");
+    await page.evaluate((code) => {
+      localStorage.setItem("walletFindLanguage", code);
+      localStorage.setItem("walletFindContestLanguage", code);
+    }, locale.code);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.locator(".global-sidebar-trigger").click();
+
+    for (const label of expectedLabels[locale.code]) {
+      await expect(page.getByText(label, { exact: true }).first(), `${locale.code} navigation label: ${label}`).toBeVisible();
+    }
+  }
+});
