@@ -19,6 +19,7 @@ export function createGanjoorRandomPoemFetcher(options: GanjoorFetcherOptions = 
   let requestCount = 0;
 
   return async function fetchRandomPoemForPoet(poetId: number): Promise<Response | null> {
+    let lastResponse: Response | null = null;
     for (const baseUrl of baseUrls) {
       const url = new URL("/api/ganjoor/poem/random", baseUrl);
       url.searchParams.set("poetId", String(poetId));
@@ -41,6 +42,7 @@ export function createGanjoorRandomPoemFetcher(options: GanjoorFetcherOptions = 
           break;
         }
 
+        lastResponse = response;
         if (response.status === 429 && attempt === 0) {
           const retryAfter = Number(response.headers.get("retry-after"));
           const retryDelay = Number.isFinite(retryAfter) && retryAfter > 0
@@ -58,7 +60,7 @@ export function createGanjoorRandomPoemFetcher(options: GanjoorFetcherOptions = 
       }
     }
 
-    return null;
+    return lastResponse;
   };
 }
 
