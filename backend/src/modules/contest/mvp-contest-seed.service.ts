@@ -1,7 +1,7 @@
 import prisma from "../../config/prisma.js";
 import { createWikipediaResponseFetcher, loadFallbackWhenInsufficient } from "./wikipedia-source-fetch.js";
 import { fetchInternetArchiveDocuments } from "./internet-archive-source.js";
-import { fetchGanjoorRandomPoem } from "./ganjoor-source.js";
+import { fetchSourceDocuments, readBoundedResponseText, selectBalancedSourceUrls } from "./source-fetch-pool.js";
 import { CHALLENGE_LANGUAGE_NAMES, getWikipediaDomain, isChallengeLanguage, type ChallengeLanguage } from "./supported-languages.js";
 import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
 import { CHALLENGE_INTERVAL_MS, getChallengeNumberAt, getChallengeScheduleAnchor } from "./challenge-schedule.js";
@@ -100,6 +100,10 @@ const COMMON_WORDS = new Set([
   "back", "even", "still", "take", "time", "years", "year", "part", "parts",
   "chapter", "volume", "project", "gutenberg", "ebook", "copyright",
 ]);
+
+const MAX_CUSTOM_SOURCE_URLS_PER_ROUND = 24;
+const CUSTOM_SOURCE_FETCH_CONCURRENCY = 6;
+const CUSTOM_SOURCE_PER_HOST_CONCURRENCY = 2;
 
 const GUTENBERG_BOOKS = [
   {
@@ -356,75 +360,6 @@ async function fetchWikisourceDocuments(limit: number, language: ChallengeLangua
   }
 }
 
-async function fetchGanjoorDocuments(limit: number): Promise<SourceDocument[]> {
-  // Persian Wikisource has no usable text corpus. Use classical public-domain
-  // poets and keep each poem's canonical Ganjoor page as the source link.
-  const publicDomainPoetIds = [2, 7, 5, 3, 4]; // Hafez, Saadi, Rumi, Khayyam, Ferdowsi
-  const sources: SourceDocument[] = [];
-  const seenUrls = new Set<string>();
-  for (const poetId of publicDomainPoetIds.slice(0, limit)) {
-    let acceptedForPoet = false;
-
-    // Some random poems are very short. Try a second poem from that same
-    // public-domain poet rather than accepting a source that cannot yield clues.
-    for (let poemAttempt = 0; poemAttempt < 2 && !acceptedForPoet; poemAttempt += 1) {
-      const response = await fetchGanjoorRandomPoem(poetId);
-
-      if (!response?.ok) {
-        console.warn("Ganjoor random poem request skipped", {
-          poetId,
-          status: response?.status ?? "network_error",
-        });
-        break;
-      }
-
-      try {
-        const poem = await response.json() as {
-          title?: string;
-          fullTitle?: string;
-          fullUrl?: string;
-          plainText?: string;
-          published?: boolean;
-        };
-        const text = normalizeSourceText(poem.plainText ?? "");
-        const sourceUrl = poem.fullUrl
-          ? new URL(poem.fullUrl, "https://ganjoor.net").toString()
-          : null;
-
-        if (poem.published === false || text.length < 120 || !sourceUrl || seenUrls.has(sourceUrl)) {
-          console.warn("Ganjoor poem skipped because it is not usable for clue generation", {
-            poetId,
-            textLength: text.length,
-            hasSourceUrl: Boolean(sourceUrl),
-            published: poem.published,
-          });
-          continue;
-        }
-
-        seenUrls.add(sourceUrl);
-        sources.push({
-          title: poem.fullTitle ?? poem.title ?? "Ganjoor classical poem",
-          url: sourceUrl,
-          text,
-        });
-        acceptedForPoet = true;
-      } catch (error) {
-        console.warn("Ganjoor poem response could not be parsed", {
-          poetId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-  }
-
-  console.info("Ganjoor Persian source selection completed", {
-    requestedSources: limit,
-    acceptedSources: sources.length,
-    sourceHosts: sources.map((source) => new URL(source.url).hostname),
-  });
-  return sources;
-}
-
 // Source texts can contain hundreds of thousands of characters. Cache tokenization
 // and normalization across attempts so the round generator does not repeatedly
 // perform expensive synchronous work on the event loop while Render is checking
@@ -642,6 +577,8 @@ async function fetchWikipediaArticleDocument(parsed: URL): Promise<SourceDocumen
   }
 }
 
+const MAX_CONFIGURED_SOURCE_BYTES = 1_500_000;
+
 async function fetchConfiguredWebDocument(url: string): Promise<SourceDocument | null> {
   try {
     const parsed = new URL(url);
@@ -663,7 +600,11 @@ async function fetchConfiguredWebDocument(url: string): Promise<SourceDocument |
     if (!response.ok) return null;
 
     const contentType = response.headers.get("content-type") ?? "";
-    const responseText = await response.text();
+    const responseText = await readBoundedResponseText(response, MAX_CONFIGURED_SOURCE_BYTES);
+    if (responseText === null) {
+      console.warn("Configured clue source exceeded the response size limit", { host: parsed.hostname, maxBytes: MAX_CONFIGURED_SOURCE_BYTES });
+      return null;
+    }
     const text = contentType.includes("html") || /<html|<body|<p[ >]/i.test(responseText.slice(0, 2000))
       ? extractVisibleTextFromHtml(responseText)
       : normalizeSourceText(responseText);
@@ -731,31 +672,27 @@ async function getConfiguredSourceUrls(language: ChallengeLanguage): Promise<str
 /**
  * Generate each round from source documents in the selected challenge language.
  * Wikimedia is the live primary source; language-matched public-domain corpora
- * such as Ganjoor, Project Gutenberg, and Internet Archive provide independent
- * fallbacks when a provider is unavailable or cannot yield enough valid clues.
+ * such as Project Gutenberg and Internet Archive provide independent fallbacks
+ * when a provider is unavailable or cannot yield enough valid clues.
  */
 async function generateMvpRounds(
   language: ChallengeLanguage = "en",
   context?: RoundGenerationContext,
 ): Promise<GeneratedRound[]> {
+  const generationStartedAt = Date.now();
   const configuredUrls = await getConfiguredSourceUrls(language);
   const scheduledAssignments = context ? await getScheduledSourceAssignments(language, context) : [];
   const assignedUrls = [...new Set(scheduledAssignments.map((assignment) => assignment.url))];
   const wikiUrl = "https://" + getWikipediaDomain(language) + "/w/api.php";
   const wikipediaDocuments = configuredUrls.includes(wikiUrl) ? await fetchWikipediaDocuments(12, language) : [];
-  // If Wikipedia is rate-limited or returns too few usable pages, use the
-  // language-matched Wikisource corpus as a second independent MediaWiki project.
-  // This is especially important for non-English languages, which have no
-  // Project Gutenberg fallback configured.
+  // Wikisource is a secondary corpus, but shares Wikimedia infrastructure
+  // with Wikipedia; Internet Archive remains the independently hosted fallback.
   const shouldUseIndependentFallback = configuredUrls.includes(wikiUrl);
   const wikisourceDocuments = language !== "fa" && shouldUseIndependentFallback
     ? await loadFallbackWhenInsufficient(wikipediaDocuments, () => fetchWikisourceDocuments(12, language), 3)
     : [];
-  // Persian Wikisource currently has no published text corpus. Use five
-  // public-domain classical poets from Ganjoor instead when Wikipedia is unavailable.
-  const ganjoorDocuments = language === "fa" && shouldUseIndependentFallback
-    ? await loadFallbackWhenInsufficient(wikipediaDocuments, () => fetchGanjoorDocuments(5), 3)
-    : [];
+  // Ganjoor is intentionally not used until its reuse rights are explicitly documented.
+  // Persian falls back to Internet Archive only when the source corpus is insufficient.
   const gutenbergResults = language === "en" ? await Promise.all(
     GUTENBERG_BOOKS.filter((book) => configuredUrls.includes(book.textUrl)).map((book) => fetchGutenbergDocument(book)),
   ) : [];
@@ -771,16 +708,38 @@ async function generateMvpRounds(
     });
   }
   const plannedSourceUrls = new Set(assignedUrls);
-  const customDocuments: Array<SourceDocument | null> = [];
   const customUrls = configuredUrls.filter((url) => !knownUrls.has(url) && !plannedSourceUrls.has(url));
-  for (const url of customUrls) {
-    customDocuments.push(await fetchConfiguredWebDocument(url));
-  }
+  // The admin source catalog may eventually contain hundreds of advertiser
+  // pages. Sample a balanced subset per round and fetch it with bounded
+  // concurrency so catalog growth does not create unbounded latency or bursts.
+  const rotationChallengeNumber = context?.challengeNumber ?? await getChallengeNumberAt(new Date());
+  const selectedCustomUrls = selectBalancedSourceUrls(
+    customUrls,
+    MAX_CUSTOM_SOURCE_URLS_PER_ROUND,
+    rotationChallengeNumber * MAX_CUSTOM_SOURCE_URLS_PER_ROUND,
+  );
+  const customFetchResult = await fetchSourceDocuments(
+    selectedCustomUrls,
+    fetchConfiguredWebDocument,
+    { concurrency: CUSTOM_SOURCE_FETCH_CONCURRENCY, perHostConcurrency: CUSTOM_SOURCE_PER_HOST_CONCURRENCY },
+  );
+  const customDocuments = customFetchResult.documents;
+  console.info("MVP_SOURCE_PIPELINE_METRICS", {
+    language,
+    customSourceCandidateCount: customUrls.length,
+    customSourceSelectedCount: selectedCustomUrls.length,
+    customSourceAttemptedCount: customFetchResult.metrics.attemptedCount,
+    customSourceAcceptedCount: customFetchResult.metrics.acceptedCount,
+    customSourceFailedCount: customFetchResult.metrics.failedCount,
+    customSourceHostCount: customFetchResult.metrics.hostCount,
+    customSourceFetchDurationMs: customFetchResult.metrics.durationMs,
+    maxConcurrentRequests: CUSTOM_SOURCE_FETCH_CONCURRENCY,
+    maxConcurrentRequestsPerHost: CUSTOM_SOURCE_PER_HOST_CONCURRENCY,
+  });
   let sources = [
     ...gutenbergResults.filter((source): source is SourceDocument => source !== null),
     ...wikipediaDocuments,
     ...wikisourceDocuments,
-    ...ganjoorDocuments,
     ...customDocuments.filter((source): source is SourceDocument => source !== null),
     ...plannedDocuments.flatMap(({ source }) => source ? [source] : []),
   ];
@@ -873,13 +832,16 @@ async function generateMvpRounds(
     language, configuredSourceCount: configuredUrls.length, sourceCount: sources.length,
     wikipediaSourceCount: wikipediaDocuments.length,
     wikisourceSourceCount: wikisourceDocuments.length,
-    ganjoorSourceCount: ganjoorDocuments.length,
     gutenbergSourceCount: gutenbergResults.filter((source) => source !== null).length,
     internetArchiveSourceCount: internetArchiveDocuments.length,
     customSourceCount: customDocuments.filter((source) => source !== null).length,
+    customSourceCandidateCount: customUrls.length,
+    customSourceSelectedCount: selectedCustomUrls.length,
+    customSourceFetchDurationMs: customFetchResult.metrics.durationMs,
     scheduledAssignments: scheduledAssignments.map(({ sequence, url }) => ({ sequence, hostname: new URL(url).hostname })),
     generatedRoundCount: rounds.length + pinnedRounds.size,
     uniqueAnswerCount: usedAnswers.size,
+    generationDurationMs: Date.now() - generationStartedAt,
   });
   if (rounds.length < remainingCount) throw new Error("MVP_ROUND_GENERATION_FAILED");
 
@@ -1044,7 +1006,15 @@ const activeContestEnsurePromises = new Map<ChallengeLanguage, Promise<string>>(
 export function ensureMvpActiveContest(language: ChallengeLanguage = "en"): Promise<string> {
   const existing = activeContestEnsurePromises.get(language);
   if (existing) return existing;
-  const pending = ensureMvpActiveContestInternal(language).finally(() => activeContestEnsurePromises.delete(language));
+  const pending = ensureMvpActiveContestInternal(language)
+    .catch((error: unknown) => {
+      console.error("MVP_CHALLENGE_INITIALIZATION_FAILED", {
+        language,
+        errorCode: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    })
+    .finally(() => activeContestEnsurePromises.delete(language));
   activeContestEnsurePromises.set(language, pending);
   return pending;
 }

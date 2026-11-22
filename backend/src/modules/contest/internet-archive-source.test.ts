@@ -25,7 +25,7 @@ test("Internet Archive fallback selects same-language, commercially usable text 
     calls.push(url.toString());
 
     if (url.hostname === "archive.org" && url.pathname === "/advancedsearch.php") {
-      assert.match(url.searchParams.get("q") ?? "", /language:tur/);
+      assert.match(url.searchParams.get("q") ?? "", /language:"?tur"?/);
       return new Response(JSON.stringify({
         response: {
           docs: [
@@ -153,8 +153,57 @@ test("Internet Archive catalog search uses a language-specific code for all ten 
 
   for (const [language, code] of expected) {
     assert.ok(
-      [...seen.keys()].some((query) => query.includes("language:" + code)),
+      [...seen.keys()].some((query) => query.includes(`language:"${code}"`)),
       language + " must search the matching language catalog",
     );
   }
+  const arabicQuery = [...seen.keys()].find((query) => query.includes(`language:"ara"`));
+  assert.match(arabicQuery ?? "", /language:"Arabic"/i, "Arabic search must include the common language name");
+});
+
+test("Internet Archive finds Arabic records indexed by language name rather than ISO code", async () => {
+  const arabicText = ("التاريخ الثقافة المعرفة التعليم العلوم الاقتصاد المجتمع التكنولوجيا البحث الدراسة الكتاب المدرسة الجامعة الانسان الحياة الطبيعة الطاقة الهندسة العمارة الزراعة الصناعة الصحة الرياضة الفنون الادب اللغة الشعر الفلسفة السياسة الجغرافيا البيئة الحضارة التطور التنمية الفكر ").repeat(5);
+  let downloadAttempts = 0;
+  const retryDelays: number[] = [];
+  const fetchImpl: typeof fetch = async (input) => {
+    const url = new URL(String(input));
+    if (url.pathname === "/advancedsearch.php") {
+      assert.match(url.searchParams.get("q") ?? "", /language:"Arabic"/i);
+      return new Response(JSON.stringify({
+        response: { docs: [{
+          identifier: "arabic-name-indexed",
+          title: "Arabic public domain work",
+          language: ["Arabic"],
+          licenseurl: "https://creativecommons.org/publicdomain/zero/1.0/",
+        }] },
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (url.pathname === "/metadata/arabic-name-indexed") {
+      return new Response(JSON.stringify({
+        metadata: {
+          title: "Arabic public domain work",
+          language: ["Arabic"],
+          licenseurl: "https://creativecommons.org/publicdomain/zero/1.0/",
+        },
+        files: [{ name: "arabic_djvu.txt", size: String(arabicText.length) }],
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (url.pathname === "/download/arabic-name-indexed/arabic_djvu.txt") {
+      downloadAttempts += 1;
+      if (downloadAttempts === 1) return new Response("temporary error", { status: 503 });
+      return new Response(arabicText, { status: 200, headers: { "content-type": "text/plain" } });
+    }
+    throw new Error("Unexpected request: " + url.toString());
+  };
+
+  const load = createInternetArchiveSourceLoader({
+    fetchImpl,
+    wait: async (milliseconds) => { retryDelays.push(milliseconds); },
+  });
+  const documents = await load("ar", 6);
+  assert.equal(documents.length, 1);
+  assert.equal(documents[0]?.title, "Arabic public domain work");
+  assert.match(documents[0]?.text ?? "", /التاريخ/);
+  assert.equal(downloadAttempts, 2);
+  assert.ok(retryDelays.includes(500), "transient 5xx errors must be retried");
 });
