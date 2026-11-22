@@ -189,13 +189,23 @@ async function fetchWikipediaResponse(
         headers,
         signal: AbortSignal.timeout(timeoutMs),
       });
-      if (response.status !== 429 || attempt === 2) return response;
+      if (response.status === 429) {
+        // Do not hold the shared Wikimedia queue while sleeping through a
+        // rate-limit window. Return immediately so generation can switch to
+        // the independent language-matched fallback source.
+        const retryAfter = response.headers.get("retry-after");
+        console.warn("Wikimedia rate limit received; switching to fallback source.", {
+          host: url.hostname,
+          status: response.status,
+          retryAfter: retryAfter ?? null,
+        });
+        return response;
+      }
+      if (response.status < 500 || attempt === 2) return response;
 
-      const retryAfter = Number(response.headers.get("retry-after"));
-      const retryDelay = Number.isFinite(retryAfter) && retryAfter > 0
-        ? Math.min(30_000, retryAfter * 1_000)
-        : 2_000 * (attempt + 1);
-      console.warn("Wikipedia rate limit received; retrying after a short delay.", {
+      const retryDelay = 1_000 * (attempt + 1);
+      console.warn("Wikimedia server error; retrying after a short delay.", {
+        host: url.hostname,
         status: response.status,
         retryDelay,
       });
@@ -793,8 +803,11 @@ async function getConfiguredSourceUrls(language: ChallengeLanguage): Promise<str
   try {
     const parsed: unknown = JSON.parse(setting.value);
     if (!Array.isArray(parsed)) return defaults;
-    return [...new Set(parsed.filter((url): url is string => typeof url === "string")
+    const configured = [...new Set(parsed.filter((url): url is string => typeof url === "string")
       .map((url) => url.trim()).filter((url) => url.startsWith("https://") && url.length <= 500))];
+    // An empty or entirely invalid admin list must not disable every default
+    // source for that language and make automatic challenge generation fail.
+    return configured.length > 0 ? configured : defaults;
   } catch { return defaults; }
 }
 
