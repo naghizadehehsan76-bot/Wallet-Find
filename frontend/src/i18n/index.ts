@@ -23,8 +23,6 @@ export const languages = {
   ar: en as unknown as Translation,
   tr: en as unknown as Translation,
   pt: en as unknown as Translation,
-  ru: en as unknown as Translation,
-  "zh-CN": en as unknown as Translation,
 } satisfies Record<ChallengeLanguage, Translation>;
 
 export type Language = ChallengeLanguage;
@@ -64,7 +62,6 @@ function detectBrowserLanguage(): Language {
   const candidates = [...(navigator.languages ?? []), navigator.language].filter(Boolean);
   for (const candidate of candidates) {
     const normalized = candidate.toLowerCase();
-    if (normalized === "zh-cn" || normalized.startsWith("zh-hans")) return "zh-CN";
     const base = normalized.split("-")[0];
     const match = CHALLENGE_LANGUAGES.find((item) => item.code.toLowerCase() === base);
     if (match) return match.code;
