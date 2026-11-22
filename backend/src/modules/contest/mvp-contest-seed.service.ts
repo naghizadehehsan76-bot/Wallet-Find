@@ -503,11 +503,8 @@ async function fetchGutenbergDocument(book: {
     let text = await response.text();
     text = text
       .replace(/\r/g, "")
-      .replace(/^[\s\S]*?\*\*\* START OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[^
-]*
-/i, "")
-      .replace(/
-\*\*\* END OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[\s\S]*$/i, "");
+      .replace(/^[\s\S]*?\*\*\* START OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[^\n]*\n/i, "")
+      .replace(/\n\*\*\* END OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[\s\S]*$/i, "");
 
     if (text.length < 1000) {
       console.warn("Project Gutenberg source text was too short", {
