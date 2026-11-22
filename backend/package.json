@@ -40,5 +40,8 @@
     "prisma": "^7.9.1",
     "tsx": "^4.23.11",
     "typescript": "^7.0.2"
+  },
+  "overrides": {
+    "effect": "3.22.1"
   }
 }
