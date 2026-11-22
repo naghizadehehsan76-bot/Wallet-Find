@@ -129,8 +129,6 @@ const LANGUAGE_LOCALES: Record<ChallengeLanguage, string> = {
   ar: "ar",
   tr: "tr",
   pt: "pt",
-  ru: "ru",
-  "zh-CN": "zh-CN",
 };
 
 function normalizeSourceWord(raw: string, language: ChallengeLanguage): string {
