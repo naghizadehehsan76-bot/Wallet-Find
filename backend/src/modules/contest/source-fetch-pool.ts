@@ -87,3 +87,30 @@ export async function fetchSourceDocuments<T extends FetchableSourceDocument>(
   });
   return { documents, metrics: { candidateCount: urls.length, selectedCount: urls.length, attemptedCount, acceptedCount, failedCount: attemptedCount - acceptedCount, hostCount: groups.size, durationMs: Date.now() - startedAt } };
 }
+
+export async function readBoundedResponseText(response: Response, maxBytes: number): Promise<string | null> {
+  const declaredLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) return null;
+  if (!response.body) return null;
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let totalBytes = 0;
+  let text = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        await reader.cancel();
+        return null;
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    text += decoder.decode();
+    return text;
+  } finally {
+    reader.releaseLock();
+  }
+}
