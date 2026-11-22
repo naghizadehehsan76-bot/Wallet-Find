@@ -168,14 +168,30 @@ async function loadDocuments(
   const search = await fetchJson<{
     response?: { docs?: ArchiveSearchDocument[] };
   }>(searchUrl, fetchImpl);
-  const candidates = (search?.response?.docs ?? []).filter((item) =>
-    typeof item.identifier === "string" &&
-    /^[a-zA-Z0-9._-]{1,120}$/.test(item.identifier) &&
-    hasCommerciallyUsableLicense(item.licenseurl) &&
-    matchesLanguage(item.language, language)
-  );
+  const searchResults = search?.response?.docs ?? [];
+  let searchLicenseRejectedCount = 0;
+  let searchLanguageRejectedCount = 0;
+  const candidates = searchResults.filter((item) => {
+    if (typeof item.identifier !== "string" || !/^[a-zA-Z0-9._-]{1,120}$/.test(item.identifier)) return false;
+    if (!hasCommerciallyUsableLicense(item.licenseurl)) {
+      searchLicenseRejectedCount += 1;
+      return false;
+    }
+    if (!matchesLanguage(item.language, language)) {
+      searchLanguageRejectedCount += 1;
+      return false;
+    }
+    return true;
+  });
 
   const documents: SourceDocument[] = [];
+  let metadataLookupCount = 0;
+  let metadataMissingCount = 0;
+  let metadataLicenseRejectedCount = 0;
+  let metadataLanguageRejectedCount = 0;
+  let textFileMissingCount = 0;
+  let textDownloadFailedCount = 0;
+  let textRejectedCount = 0;
   for (const candidate of candidates.slice(0, MAX_METADATA_LOOKUPS)) {
     if (documents.length >= MAX_DOCUMENTS) break;
     const identifier = candidate.identifier;
@@ -184,13 +200,19 @@ async function loadDocuments(
     const metadataUrl = new URL(
       "https://archive.org/metadata/" + encodeURIComponent(identifier),
     );
+    metadataLookupCount += 1;
     const metadata = await fetchJson<ArchiveMetadata>(metadataUrl, fetchImpl);
     const itemMetadata = metadata?.metadata;
-    if (
-      !itemMetadata ||
-      !hasCommerciallyUsableLicense(itemMetadata.licenseurl) ||
-      !matchesLanguage(itemMetadata.language, language)
-    ) {
+    if (!itemMetadata) {
+      metadataMissingCount += 1;
+      continue;
+    }
+    if (!hasCommerciallyUsableLicense(itemMetadata.licenseurl)) {
+      metadataLicenseRejectedCount += 1;
+      continue;
+    }
+    if (!matchesLanguage(itemMetadata.language, language)) {
+      metadataLanguageRejectedCount += 1;
       continue;
     }
 
@@ -214,7 +236,10 @@ async function loadDocuments(
       });
 
     const file = textFiles[0];
-    if (!file?.name) continue;
+    if (!file?.name) {
+      textFileMissingCount += 1;
+      continue;
+    }
 
     const downloadUrl = new URL(
       "https://archive.org/download/" +
@@ -222,10 +247,16 @@ async function loadDocuments(
       file.name.split("/").map(encodeURIComponent).join("/"),
     );
     const downloaded = await fetchText(downloadUrl, fetchImpl);
-    if (!downloaded) continue;
+    if (!downloaded) {
+      textDownloadFailedCount += 1;
+      continue;
+    }
 
     const text = normalizeSourceText(downloaded);
-    if (!isUsableText(text, language)) continue;
+    if (!isUsableText(text, language)) {
+      textRejectedCount += 1;
+      continue;
+    }
 
     documents.push({
       title: itemMetadata.title ?? candidate.title ?? identifier,
@@ -237,7 +268,17 @@ async function loadDocuments(
 
   console.info("Internet Archive independent fallback selection completed", {
     language,
+    searchResultCount: searchResults.length,
     candidateCount: candidates.length,
+    searchLicenseRejectedCount,
+    searchLanguageRejectedCount,
+    metadataLookupCount,
+    metadataMissingCount,
+    metadataLicenseRejectedCount,
+    metadataLanguageRejectedCount,
+    textFileMissingCount,
+    textDownloadFailedCount,
+    textRejectedCount,
     acceptedSources: documents.length,
     sourceHosts: documents.map(() => "archive.org"),
   });
