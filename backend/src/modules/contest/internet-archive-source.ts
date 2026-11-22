@@ -153,9 +153,15 @@ async function loadDocuments(
   fetchImpl: typeof fetch,
 ): Promise<SourceDocument[]> {
   const searchUrl = new URL("https://archive.org/advancedsearch.php");
+  // Archive.org metadata uses inconsistent language identifiers. Search
+  // the ISO code and common names, then validate the item's metadata below.
+  const languageFilters = [...new Set([
+    LANGUAGE_CODES[language],
+    ...LANGUAGE_ALIASES[language],
+  ])].map((value) => `language:"${value}"`).join(" OR ");
   searchUrl.searchParams.set(
     "q",
-    "mediatype:texts AND language:" + LANGUAGE_CODES[language],
+    `mediatype:texts AND (${languageFilters})`,
   );
   for (const field of ["identifier", "title", "language", "licenseurl"]) {
     searchUrl.searchParams.append("fl[]", field);
