@@ -166,6 +166,10 @@ function hasCurrentGeneratedClues(clues: readonly StoredGeneratedClue[]): boolea
   );
 }
 
+function waitForWikipediaRetry(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 // One process-wide queue spaces Wikimedia requests without sleeping through a 429 window.
 const fetchWikipediaResponse = createWikipediaResponseFetcher();
 
