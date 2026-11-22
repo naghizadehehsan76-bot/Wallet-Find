@@ -21,7 +21,9 @@ export function selectBalancedSourceUrls(urls: readonly string[], limit = 24, ro
   });
   const selected: string[] = []; let cursor = queues.length > 0 ? offset % queues.length : 0;
   while (selected.length < Math.max(0, limit) && queues.some((queue) => queue.length > 0)) {
-    const queue = queues[cursor % queues.length];\n    if (queue && queue.length > 0) selected.push(queue.shift()!);\n    cursor += 1;
+    const queue = queues[cursor % queues.length];
+    if (queue && queue.length > 0) selected.push(queue.shift()!);
+    cursor += 1;
   }
   return selected;
 }
@@ -57,6 +59,7 @@ export async function fetchSourceDocuments<T extends FetchableSourceDocument>(
         );
         if (nextIndex < 0) break;
         const [item] = pending.splice(nextIndex, 1);
+        if (!item) continue;
         activeCount += 1;
         attemptedCount += 1;
         activeByHost.set(item.host, (activeByHost.get(item.host) ?? 0) + 1);
