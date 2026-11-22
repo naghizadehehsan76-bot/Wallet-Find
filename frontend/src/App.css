@@ -4433,3 +4433,35 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   .admin-challenge-history__pagination { align-items:flex-start; flex-direction:column; }
 }
 
+
+
+/* Turnkey fee fund refresh action: keep the full label readable on narrow screens. */
+.admin-wallet-overview__refresh {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: auto;
+  min-width: max-content;
+  min-height: 42px;
+  height: auto;
+  padding: 9px 14px;
+  border: 1px solid var(--line-cyan);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(0, 225, 207, .13), rgba(7, 42, 61, .88));
+  color: var(--verdigris);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 225, 207, .08);
+}
+.admin-wallet-overview__refresh:disabled { opacity: .6; cursor: wait; }
+.admin-wallet-overview__refresh:focus-visible { outline: 2px solid #00e9d1; outline-offset: 3px; }
+.admin-wallet-overview__refresh-icon { font-size: 20px; line-height: 1; }
+@media (max-width: 640px) {
+  .admin-wallet-overview__heading { align-items: flex-start; }
+  .admin-wallet-overview__refresh { flex-shrink: 0; }
+}
