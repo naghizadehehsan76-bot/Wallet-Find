@@ -15,6 +15,8 @@ type ArchiveSearchDocument = {
 };
 
 type ArchiveMetadata = {
+  d1?: string;
+  dir?: string;
   metadata?: {
     title?: string;
     language?: string | string[];
@@ -73,6 +75,21 @@ function values(value: string | string[] | undefined): string[] {
   return typeof value === "string" ? [value] : [];
 }
 
+function getArchiveTextDownloadUrl(identifier: string, fileName: string, archiveMetadata: ArchiveMetadata): URL {
+  const server = archiveMetadata.d1?.trim();
+  const directory = archiveMetadata.dir?.trim();
+  if (server && directory && directory.startsWith("/") && !directory.split("/").includes("..")) {
+    try {
+      const serverUrl = new URL(server.includes("://") ? server : `https://${server}`);
+      if (serverUrl.protocol === "https:" && (serverUrl.hostname === "archive.org" || serverUrl.hostname.endsWith(".archive.org"))) {
+        return new URL(`${directory.replace(/\/+$/, "")}/${encodeURIComponent(fileName)}`, serverUrl);
+      }
+    } catch {
+      // Fall back to archive.org's canonical redirecting download URL.
+    }
+  }
+  return new URL("https://archive.org/download/" + encodeURIComponent(identifier) + "/" + fileName.split("/").map(encodeURIComponent).join("/"));
+}
 function hasCommerciallyUsableLicense(value: string | string[] | undefined): boolean {
   return values(value).some((license) => {
     try {
@@ -294,11 +311,7 @@ async function loadDocuments(
       continue;
     }
 
-    const downloadUrl = new URL(
-      "https://archive.org/download/" +
-      encodeURIComponent(identifier) + "/" +
-      file.name.split("/").map(encodeURIComponent).join("/"),
-    );
+    const downloadUrl = getArchiveTextDownloadUrl(identifier, file.name, metadata);
     const downloaded = await fetchText(downloadUrl, fetchImpl, wait);
     if (!downloaded) {
       textDownloadFailedCount += 1;
