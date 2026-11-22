@@ -101,6 +101,10 @@ const COMMON_WORDS = new Set([
   "chapter", "volume", "project", "gutenberg", "ebook", "copyright",
 ]);
 
+const MAX_CUSTOM_SOURCE_URLS_PER_ROUND = 24;
+const CUSTOM_SOURCE_FETCH_CONCURRENCY = 6;
+const CUSTOM_SOURCE_PER_HOST_CONCURRENCY = 2;
+
 const GUTENBERG_BOOKS = [
   {
     title: "Alice's Adventures in Wonderland",
@@ -710,13 +714,13 @@ async function generateMvpRounds(
   // concurrency so catalog growth does not create unbounded latency or bursts.
   const selectedCustomUrls = selectBalancedSourceUrls(
     customUrls,
-    24,
-    (context?.challengeNumber ?? getChallengeNumberAt(new Date())) * 24,
+    MAX_CUSTOM_SOURCE_URLS_PER_ROUND,
+    (context?.challengeNumber ?? getChallengeNumberAt(new Date())) * MAX_CUSTOM_SOURCE_URLS_PER_ROUND,
   );
   const customFetchResult = await fetchSourceDocuments(
     selectedCustomUrls,
     fetchConfiguredWebDocument,
-    { concurrency: 6, perHostConcurrency: 2 },
+    { concurrency: CUSTOM_SOURCE_FETCH_CONCURRENCY, perHostConcurrency: CUSTOM_SOURCE_PER_HOST_CONCURRENCY },
   );
   const customDocuments = customFetchResult.documents;
   console.info("MVP_SOURCE_PIPELINE_METRICS", {
@@ -728,8 +732,8 @@ async function generateMvpRounds(
     customSourceFailedCount: customFetchResult.metrics.failedCount,
     customSourceHostCount: customFetchResult.metrics.hostCount,
     customSourceFetchDurationMs: customFetchResult.metrics.durationMs,
-    maxConcurrentRequests: 6,
-    maxConcurrentRequestsPerHost: 2,
+    maxConcurrentRequests: CUSTOM_SOURCE_FETCH_CONCURRENCY,
+    maxConcurrentRequestsPerHost: CUSTOM_SOURCE_PER_HOST_CONCURRENCY,
   });
   let sources = [
     ...gutenbergResults.filter((source): source is SourceDocument => source !== null),
