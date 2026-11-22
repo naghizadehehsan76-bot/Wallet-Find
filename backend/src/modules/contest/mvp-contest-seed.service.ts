@@ -1,7 +1,6 @@
 import prisma from "../../config/prisma.js";
 import { createWikipediaResponseFetcher, loadFallbackWhenInsufficient } from "./wikipedia-source-fetch.js";
 import { fetchInternetArchiveDocuments } from "./internet-archive-source.js";
-import { fetchGanjoorRandomPoem } from "./ganjoor-source.js";
 import { fetchSourceDocuments, selectBalancedSourceUrls } from "./source-fetch-pool.js";
 import { CHALLENGE_LANGUAGE_NAMES, getWikipediaDomain, isChallengeLanguage, type ChallengeLanguage } from "./supported-languages.js";
 import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
@@ -357,75 +356,6 @@ async function fetchWikisourceDocuments(limit: number, language: ChallengeLangua
   }
 }
 
-async function fetchGanjoorDocuments(limit: number): Promise<SourceDocument[]> {
-  // Persian Wikisource has no usable text corpus. Use classical public-domain
-  // poets and keep each poem's canonical Ganjoor page as the source link.
-  const publicDomainPoetIds = [2, 7, 5, 3, 4]; // Hafez, Saadi, Rumi, Khayyam, Ferdowsi
-  const sources: SourceDocument[] = [];
-  const seenUrls = new Set<string>();
-  for (const poetId of publicDomainPoetIds.slice(0, limit)) {
-    let acceptedForPoet = false;
-
-    // Some random poems are very short. Try a second poem from that same
-    // public-domain poet rather than accepting a source that cannot yield clues.
-    for (let poemAttempt = 0; poemAttempt < 2 && !acceptedForPoet; poemAttempt += 1) {
-      const response = await fetchGanjoorRandomPoem(poetId);
-
-      if (!response?.ok) {
-        console.warn("Ganjoor random poem request skipped", {
-          poetId,
-          status: response?.status ?? "network_error",
-        });
-        break;
-      }
-
-      try {
-        const poem = await response.json() as {
-          title?: string;
-          fullTitle?: string;
-          fullUrl?: string;
-          plainText?: string;
-          published?: boolean;
-        };
-        const text = normalizeSourceText(poem.plainText ?? "");
-        const sourceUrl = poem.fullUrl
-          ? new URL(poem.fullUrl, "https://ganjoor.net").toString()
-          : null;
-
-        if (poem.published === false || text.length < 120 || !sourceUrl || seenUrls.has(sourceUrl)) {
-          console.warn("Ganjoor poem skipped because it is not usable for clue generation", {
-            poetId,
-            textLength: text.length,
-            hasSourceUrl: Boolean(sourceUrl),
-            published: poem.published,
-          });
-          continue;
-        }
-
-        seenUrls.add(sourceUrl);
-        sources.push({
-          title: poem.fullTitle ?? poem.title ?? "Ganjoor classical poem",
-          url: sourceUrl,
-          text,
-        });
-        acceptedForPoet = true;
-      } catch (error) {
-        console.warn("Ganjoor poem response could not be parsed", {
-          poetId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-  }
-
-  console.info("Ganjoor Persian source selection completed", {
-    requestedSources: limit,
-    acceptedSources: sources.length,
-    sourceHosts: sources.map((source) => new URL(source.url).hostname),
-  });
-  return sources;
-}
-
 // Source texts can contain hundreds of thousands of characters. Cache tokenization
 // and normalization across attempts so the round generator does not repeatedly
 // perform expensive synchronous work on the event loop while Render is checking
@@ -751,11 +681,8 @@ async function generateMvpRounds(
   const wikisourceDocuments = language !== "fa" && shouldUseIndependentFallback
     ? await loadFallbackWhenInsufficient(wikipediaDocuments, () => fetchWikisourceDocuments(12, language), 3)
     : [];
-  // Persian Wikisource currently has no published text corpus. Use five
-  // public-domain classical poets from Ganjoor instead when Wikipedia is unavailable.
-  const ganjoorDocuments = language === "fa" && shouldUseIndependentFallback
-    ? await loadFallbackWhenInsufficient(wikipediaDocuments, () => fetchGanjoorDocuments(5), 3)
-    : [];
+  // Ganjoor is intentionally not used until its reuse rights are explicitly documented.
+  // Persian falls back to Internet Archive only when the source corpus is insufficient.
   const gutenbergResults = language === "en" ? await Promise.all(
     GUTENBERG_BOOKS.filter((book) => configuredUrls.includes(book.textUrl)).map((book) => fetchGutenbergDocument(book)),
   ) : [];
@@ -802,7 +729,6 @@ async function generateMvpRounds(
     ...gutenbergResults.filter((source): source is SourceDocument => source !== null),
     ...wikipediaDocuments,
     ...wikisourceDocuments,
-    ...ganjoorDocuments,
     ...customDocuments.filter((source): source is SourceDocument => source !== null),
     ...plannedDocuments.flatMap(({ source }) => source ? [source] : []),
   ];
