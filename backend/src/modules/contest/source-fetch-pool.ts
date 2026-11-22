@@ -35,19 +35,52 @@ export async function fetchSourceDocuments<T extends FetchableSourceDocument>(
     const host = new URL(canonical).hostname.toLowerCase(); const group = groups.get(host) ?? [];
     group.push({ url: canonical, index }); groups.set(host, group);
   });
-  const tasks: Array<Array<{ url: string; index: number }>> = [];
-  for (const group of groups.values()) for (let offset = 0; offset < group.length; offset += perHostConcurrency) tasks.push(group.slice(offset, offset + perHostConcurrency));
-  let nextTask = 0; let attemptedCount = 0; let acceptedCount = 0;
-  const worker = async () => {
-    while (nextTask < tasks.length) {
-      const task = tasks[nextTask++];
-      await Promise.all(task.map(async ({ url, index }) => {
+  const pending: Array<{ url: string; index: number; host: string }> = [];
+  for (const [host, group] of groups) {
+    for (const item of group) pending.push({ ...item, host });
+  }
+  let attemptedCount = 0;
+  let acceptedCount = 0;
+  let completedCount = 0;
+  let activeCount = 0;
+  const activeByHost = new Map<string, number>();
+
+  await new Promise<void>((resolve) => {
+    const pump = () => {
+      while (activeCount < concurrency) {
+        const nextIndex = pending.findIndex((item) =>
+          (activeByHost.get(item.host) ?? 0) < perHostConcurrency
+        );
+        if (nextIndex < 0) break;
+        const [item] = pending.splice(nextIndex, 1);
+        activeCount += 1;
         attemptedCount += 1;
-        try { const document = await fetcher(url); documents[index] = document; if (document) acceptedCount += 1; }
-        catch { documents[index] = null; }
-      }));
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, () => worker()));
+        activeByHost.set(item.host, (activeByHost.get(item.host) ?? 0) + 1);
+
+        void fetcher(item.url)
+          .then((document) => {
+            documents[item.index] = document;
+            if (document) acceptedCount += 1;
+          })
+          .catch(() => {
+            documents[item.index] = null;
+          })
+          .finally(() => {
+            activeCount -= 1;
+            completedCount += 1;
+            const hostActive = (activeByHost.get(item.host) ?? 1) - 1;
+            if (hostActive > 0) activeByHost.set(item.host, hostActive);
+            else activeByHost.delete(item.host);
+            if (pending.length === 0 && activeCount === 0) {
+              resolve();
+              return;
+            }
+            pump();
+          });
+      }
+      if (pending.length === 0 && activeCount === 0) resolve();
+    };
+    pump();
+  });
   return { documents, metrics: { candidateCount: urls.length, selectedCount: urls.length, attemptedCount, acceptedCount, failedCount: attemptedCount - acceptedCount, hostCount: groups.size, durationMs: Date.now() - startedAt } };
 }
