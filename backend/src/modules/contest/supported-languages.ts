@@ -7,8 +7,6 @@ export const CHALLENGE_LANGUAGES = [
   "ar",
   "tr",
   "pt",
-  "ru",
-  "zh-CN",
 ] as const;
 
 export type ChallengeLanguage = (typeof CHALLENGE_LANGUAGES)[number];
