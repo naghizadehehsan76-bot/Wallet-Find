@@ -318,7 +318,7 @@ function AuthPage({
           {mode === "login" && (
             <label className="auth-remember" htmlFor="auth-remember">
               <input id="auth-remember" type="checkbox" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} />
-              <span>{{fa:"مرا به خاطر بسپار",en:"Remember me",de:"Angemeldet bleiben",es:"Recordarme",fr:"Se souvenir de moi",ar:"تذكرني",tr:"Beni hatırla",pt:"Lembrar-me",ru:"Запомнить меня","zh-CN":"记住我"}[language]}</span>
+              <span>{{fa:"مرا به خاطر بسپار",en:"Remember me",de:"Angemeldet bleiben",es:"Recordarme",fr:"Se souvenir de moi",ar:"تذكرني",tr:"Beni hatırla",pt:"Lembrar-me"}[language]}</span>
             </label>
           )}
 

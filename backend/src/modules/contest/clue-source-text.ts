@@ -17,8 +17,6 @@ const CLUE_INSTRUCTIONS: Record<ChallengeLanguage, string> = {
   ar: "اعثر على الكلمة العربية التي تأتي مباشرة بعد العبارة الظاهرة في التلميح.",
   tr: "İpucunda gösterilen ifadenin hemen ardından gelen Türkçe kelimeyi bulun.",
   pt: "Encontre a palavra em português que aparece imediatamente após a frase indicada.",
-  ru: "Найдите русское слово, которое непосредственно следует за фразой из подсказки.",
-  "zh-CN": "在来源页面中找到提示短语后面紧接着出现的中文词语。",
 };
 
 export function generatedClueInstruction(language: ChallengeLanguage): string {
@@ -129,8 +127,6 @@ const LANGUAGE_LOCALES: Record<ChallengeLanguage, string> = {
   ar: "ar",
   tr: "tr",
   pt: "pt",
-  ru: "ru",
-  "zh-CN": "zh-CN",
 };
 
 function normalizeSourceWord(raw: string, language: ChallengeLanguage): string {
@@ -146,25 +142,11 @@ export function getSourceWordMatches(
   text: string,
   language: ChallengeLanguage = "en",
 ): SourceWordMatch[] {
-  if (language === "zh-CN") {
-    const segmenter = new Intl.Segmenter("zh-CN", { granularity: "word" });
-    return Array.from(segmenter.segment(text))
-      .filter((segment) => segment.isWordLike && /\p{Script=Han}/u.test(segment.segment))
-      .map((segment) => ({
-        word: normalizeSourceWord(segment.segment, language),
-        raw: segment.segment,
-        index: segment.index,
-      }))
-      .filter((match) => match.word.length > 0);
-  }
-
   const pattern = language === "fa"
     ? /[\u0621-\u063a\u0640-\u065f\u0670-\u06d3\u067e\u0686\u0698\u06a9\u06af\u06be\u06cc\u200c]{3,24}/gu
     : language === "ar"
       ? /[\p{Script=Arabic}]{3,24}/gu
-      : language === "ru"
-        ? /[\p{Script=Cyrillic}]{4,24}/gu
-        : /[\p{Script=Latin}]{4,24}/gu;
+      : /[\p{Script=Latin}]{4,24}/gu;
 
   return Array.from(text.matchAll(pattern)).map((match) => {
     const raw = match[0];
@@ -243,12 +225,8 @@ export function findUniqueAnchorBeforeTarget(
   if (!target) return null;
 
   const comparisonSource = normalizeForHintComparison(sourceText);
-  // Chinese text usually has no spaces and segmentation commonly yields
-  // two-character words. A 5–10-word anchor can therefore never reach the
-  // minimum searchable length. Use a longer phrase for Han-script targets.
-  const isHanTarget = /\p{Script=Han}/u.test(target.word);
-  const minimumWordsBefore = isHanTarget ? 12 : 5;
-  const maximumWordsBefore = isHanTarget ? 20 : 10;
+  const minimumWordsBefore = 5;
+  const maximumWordsBefore = 10;
   for (let wordsBefore = minimumWordsBefore; wordsBefore <= maximumWordsBefore; wordsBefore += 1) {
     const firstWord = matches[targetIndex - wordsBefore];
     if (!firstWord) continue;

@@ -7,8 +7,6 @@ export const CHALLENGE_LANGUAGES = [
   "ar",
   "tr",
   "pt",
-  "ru",
-  "zh-CN",
 ] as const;
 
 export type ChallengeLanguage = (typeof CHALLENGE_LANGUAGES)[number];
@@ -22,8 +20,6 @@ const WIKIPEDIA_LANGUAGE_CODES: Record<ChallengeLanguage, string> = {
   ar: "ar",
   tr: "tr",
   pt: "pt",
-  ru: "ru",
-  "zh-CN": "zh",
 };
 
 export const CHALLENGE_LANGUAGE_NAMES: Record<ChallengeLanguage, string> = {
@@ -35,8 +31,6 @@ export const CHALLENGE_LANGUAGE_NAMES: Record<ChallengeLanguage, string> = {
   ar: "العربية",
   tr: "Türkçe",
   pt: "Português",
-  ru: "Русский",
-  "zh-CN": "简体中文",
 };
 
 export function isChallengeLanguage(value: unknown): value is ChallengeLanguage {

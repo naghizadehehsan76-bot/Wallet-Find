@@ -11,8 +11,6 @@ const LANGUAGE_FLAGS: Record<ChallengeLanguage, string> = {
   ar: "🇸🇦",
   tr: "🇹🇷",
   pt: "🇧🇷",
-  ru: "🇷🇺",
-  "zh-CN": "🇨🇳",
 };
 
 type PickerKind = "ui" | "challenge";

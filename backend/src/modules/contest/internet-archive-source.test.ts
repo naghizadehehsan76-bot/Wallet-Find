@@ -123,7 +123,7 @@ test("Internet Archive fallback rejects records without explicit allowed license
 });
 
 
-test("Internet Archive catalog search uses a language-specific code for all ten challenge languages", async () => {
+test("Internet Archive catalog search uses a language-specific code for all eight challenge languages", async () => {
   const expected: Array<[string, string]> = [
     ["fa", "per"],
     ["en", "eng"],
@@ -133,8 +133,6 @@ test("Internet Archive catalog search uses a language-specific code for all ten 
     ["ar", "ara"],
     ["tr", "tur"],
     ["pt", "por"],
-    ["ru", "rus"],
-    ["zh-CN", "chi"],
   ];
   const seen = new Map<string, string>();
   const fetchImpl: typeof fetch = async (input) => {

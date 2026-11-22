@@ -7,8 +7,6 @@ export const CHALLENGE_LANGUAGES = [
   { code: "ar", nativeName: "العربية" },
   { code: "tr", nativeName: "Türkçe" },
   { code: "pt", nativeName: "Português" },
-  { code: "ru", nativeName: "Русский" },
-  { code: "zh-CN", nativeName: "简体中文" },
 ] as const;
 
 export type ChallengeLanguage = (typeof CHALLENGE_LANGUAGES)[number]["code"];

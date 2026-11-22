@@ -9,8 +9,6 @@ const locales = [
   { code: "ar", direction: "rtl" },
   { code: "tr", direction: "ltr" },
   { code: "pt", direction: "ltr" },
-  { code: "ru", direction: "ltr" },
-  { code: "zh-CN", direction: "ltr" },
 ];
 
 test("public pages render without uncaught browser errors", async ({ page }) => {
