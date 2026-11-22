@@ -43,8 +43,6 @@ const LANGUAGE_CODES: Record<ChallengeLanguage, string> = {
   ar: "ara",
   tr: "tur",
   pt: "por",
-  ru: "rus",
-  "zh-CN": "chi",
 };
 
 const LANGUAGE_ALIASES: Record<ChallengeLanguage, readonly string[]> = {
@@ -56,8 +54,6 @@ const LANGUAGE_ALIASES: Record<ChallengeLanguage, readonly string[]> = {
   ar: ["ara", "ar", "arabic"],
   tr: ["tur", "tr", "turkish", "türkçe"],
   pt: ["por", "pt", "portuguese", "português"],
-  ru: ["rus", "ru", "russian", "русский"],
-  "zh-CN": ["chi", "zho", "zh", "zh-cn", "chinese", "中文"],
 };
 
 const MAX_SEARCH_RESULTS = 40;
