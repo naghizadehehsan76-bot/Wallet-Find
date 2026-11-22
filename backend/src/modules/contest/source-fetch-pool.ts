@@ -21,7 +21,7 @@ export function selectBalancedSourceUrls(urls: readonly string[], limit = 24, ro
   });
   const selected: string[] = []; let cursor = queues.length > 0 ? offset % queues.length : 0;
   while (selected.length < Math.max(0, limit) && queues.some((queue) => queue.length > 0)) {
-    const queue = queues[cursor % queues.length]; if (queue.length > 0) selected.push(queue.shift()!); cursor += 1;
+    const queue = queues[cursor % queues.length];\n    if (queue && queue.length > 0) selected.push(queue.shift()!);\n    cursor += 1;
   }
   return selected;
 }
