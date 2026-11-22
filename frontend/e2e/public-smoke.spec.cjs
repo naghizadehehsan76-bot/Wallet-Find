@@ -105,10 +105,12 @@ test("all public pages render in every supported interface language", async ({ p
 
   const routes = ["/", "/leaderboard", "/rewards", "/help", "/terms", "/rules", "/auth"];
   for (const locale of locales) {
-    await page.addInitScript((code) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.evaluate((code) => {
       localStorage.setItem("walletFindLanguage", code);
       localStorage.setItem("walletFindContestLanguage", code);
     }, locale.code);
+    await page.reload({ waitUntil: "domcontentloaded" });
 
     for (const route of routes) {
       await page.goto(route, { waitUntil: "domcontentloaded" });
