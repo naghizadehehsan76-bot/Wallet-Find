@@ -345,7 +345,8 @@ async function loadDocuments(
  */
 export function createInternetArchiveSourceLoader(options: FetchOptions = {}) {
   const fetchImpl = options.fetchImpl ?? fetch;
-  const now = options.now ?? Date.now;\n  const wait = options.wait ?? defaultWait;
+  const now = options.now ?? Date.now;
+  const wait = options.wait ?? defaultWait;
   const cacheTtlMs = options.cacheTtlMs ?? 6 * 60 * 60 * 1_000;
   const cache = new Map<ChallengeLanguage, { expiresAt: number; documents: SourceDocument[] }>();
   const inFlight = new Map<ChallengeLanguage, Promise<SourceDocument[]>>();
