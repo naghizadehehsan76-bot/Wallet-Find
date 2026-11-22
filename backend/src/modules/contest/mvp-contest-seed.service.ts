@@ -774,7 +774,7 @@ async function generateMvpRounds(
   // The admin source catalog may eventually contain hundreds of advertiser
   // pages. Sample a balanced subset per round and fetch it with bounded
   // concurrency so catalog growth does not create unbounded latency or bursts.
-  const selectedCustomUrls = selectBalancedSourceUrls(customUrls, 24);
+  const selectedCustomUrls = selectBalancedSourceUrls(\n    customUrls,\n    24,\n    (context?.challengeNumber ?? getChallengeNumberAt(new Date())) * 24,\n  );
   const customFetchResult = await fetchSourceDocuments(
     selectedCustomUrls,
     fetchConfiguredWebDocument,
@@ -896,7 +896,7 @@ async function generateMvpRounds(
     customSourceCount: customDocuments.filter((source) => source !== null).length,\n    customSourceCandidateCount: customUrls.length,\n    customSourceSelectedCount: selectedCustomUrls.length,\n    customSourceFetchDurationMs: customFetchResult.metrics.durationMs,
     scheduledAssignments: scheduledAssignments.map(({ sequence, url }) => ({ sequence, hostname: new URL(url).hostname })),
     generatedRoundCount: rounds.length + pinnedRounds.size,
-    uniqueAnswerCount: usedAnswers.size,
+    uniqueAnswerCount: usedAnswers.size,\n    generationDurationMs: Date.now() - generationStartedAt,
   });
   if (rounds.length < remainingCount) throw new Error("MVP_ROUND_GENERATION_FAILED");
 
@@ -1061,7 +1061,15 @@ const activeContestEnsurePromises = new Map<ChallengeLanguage, Promise<string>>(
 export function ensureMvpActiveContest(language: ChallengeLanguage = "en"): Promise<string> {
   const existing = activeContestEnsurePromises.get(language);
   if (existing) return existing;
-  const pending = ensureMvpActiveContestInternal(language).finally(() => activeContestEnsurePromises.delete(language));
+  const pending = ensureMvpActiveContestInternal(language)
+    .catch((error: unknown) => {
+      console.error("MVP_CHALLENGE_INITIALIZATION_FAILED", {
+        language,
+        errorCode: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    })
+    .finally(() => activeContestEnsurePromises.delete(language));
   activeContestEnsurePromises.set(language, pending);
   return pending;
 }
