@@ -25,7 +25,7 @@ test("Internet Archive fallback selects same-language, commercially usable text 
     calls.push(url.toString());
 
     if (url.hostname === "archive.org" && url.pathname === "/advancedsearch.php") {
-      assert.match(url.searchParams.get("q") ?? "", /language:tur/);
+      assert.match(url.searchParams.get("q") ?? "", /language:"?tur"?/);
       return new Response(JSON.stringify({
         response: {
           docs: [
