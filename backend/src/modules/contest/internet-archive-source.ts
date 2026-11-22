@@ -272,7 +272,7 @@ export function createInternetArchiveSourceLoader(options: FetchOptions = {}) {
     const request = loadDocuments(language, fetchImpl)
       .then((documents) => {
         cache.set(language, {
-          expiresAt: now() + cacheTtlMs,
+          expiresAt: now() + (documents.length > 0 ? cacheTtlMs : 2 * 60 * 1_000),
           documents,
         });
         return documents;
