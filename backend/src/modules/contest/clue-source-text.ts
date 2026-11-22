@@ -243,7 +243,13 @@ export function findUniqueAnchorBeforeTarget(
   if (!target) return null;
 
   const comparisonSource = normalizeForHintComparison(sourceText);
-  for (let wordsBefore = 5; wordsBefore <= 10; wordsBefore += 1) {
+  // Chinese text usually has no spaces and segmentation commonly yields
+  // two-character words. A 5–10-word anchor can therefore never reach the
+  // minimum searchable length. Use a longer phrase for Han-script targets.
+  const isHanTarget = /\p{Script=Han}/u.test(target.word);
+  const minimumWordsBefore = isHanTarget ? 12 : 5;
+  const maximumWordsBefore = isHanTarget ? 20 : 10;
+  for (let wordsBefore = minimumWordsBefore; wordsBefore <= maximumWordsBefore; wordsBefore += 1) {
     const firstWord = matches[targetIndex - wordsBefore];
     if (!firstWord) continue;
 

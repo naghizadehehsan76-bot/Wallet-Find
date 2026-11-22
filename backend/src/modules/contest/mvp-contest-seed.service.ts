@@ -1,5 +1,6 @@
 import prisma from "../../config/prisma.js";
 import { createWikipediaResponseFetcher, loadFallbackWhenInsufficient } from "./wikipedia-source-fetch.js";
+import { fetchInternetArchiveDocuments } from "./internet-archive-source.js";
 import { CHALLENGE_LANGUAGE_NAMES, getWikipediaDomain, isChallengeLanguage, type ChallengeLanguage } from "./supported-languages.js";
 import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
 import { CHALLENGE_INTERVAL_MS, getChallengeNumberAt, getChallengeScheduleAnchor } from "./challenge-schedule.js";
@@ -15,7 +16,7 @@ import {
   type SourceWordMatch,
 } from "./clue-source-text.js";
 
-type SourceDocument = {
+export type SourceDocument = {
   title: string;
   url: string;
   text: string;
@@ -33,7 +34,7 @@ function pinWikipediaRevision(url: string, revisionId?: number): string {
   }
 }
 
-type GeneratedRound = {
+export type GeneratedRound = {
   content: string;
   correctAnswer: string;
   sourceUrl: string;
@@ -472,7 +473,7 @@ const sourceAnalysisCache = new WeakMap<SourceDocument, {
   matches: SourceWordMatch[];
 }>();
 
-function buildRoundFromSource(
+export function buildRoundFromSource(
   source: SourceDocument,
   usedAnswers: ReadonlySet<string>,
   optionWords: readonly string[],
@@ -767,10 +768,10 @@ async function getConfiguredSourceUrls(language: ChallengeLanguage): Promise<str
 }
 
 /**
- * Generate each round from live English-language source text.
- * Wikipedia provides current article text; Project Gutenberg supplies
- * public-domain book text from a second domain. Curated clues keep the MVP
- * playable if either external source is temporarily unavailable.
+ * Generate each round from source documents in the selected challenge language.
+ * Wikimedia is the live primary source; language-matched public-domain corpora
+ * such as Ganjoor, Project Gutenberg, and Internet Archive provide independent
+ * fallbacks when a provider is unavailable or cannot yield enough valid clues.
  */
 async function generateMvpRounds(
   language: ChallengeLanguage = "en",
@@ -814,7 +815,7 @@ async function generateMvpRounds(
   for (const url of customUrls) {
     customDocuments.push(await fetchConfiguredWebDocument(url));
   }
-  const sources = [
+  let sources = [
     ...gutenbergResults.filter((source): source is SourceDocument => source !== null),
     ...wikipediaDocuments,
     ...wikisourceDocuments,
@@ -822,10 +823,24 @@ async function generateMvpRounds(
     ...customDocuments.filter((source): source is SourceDocument => source !== null),
     ...plannedDocuments.flatMap(({ source }) => source ? [source] : []),
   ];
+
+  // Wikimedia projects share infrastructure and can be rate-limited together.
+  // If the existing language-matched sources are too few, use Internet Archive
+  // OCR/plain-text files under explicit commercial-use licenses as an independent
+  // third-party fallback. The loader caches results for six hours per language.
+  let internetArchiveDocuments: SourceDocument[] = [];
+  if (sources.length < 4) {
+    internetArchiveDocuments = await fetchInternetArchiveDocuments(language, 6);
+    sources = [...sources, ...internetArchiveDocuments];
+  }
+
   const usedAnswers = new Set<string>();
-  const optionCorpus = sources.map((source) => source.text).join("\n");
-  const optionWords = [...new Set(getSourceWordMatches(optionCorpus, language)
-    .map((match) => match.word).filter((word) => language !== "en" || !COMMON_WORDS.has(word)))];
+  const getOptionWords = (availableSources: readonly SourceDocument[]) => {
+    const optionCorpus = availableSources.map((source) => source.text).join("\n");
+    return [...new Set(getSourceWordMatches(optionCorpus, language)
+      .map((match) => match.word).filter((word) => language !== "en" || !COMMON_WORDS.has(word)))];
+  };
+  let optionWords = getOptionWords(sources);
 
   // A scheduled source is pinned to its chosen cell. Fail the generation rather
   // than silently publishing a challenge that ignores an admin's assignment.
@@ -849,35 +864,57 @@ async function generateMvpRounds(
   }
 
   const remainingCount = 12 - pinnedRounds.size;
-  const rounds: GeneratedRound[] = [];
-  for (const source of shuffle(sources)) {
-    let attempts = 0;
-    let sourceRoundCount = 0;
-    while (rounds.length < remainingCount && sourceRoundCount < 3 && attempts < 40) {
-      attempts += 1;
-      const round = buildRoundFromSource(source, usedAnswers, optionWords, language);
-      if (!round) continue;
-      rounds.push(round);
-      usedAnswers.add(round.correctAnswer);
-      sourceRoundCount += 1;
+  const generateRemainingRounds = (
+    availableSources: readonly SourceDocument[],
+    availableOptionWords: readonly string[],
+  ): { rounds: GeneratedRound[]; usedAnswers: Set<string> } => {
+    const generatedAnswers = new Set(usedAnswers);
+    const generatedRounds: GeneratedRound[] = [];
+    for (const source of shuffle(availableSources)) {
+      let attempts = 0;
+      let sourceRoundCount = 0;
+      while (generatedRounds.length < remainingCount && sourceRoundCount < 3 && attempts < 40) {
+        attempts += 1;
+        const round = buildRoundFromSource(source, generatedAnswers, availableOptionWords, language);
+        if (!round) continue;
+        generatedRounds.push(round);
+        generatedAnswers.add(round.correctAnswer);
+        sourceRoundCount += 1;
+      }
+    }
+    for (const source of shuffle(availableSources)) {
+      let attempts = 0;
+      while (generatedRounds.length < remainingCount && attempts < 40) {
+        attempts += 1;
+        const round = buildRoundFromSource(source, generatedAnswers, availableOptionWords, language);
+        if (!round) continue;
+        generatedRounds.push(round);
+        generatedAnswers.add(round.correctAnswer);
+      }
+    }
+    return { rounds: generatedRounds, usedAnswers: generatedAnswers };
+  };
+
+  let generated = generateRemainingRounds(sources, optionWords);
+  // A source may return enough pages but still contain too little usable text.
+  // In that case, fetch the independent corpus once and retry the full build.
+  if (generated.rounds.length < remainingCount && internetArchiveDocuments.length === 0) {
+    internetArchiveDocuments = await fetchInternetArchiveDocuments(language, 6);
+    if (internetArchiveDocuments.length > 0) {
+      sources = [...sources, ...internetArchiveDocuments];
+      optionWords = getOptionWords(sources);
+      generated = generateRemainingRounds(sources, optionWords);
     }
   }
-  for (const source of shuffle(sources)) {
-    let attempts = 0;
-    while (rounds.length < remainingCount && attempts < 40) {
-      attempts += 1;
-      const round = buildRoundFromSource(source, usedAnswers, optionWords, language);
-      if (!round) continue;
-      rounds.push(round);
-      usedAnswers.add(round.correctAnswer);
-    }
-  }
+  const rounds = generated.rounds;
+  for (const answer of generated.usedAnswers) usedAnswers.add(answer);
   console.info("MVP clue generation summary", {
     language, configuredSourceCount: configuredUrls.length, sourceCount: sources.length,
     wikipediaSourceCount: wikipediaDocuments.length,
     wikisourceSourceCount: wikisourceDocuments.length,
     ganjoorSourceCount: ganjoorDocuments.length,
     gutenbergSourceCount: gutenbergResults.filter((source) => source !== null).length,
+    internetArchiveSourceCount: internetArchiveDocuments.length,
     customSourceCount: customDocuments.filter((source) => source !== null).length,
     scheduledAssignments: scheduledAssignments.map(({ sequence, url }) => ({ sequence, hostname: new URL(url).hostname })),
     generatedRoundCount: rounds.length + pinnedRounds.size,
