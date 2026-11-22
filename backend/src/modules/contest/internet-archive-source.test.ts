@@ -121,3 +121,40 @@ test("Internet Archive fallback rejects records without explicit allowed license
   assert.deepEqual(documents, []);
   assert.equal(calls, 1, "unlicensed records must not be downloaded");
 });
+
+
+test("Internet Archive catalog search uses a language-specific code for all ten challenge languages", async () => {
+  const expected: Array<[string, string]> = [
+    ["fa", "per"],
+    ["en", "eng"],
+    ["de", "ger"],
+    ["es", "spa"],
+    ["fr", "fre"],
+    ["ar", "ara"],
+    ["tr", "tur"],
+    ["pt", "por"],
+    ["ru", "rus"],
+    ["zh-CN", "chi"],
+  ];
+  const seen = new Map<string, string>();
+  const fetchImpl: typeof fetch = async (input) => {
+    const url = new URL(String(input));
+    seen.set(url.searchParams.get("q") ?? "", url.toString());
+    return new Response(JSON.stringify({ response: { docs: [] } }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  const load = createInternetArchiveSourceLoader({ fetchImpl });
+
+  for (const [language] of expected) {
+    await load(language as Parameters<typeof load>[0], 1);
+  }
+
+  for (const [language, code] of expected) {
+    assert.ok(
+      [...seen.keys()].some((query) => query.includes("language:" + code)),
+      language + " must search the matching language catalog",
+    );
+  }
+});
