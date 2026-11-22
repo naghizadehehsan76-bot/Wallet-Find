@@ -573,6 +573,35 @@ async function fetchWikipediaArticleDocument(parsed: URL): Promise<SourceDocumen
   }
 }
 
+const MAX_CONFIGURED_SOURCE_BYTES = 1_500_000;
+
+async function readBoundedResponseText(response: Response, maxBytes: number): Promise<string | null> {
+  const declaredLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) return null;
+  if (!response.body) return null;
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let totalBytes = 0;
+  let text = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        await reader.cancel();
+        return null;
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    text += decoder.decode();
+    return text;
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 async function fetchConfiguredWebDocument(url: string): Promise<SourceDocument | null> {
   try {
     const parsed = new URL(url);
@@ -594,7 +623,7 @@ async function fetchConfiguredWebDocument(url: string): Promise<SourceDocument |
     if (!response.ok) return null;
 
     const contentType = response.headers.get("content-type") ?? "";
-    const responseText = await response.text();
+    const responseText = await readBoundedResponseText(response, MAX_CONFIGURED_SOURCE_BYTES);\n    if (responseText === null) {\n      console.warn("Configured clue source exceeded the response size limit", { host: parsed.hostname, maxBytes: MAX_CONFIGURED_SOURCE_BYTES });\n      return null;\n    }
     const text = contentType.includes("html") || /<html|<body|<p[ >]/i.test(responseText.slice(0, 2000))
       ? extractVisibleTextFromHtml(responseText)
       : normalizeSourceText(responseText);
@@ -662,8 +691,8 @@ async function getConfiguredSourceUrls(language: ChallengeLanguage): Promise<str
 /**
  * Generate each round from source documents in the selected challenge language.
  * Wikimedia is the live primary source; language-matched public-domain corpora
- * such as Ganjoor, Project Gutenberg, and Internet Archive provide independent
- * fallbacks when a provider is unavailable or cannot yield enough valid clues.
+ * such as Project Gutenberg and Internet Archive provide independent fallbacks
+ * when a provider is unavailable or cannot yield enough valid clues.
  */
 async function generateMvpRounds(
   language: ChallengeLanguage = "en",
