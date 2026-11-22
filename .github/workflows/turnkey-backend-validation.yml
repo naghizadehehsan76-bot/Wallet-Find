@@ -34,6 +34,10 @@ jobs:
       - name: Regenerate lockfile
         working-directory: backend
         run: npm install --package-lock-only --ignore-scripts
+      - name: Verify patched transitive Effect dependency
+        working-directory: backend
+        run: |
+          node -e 'const lock = require("./package-lock.json"); const effect = lock.packages["node_modules/effect"]; console.log(JSON.stringify(effect)); if (effect?.version !== "3.22.1") process.exit(1)'
       - name: Install locked dependencies
         working-directory: backend
         run: npm ci --include=dev
