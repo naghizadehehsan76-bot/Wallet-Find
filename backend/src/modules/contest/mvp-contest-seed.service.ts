@@ -262,7 +262,7 @@ async function fetchWikipediaDocuments(limit: number, language: ChallengeLanguag
 }
 
 function getWikisourceDomain(language: ChallengeLanguage): string {
-  // Wikisource uses the base language subdomain (zh, not zh-CN).
+  // Wikisource uses the matching base-language subdomain.
   return `${language.split("-")[0]}.wikisource.org`;
 }
 
