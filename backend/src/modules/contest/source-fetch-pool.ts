@@ -14,7 +14,12 @@ export function selectBalancedSourceUrls(urls: readonly string[], limit = 24, ro
     const canonical = canonicalizeUrl(value); if (!canonical || seen.has(canonical)) continue; seen.add(canonical);
     const host = new URL(canonical).hostname.toLowerCase(); const group = groups.get(host) ?? []; group.push(canonical); groups.set(host, group);
   }
-  const offset = Math.abs(Math.floor(rotationOffset));\n  const queues = [...groups.values()].map((group) => {\n    const shift = group.length > 0 ? offset % group.length : 0;\n    return [...group.slice(shift), ...group.slice(0, shift)];\n  });\n  const selected: string[] = []; let cursor = queues.length > 0 ? offset % queues.length : 0;
+  const offset = Math.abs(Math.floor(rotationOffset));
+  const queues = [...groups.values()].map((group) => {
+    const shift = group.length > 0 ? offset % group.length : 0;
+    return [...group.slice(shift), ...group.slice(0, shift)];
+  });
+  const selected: string[] = []; let cursor = queues.length > 0 ? offset % queues.length : 0;
   while (selected.length < Math.max(0, limit) && queues.some((queue) => queue.length > 0)) {
     const queue = queues[cursor % queues.length]; if (queue.length > 0) selected.push(queue.shift()!); cursor += 1;
   }
