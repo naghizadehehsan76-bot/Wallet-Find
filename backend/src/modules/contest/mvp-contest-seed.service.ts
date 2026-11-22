@@ -822,8 +822,7 @@ async function generateMvpRounds(
 
   const usedAnswers = new Set<string>();
   const getOptionWords = (availableSources: readonly SourceDocument[]) => {
-    const optionCorpus = availableSources.map((source) => source.text).join("
-");
+    const optionCorpus = availableSources.map((source) => source.text).join("\n");
     return [...new Set(getSourceWordMatches(optionCorpus, language)
       .map((match) => match.word).filter((word) => language !== "en" || !COMMON_WORDS.has(word)))];
   };
