@@ -153,8 +153,10 @@ test("Internet Archive catalog search uses a language-specific code for all ten 
 
   for (const [language, code] of expected) {
     assert.ok(
-      [...seen.keys()].some((query) => query.includes("language:" + code)),
+      [...seen.keys()].some((query) => query.includes(`language:"${code}"`)),
       language + " must search the matching language catalog",
     );
   }
+  const arabicQuery = [...seen.keys()].find((query) => query.includes(`language:"ara"`));
+  assert.match(arabicQuery ?? "", /language:"Arabic"/i, "Arabic search must include the common language name");
 });
