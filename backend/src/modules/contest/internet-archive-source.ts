@@ -31,6 +31,7 @@ type FetchOptions = {
   fetchImpl?: typeof fetch;
   now?: () => number;
   cacheTtlMs?: number;
+  wait?: (milliseconds: number) => Promise<void>;
 };
 
 const LANGUAGE_CODES: Record<ChallengeLanguage, string> = {
@@ -99,58 +100,104 @@ function isUsableText(text: string, language: ChallengeLanguage): boolean {
   return getSourceWordMatches(text, language).length >= MIN_WORD_MATCHES;
 }
 
-async function fetchJson<T>(url: URL, fetchImpl: typeof fetch): Promise<T | null> {
-  try {
-    const response = await fetchImpl(url, {
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "WalletFind/1.0 (independent multilingual public-domain source fallback; https://wallet-find.com)",
-      },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!response.ok) {
+const defaultWait = (milliseconds: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+
+function getRetryDelay(response: Response, attempt: number): number {
+  const retryAfter = Number(response.headers.get("retry-after"));
+  if (response.status === 429 && Number.isFinite(retryAfter) && retryAfter > 0) {
+    return Math.min(5_000, retryAfter * 1_000);
+  }
+  return 500 * (attempt + 1);
+}
+
+async function fetchJson<T>(
+  url: URL,
+  fetchImpl: typeof fetch,
+  wait: (milliseconds: number) => Promise<void> = defaultWait,
+): Promise<T | null> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetchImpl(url, {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "WalletFind/1.0 (independent multilingual public-domain source fallback; https://wallet-find.com)",
+        },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (response.ok) return await response.json() as T;
       console.warn("Internet Archive fallback request skipped", {
         host: url.hostname,
         status: response.status,
+        attempt: attempt + 1,
       });
+      if (attempt === 0 && (response.status === 429 || response.status >= 500)) {
+        await wait(getRetryDelay(response, attempt));
+        continue;
+      }
+      return null;
+    } catch (error) {
+      console.warn("Internet Archive fallback request failed", {
+        host: url.hostname,
+        error: error instanceof Error ? error.message : String(error),
+        attempt: attempt + 1,
+      });
+      if (attempt === 0) {
+        await wait(getRetryDelay(new Response(null, { status: 503 }), attempt));
+        continue;
+      }
       return null;
     }
-    return await response.json() as T;
-  } catch (error) {
-    console.warn("Internet Archive fallback request failed", {
-      host: url.hostname,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return null;
   }
+  return null;
 }
 
-async function fetchText(url: URL, fetchImpl: typeof fetch): Promise<string | null> {
-  try {
-    const response = await fetchImpl(url, {
-      headers: {
-        Accept: "text/plain",
-        "User-Agent": "WalletFind/1.0 (independent multilingual public-domain source fallback; https://wallet-find.com)",
-      },
-      signal: AbortSignal.timeout(12_000),
-    });
-    if (!response.ok) {
-      console.warn("Internet Archive text download skipped", { status: response.status });
+async function fetchText(
+  url: URL,
+  fetchImpl: typeof fetch,
+  wait: (milliseconds: number) => Promise<void> = defaultWait,
+): Promise<string | null> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetchImpl(url, {
+        headers: {
+          Accept: "text/plain",
+          "User-Agent": "WalletFind/1.0 (independent multilingual public-domain source fallback; https://wallet-find.com)",
+        },
+        signal: AbortSignal.timeout(12_000),
+      });
+      if (response.ok) {
+        const text = await response.text();
+        return text.length > MAX_TEXT_LENGTH ? text.slice(0, MAX_TEXT_LENGTH) : text;
+      }
+      console.warn("Internet Archive text download skipped", {
+        status: response.status,
+        attempt: attempt + 1,
+      });
+      if (attempt === 0 && (response.status === 429 || response.status >= 500)) {
+        await wait(getRetryDelay(response, attempt));
+        continue;
+      }
+      return null;
+    } catch (error) {
+      console.warn("Internet Archive text download failed", {
+        error: error instanceof Error ? error.message : String(error),
+        attempt: attempt + 1,
+      });
+      if (attempt === 0) {
+        await wait(getRetryDelay(new Response(null, { status: 503 }), attempt));
+        continue;
+      }
       return null;
     }
-    const text = await response.text();
-    return text.length > MAX_TEXT_LENGTH ? text.slice(0, MAX_TEXT_LENGTH) : text;
-  } catch (error) {
-    console.warn("Internet Archive text download failed", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return null;
   }
+  return null;
 }
 
 async function loadDocuments(
   language: ChallengeLanguage,
   fetchImpl: typeof fetch,
+  wait: (milliseconds: number) => Promise<void> = defaultWait,
 ): Promise<SourceDocument[]> {
   const searchUrl = new URL("https://archive.org/advancedsearch.php");
   // Archive.org metadata uses inconsistent language identifiers. Search
@@ -173,7 +220,7 @@ async function loadDocuments(
 
   const search = await fetchJson<{
     response?: { docs?: ArchiveSearchDocument[] };
-  }>(searchUrl, fetchImpl);
+  }>(searchUrl, fetchImpl, wait);
   const searchResults = search?.response?.docs ?? [];
   let searchLicenseRejectedCount = 0;
   let searchLanguageRejectedCount = 0;
@@ -207,7 +254,7 @@ async function loadDocuments(
       "https://archive.org/metadata/" + encodeURIComponent(identifier),
     );
     metadataLookupCount += 1;
-    const metadata = await fetchJson<ArchiveMetadata>(metadataUrl, fetchImpl);
+    const metadata = await fetchJson<ArchiveMetadata>(metadataUrl, fetchImpl, wait);
     const itemMetadata = metadata?.metadata;
     if (!itemMetadata) {
       metadataMissingCount += 1;
@@ -252,7 +299,7 @@ async function loadDocuments(
       encodeURIComponent(identifier) + "/" +
       file.name.split("/").map(encodeURIComponent).join("/"),
     );
-    const downloaded = await fetchText(downloadUrl, fetchImpl);
+    const downloaded = await fetchText(downloadUrl, fetchImpl, wait);
     if (!downloaded) {
       textDownloadFailedCount += 1;
       continue;
@@ -298,7 +345,7 @@ async function loadDocuments(
  */
 export function createInternetArchiveSourceLoader(options: FetchOptions = {}) {
   const fetchImpl = options.fetchImpl ?? fetch;
-  const now = options.now ?? Date.now;
+  const now = options.now ?? Date.now;\n  const wait = options.wait ?? defaultWait;
   const cacheTtlMs = options.cacheTtlMs ?? 6 * 60 * 60 * 1_000;
   const cache = new Map<ChallengeLanguage, { expiresAt: number; documents: SourceDocument[] }>();
   const inFlight = new Map<ChallengeLanguage, Promise<SourceDocument[]>>();
