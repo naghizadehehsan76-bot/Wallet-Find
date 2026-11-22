@@ -1,6 +1,7 @@
 import prisma from "../../config/prisma.js";
 import { createWikipediaResponseFetcher, loadFallbackWhenInsufficient } from "./wikipedia-source-fetch.js";
 import { fetchInternetArchiveDocuments } from "./internet-archive-source.js";
+import { fetchGanjoorRandomPoem } from "./ganjoor-source.js";
 import { CHALLENGE_LANGUAGE_NAMES, getWikipediaDomain, isChallengeLanguage, type ChallengeLanguage } from "./supported-languages.js";
 import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
 import { CHALLENGE_INTERVAL_MS, getChallengeNumberAt, getChallengeScheduleAnchor } from "./challenge-schedule.js";
@@ -165,10 +166,6 @@ function hasCurrentGeneratedClues(clues: readonly StoredGeneratedClue[]): boolea
       clue.options.length === 12
     )
   );
-}
-
-function waitForWikipediaRetry(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 // One process-wide queue spaces Wikimedia requests without sleeping through a 429 window.
@@ -365,49 +362,13 @@ async function fetchGanjoorDocuments(limit: number): Promise<SourceDocument[]> {
   const publicDomainPoetIds = [2, 7, 5, 3, 4]; // Hafez, Saadi, Rumi, Khayyam, Ferdowsi
   const sources: SourceDocument[] = [];
   const seenUrls = new Set<string>();
-  let requestCount = 0;
-
   for (const poetId of publicDomainPoetIds.slice(0, limit)) {
     let acceptedForPoet = false;
 
     // Some random poems are very short. Try a second poem from that same
     // public-domain poet rather than accepting a source that cannot yield clues.
     for (let poemAttempt = 0; poemAttempt < 2 && !acceptedForPoet; poemAttempt += 1) {
-      const url = new URL("https://api.ganjoor.net/api/ganjoor/poem/random");
-      url.searchParams.set("poetId", String(poetId));
-      let response: Response | null = null;
-
-      for (let requestAttempt = 0; requestAttempt < 2; requestAttempt += 1) {
-        if (requestCount > 0) await waitForWikipediaRetry(1_500);
-        requestCount += 1;
-        try {
-          response = await fetch(url, {
-            headers: {
-              Accept: "application/json",
-              "User-Agent": "WalletFind/1.0 (Persian public-domain clue source; https://wallet-find.com)",
-            },
-            signal: AbortSignal.timeout(10_000),
-          });
-        } catch (error) {
-          console.warn("Ganjoor source request failed", {
-            poetId,
-            error: error instanceof Error ? error.message : String(error),
-          });
-          response = null;
-          break;
-        }
-
-        if (response.status !== 429 || requestAttempt === 1) break;
-        const retryAfter = Number(response.headers.get("retry-after"));
-        const retryDelay = Number.isFinite(retryAfter) && retryAfter > 0
-          ? Math.min(30_000, retryAfter * 1_000)
-          : 5_000;
-        console.warn("Ganjoor rate limit received; retrying after a short delay.", {
-          poetId,
-          retryDelay,
-        });
-        await waitForWikipediaRetry(retryDelay);
-      }
+      const response = await fetchGanjoorRandomPoem(poetId);
 
       if (!response?.ok) {
         console.warn("Ganjoor random poem request skipped", {
