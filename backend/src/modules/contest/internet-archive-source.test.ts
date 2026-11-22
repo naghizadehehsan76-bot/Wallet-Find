@@ -160,3 +160,41 @@ test("Internet Archive catalog search uses a language-specific code for all ten 
   const arabicQuery = [...seen.keys()].find((query) => query.includes(`language:"ara"`));
   assert.match(arabicQuery ?? "", /language:"Arabic"/i, "Arabic search must include the common language name");
 });
+
+test("Internet Archive finds Arabic records indexed by language name rather than ISO code", async () => {
+  const arabicText = ("التاريخ الثقافة المعرفة التعليم العلوم الاقتصاد المجتمع التكنولوجيا البحث الدراسة الكتاب المدرسة الجامعة الانسان الحياة الطبيعة الطاقة الهندسة العمارة الزراعة الصناعة الصحة الرياضة الفنون الادب اللغة الشعر الفلسفة السياسة الجغرافيا البيئة الحضارة التطور التنمية الفكر ").repeat(5);
+  const fetchImpl: typeof fetch = async (input) => {
+    const url = new URL(String(input));
+    if (url.pathname === "/advancedsearch.php") {
+      assert.match(url.searchParams.get("q") ?? "", /language:"Arabic"/i);
+      return new Response(JSON.stringify({
+        response: { docs: [{
+          identifier: "arabic-name-indexed",
+          title: "Arabic public domain work",
+          language: ["Arabic"],
+          licenseurl: "https://creativecommons.org/publicdomain/zero/1.0/",
+        }] },
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (url.pathname === "/metadata/arabic-name-indexed") {
+      return new Response(JSON.stringify({
+        metadata: {
+          title: "Arabic public domain work",
+          language: ["Arabic"],
+          licenseurl: "https://creativecommons.org/publicdomain/zero/1.0/",
+        },
+        files: [{ name: "arabic_djvu.txt", size: String(arabicText.length) }],
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (url.pathname === "/download/arabic-name-indexed/arabic_djvu.txt") {
+      return new Response(arabicText, { status: 200, headers: { "content-type": "text/plain" } });
+    }
+    throw new Error("Unexpected request: " + url.toString());
+  };
+
+  const load = createInternetArchiveSourceLoader({ fetchImpl });
+  const documents = await load("ar", 6);
+  assert.equal(documents.length, 1);
+  assert.equal(documents[0]?.title, "Arabic public domain work");
+  assert.match(documents[0]?.text ?? "", /التاريخ/);
+});
