@@ -38,6 +38,13 @@ jobs:
         working-directory: backend
         run: |
           node -e 'const lock = require("./package-lock.json"); const effect = lock.packages["node_modules/effect"]; console.log(JSON.stringify(effect)); if (effect?.version !== "3.22.1") process.exit(1)'
+      - name: Upload regenerated backend lockfile for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: wallet-find-backend-lockfile
+          path: backend/package-lock.json
+          if-no-files-found: error
+          retention-days: 1
       - name: Install locked dependencies
         working-directory: backend
         run: npm ci --include=dev
