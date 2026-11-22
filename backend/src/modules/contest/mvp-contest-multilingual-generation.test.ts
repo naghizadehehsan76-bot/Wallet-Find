@@ -46,16 +46,6 @@ const fixtures: Record<ChallengeLanguage, { prefix: string; markers: string[]; a
     markers: ["exemplo", "sinais", "chaves", "padrões", "origem", "conceito", "olhares", "alcance", "efeitos", "desenho", "processos", "conteúdo"],
     answers: ["conhecimento", "tecnologia", "arquitetura", "natureza", "desenvolvimento", "pesquisa", "universidade", "comunidade", "energia", "montanha", "cultura", "pensamento"],
   },
-  ru: {
-    prefix: "ученые изучают сложные системы чтобы понять",
-    markers: ["метка", "пример", "ключи", "символ", "данные", "поиск", "заголовок", "масштаб", "эффект", "проект", "процесс", "понятие"],
-    answers: ["исследование", "технология", "архитектура", "общество", "развитие", "университет", "здоровье", "движение", "культура", "энергия", "природа", "мышление"],
-  },
-  "zh-CN": {
-    prefix: "科学研究人员持续分析复杂系统并且认真记录实验结果深入探索自然规律寻找可靠答案",
-    markers: ["苹果", "香蕉", "葡萄", "橙子", "西瓜", "草莓", "樱桃", "桃子", "梨子", "芒果", "柠檬", "菠萝"],
-    answers: ["天文学", "显微镜", "卫星", "火山", "冰川", "算法", "生态", "文学", "雕塑", "音乐", "分子", "建筑"],
-  },
 };
 
 test("every enabled language can build twelve distinct, searchable clues with twelve choices", () => {
@@ -71,7 +61,7 @@ test("every enabled language can build twelve distinct, searchable clues with tw
     );
     const source: SourceDocument = {
       title: "Deterministic " + language + " generation fixture",
-      url: language === "zh-CN" ? "https://zh.wikisource.org/wiki/Test" : "https://" + (language === "fa" ? "fa" : language) + ".wikisource.org/wiki/Test",
+      url: "https://" + (language === "fa" ? "fa" : language) + ".wikisource.org/wiki/Test",
       text: paragraphs.join("\n\n"),
     };
     const usedAnswers = new Set<string>();
