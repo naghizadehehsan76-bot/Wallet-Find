@@ -768,10 +768,10 @@ async function getConfiguredSourceUrls(language: ChallengeLanguage): Promise<str
 }
 
 /**
- * Generate each round from live English-language source text.
- * Wikipedia provides current article text; Project Gutenberg supplies
- * public-domain book text from a second domain. Curated clues keep the MVP
- * playable if either external source is temporarily unavailable.
+ * Generate each round from source documents in the selected challenge language.
+ * Wikimedia is the live primary source; language-matched public-domain corpora
+ * such as Ganjoor, Project Gutenberg, and Internet Archive provide independent
+ * fallbacks when a provider is unavailable or cannot yield enough valid clues.
  */
 async function generateMvpRounds(
   language: ChallengeLanguage = "en",
