@@ -14,14 +14,13 @@ test("source selection is bounded for a large source catalog", () => {
 });
 
 test("fetches are bounded per host and preserve configured order", async () => {
-  let active = 0; let maximumActive = 0;
+  let active = 0; let maximumActive = 0;\n  const activeByHost = new Map<string, number>();\n  let maximumSameHost = 0;
   const urls = ["https://same.example/1", "https://same.example/2", "https://same.example/3", "https://other.example/1", "https://other.example/2", "https://third.example/1"];
   const result = await fetchSourceDocuments(urls, async (url) => {
-    active += 1; maximumActive = Math.max(maximumActive, active);
-    await new Promise((resolve) => setTimeout(resolve, 5)); active -= 1;
+    active += 1; maximumActive = Math.max(maximumActive, active);\n    const host = new URL(url).hostname;\n    const hostActive = (activeByHost.get(host) ?? 0) + 1;\n    activeByHost.set(host, hostActive); maximumSameHost = Math.max(maximumSameHost, hostActive);\n    await new Promise((resolve) => setTimeout(resolve, 5)); active -= 1;\n    if (hostActive > 1) activeByHost.set(host, hostActive - 1); else activeByHost.delete(host);
     return { url, text: url };
   }, { concurrency: 3, perHostConcurrency: 1 });
-  assert.equal(maximumActive, 3); assert.deepEqual(result.documents.map((item) => item?.url), urls);
+  assert.equal(maximumActive, 3); assert.equal(maximumSameHost, 1); assert.deepEqual(result.documents.map((item) => item?.url), urls);
   assert.equal(result.metrics.attemptedCount, urls.length); assert.equal(result.metrics.acceptedCount, urls.length); assert.equal(result.metrics.hostCount, 3);
 });
 
@@ -29,4 +28,11 @@ test("failed pages are counted without aborting other pages", async () => {
   const result = await fetchSourceDocuments(["https://one.example/a", "https://two.example/b"], async (url) => url.includes("/a") ? null : { url }, { concurrency: 2 });
   assert.equal(result.metrics.acceptedCount, 1); assert.equal(result.metrics.failedCount, 1);
   assert.equal(result.documents[0], null); assert.equal(result.documents[1]?.url, "https://two.example/b");
+});
+
+test("source selection rotates through a large advertiser catalog between rounds", () => {
+  const urls = Array.from({ length: 100 }, (_, index) => `https://one-advertiser.example/page-${index}`);
+  const firstRound = selectBalancedSourceUrls(urls, 12, 0);
+  const nextRound = selectBalancedSourceUrls(urls, 12, 12);
+  assert.equal(firstRound.some((url) => nextRound.includes(url)), false);
 });
