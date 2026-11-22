@@ -827,7 +827,6 @@ async function generateMvpRounds(
     language, configuredSourceCount: configuredUrls.length, sourceCount: sources.length,
     wikipediaSourceCount: wikipediaDocuments.length,
     wikisourceSourceCount: wikisourceDocuments.length,
-    ganjoorSourceCount: ganjoorDocuments.length,
     gutenbergSourceCount: gutenbergResults.filter((source) => source !== null).length,
     internetArchiveSourceCount: internetArchiveDocuments.length,
     customSourceCount: customDocuments.filter((source) => source !== null).length,
