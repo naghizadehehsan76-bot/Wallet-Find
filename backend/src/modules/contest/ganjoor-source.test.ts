@@ -59,7 +59,7 @@ test("Ganjoor retries a rate-limited host once before failing over", async () =>
   });
 
   const response = await fetchRandomPoem(5);
-  assert.equal(response, null);
+  assert.equal(response?.status, 404);
   assert.equal(preferredHostAttempts, 2);
   assert.deepEqual(requestedHosts, ["ganjgah.ir", "ganjgah.ir", "api.ganjoor.net"]);
   assert.ok(delays.includes(1_000));
