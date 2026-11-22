@@ -33,7 +33,7 @@ test("Internet Archive fallback selects same-language, commercially usable text 
               identifier: "turkish-public-domain",
               title: "Turkish public-domain text",
               language: ["tur"],
-              licenseurl: "https://creativecommons.org/licenses/by/4.0/",
+              licenseurl: "https://creativecommons.org/publicdomain/zero/1.0/",
             },
             {
               identifier: "turkish-noncommercial",
@@ -45,7 +45,7 @@ test("Internet Archive fallback selects same-language, commercially usable text 
               identifier: "wrong-language",
               title: "English text",
               language: ["eng"],
-              licenseurl: "https://creativecommons.org/licenses/by/4.0/",
+              licenseurl: "https://creativecommons.org/publicdomain/zero/1.0/",
             },
           ],
         },
@@ -57,7 +57,7 @@ test("Internet Archive fallback selects same-language, commercially usable text 
         metadata: {
           title: "Turkish public-domain text",
           language: ["tur"],
-          licenseurl: "https://creativecommons.org/licenses/by/4.0/",
+          licenseurl: "https://creativecommons.org/publicdomain/zero/1.0/",
         },
         files: [
           { name: "book_djvu.txt", size: String(turkishText.length), source: "derivative" },
