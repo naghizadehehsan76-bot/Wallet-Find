@@ -363,7 +363,7 @@ export function createInternetArchiveSourceLoader(options: FetchOptions = {}) {
     const pending = inFlight.get(language);
     if (pending) return (await pending).slice(0, Math.max(0, limit));
 
-    const request = loadDocuments(language, fetchImpl)
+    const request = loadDocuments(language, fetchImpl, wait)
       .then((documents) => {
         cache.set(language, {
           expiresAt: now() + (documents.length > 0 ? cacheTtlMs : 2 * 60 * 1_000),
