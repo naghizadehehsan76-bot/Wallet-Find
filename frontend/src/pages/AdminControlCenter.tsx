@@ -1745,8 +1745,9 @@ export default function AdminControlCenter({ onNavigate }: Props) {
                   ? "این صندوق ثبت حسابداری داخلی کارمزد واقعی گس برداشت‌های اسپانسری Polygon است؛ موجودی آن انتقال واقعی POL یا پرداخت انجام‌شده به Turnkey نیست."
                   : "This is an internal ledger of exact Polygon gas costs for sponsored withdrawals. It is not an on-chain POL balance or a payment already made to Turnkey."}</p>
               </div>
-              <button type="button" onClick={() => void loadTurnkeyFeeFund()} disabled={turnkeyFeeFundLoading}>
-                {turnkeyFeeFundLoading ? (fa ? "در حال دریافت…" : "Loading…") : (fa ? "به‌روزرسانی" : "Refresh")}
+              <button className="admin-refresh admin-wallet-overview__refresh" type="button" onClick={() => void loadTurnkeyFeeFund()} disabled={turnkeyFeeFundLoading}>
+                <span className="admin-wallet-overview__refresh-icon" aria-hidden="true">{turnkeyFeeFundLoading ? "…" : "↻"}</span>
+                <span>{turnkeyFeeFundLoading ? (fa ? "در حال دریافت…" : "Loading…") : (fa ? "به‌روزرسانی" : "Refresh")}</span>
               </button>
             </div>
             {turnkeyFeeFundLoading && !turnkeyFeeFund && <div className="admin-empty"><LoadingIndicator label={fa ? "در حال دریافت صندوق کارمزد…" : "Loading fee fund…"} /></div>}
