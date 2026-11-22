@@ -433,8 +433,11 @@ async function fetchGutenbergDocument(book: {
     let text = await response.text();
     text = text
       .replace(/\r/g, "")
-      .replace(/^[\s\S]*?\*\*\* START OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[^\n]*\n/i, "")
-      .replace(/\n\*\*\* END OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[\s\S]*$/i, "");
+      .replace(/^[\s\S]*?\*\*\* START OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[^
+]*
+/i, "")
+      .replace(/
+\*\*\* END OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[\s\S]*$/i, "");
 
     if (text.length < 1000) {
       console.warn("Project Gutenberg source text was too short", {
@@ -623,7 +626,11 @@ async function fetchConfiguredWebDocument(url: string): Promise<SourceDocument |
     if (!response.ok) return null;
 
     const contentType = response.headers.get("content-type") ?? "";
-    const responseText = await readBoundedResponseText(response, MAX_CONFIGURED_SOURCE_BYTES);\n    if (responseText === null) {\n      console.warn("Configured clue source exceeded the response size limit", { host: parsed.hostname, maxBytes: MAX_CONFIGURED_SOURCE_BYTES });\n      return null;\n    }
+    const responseText = await readBoundedResponseText(response, MAX_CONFIGURED_SOURCE_BYTES);
+    if (responseText === null) {
+      console.warn("Configured clue source exceeded the response size limit", { host: parsed.hostname, maxBytes: MAX_CONFIGURED_SOURCE_BYTES });
+      return null;
+    }
     const text = contentType.includes("html") || /<html|<body|<p[ >]/i.test(responseText.slice(0, 2000))
       ? extractVisibleTextFromHtml(responseText)
       : normalizeSourceText(responseText);
@@ -774,7 +781,8 @@ async function generateMvpRounds(
 
   const usedAnswers = new Set<string>();
   const getOptionWords = (availableSources: readonly SourceDocument[]) => {
-    const optionCorpus = availableSources.map((source) => source.text).join("\n");
+    const optionCorpus = availableSources.map((source) => source.text).join("
+");
     return [...new Set(getSourceWordMatches(optionCorpus, language)
       .map((match) => match.word).filter((word) => language !== "en" || !COMMON_WORDS.has(word)))];
   };
