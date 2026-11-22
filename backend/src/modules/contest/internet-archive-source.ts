@@ -66,8 +66,6 @@ const MAX_TEXT_LENGTH = 450_000;
 const MIN_TEXT_LENGTH = 900;
 const MIN_WORD_MATCHES = 30;
 
-const cache = new Map<ChallengeLanguage, { expiresAt: number; documents: SourceDocument[] }>();
-const inFlight = new Map<ChallengeLanguage, Promise<SourceDocument[]>>();
 
 function values(value: string | string[] | undefined): string[] {
   if (Array.isArray(value)) return value;
@@ -256,6 +254,8 @@ export function createInternetArchiveSourceLoader(options: FetchOptions = {}) {
   const fetchImpl = options.fetchImpl ?? fetch;
   const now = options.now ?? Date.now;
   const cacheTtlMs = options.cacheTtlMs ?? 6 * 60 * 60 * 1_000;
+  const cache = new Map<ChallengeLanguage, { expiresAt: number; documents: SourceDocument[] }>();
+  const inFlight = new Map<ChallengeLanguage, Promise<SourceDocument[]>>();
 
   return async function fetchInternetArchiveDocuments(
     language: ChallengeLanguage,
