@@ -503,8 +503,11 @@ async function fetchGutenbergDocument(book: {
     let text = await response.text();
     text = text
       .replace(/\r/g, "")
-      .replace(/^[\s\S]*?\*\*\* START OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[^\n]*\n/i, "")
-      .replace(/\n\*\*\* END OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[\s\S]*$/i, "");
+      .replace(/^[\s\S]*?\*\*\* START OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[^
+]*
+/i, "")
+      .replace(/
+\*\*\* END OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[\s\S]*$/i, "");
 
     if (text.length < 1000) {
       console.warn("Project Gutenberg source text was too short", {
@@ -774,7 +777,11 @@ async function generateMvpRounds(
   // The admin source catalog may eventually contain hundreds of advertiser
   // pages. Sample a balanced subset per round and fetch it with bounded
   // concurrency so catalog growth does not create unbounded latency or bursts.
-  const selectedCustomUrls = selectBalancedSourceUrls(\n    customUrls,\n    24,\n    (context?.challengeNumber ?? getChallengeNumberAt(new Date())) * 24,\n  );
+  const selectedCustomUrls = selectBalancedSourceUrls(
+    customUrls,
+    24,
+    (context?.challengeNumber ?? getChallengeNumberAt(new Date())) * 24,
+  );
   const customFetchResult = await fetchSourceDocuments(
     selectedCustomUrls,
     fetchConfiguredWebDocument,
@@ -814,7 +821,8 @@ async function generateMvpRounds(
 
   const usedAnswers = new Set<string>();
   const getOptionWords = (availableSources: readonly SourceDocument[]) => {
-    const optionCorpus = availableSources.map((source) => source.text).join("\n");
+    const optionCorpus = availableSources.map((source) => source.text).join("
+");
     return [...new Set(getSourceWordMatches(optionCorpus, language)
       .map((match) => match.word).filter((word) => language !== "en" || !COMMON_WORDS.has(word)))];
   };
@@ -893,10 +901,14 @@ async function generateMvpRounds(
     ganjoorSourceCount: ganjoorDocuments.length,
     gutenbergSourceCount: gutenbergResults.filter((source) => source !== null).length,
     internetArchiveSourceCount: internetArchiveDocuments.length,
-    customSourceCount: customDocuments.filter((source) => source !== null).length,\n    customSourceCandidateCount: customUrls.length,\n    customSourceSelectedCount: selectedCustomUrls.length,\n    customSourceFetchDurationMs: customFetchResult.metrics.durationMs,
+    customSourceCount: customDocuments.filter((source) => source !== null).length,
+    customSourceCandidateCount: customUrls.length,
+    customSourceSelectedCount: selectedCustomUrls.length,
+    customSourceFetchDurationMs: customFetchResult.metrics.durationMs,
     scheduledAssignments: scheduledAssignments.map(({ sequence, url }) => ({ sequence, hostname: new URL(url).hostname })),
     generatedRoundCount: rounds.length + pinnedRounds.size,
-    uniqueAnswerCount: usedAnswers.size,\n    generationDurationMs: Date.now() - generationStartedAt,
+    uniqueAnswerCount: usedAnswers.size,
+    generationDurationMs: Date.now() - generationStartedAt,
   });
   if (rounds.length < remainingCount) throw new Error("MVP_ROUND_GENERATION_FAILED");
 
