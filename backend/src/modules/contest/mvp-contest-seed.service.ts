@@ -15,7 +15,7 @@ import {
   type SourceWordMatch,
 } from "./clue-source-text.js";
 
-type SourceDocument = {
+export type SourceDocument = {
   title: string;
   url: string;
   text: string;
@@ -33,7 +33,7 @@ function pinWikipediaRevision(url: string, revisionId?: number): string {
   }
 }
 
-type GeneratedRound = {
+export type GeneratedRound = {
   content: string;
   correctAnswer: string;
   sourceUrl: string;
@@ -472,7 +472,7 @@ const sourceAnalysisCache = new WeakMap<SourceDocument, {
   matches: SourceWordMatch[];
 }>();
 
-function buildRoundFromSource(
+export function buildRoundFromSource(
   source: SourceDocument,
   usedAnswers: ReadonlySet<string>,
   optionWords: readonly string[],
