@@ -712,10 +712,11 @@ async function generateMvpRounds(
   // The admin source catalog may eventually contain hundreds of advertiser
   // pages. Sample a balanced subset per round and fetch it with bounded
   // concurrency so catalog growth does not create unbounded latency or bursts.
+  const rotationChallengeNumber = context?.challengeNumber ?? await getChallengeNumberAt(new Date());
   const selectedCustomUrls = selectBalancedSourceUrls(
     customUrls,
     MAX_CUSTOM_SOURCE_URLS_PER_ROUND,
-    (context?.challengeNumber ?? getChallengeNumberAt(new Date())) * MAX_CUSTOM_SOURCE_URLS_PER_ROUND,
+    rotationChallengeNumber * MAX_CUSTOM_SOURCE_URLS_PER_ROUND,
   );
   const customFetchResult = await fetchSourceDocuments(
     selectedCustomUrls,
