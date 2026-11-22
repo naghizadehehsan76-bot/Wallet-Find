@@ -70,7 +70,8 @@ test("fetch pipeline stays bounded with a 500-page advertiser catalog", async ()
     maximumPerHost = Math.max(maximumPerHost, hostActive);
     await new Promise((resolve) => setTimeout(resolve, 1));
     active -= 1;
-    if (hostActive > 1) activeByHost.set(host, hostActive - 1);
+    const remainingForHost = (activeByHost.get(host) ?? 1) - 1;
+    if (remainingForHost > 0) activeByHost.set(host, remainingForHost);
     else activeByHost.delete(host);
     return { url };
   }, { concurrency: 6, perHostConcurrency: 2 });
