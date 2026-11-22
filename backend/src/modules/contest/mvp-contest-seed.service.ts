@@ -742,6 +742,7 @@ async function generateMvpRounds(
   language: ChallengeLanguage = "en",
   context?: RoundGenerationContext,
 ): Promise<GeneratedRound[]> {
+  const generationStartedAt = Date.now();
   const configuredUrls = await getConfiguredSourceUrls(language);
   const scheduledAssignments = context ? await getScheduledSourceAssignments(language, context) : [];
   const assignedUrls = [...new Set(scheduledAssignments.map((assignment) => assignment.url))];
