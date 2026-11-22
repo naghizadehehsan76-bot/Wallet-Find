@@ -124,7 +124,7 @@ test("all public pages render in every supported interface language", async ({ p
 
 test("core navigation labels are localized in all ten interface languages", async ({ page }) => {
   const expectedLabels = {
-    fa: ["خانه", "چالش", "جدول رتبه‌بندی", "کیف پول", "پروفایل"],
+    fa: ["خانه", "چالش", "رتبه‌بندی", "کیف پول", "پروفایل"],
     en: ["Home", "Challenge", "Leaderboard", "Wallet", "Profile"],
     de: ["Startseite", "Challenge", "Rangliste", "Wallet", "Profil"],
     es: ["Inicio", "Desafío", "Clasificación", "Billetera", "Perfil"],
