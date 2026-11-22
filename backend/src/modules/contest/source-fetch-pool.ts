@@ -41,7 +41,6 @@ export async function fetchSourceDocuments<T extends FetchableSourceDocument>(
   }
   let attemptedCount = 0;
   let acceptedCount = 0;
-  let completedCount = 0;
   let activeCount = 0;
   const activeByHost = new Map<string, number>();
 
@@ -67,7 +66,6 @@ export async function fetchSourceDocuments<T extends FetchableSourceDocument>(
           })
           .finally(() => {
             activeCount -= 1;
-            completedCount += 1;
             const hostActive = (activeByHost.get(item.host) ?? 1) - 1;
             if (hostActive > 0) activeByHost.set(item.host, hostActive);
             else activeByHost.delete(item.host);
