@@ -14,10 +14,17 @@ test("source selection is bounded for a large source catalog", () => {
 });
 
 test("fetches are bounded per host and preserve configured order", async () => {
-  let active = 0; let maximumActive = 0;\n  const activeByHost = new Map<string, number>();\n  let maximumSameHost = 0;
+  let active = 0; let maximumActive = 0;
+  const activeByHost = new Map<string, number>();
+  let maximumSameHost = 0;
   const urls = ["https://same.example/1", "https://same.example/2", "https://same.example/3", "https://other.example/1", "https://other.example/2", "https://third.example/1"];
   const result = await fetchSourceDocuments(urls, async (url) => {
-    active += 1; maximumActive = Math.max(maximumActive, active);\n    const host = new URL(url).hostname;\n    const hostActive = (activeByHost.get(host) ?? 0) + 1;\n    activeByHost.set(host, hostActive); maximumSameHost = Math.max(maximumSameHost, hostActive);\n    await new Promise((resolve) => setTimeout(resolve, 5)); active -= 1;\n    if (hostActive > 1) activeByHost.set(host, hostActive - 1); else activeByHost.delete(host);
+    active += 1; maximumActive = Math.max(maximumActive, active);
+    const host = new URL(url).hostname;
+    const hostActive = (activeByHost.get(host) ?? 0) + 1;
+    activeByHost.set(host, hostActive); maximumSameHost = Math.max(maximumSameHost, hostActive);
+    await new Promise((resolve) => setTimeout(resolve, 5)); active -= 1;
+    if (hostActive > 1) activeByHost.set(host, hostActive - 1); else activeByHost.delete(host);
     return { url, text: url };
   }, { concurrency: 3, perHostConcurrency: 1 });
   assert.equal(maximumActive, 3); assert.equal(maximumSameHost, 1); assert.deepEqual(result.documents.map((item) => item?.url), urls);
