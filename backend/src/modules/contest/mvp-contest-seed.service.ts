@@ -2,6 +2,7 @@ import prisma from "../../config/prisma.js";
 import { createWikipediaResponseFetcher, loadFallbackWhenInsufficient } from "./wikipedia-source-fetch.js";
 import { fetchInternetArchiveDocuments } from "./internet-archive-source.js";
 import { fetchGanjoorRandomPoem } from "./ganjoor-source.js";
+import { fetchSourceDocuments, selectBalancedSourceUrls } from "./source-fetch-pool.js";
 import { CHALLENGE_LANGUAGE_NAMES, getWikipediaDomain, isChallengeLanguage, type ChallengeLanguage } from "./supported-languages.js";
 import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
 import { CHALLENGE_INTERVAL_MS, getChallengeNumberAt, getChallengeScheduleAnchor } from "./challenge-schedule.js";
@@ -743,10 +744,8 @@ async function generateMvpRounds(
   const assignedUrls = [...new Set(scheduledAssignments.map((assignment) => assignment.url))];
   const wikiUrl = "https://" + getWikipediaDomain(language) + "/w/api.php";
   const wikipediaDocuments = configuredUrls.includes(wikiUrl) ? await fetchWikipediaDocuments(12, language) : [];
-  // If Wikipedia is rate-limited or returns too few usable pages, use the
-  // language-matched Wikisource corpus as a second independent MediaWiki project.
-  // This is especially important for non-English languages, which have no
-  // Project Gutenberg fallback configured.
+  // Wikisource is a secondary corpus, but shares Wikimedia infrastructure
+  // with Wikipedia; Internet Archive remains the independently hosted fallback.
   const shouldUseIndependentFallback = configuredUrls.includes(wikiUrl);
   const wikisourceDocuments = language !== "fa" && shouldUseIndependentFallback
     ? await loadFallbackWhenInsufficient(wikipediaDocuments, () => fetchWikisourceDocuments(12, language), 3)
@@ -771,11 +770,29 @@ async function generateMvpRounds(
     });
   }
   const plannedSourceUrls = new Set(assignedUrls);
-  const customDocuments: Array<SourceDocument | null> = [];
   const customUrls = configuredUrls.filter((url) => !knownUrls.has(url) && !plannedSourceUrls.has(url));
-  for (const url of customUrls) {
-    customDocuments.push(await fetchConfiguredWebDocument(url));
-  }
+  // The admin source catalog may eventually contain hundreds of advertiser
+  // pages. Sample a balanced subset per round and fetch it with bounded
+  // concurrency so catalog growth does not create unbounded latency or bursts.
+  const selectedCustomUrls = selectBalancedSourceUrls(customUrls, 24);
+  const customFetchResult = await fetchSourceDocuments(
+    selectedCustomUrls,
+    fetchConfiguredWebDocument,
+    { concurrency: 6, perHostConcurrency: 2 },
+  );
+  const customDocuments = customFetchResult.documents;
+  console.info("MVP_SOURCE_PIPELINE_METRICS", {
+    language,
+    customSourceCandidateCount: customUrls.length,
+    customSourceSelectedCount: selectedCustomUrls.length,
+    customSourceAttemptedCount: customFetchResult.metrics.attemptedCount,
+    customSourceAcceptedCount: customFetchResult.metrics.acceptedCount,
+    customSourceFailedCount: customFetchResult.metrics.failedCount,
+    customSourceHostCount: customFetchResult.metrics.hostCount,
+    customSourceFetchDurationMs: customFetchResult.metrics.durationMs,
+    maxConcurrentRequests: 6,
+    maxConcurrentRequestsPerHost: 2,
+  });
   let sources = [
     ...gutenbergResults.filter((source): source is SourceDocument => source !== null),
     ...wikipediaDocuments,
@@ -876,7 +893,7 @@ async function generateMvpRounds(
     ganjoorSourceCount: ganjoorDocuments.length,
     gutenbergSourceCount: gutenbergResults.filter((source) => source !== null).length,
     internetArchiveSourceCount: internetArchiveDocuments.length,
-    customSourceCount: customDocuments.filter((source) => source !== null).length,
+    customSourceCount: customDocuments.filter((source) => source !== null).length,\n    customSourceCandidateCount: customUrls.length,\n    customSourceSelectedCount: selectedCustomUrls.length,\n    customSourceFetchDurationMs: customFetchResult.metrics.durationMs,
     scheduledAssignments: scheduledAssignments.map(({ sequence, url }) => ({ sequence, hostname: new URL(url).hostname })),
     generatedRoundCount: rounds.length + pinnedRounds.size,
     uniqueAnswerCount: usedAnswers.size,
