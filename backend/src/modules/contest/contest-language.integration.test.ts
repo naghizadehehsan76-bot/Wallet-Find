@@ -14,7 +14,7 @@ after(async () => {
   if (shouldRun) await prisma.$disconnect();
 });
 
-test("all ten language variants share one completion guard and account locale preferences persist", {
+test("all eight language variants share one completion guard and account locale preferences persist", {
   skip: !shouldRun,
 }, async () => {
   const suffix = randomUUID();
@@ -100,8 +100,8 @@ test("all ten language variants share one completion guard and account locale pr
       }
     }
 
-    const saved = await updateLanguagePreferences(userId, "de", "zh-CN");
-    assert.deepEqual(saved, { uiLanguage: "de", challengeLanguage: "zh-CN" });
+    const saved = await updateLanguagePreferences(userId, "de", "pt");
+    assert.deepEqual(saved, { uiLanguage: "de", challengeLanguage: "pt" });
   } finally {
     if (contestIds.length) await prisma.contest.deleteMany({ where: { id: { in: contestIds } } });
     await prisma.user.deleteMany({ where: { id: userId } });
