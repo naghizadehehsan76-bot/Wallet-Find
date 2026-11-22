@@ -67,8 +67,6 @@ function generatedContestCopy(language: ChallengeLanguage) {
     ar: "تحدي البحث عن الكلمات باللغة العربية – Wallet Find",
     tr: "Wallet Find Türkçe Kelime Bulma Yarışması",
     pt: "Desafio de palavras em português – Wallet Find",
-    ru: "Игра Wallet Find по поиску русских слов",
-    "zh-CN": "Wallet Find 简体中文找词挑战",
   };
   const descriptions: Record<ChallengeLanguage, string> = {
     fa: "۱۲ سرنخ واژه‌یابی از منابع فارسی.",
@@ -79,8 +77,6 @@ function generatedContestCopy(language: ChallengeLanguage) {
     ar: "12 تلميحًا للكلمات من مصادر باللغة العربية.",
     tr: "Türkçe kaynaklardan 12 kelime ipucu.",
     pt: "12 pistas de palavras de fontes em português.",
-    ru: "12 подсказок со словами из русскоязычных источников.",
-    "zh-CN": "来自简体中文来源的 12 条词语线索。",
   };
   return { title: titles[language], description: descriptions[language], language };
 }
