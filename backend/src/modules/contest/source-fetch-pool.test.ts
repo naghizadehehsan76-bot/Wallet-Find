@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { fetchSourceDocuments, selectBalancedSourceUrls } from "./source-fetch-pool.js";
+import { fetchSourceDocuments, readBoundedResponseText, selectBalancedSourceUrls } from "./source-fetch-pool.js";
 
 test("source selection deduplicates and balances across advertiser hosts", () => {
   const selected = selectBalancedSourceUrls(["https://advertiser-a.example/page-1#top", "https://advertiser-a.example/page-2", "https://advertiser-a.example/page-3", "https://advertiser-b.example/landing", "https://advertiser-c.example/offer", "https://advertiser-a.example/page-1", "http://insecure.example/page"], 4);
@@ -42,4 +42,41 @@ test("source selection rotates through a large advertiser catalog between rounds
   const firstRound = selectBalancedSourceUrls(urls, 12, 0);
   const nextRound = selectBalancedSourceUrls(urls, 12, 12);
   assert.equal(firstRound.some((url) => nextRound.includes(url)), false);
+});
+
+test("bounded source reader rejects oversized bodies and accepts small pages", async () => {
+  const tooLarge = new Response("x".repeat(128));
+  assert.equal(await readBoundedResponseText(tooLarge, 64), null);
+
+  const small = new Response("small page");
+  assert.equal(await readBoundedResponseText(small, 64), "small page");
+});
+
+test("fetch pipeline stays bounded with a 500-page advertiser catalog", async () => {
+  const catalog = Array.from({ length: 500 }, (_, index) =>
+    `https://advertiser-${index % 10}.example/page-${index}`);
+  const selected = selectBalancedSourceUrls(catalog, 24, 48);
+  let active = 0;
+  let maximumActive = 0;
+  const activeByHost = new Map<string, number>();
+  let maximumPerHost = 0;
+
+  const result = await fetchSourceDocuments(selected, async (url) => {
+    const host = new URL(url).hostname;
+    active += 1;
+    maximumActive = Math.max(maximumActive, active);
+    const hostActive = (activeByHost.get(host) ?? 0) + 1;
+    activeByHost.set(host, hostActive);
+    maximumPerHost = Math.max(maximumPerHost, hostActive);
+    await new Promise((resolve) => setTimeout(resolve, 1));
+    active -= 1;
+    if (hostActive > 1) activeByHost.set(host, hostActive - 1);
+    else activeByHost.delete(host);
+    return { url };
+  }, { concurrency: 6, perHostConcurrency: 2 });
+
+  assert.equal(result.metrics.attemptedCount, 24);
+  assert.equal(result.metrics.acceptedCount, 24);
+  assert.ok(maximumActive <= 6);
+  assert.ok(maximumPerHost <= 2);
 });
