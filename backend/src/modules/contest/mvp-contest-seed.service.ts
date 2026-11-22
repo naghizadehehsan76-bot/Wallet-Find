@@ -1,4 +1,5 @@
 import prisma from "../../config/prisma.js";
+import { createWikipediaResponseFetcher, loadFallbackWhenInsufficient } from "./wikipedia-source-fetch.js";
 import { CHALLENGE_LANGUAGE_NAMES, getWikipediaDomain, isChallengeLanguage, type ChallengeLanguage } from "./supported-languages.js";
 import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
 import { CHALLENGE_INTERVAL_MS, getChallengeNumberAt, getChallengeScheduleAnchor } from "./challenge-schedule.js";
@@ -165,48 +166,12 @@ function hasCurrentGeneratedClues(clues: readonly StoredGeneratedClue[]): boolea
   );
 }
 
-// Wikimedia can apply rate limits across language subdomains. Serialize all API
-// requests from this process, leave a small gap between them, and honor 429 retries.
-let wikipediaRequestQueue: Promise<void> = Promise.resolve();
-let lastWikipediaRequestAt = 0;
-
 function waitForWikipediaRetry(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-async function fetchWikipediaResponse(
-  url: URL,
-  headers: Record<string, string>,
-  timeoutMs: number,
-): Promise<Response> {
-  const request = wikipediaRequestQueue.then(async () => {
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const spacing = Math.max(0, 1_500 - (Date.now() - lastWikipediaRequestAt));
-      if (spacing > 0) await waitForWikipediaRetry(spacing);
-      lastWikipediaRequestAt = Date.now();
-
-      const response = await fetch(url, {
-        headers,
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-      if (response.status !== 429 || attempt === 2) return response;
-
-      const retryAfter = Number(response.headers.get("retry-after"));
-      const retryDelay = Number.isFinite(retryAfter) && retryAfter > 0
-        ? Math.min(30_000, retryAfter * 1_000)
-        : 2_000 * (attempt + 1);
-      console.warn("Wikipedia rate limit received; retrying after a short delay.", {
-        status: response.status,
-        retryDelay,
-      });
-      await waitForWikipediaRetry(retryDelay);
-    }
-    throw new Error("WIKIPEDIA_REQUEST_RETRIES_EXHAUSTED");
-  });
-
-  wikipediaRequestQueue = request.then(() => undefined, () => undefined);
-  return request;
-}
+// One process-wide queue spaces Wikimedia requests without sleeping through a 429 window.
+const fetchWikipediaResponse = createWikipediaResponseFetcher();
 
 async function fetchWikipediaDocuments(limit: number, language: ChallengeLanguage = "en"): Promise<SourceDocument[]> {
   // Use at most two API requests (random titles + one batch extract). Never
@@ -793,8 +758,11 @@ async function getConfiguredSourceUrls(language: ChallengeLanguage): Promise<str
   try {
     const parsed: unknown = JSON.parse(setting.value);
     if (!Array.isArray(parsed)) return defaults;
-    return [...new Set(parsed.filter((url): url is string => typeof url === "string")
+    const configured = [...new Set(parsed.filter((url): url is string => typeof url === "string")
       .map((url) => url.trim()).filter((url) => url.startsWith("https://") && url.length <= 500))];
+    // An empty or entirely invalid admin list must not disable every default
+    // source for that language and make automatic challenge generation fail.
+    return configured.length > 0 ? configured : defaults;
   } catch { return defaults; }
 }
 
@@ -817,13 +785,14 @@ async function generateMvpRounds(
   // language-matched Wikisource corpus as a second independent MediaWiki project.
   // This is especially important for non-English languages, which have no
   // Project Gutenberg fallback configured.
-  const wikisourceDocuments = language !== "fa" && configuredUrls.includes(wikiUrl) && wikipediaDocuments.length < 3
-    ? await fetchWikisourceDocuments(12, language)
+  const shouldUseIndependentFallback = configuredUrls.includes(wikiUrl);
+  const wikisourceDocuments = language !== "fa" && shouldUseIndependentFallback
+    ? await loadFallbackWhenInsufficient(wikipediaDocuments, () => fetchWikisourceDocuments(12, language), 3)
     : [];
   // Persian Wikisource currently has no published text corpus. Use five
   // public-domain classical poets from Ganjoor instead when Wikipedia is unavailable.
-  const ganjoorDocuments = language === "fa" && wikipediaDocuments.length < 3
-    ? await fetchGanjoorDocuments(5)
+  const ganjoorDocuments = language === "fa" && shouldUseIndependentFallback
+    ? await loadFallbackWhenInsufficient(wikipediaDocuments, () => fetchGanjoorDocuments(5), 3)
     : [];
   const gutenbergResults = language === "en" ? await Promise.all(
     GUTENBERG_BOOKS.filter((book) => configuredUrls.includes(book.textUrl)).map((book) => fetchGutenbergDocument(book)),
