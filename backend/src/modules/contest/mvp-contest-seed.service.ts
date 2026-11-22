@@ -1,7 +1,7 @@
 import prisma from "../../config/prisma.js";
 import { createWikipediaResponseFetcher, loadFallbackWhenInsufficient } from "./wikipedia-source-fetch.js";
 import { fetchInternetArchiveDocuments } from "./internet-archive-source.js";
-import { fetchSourceDocuments, selectBalancedSourceUrls } from "./source-fetch-pool.js";
+import { fetchSourceDocuments, readBoundedResponseText, selectBalancedSourceUrls } from "./source-fetch-pool.js";
 import { CHALLENGE_LANGUAGE_NAMES, getWikipediaDomain, isChallengeLanguage, type ChallengeLanguage } from "./supported-languages.js";
 import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
 import { CHALLENGE_INTERVAL_MS, getChallengeNumberAt, getChallengeScheduleAnchor } from "./challenge-schedule.js";
@@ -574,33 +574,6 @@ async function fetchWikipediaArticleDocument(parsed: URL): Promise<SourceDocumen
 }
 
 const MAX_CONFIGURED_SOURCE_BYTES = 1_500_000;
-
-async function readBoundedResponseText(response: Response, maxBytes: number): Promise<string | null> {
-  const declaredLength = Number(response.headers.get("content-length"));
-  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) return null;
-  if (!response.body) return null;
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let totalBytes = 0;
-  let text = "";
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      totalBytes += value.byteLength;
-      if (totalBytes > maxBytes) {
-        await reader.cancel();
-        return null;
-      }
-      text += decoder.decode(value, { stream: true });
-    }
-    text += decoder.decode();
-    return text;
-  } finally {
-    reader.releaseLock();
-  }
-}
 
 async function fetchConfiguredWebDocument(url: string): Promise<SourceDocument | null> {
   try {
