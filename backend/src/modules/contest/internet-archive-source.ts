@@ -78,11 +78,10 @@ function hasCommerciallyUsableLicense(value: string | string[] | undefined): boo
       const url = new URL(license);
       if (url.hostname !== "creativecommons.org") return false;
       const path = url.pathname.toLowerCase();
+      // Public-domain declarations and CC0 need no per-clue attribution metadata.
       return (
         path.startsWith("/publicdomain/zero/") ||
-        path.startsWith("/publicdomain/mark/") ||
-        /^\/licenses\/by\/(?:1\.0|2\.0|2\.5|3\.0|4\.0)\/?$/.test(path) ||
-        /^\/licenses\/by-sa\/(?:1\.0|2\.0|2\.5|3\.0|4\.0)\/?$/.test(path)
+        path.startsWith("/publicdomain/mark/")
       );
     } catch {
       return false;
