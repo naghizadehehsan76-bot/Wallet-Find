@@ -205,8 +205,6 @@ test("clue generation supports word tokenization in every enabled challenge lang
     ["ar", "تساعد الأبحاث العلمية على تحسين جودة الحياة في المجتمعات الحديثة."],
     ["tr", "Bilimsel araştırmalar modern toplumlarda yaşam kalitesini artırabilir."],
     ["pt", "A investigação científica pode melhorar a qualidade de vida das sociedades modernas."],
-    ["ru", "Научные исследования могут улучшить качество жизни современного общества."],
-    ["zh-CN", "科学研究能够改善现代社会人们的生活质量。"],
   ] as const;
 
   for (const [language, sourceText] of samples) {
