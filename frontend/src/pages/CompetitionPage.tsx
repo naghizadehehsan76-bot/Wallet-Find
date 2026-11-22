@@ -839,12 +839,17 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
         {prizePool && (
           <section className="stat-row" aria-label={isPersian ? "صندوق جایزه چالش" : "Challenge prize pool"}>
             <div className="stat-card">
-              <strong>{localizeDigits(Number(prizePool.total).toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 6 }))}</strong>
-              <span className="stat-card__currency">USDT</span>
+              <div className="stat-card__value" style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: "6px", flexWrap: "wrap" }}>
+                <strong style={{ display: "inline-block" }}>{localizeDigits(Number(prizePool.total).toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 6 }))}</strong>
+                <span className="stat-card__currency" style={{ display: "inline-block", marginTop: 0 }}>USDT</span>
+              </div>
               <span>{isPersian ? "صندوق جایزهٔ این دور" : "This round’s prize pool"}</span>
             </div>
             <div className="stat-card">
-              <strong>{globalPrizePoolTotal !== null ? localizeDigits(Number(globalPrizePoolTotal).toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 6 })) : "—"} USDT</strong>
+              <div className="stat-card__value" style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: "6px", flexWrap: "wrap" }}>
+                <strong style={{ display: "inline-block" }}>{globalPrizePoolTotal !== null ? localizeDigits(Number(globalPrizePoolTotal).toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 6 })) : "—"}</strong>
+                <span className="stat-card__currency" style={{ display: "inline-block", marginTop: 0 }}>USDT</span>
+              </div>
               <span>{isPersian ? "موجودی صندوق کلی جوایز" : "Global prize fund balance"}</span>
             </div>
           </section>
