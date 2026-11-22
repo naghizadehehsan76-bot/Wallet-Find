@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { CHALLENGE_LANGUAGES, type ChallengeLanguage } from "./supported-languages.js";
-import { CLUE_GENERATOR_VERSION, isSearchableClueAnchor } from "./clue-source-text.js";
+import { CLUE_GENERATOR_VERSION, getSourceWordMatches, isSearchableClueAnchor } from "./clue-source-text.js";
 import { buildRoundFromSource, type SourceDocument } from "./mvp-contest-seed.service.js";
 
 const fixtures: Record<ChallengeLanguage, { prefix: string; markers: string[]; answers: string[] }> = {
@@ -72,19 +72,23 @@ test("every enabled language can build twelve distinct, searchable clues with tw
     const source: SourceDocument = {
       title: "Deterministic " + language + " generation fixture",
       url: language === "zh-CN" ? "https://zh.wikisource.org/wiki/Test" : "https://" + (language === "fa" ? "fa" : language) + ".wikisource.org/wiki/Test",
-      text: paragraphs.join("\\n\\n"),
+      text: paragraphs.join("\n\n"),
     };
     const usedAnswers = new Set<string>();
     const optionWords = [...new Set(
-      [...fixture.prefix.split(/\\s+/), ...fixture.markers, ...fixture.answers]
-        .map((word) => word.normalize("NFKC").toLocaleLowerCase()),
+      getSourceWordMatches(paragraphs.join("\n\n"), language).map((match) => match.word),
     )];
 
-    const clues = Array.from({ length: 12 }, () =>
-      buildRoundFromSource(source, usedAnswers, optionWords, language)
-    );
+    const clues = [];
+    for (let index = 0; index < 12; index += 1) {
+      const clue = buildRoundFromSource(source, usedAnswers, optionWords, language);
+      assert.ok(clue, language + " must generate clue " + (index + 1));
+      clues.push(clue);
+      usedAnswers.add(clue.correctAnswer);
+    }
 
-    assert.equal(clues.filter(Boolean).length, 12, language + " must generate all twelve clues");
+    assert.equal(clues.length, 12, language + " must generate all twelve clues");
+    assert.equal(usedAnswers.size, 12, language + " answers must be unique");
     for (const clue of clues) {
       assert.ok(clue, language + " generated a missing clue");
       assert.ok(clue.content.startsWith(CLUE_GENERATOR_VERSION), language + " clue version marker");
@@ -93,7 +97,7 @@ test("every enabled language can build twelve distinct, searchable clues with tw
       assert.equal(clue.options.length, 12, language + " must provide twelve choices");
       assert.equal(new Set(clue.options).size, 12, language + " choices must be unique");
       assert.ok(clue.options.includes(clue.correctAnswer), language + " answer must be one of the choices");
-      assert.equal(usedAnswers.has(clue.correctAnswer), true, language + " answer must be unique");
+
     }
   }
 });
