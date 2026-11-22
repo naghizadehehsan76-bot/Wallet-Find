@@ -10,6 +10,12 @@ const turkishText = [
   "Doğal çevrenin korunması sürdürülebilir kalkınma açısından büyük önem taşımaktadır.",
   "Bilimsel araştırmalar insanların yaşam kalitesini artırmak için farklı yaklaşımlar sunmaktadır.",
   "Ekonomik faaliyetler şehirlerin tarihsel gelişimini ve toplumsal hareketlerini etkileyebilir.",
+  "Öğretmenler eğitim sistemindeki yenilikleri değerlendirerek öğrencilerin başarısını destekleyen yöntemler araştırır.",
+  "Sanat eserleri farklı dönemlerin düşüncelerini ve toplumsal değerlerini gelecek kuşaklara aktarabilir.",
+  "Bilgisayar mühendisliği alanındaki gelişmeler iletişim teknolojilerinin kullanımını her geçen gün değiştiriyor.",
+  "Kent planlaması uzmanları ulaşım ağlarını inceler ve insanların günlük ihtiyaçlarına uygun çözümler hazırlar.",
+  "Arkeolojik buluntular geçmiş uygarlıkların yaşam biçimleri hakkında önemli bilgiler ortaya çıkarır.",
+  "Tarım faaliyetlerinde kullanılan modern teknikler doğal kaynakların daha verimli değerlendirilmesini sağlar.",
 ].join("\n\n");
 
 test("Internet Archive fallback selects same-language, commercially usable text and caches it", async () => {
