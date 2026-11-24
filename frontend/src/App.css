@@ -4996,3 +4996,71 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
     height:auto;
   }
 }
+
+
+/* Lock the home guide's layout dimensions so changing instructional pages
+   cannot resize the guide card or reflow the surrounding homepage sections. */
+.home-page .home-guide-book {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 680px !important;
+  min-height: 680px !important;
+  max-height: 680px !important;
+  flex: 0 0 680px !important;
+}
+.home-page .home-guide-book__heading,
+.home-page .home-guide-book__footer {
+  flex: 0 0 auto;
+}
+.home-page .home-guide-book__page {
+  display: grid !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: auto !important;
+  align-content: stretch !important;
+}
+.home-page .home-guide-book__visual {
+  height: 460px !important;
+  min-height: 460px !important;
+  max-height: 460px !important;
+  align-self: start !important;
+  overflow: hidden !important;
+}
+.home-page .home-guide-demo__screen {
+  height: 440px !important;
+  min-height: 440px !important;
+  max-height: 440px !important;
+  overflow: hidden !important;
+}
+.home-page .home-guide-book__copy {
+  min-height: 112px !important;
+  max-height: 112px !important;
+  overflow: auto;
+}
+.home-page .home-guide-book__copy h3,
+.home-page .home-guide-book__copy p {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 899px) {
+  .home-page .home-guide-book {
+    height: 760px !important;
+    min-height: 760px !important;
+    max-height: 760px !important;
+    flex-basis: 760px !important;
+  }
+  .home-page .home-guide-book__visual {
+    height: 420px !important;
+    min-height: 420px !important;
+    max-height: 420px !important;
+  }
+  .home-page .home-guide-demo__screen {
+    height: 400px !important;
+    min-height: 400px !important;
+    max-height: 400px !important;
+  }
+  .home-page .home-guide-book__copy {
+    min-height: 112px !important;
+    max-height: 112px !important;
+  }
+}
