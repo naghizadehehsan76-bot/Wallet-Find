@@ -309,6 +309,11 @@ function HomePage({
           <p className="home-concept-tagline" lang={language} dir={isHomeRTL ? "rtl" : "ltr"}>
             {isPersian ? <>هر روز سرنخ‌های رسیدن به کیف پول رو بهت میدیم<br />هر چقدر سریعتر باشی درآمدت بیشتره.</> : (homeCopy.heroTagline ?? <>We give you clues to find wallet every day...<br />The faster you are, the more you earn.</>)}
           </p>
+        <section className="cta-group">
+          <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>{homeCopy.enterChallenge ?? (isPersian ? "ورود به چالش امشب" : "Enter Challenge")}</button>
+          <button className="cta-button cta-button--ghost" type="button" onClick={() => onNavigate("rules")}>{homeCopy.rules ?? (isPersian ? "روش و قوانین چالش" : "How to Play & Challenge Rules")}</button>
+        </section>
+
         </section>
 
         <section className="home-guide-book" aria-label={guideCopy.heading} dir={isHomeRTL ? "rtl" : "ltr"}>
@@ -373,11 +378,6 @@ function HomePage({
             </div>
             <button type="button" onClick={() => setGuidePage((page) => Math.min(2, page + 1))} disabled={guidePage === 2}>{guideCopy.next} ›</button>
           </div>
-        </section>
-
-        <section className="cta-group">
-          <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>{homeCopy.enterChallenge ?? (isPersian ? "ورود به چالش امشب" : "Enter Challenge")}</button>
-          <button className="cta-button cta-button--ghost" type="button" onClick={() => onNavigate("rules")}>{homeCopy.rules ?? (isPersian ? "روش و قوانین چالش" : "How to Play & Challenge Rules")}</button>
         </section>
 
 
