@@ -5274,3 +5274,54 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   }
 }
 
+/* Repeating boomerang-style walkthrough animation for the homepage challenge guide.
+   The existing live UI illustration remains responsive and localized in every language. */
+@keyframes walletGuideBoomerangFloat {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-4px) scale(1.012); }
+}
+@keyframes walletGuideBoomerangFocus {
+  0%, 100% { transform: translateY(0); box-shadow: 0 0 0 0 rgba(69, 186, 255, 0); }
+  50% { transform: translateY(-2px); box-shadow: 0 0 0 2px rgba(69, 186, 255, .22), 0 5px 16px rgba(69, 186, 255, .12); }
+}
+@keyframes walletGuideBoomerangProgress {
+  0%, 100% { transform: scaleX(.72); opacity: .72; }
+  50% { transform: scaleX(1); opacity: 1; }
+}
+.home-page .home-guide-demo__screen {
+  animation: walletGuideBoomerangFloat 3.2s ease-in-out infinite;
+}
+.home-page .home-guide-demo__hint {
+  animation: walletGuideBoomerangFocus 3.2s ease-in-out infinite;
+  animation-delay: 0s;
+}
+.home-page .home-guide-demo__source-card {
+  animation: walletGuideBoomerangFocus 3.2s ease-in-out infinite;
+  animation-delay: .8s;
+}
+.home-page .home-guide-demo__answer-cell.is-active,
+.home-page .home-guide-demo__answer-cell.is-solved {
+  animation: walletGuideBoomerangFocus 3.2s ease-in-out infinite;
+  animation-delay: 1.6s;
+}
+.home-page .home-guide-demo__progress i span {
+  transform-origin: left center;
+  animation: walletGuideBoomerangProgress 3.2s ease-in-out infinite;
+  animation-delay: 2.2s;
+}
+.home-page .home-guide-demo__submit {
+  animation: walletGuideBoomerangFocus 3.2s ease-in-out infinite;
+  animation-delay: 2.4s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-page .home-guide-demo__screen,
+  .home-page .home-guide-demo__hint,
+  .home-page .home-guide-demo__source-card,
+  .home-page .home-guide-demo__answer-cell.is-active,
+  .home-page .home-guide-demo__answer-cell.is-solved,
+  .home-page .home-guide-demo__progress i span,
+  .home-page .home-guide-demo__submit {
+    animation: none !important;
+  }
+}
+
