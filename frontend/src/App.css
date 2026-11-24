@@ -5064,3 +5064,35 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
     max-height: 112px !important;
   }
 }
+
+
+/* Mobile home: keep the primary actions between the hero artwork and guide,
+   where they remain visible and cannot be covered by the guide card. */
+@media (max-width: 899px) {
+  .home-page {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .home-page .home-showcase { order: 1; }
+  .home-page .cta-group {
+    order: 2;
+    position: relative !important;
+    z-index: 5 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100%;
+    margin: 12px 0 18px !important;
+    padding: 0 4px;
+    box-sizing: border-box;
+  }
+  .home-page .cta-group .cta-button {
+    position: relative !important;
+    z-index: 6 !important;
+    width: 100%;
+  }
+  .home-page .home-guide-book {
+    order: 3;
+    position: relative;
+    z-index: 1;
+  }
+}
