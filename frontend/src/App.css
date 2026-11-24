@@ -4705,3 +4705,51 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   .home-guide-book__dots button.is-active { width:17px; border-radius:8px; background:var(--verdigris); }
   .home-guide-book button:focus-visible { outline:2px solid var(--verdigris); outline-offset:3px; }
 }
+
+
+/* Keep the guide inside the reserved area below the challenge tiles.
+   Earlier homepage transforms must not pull the statistics cards over it. */
+@media (min-width: 900px) {
+  .home-page .home-guide-book {
+    grid-column: 2;
+    grid-row: 3;
+    position: relative;
+    z-index: 2;
+    box-sizing: border-box;
+    width: 100%;
+    max-height: 245px;
+    overflow: hidden;
+    margin: 2px 0 0;
+    padding: 9px 11px;
+  }
+
+  .home-page .home-guide-book__heading h2 { font-size: 13px; }
+  .home-page .home-guide-book__page { gap: 9px; margin-top: 7px; }
+  .home-page .home-guide-book__visual { gap: 5px; padding: 7px; }
+  .home-page .home-guide-demo { padding: 6px; }
+  .home-page .home-guide-demo__tiles { gap: 3px; margin-top: 5px; }
+  .home-page .home-guide-demo__tiles span { min-height: 18px; }
+  .home-page .home-guide-demo__source { padding: 6px; }
+  .home-page .home-guide-demo__source p { margin: 4px 0; }
+  .home-page .home-guide-book__copy h3 { margin: 3px 0 5px; font-size: 11px; }
+  .home-page .home-guide-book__copy p { font-size: 9px; line-height: 1.65; }
+  .home-page .home-guide-book__footer { margin-top: 7px; padding-top: 6px; }
+
+  /* The stats section had an inherited upward transform that caused it
+     to paint over the guide card despite its later grid row. */
+  .home-page .stat-row {
+    grid-column: 1 / -1 !important;
+    grid-row: 4 !important;
+    position: relative;
+    z-index: 1;
+    align-self: start;
+    transform: none !important;
+    margin-top: 0 !important;
+  }
+
+  .home-page .how-section {
+    grid-column: 1 / -1 !important;
+    grid-row: 5 !important;
+    transform: none !important;
+  }
+}
