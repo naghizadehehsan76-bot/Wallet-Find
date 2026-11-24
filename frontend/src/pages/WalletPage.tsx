@@ -25,7 +25,7 @@ function createIdempotencyKey(): string {
 
 function AssetLogo({ symbol }: { symbol: string }) {
   const code = symbol.toUpperCase();
-   const supported = new Set(["USDT"]);
+   const supported = new Set(["USDT", "USDT0"]);
   if (!supported.has(code)) return <span className="wallet-asset-symbol" aria-hidden="true">{code.slice(0, 4)}</span>;
   return (
     <span className={`wallet-asset-symbol wallet-asset-symbol--${code.toLowerCase()}`} aria-hidden="true">
@@ -683,7 +683,7 @@ const priceIdBySymbol: Record<string, string> = { USDT: "tether", USDT0: "tether
                       <div>
                         <strong>{displayAssetSymbol(asset.symbol)}</strong>
                         <small>{asset.displayName}</small>
-                        <small>{fa ? "موجودی" : "Balance"}: {hasBalance ? formatAmount(asset.balance, asset.decimals, locale, 8) : "0"} {asset.symbol}</small>
+                        <small>{fa ? "موجودی" : "Balance"}: {hasBalance ? formatAmount(asset.balance, asset.decimals, locale, 8) : "0"} {displayAssetSymbol(asset.symbol)}</small>
                       </div>
                     </div>
                     <div className="wallet-asset-row__balance">
@@ -917,8 +917,8 @@ const priceIdBySymbol: Record<string, string> = { USDT: "tether", USDT0: "tether
         {selectedWithdrawAsset ? <>
           <div className="wallet-form-field">
             <label>{copy.amount}</label>
-            <div className="wallet-input-wrap"><input inputMode="decimal" value={withdrawAmount} onChange={(event) => { setWithdrawAmount(event.target.value.replace(/[^0-9.]/g, "")); setWithdrawIdempotencyKey(createIdempotencyKey()); setWithdrawResult(null); }} placeholder="0.00" /><span>{selectedWithdrawAsset.symbol}</span></div>
-            <small>{copy.available}: {fmt(selectedWithdrawAsset.availableBalance, selectedWithdrawAsset.decimals)} {selectedWithdrawAsset.symbol}</small>
+            <div className="wallet-input-wrap"><input inputMode="decimal" value={withdrawAmount} onChange={(event) => { setWithdrawAmount(event.target.value.replace(/[^0-9.]/g, "")); setWithdrawIdempotencyKey(createIdempotencyKey()); setWithdrawResult(null); }} placeholder="0.00" /><span>{displayAssetSymbol(selectedWithdrawAsset.symbol)}</span></div>
+            <small>{copy.available}: {fmt(selectedWithdrawAsset.availableBalance, selectedWithdrawAsset.decimals)} {displayAssetSymbol(selectedWithdrawAsset.symbol)}</small>
           </div>
           <div className="wallet-form-field"><label>{copy.destination}</label><input className="wallet-address-input" value={withdrawAddress} onChange={(event) => { setWithdrawAddress(event.target.value); setWithdrawIdempotencyKey(createIdempotencyKey()); setWithdrawResult(null); }} placeholder="0x..." autoComplete="off" /></div>
           <div className="wallet-fee-row"><span>{copy.polGasBalance}</span><strong>{fa ? "مدیریت خودکار" : "Managed automatically"}</strong></div>
