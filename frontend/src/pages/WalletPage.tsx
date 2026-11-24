@@ -380,7 +380,6 @@ export default function WalletPage({ onNavigate }: Props) {
   const selectedDepositNetwork = wallet?.networks.find((network) => network.id === depositNetworkId) ?? null;
   const selectedWithdrawAsset = withdrawalAssets.find((asset) => asset.id === withdrawAssetId) ?? null;
   const selectedWithdrawNetwork = wallet?.networks.find((network) => network.id === withdrawNetworkId) ?? null;
-  const feeAsset = null;
 
   const fmt = (value: string, decimals = 6) => formatAmount(value, decimals, locale);
   const apiErrorCopy = {
