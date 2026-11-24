@@ -832,7 +832,7 @@ async function generateMvpRounds(
     // the source diversity achieved by the first pass.
     for (const source of shuffle(availableSources)) {
       let attempts = 0;
-      let sourceRoundCount = 0;
+      let sourceRoundCount = generatedRounds.filter((round) => round.sourceUrl === source.url).length;
       while (
         generatedRounds.length < remainingCount &&
         sourceRoundCount < 4 &&

@@ -45,7 +45,7 @@ export function createWikipediaResponseFetcher(options: WikipediaFetcherOptions 
         });
         if (response.status === 429) {
           const retryAfterMs = getRetryAfterMs(response, now());
-          if (attempt === 2 || (retryAfterMs !== null && retryAfterMs > 60_000)) {
+          if (attempt === 2 || (retryAfterMs !== null && retryAfterMs >= 60_000)) {
             console.warn("Wikimedia rate limit received; using fallback source.", {
               host: url.hostname, status: response.status, retryAfterMs,
             });
