@@ -25,7 +25,7 @@ function createIdempotencyKey(): string {
 
 function AssetLogo({ symbol }: { symbol: string }) {
   const code = symbol.toUpperCase();
-   const supported = new Set(["ETH", "BNB", "USDT", "USDT0", "POL"]);
+   const supported = new Set(["USDT"]);
   if (!supported.has(code)) return <span className="wallet-asset-symbol" aria-hidden="true">{code.slice(0, 4)}</span>;
   return (
     <span className={`wallet-asset-symbol wallet-asset-symbol--${code.toLowerCase()}`} aria-hidden="true">
@@ -282,7 +282,7 @@ export default function WalletPage({ onNavigate }: Props) {
     back: fa ? "بازگشت به کیف پول" : "Back to wallet",
     loadingAddress: fa ? "در حال دریافت آدرس واریز..." : "Preparing deposit address...",
     scannerNotReady: fa ? "اسکنر شبکه هنوز آماده نیست؛ چند لحظه دیگر دوباره تلاش کنید." : "The network scanner is not ready yet. Please try again shortly.",
-    insufficientPol: fa ? "موجودی POL برای پرداخت کارمزد شبکه کافی نیست." : "Your POL balance is not sufficient to cover the network fee.",
+    insufficientPol: fa ? "در حال حاضر امکان تأمین کارمزد شبکه برای برداشت وجود ندارد." : "The network fee cannot currently be covered for this withdrawal.",
     insufficientUsdt0: fa ? "موجودی قابل برداشت USDT کافی نیست." : "Your available USDT balance is insufficient.",
     invalidDestination: fa ? "آدرس مقصد معتبر نیست." : "The destination address is invalid.",
     reviewRequired: fa ? "این کیف پول برای بررسی دستی علامت‌گذاری شده است؛ تا رفع مشکل به آدرس قدیمی آن وجه ارسال نکنید." : "This wallet requires manual review. Do not send funds to its legacy address until it has been reconciled.",
@@ -311,7 +311,7 @@ export default function WalletPage({ onNavigate }: Props) {
       const preferredDeposit = walletResult.networks
         .filter((network) => network.chainId === 137)
         .flatMap((network) => network.assets.map((asset) => ({ ...asset, networkId: network.id })))
-        .filter((asset) => ["USDT0", "POL"].includes(asset.symbol.toUpperCase()) && asset.verificationStatus === "VERIFIED")
+        .filter((asset) => asset.symbol.toUpperCase() === "USDT0" && asset.verificationStatus === "VERIFIED")
         .sort((a, b) => Number(b.symbol.toUpperCase() === "USDT0") - Number(a.symbol.toUpperCase() === "USDT0"))[0];
       if (preferredDeposit) {
         setDepositAssetId((current) => current || preferredDeposit.id);
@@ -848,7 +848,7 @@ const priceIdBySymbol: Record<string, string> = { USDT: "tether", USDT0: "tether
             <div><span>{copy.minimum}</span><strong>{depositDetails.minDeposit ? depositDetails.minDeposit + " " + depositDetails.asset : "—"}</strong></div>
             <div><span>{copy.asset}</span><strong>{depositDetails.asset} · {depositDetails.displayName}</strong></div>
           </div>
-          <div className="wallet-warning"><strong>⚠ {fa ? "هشدار امنیتی" : "Security notice"}</strong><p>{depositDetails.asset === "POL" ? copy.polWarning : copy.usdt0Warning} {copy.depositRisk}</p></div>
+          <div className="wallet-warning"><strong>⚠ {fa ? "هشدار امنیتی" : "Security notice"}</strong><p>{copy.usdt0Warning} {copy.depositRisk}</p></div>
           <p className="wallet-deposit-minimum">{depositDetails.message}</p>
           <p className="wallet-deposit-minimum">{copy.networkFeeNotice}</p>
         </>}
