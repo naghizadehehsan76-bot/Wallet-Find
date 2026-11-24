@@ -143,7 +143,7 @@ const statsLimiter = createApiLimiter("stats-api:", 60 * 1000, 60);
 
 
 const marketPriceIds = [
-  "polygon-ecosystem-token", "tether", "usd-coin", "ethereum",
+  "tether", "usd-coin", "ethereum",
   "binancecoin", "tron", "ripple", "dogecoin", "cardano",
   "avalanche-2", "chainlink", "dai", "litecoin", "polkadot", "stellar",
 ];
@@ -211,27 +211,6 @@ async function fetchCoinGeckoMarketPrices(): Promise<Record<string, number>> {
   return prices;
 }
 
-// Independent fallback for POL. Binance's POL/USDT spot quote is used as an
-// estimated USD quote (USDT is treated at its USD peg); it is never used for
-// wallet accounting, deposits, withdrawals, or settlement.
-async function fetchBinancePolFallback(): Promise<number> {
-  const upstream = await fetch(
-    "https://api.binance.com/api/v3/ticker/price?symbol=POLUSDT",
-    { headers: { accept: "application/json" }, signal: AbortSignal.timeout(6000) },
-  );
-  if (!upstream.ok) throw new Error("BINANCE_HTTP_" + upstream.status);
-  const payload: unknown = await upstream.json();
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    throw new Error("INVALID_BINANCE_RESPONSE");
-  }
-  const rawPrice = (payload as Record<string, unknown>).price;
-  const price = typeof rawPrice === "string" ? Number(rawPrice) : rawPrice;
-  if (typeof price !== "number" || !Number.isFinite(price) || price <= 0) {
-    throw new Error("INVALID_BINANCE_POL_PRICE");
-  }
-  return price;
-}
-
 const marketPriceLimiter = rateLimit({
   store: new PostgresRateLimitStore("market-price:"),
   windowMs: 60 * 1000,
@@ -259,15 +238,6 @@ app.get("/api/market/prices", marketPriceLimiter, async (_req, res) => {
     sources.push("coingecko");
   } catch (error) {
     console.warn("CoinGecko market price provider failed", error);
-  }
-
-  if (freshPrices["polygon-ecosystem-token"] === undefined) {
-    try {
-      freshPrices["polygon-ecosystem-token"] = await fetchBinancePolFallback();
-      sources.push("binance-pol-fallback");
-    } catch (error) {
-      console.warn("Binance POL fallback provider failed", error);
-    }
   }
 
   if (Object.keys(freshPrices).length > 0) {

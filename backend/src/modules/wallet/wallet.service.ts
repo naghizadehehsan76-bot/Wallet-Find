@@ -182,7 +182,7 @@ export async function getWallet(userId: string) {
 
     const networkViews = networks.map((network) => {
       const address = network.addresses[0] ?? null;
-      const assets = network.assets.map((asset) => {
+      const assets = network.assets.filter((asset) => asset.symbol.toUpperCase() !== "POL").map((asset) => {
         const key = network.id + "|" + asset.id;
         const balance = balanceMap.get(key) ?? { available: 0n, reserved: 0n };
         const availableBalance = balance.available;
@@ -230,7 +230,7 @@ export async function getWallet(userId: string) {
         chainId: network.chainId,
         networkKey: network.networkKey,
         displayName: network.displayName,
-        nativeAssetSymbol: network.nativeAssetSymbol,
+        nativeAssetSymbol: "—",
         nativeAssetDecimals: network.nativeAssetDecimals,
         explorerTransactionUrlTemplate: network.explorerTransactionUrlTemplate,
         finalityDepth: network.finalityDepth,
@@ -271,7 +271,7 @@ export async function getWallet(userId: string) {
       legacyAvailableBalance: formatMicro(legacyBalances.availableBalance),
       networks: networkViews,
       onChainDeposits: [
-        ...legacyDeposits.filter((deposit) => meetsMinimumDeposit({
+        ...legacyDeposits.filter((deposit) => deposit.asset.symbol.toUpperCase() !== "POL" && meetsMinimumDeposit({
           chainId: deposit.chainId,
           symbol: deposit.asset.symbol,
           decimals: deposit.asset.decimals,
@@ -300,7 +300,7 @@ export async function getWallet(userId: string) {
             legacy: true,
           };
         }),
-        ...chainDeposits.filter((deposit: any) => meetsMinimumDeposit({
+        ...chainDeposits.filter((deposit: any) => deposit.asset.symbol.toUpperCase() !== "POL" && meetsMinimumDeposit({
           chainId: Number(deposit.networkId.split(":")[1] ?? 0) || null,
           symbol: deposit.asset.symbol,
           decimals: deposit.asset.decimals,
@@ -323,7 +323,7 @@ export async function getWallet(userId: string) {
       })),
       ],
       onChainWithdrawals: [
-        ...legacyWithdrawals.map((withdrawal) => {
+        ...legacyWithdrawals.filter((withdrawal) => withdrawal.asset.symbol.toUpperCase() !== "POL").map((withdrawal) => {
           const network = networkViews.find((item) => item.chainId === withdrawal.chainId);
           return {
             id: withdrawal.id,
@@ -345,7 +345,7 @@ export async function getWallet(userId: string) {
             legacy: true,
           };
         }),
-        ...chainWithdrawals.map((withdrawal: any) => ({
+        ...chainWithdrawals.filter((withdrawal: any) => withdrawal.asset.symbol.toUpperCase() !== "POL").map((withdrawal: any) => ({
         id: withdrawal.id,
         type: "WITHDRAWAL",
         networkId: withdrawal.networkId,
@@ -369,7 +369,7 @@ export async function getWallet(userId: string) {
         legacy: false,
       })),
       ],
-      transactions: [...transactions.map(serializeTransaction), ...internalPrizeTransactions].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 100),
+      transactions: [...transactions.filter((transaction) => transaction.currency.toUpperCase() !== "POL").map(serializeTransaction), ...internalPrizeTransactions].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 100),
     };
   });
 }
