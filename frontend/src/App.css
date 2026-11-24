@@ -5085,3 +5085,38 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
     width: 100%;
   }
 }
+
+
+/* Keep the homepage actions directly below the hero tagline in normal flow. */
+.home-page .home-showcase .home-concept-tagline {
+  transform: none !important;
+}
+.home-page .home-showcase .cta-group {
+  position: relative !important;
+  inset: auto !important;
+  z-index: 2;
+  display: flex !important;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 650px;
+  margin: 18px auto 0 !important;
+  padding: 0 4px;
+  box-sizing: border-box;
+  transform: none !important;
+}
+.home-page .home-showcase .cta-group .cta-button {
+  position: relative !important;
+  width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+@media (min-width: 900px) {
+  .home-page .home-showcase .cta-group {
+    flex-direction: row;
+    margin-top: 18px !important;
+  }
+  .home-page .home-showcase .cta-group .cta-button {
+    flex: 1 1 0;
+  }
+}
