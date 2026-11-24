@@ -76,7 +76,7 @@ export async function getPrizePool(contestId: string) {
   // Pool creation and funding reservation belong exclusively to the settlement worker.
   const [storedPool, contest] = await Promise.all([
     prisma.prizePool.findUnique({ where: { contestId } }),
-    prisma.contest.findUnique({ where: { id: contestId }, select: { id: true } }),
+    prisma.contest.findUnique({ where: { id: contestId }, select: { id: true, prizeFundingInvalidatedAt: true } }),
   ]);
   if (!contest) throw new Error("CONTEST_NOT_FOUND");
 
@@ -119,7 +119,7 @@ export async function getPrizePool(contestId: string) {
     ? cancellationMetadata.cancellationReason
     : null;
   return {
-    pool: { ...responsePool(pool), cancellationReason },
+    pool: { ...responsePool(pool), cancellationReason, fundingInvalidated: Boolean(contest.prizeFundingInvalidatedAt) },
     ledger: ledger.map((row) => ({ ...row, amount: formatMicro(BigInt(row.amountMicro)), amountMicro: undefined })),
     awards: awards.map((row) => ({ ...row, payoutMode: "INTERNAL_WALLET_LEDGER", amount: formatMicro(BigInt(row.amountMicro)), amountMicro: undefined })),
   };
