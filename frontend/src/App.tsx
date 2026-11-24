@@ -310,7 +310,7 @@ function HomePage({
             {isPersian ? <>هر روز سرنخ‌های رسیدن به کیف پول رو بهت میدیم<br />هر چقدر سریعتر باشی درآمدت بیشتره.</> : (homeCopy.heroTagline ?? <>We give you clues to find wallet every day...<br />The faster you are, the more you earn.</>)}
           </p>
         <section className="cta-group">
-          <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>{homeCopy.enterChallenge ?? (isPersian ? "ورود به چالش امروز" : "Enter Challenge")}</button>
+          <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>{homeCopy.enterChallenge ?? (isPersian ? "ورود به صفحه چالش" : "Enter Challenge")}</button>
           <button className="cta-button cta-button--ghost" type="button" onClick={() => onNavigate("rules")}>{homeCopy.rules ?? (isPersian ? "روش و قوانین چالش" : "How to Play & Challenge Rules")}</button>
         </section>
 
