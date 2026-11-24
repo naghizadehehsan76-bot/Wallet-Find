@@ -311,25 +311,6 @@ function HomePage({
           </p>
         </section>
 
-        <section className="cta-group">
-          <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>{homeCopy.enterChallenge ?? (isPersian ? "ورود به چالش امشب" : "Enter Challenge")}</button>
-          <button className="cta-button cta-button--ghost" type="button" onClick={() => onNavigate("rules")}>{homeCopy.rules ?? (isPersian ? "روش و قوانین چالش" : "How to Play & Challenge Rules")}</button>
-        </section>
-
-        <section className="home-key-grid" aria-label={homeCopy.challengeKeys ?? (isPersian ? "۱۲ خانهٔ چالش" : "12 challenge keys")}>
-          {Array.from({ length: 12 }).map((_, index) => (
-            <button
-              key={index}
-              type="button"
-              className={`home-key-tile ${index < 3 ? "home-key-tile--current home-key-tile--word" : "home-key-tile--locked"}`}
-              onClick={() => onNavigate("competition")}
-              aria-label={index < 3 ? (isPersian ? ["چالش", "تو", "سرعت"][index] : ["Challenge", "Your", "Speed"][index]) : (isPersian ? `خانهٔ قفل‌شدهٔ ${index + 1}` : `Locked key ${index + 1}`)}
-            >
-              {index < 3 ? <span className="home-key-tile__word">{(isPersian ? ["چالش", "تو", "سرعت"] : ["Challenge", "Your", "Speed"])[index]}</span> : <><span className="home-key-tile__lock" aria-hidden="true"><i /></span><span className="home-key-tile__number">{(index + 1).toLocaleString(isPersian ? "fa-IR" : "en-US")}</span></>}
-            </button>
-          ))}
-        </section>
-
         <section className="home-guide-book" aria-label={guideCopy.heading} dir={isHomeRTL ? "rtl" : "ltr"}>
           <div className="home-guide-book__heading">
             <div>
@@ -339,20 +320,29 @@ function HomePage({
             <span className="home-guide-book__counter">{guideCopy.page} {localizeDigits(String(guidePage + 1))} / {localizeDigits("3")}</span>
           </div>
           <div className="home-guide-book__page">
-            <div className="home-guide-book__visual" aria-label={guideCopy.firstTitle}>
-              <div className="home-guide-demo">
-                <div className="home-guide-demo__top"><span>WALLET-FIND</span><span>{guideCopy.hint}</span></div>
-                <div className="home-guide-demo__tiles">
-                  {Array.from({ length: 12 }).map((_, index) => <span key={index} className={index === 0 ? "is-active" : index === 1 ? "is-next" : ""}>{index === 0 ? "?" : index + 1}</span>)}
-                </div>
+            <div className="home-guide-book__visual" aria-label={guidePages[guidePage].title}>
+            {guidePage === 0 ? (
+              <div className="guide-visual">
+                <div className="guide-visual__panel"><span>{guideCopy.hint}</span><strong>“the clue phrase”</strong><i>⌕</i></div>
+                <div className="guide-visual__connector">↓</div>
+                <div className="guide-visual__panel"><span>{guideCopy.source}</span><p>... <mark>the clue phrase</mark> <b>answer</b> continues ...</p><small>{guideCopy.answer}: <b>answer</b></small></div>
               </div>
-              <div className="home-guide-demo__source">
-                <span>{guideCopy.source}</span>
-                <p>... <mark>the clue phrase</mark> <strong>answer</strong> continues here ...</p>
-                <small>{guideCopy.answer}: <b>answer</b></small>
+            ) : guidePage === 1 ? (
+              <div className="guide-visual">
+                <div className="guide-visual__caption">{guideCopy.answer}</div>
+                <div className="guide-visual__answer-box">answer <span>✓</span></div>
+                <div className="guide-visual__connector">↓</div>
+                <div className="guide-visual__unlock"><span className="is-done">1</span><span className="is-done">2</span><span className="is-open">3</span><span className="is-locked">4</span></div>
+                <small className="guide-visual__note">{isPersian ? "پاسخ درست، خانه بعدی را باز می‌کند" : "A correct answer unlocks the next box"}</small>
               </div>
-              <div className="home-guide-demo__arrow" aria-hidden="true">←</div>
-            </div>
+            ) : (
+              <div className="guide-visual">
+                <div className="guide-visual__finish-title">{isPersian ? "چالش تکمیل شد" : "Challenge completed"} <span>✓</span></div>
+                <div className="guide-visual__finish-grid">{Array.from({length:12}).map((_,i)=><span key={i}>{i+1}</span>)}</div>
+                <div className="guide-visual__rank">{isPersian ? "رتبه شما" : "Your rank"} <b>#1</b></div>
+              </div>
+            )}
+          </div>
             <div className="home-guide-book__copy">
               <span className="home-guide-book__step">{localizeDigits(String(guidePage + 1).padStart(2, "0"))}</span>
               <h3>{guidePages[guidePage].title}</h3>
@@ -367,6 +357,15 @@ function HomePage({
             <button type="button" onClick={() => setGuidePage((page) => Math.min(2, page + 1))} disabled={guidePage === 2}>{guideCopy.next} ›</button>
           </div>
         </section>
+
+        <section className="cta-group">
+          <button className="cta-button" type="button" onClick={() => onNavigate("competition")}>{homeCopy.enterChallenge ?? (isPersian ? "ورود به چالش امشب" : "Enter Challenge")}</button>
+          <button className="cta-button cta-button--ghost" type="button" onClick={() => onNavigate("rules")}>{homeCopy.rules ?? (isPersian ? "روش و قوانین چالش" : "How to Play & Challenge Rules")}</button>
+        </section>
+
+
+
+
 
         <section className="stat-row">
           {stats.map((stat) => (
