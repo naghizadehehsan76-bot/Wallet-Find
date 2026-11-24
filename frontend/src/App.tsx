@@ -151,6 +151,90 @@ function HomePage({
       label: homeCopy.totalPrizesPaid ?? (isPersian ? "مجموع جوایز ثبت‌شده" : "Total awards recorded"),
     },
   ];
+  const [guidePage, setGuidePage] = useState(0);
+  const guideCopy = ({
+    fa: {
+      heading: "راهنمای تصویری حل چالش", page: "صفحه", firstTitle: "۱. از راهنما تا اولین پاسخ",
+      firstText: "برای شروع چالش و پیدا کردن کلمه ی اول عبارتی که در بخش راهنما میبینید را یادداشت کنید و در ادامه به صفحه ی منبع سرنخ رفته و به دنبال عبارت سرنخ بگردید. پاسخ هر خانه اولین کلمه (که میتواند حروف اضافه چسبیده به آن هم شاملش باش) بعد از عبارت سرنخ است.",
+      secondTitle: "۲. پاسخ را در خانه وارد کن", secondText: "فقط اولین کلمه پس از عبارت سرنخ را وارد کن. با ثبت پاسخ درست، خانه بعدی برایت باز می‌شود.",
+      thirdTitle: "۳. هر ۱۲ خانه را کامل کن", thirdText: "خانه‌ها را به‌ترتیب حل کن. پس از ثبت پاسخ خانه دوازدهم، نتیجه و رتبه‌ات مشخص می‌شود.",
+      hint: "عبارت راهنما", source: "صفحه منبع سرنخ", answer: "کلمه پاسخ", previous: "قبلی", next: "بعدی"
+    },
+    en: {
+      heading: "Visual Challenge Guide", page: "Page", firstTitle: "1. From the guide to your first answer",
+      firstText: "To start the challenge and find the first word, note the phrase shown in the Guide section. Then open the clue source page and search for that exact phrase. The answer for each box is the first word immediately after the clue phrase (including any attached preposition).",
+      secondTitle: "2. Enter your answer", secondText: "Enter only the first word after the clue phrase. A correct answer unlocks the next box.",
+      thirdTitle: "3. Complete all 12 boxes", thirdText: "Solve the boxes in order. Your result and rank are determined as soon as you submit the twelfth answer.",
+      hint: "Guide phrase", source: "Clue source page", answer: "Answer word", previous: "Previous", next: "Next"
+    },
+    de: {
+      heading: "Visuelle Anleitung zur Challenge", page: "Seite", firstTitle: "1. Vom Hinweis zur ersten Antwort",
+      firstText: "Notiere zum Start der Challenge die Formulierung im Hinweisbereich. Öffne anschließend die Quellseite und suche genau nach dieser Formulierung. Die Antwort für jedes Feld ist das erste Wort direkt nach der Hinweisformulierung (einschließlich eines angefügten Präpositionswortes).",
+      secondTitle: "2. Antwort eingeben", secondText: "Gib nur das erste Wort nach der Hinweisformulierung ein. Eine richtige Antwort entsperrt das nächste Feld.",
+      thirdTitle: "3. Alle 12 Felder lösen", thirdText: "Löse die Felder der Reihe nach. Dein Ergebnis und Rang stehen fest, sobald du die zwölfte Antwort abgeschickt hast.",
+      hint: "Hinweisformulierung", source: "Hinweis-Quellseite", answer: "Antwortwort", previous: "Zurück", next: "Weiter"
+    },
+    es: {
+      heading: "Guía visual del desafío", page: "Página", firstTitle: "1. De la guía a tu primera respuesta",
+      firstText: "Para comenzar el desafío y encontrar la primera palabra, anota la frase que aparece en la sección Guía. Después, abre la página fuente de la pista y busca esa frase exacta. La respuesta de cada casilla es la primera palabra que aparece justo después de la frase (también puede incluir una preposición unida a ella).",
+      secondTitle: "2. Introduce tu respuesta", secondText: "Introduce solo la primera palabra después de la frase de la pista. Una respuesta correcta desbloquea la siguiente casilla.",
+      thirdTitle: "3. Completa las 12 casillas", thirdText: "Resuelve las casillas en orden. Tu resultado y clasificación se determinan al enviar la duodécima respuesta.",
+      hint: "Frase guía", source: "Página fuente de la pista", answer: "Palabra de respuesta", previous: "Anterior", next: "Siguiente"
+    },
+    fr: {
+      heading: "Guide visuel du défi", page: "Page", firstTitle: "1. Du guide à votre première réponse",
+      firstText: "Pour commencer le défi et trouver le premier mot, notez l’expression affichée dans la section Guide. Ouvrez ensuite la page source de l’indice et recherchez cette expression exacte. La réponse de chaque case est le premier mot qui suit immédiatement l’expression (y compris une préposition qui y serait attachée).",
+      secondTitle: "2. Saisissez votre réponse", secondText: "Saisissez uniquement le premier mot après l’expression indice. Une bonne réponse déverrouille la case suivante.",
+      thirdTitle: "3. Terminez les 12 cases", thirdText: "Résolvez les cases dans l’ordre. Votre résultat et votre classement sont déterminés dès l’envoi de la douzième réponse.",
+      hint: "Expression du guide", source: "Page source de l’indice", answer: "Mot réponse", previous: "Précédent", next: "Suivant"
+    },
+    ar: {
+      heading: "الدليل المرئي لحل التحدي", page: "صفحة", firstTitle: "١. من الدليل إلى الإجابة الأولى",
+      firstText: "لبدء التحدي والعثور على الكلمة الأولى، دوّن العبارة الظاهرة في قسم الدليل. ثم افتح صفحة مصدر التلميح وابحث عن العبارة نفسها. إجابة كل خانة هي أول كلمة تأتي مباشرة بعد عبارة التلميح، وقد تشمل حرف جر متصلاً بها.",
+      secondTitle: "٢. أدخل إجابتك", secondText: "أدخل الكلمة الأولى فقط بعد عبارة التلميح. الإجابة الصحيحة تفتح الخانة التالية.",
+      thirdTitle: "٣. أكمل الخانات الاثنتي عشرة", thirdText: "حل الخانات بالترتيب. تظهر نتيجتك وترتيبك فور إرسال إجابة الخانة الثانية عشرة.",
+      hint: "عبارة الدليل", source: "صفحة مصدر التلميح", answer: "كلمة الإجابة", previous: "السابق", next: "التالي"
+    },
+    tr: {
+      heading: "Görsel Meydan Okuma Rehberi", page: "Sayfa", firstTitle: "1. Rehberden ilk cevabına",
+      firstText: "Meydan okumaya başlamak ve ilk kelimeyi bulmak için Rehber bölümünde gösterilen ifadeyi not et. Ardından ipucu kaynak sayfasını aç ve bu ifadeyi aynen ara. Her kutunun cevabı, ipucu ifadesinden hemen sonra gelen ilk kelimedir (kelimeye bitişik bir edat da dahil olabilir).",
+      secondTitle: "2. Cevabını gir", secondText: "İpucu ifadesinden sonraki yalnızca ilk kelimeyi gir. Doğru cevap bir sonraki kutunun kilidini açar.",
+      thirdTitle: "3. 12 kutunun tamamını çöz", thirdText: "Kutuları sırayla çöz. On ikinci cevabı gönderdiğinde sonucun ve sıralaman belirlenir.",
+      hint: "Rehber ifadesi", source: "İpucu kaynak sayfası", answer: "Cevap kelimesi", previous: "Önceki", next: "Sonraki"
+    },
+    pt: {
+      heading: "Guia visual do desafio", page: "Página", firstTitle: "1. Do guia à primeira resposta",
+      firstText: "Para começar o desafio e encontrar a primeira palavra, anote a frase exibida na seção Guia. Depois, abra a página de origem da pista e procure exatamente essa frase. A resposta de cada caixa é a primeira palavra logo após a frase da pista (incluindo uma preposição ligada a ela, se houver).",
+      secondTitle: "2. Insira sua resposta", secondText: "Digite apenas a primeira palavra após a frase da pista. Uma resposta correta desbloqueia a próxima caixa.",
+      thirdTitle: "3. Complete as 12 caixas", thirdText: "Resolva as caixas em ordem. Seu resultado e sua classificação são definidos assim que você enviar a décima segunda resposta.",
+      hint: "Frase do guia", source: "Página de origem da pista", answer: "Palavra-resposta", previous: "Anterior", next: "Próxima"
+    },
+    ru: {
+      heading: "Наглядное руководство по испытанию", page: "Страница", firstTitle: "1. От подсказки к первому ответу",
+      firstText: "Чтобы начать испытание и найти первое слово, запишите фразу из раздела «Подсказка». Затем откройте страницу-источник подсказки и найдите точное совпадение этой фразы. Ответ для каждой ячейки — первое слово сразу после фразы (включая присоединённый предлог, если он есть).",
+      secondTitle: "2. Введите ответ", secondText: "Введите только первое слово после фразы-подсказки. Правильный ответ откроет следующую ячейку.",
+      thirdTitle: "3. Заполните все 12 ячеек", thirdText: "Решайте ячейки по порядку. Результат и место определяются сразу после отправки двенадцатого ответа.",
+      hint: "Фраза-подсказка", source: "Страница-источник", answer: "Слово-ответ", previous: "Назад", next: "Далее"
+    },
+    zh: {
+      heading: "挑战图解指南", page: "页", firstTitle: "1. 从提示到第一个答案",
+      firstText: "开始挑战并寻找第一个单词时，请记下“指南”区域显示的短语。然后打开线索来源页面，搜索完全相同的短语。每个方格的答案是该短语后面紧接着出现的第一个单词（也可能包含与其连写的介词）。",
+      secondTitle: "2. 输入答案", secondText: "只输入线索短语后面的第一个单词。回答正确后，下一格将解锁。",
+      thirdTitle: "3. 完成全部 12 个方格", thirdText: "请按顺序解答方格。提交第十二个答案后，系统会立即确定你的结果和排名。",
+      hint: "指南短语", source: "线索来源页面", answer: "答案单词", previous: "上一页", next: "下一页"
+    }
+  })[language] ?? ({
+    heading: "Visual Challenge Guide", page: "Page", firstTitle: "1. From the guide to your first answer",
+    firstText: "Note the phrase shown in the Guide section, then find that exact phrase on the clue source page. The answer is the first word immediately after the clue phrase, including any attached preposition.",
+    secondTitle: "2. Enter your answer", secondText: "Enter only the first word after the clue phrase. A correct answer unlocks the next box.",
+    thirdTitle: "3. Complete all 12 boxes", thirdText: "Solve the boxes in order. Your rank is determined after the twelfth answer.",
+    hint: "Guide phrase", source: "Clue source page", answer: "Answer word", previous: "Previous", next: "Next"
+  });
+  const guidePages = [
+    { title: guideCopy.firstTitle, text: guideCopy.firstText },
+    { title: guideCopy.secondTitle, text: guideCopy.secondText },
+    { title: guideCopy.thirdTitle, text: guideCopy.thirdText },
+  ];
   const steps = isPersian ? faSteps : enSteps;
 
   return (
@@ -244,6 +328,44 @@ function HomePage({
               {index < 3 ? <span className="home-key-tile__word">{(isPersian ? ["چالش", "تو", "سرعت"] : ["Challenge", "Your", "Speed"])[index]}</span> : <><span className="home-key-tile__lock" aria-hidden="true"><i /></span><span className="home-key-tile__number">{(index + 1).toLocaleString(isPersian ? "fa-IR" : "en-US")}</span></>}
             </button>
           ))}
+        </section>
+
+        <section className="home-guide-book" aria-label={guideCopy.heading} dir={isHomeRTL ? "rtl" : "ltr"}>
+          <div className="home-guide-book__heading">
+            <div>
+              <span className="home-guide-book__eyebrow">WALLET-FIND GUIDE</span>
+              <h2>{guideCopy.heading}</h2>
+            </div>
+            <span className="home-guide-book__counter">{guideCopy.page} {localizeDigits(String(guidePage + 1))} / {localizeDigits("3")}</span>
+          </div>
+          <div className="home-guide-book__page">
+            <div className="home-guide-book__visual" aria-label={guideCopy.firstTitle}>
+              <div className="home-guide-demo">
+                <div className="home-guide-demo__top"><span>WALLET-FIND</span><span>{guideCopy.hint}</span></div>
+                <div className="home-guide-demo__tiles">
+                  {Array.from({ length: 12 }).map((_, index) => <span key={index} className={index === 0 ? "is-active" : index === 1 ? "is-next" : ""}>{index === 0 ? "?" : index + 1}</span>)}
+                </div>
+              </div>
+              <div className="home-guide-demo__source">
+                <span>{guideCopy.source}</span>
+                <p>... <mark>the clue phrase</mark> <strong>answer</strong> continues here ...</p>
+                <small>{guideCopy.answer}: <b>answer</b></small>
+              </div>
+              <div className="home-guide-demo__arrow" aria-hidden="true">←</div>
+            </div>
+            <div className="home-guide-book__copy">
+              <span className="home-guide-book__step">{localizeDigits(String(guidePage + 1).padStart(2, "0"))}</span>
+              <h3>{guidePages[guidePage].title}</h3>
+              <p>{guidePages[guidePage].text}</p>
+            </div>
+          </div>
+          <div className="home-guide-book__footer">
+            <button type="button" onClick={() => setGuidePage((page) => Math.max(0, page - 1))} disabled={guidePage === 0}>‹ {guideCopy.previous}</button>
+            <div className="home-guide-book__dots" aria-label={guideCopy.page}>
+              {guidePages.map((_, index) => <button key={index} type="button" className={guidePage === index ? "is-active" : ""} aria-label={`${guideCopy.page} ${index + 1}`} aria-current={guidePage === index ? "page" : undefined} onClick={() => setGuidePage(index)} />)}
+            </div>
+            <button type="button" onClick={() => setGuidePage((page) => Math.min(2, page + 1))} disabled={guidePage === 2}>{guideCopy.next} ›</button>
+          </div>
         </section>
 
         <section className="stat-row">
