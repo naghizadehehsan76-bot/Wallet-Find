@@ -42,7 +42,11 @@ app.use(
           ...(helmet.contentSecurityPolicy.getDefaultDirectives()["script-src"] ?? ["'self'"]),
           "https://challenges.cloudflare.com",
         ],
-        "frame-src": ["https://challenges.cloudflare.com"],
+        "frame-src": [
+          "https://challenges.cloudflare.com",
+          "https://www.youtube.com",
+          "https://www.youtube-nocookie.com",
+        ],
         "connect-src": [
           ...(helmet.contentSecurityPolicy.getDefaultDirectives()["connect-src"] ?? ["'self'"]),
           "https://challenges.cloudflare.com",
