@@ -593,6 +593,12 @@ async function fetchConfiguredWebDocument(url: string): Promise<SourceDocument |
       signal: AbortSignal.timeout(8_000),
     });
     if (!response.ok) return null;
+    // Fetch follows redirects by default. Check the final destination too so
+    // an allowed URL cannot silently redirect the clue generator to Archive.org.
+    if (response.url) {
+      const finalUrl = new URL(response.url);
+      if (finalUrl.protocol !== "https:" || isArchiveHost(finalUrl.hostname)) return null;
+    }
 
     const contentType = response.headers.get("content-type") ?? "";
     const responseText = await readBoundedResponseText(response, MAX_CONFIGURED_SOURCE_BYTES);
@@ -1263,11 +1269,25 @@ export async function ensureScheduledMvpContest(now = new Date(), language: Chal
       clues: { select: { sequence: true, content: true, sourceUrl: true, hintAnchor: true, options: true } },
     },
   });
+  const hasAllowedSources = (clues: readonly StoredGeneratedClue[]) =>
+    clues.every((clue) => {
+      if (!clue.sourceUrl) return false;
+      try {
+        const source = new URL(clue.sourceUrl);
+        return source.protocol === "https:" && !isArchiveHost(source.hostname);
+      } catch {
+        return false;
+      }
+    });
   let existingScheduled = scheduledCandidates.find((candidate) =>
-    hasCurrentGeneratedClues(candidate.clues)
+    hasCurrentGeneratedClues(candidate.clues) && hasAllowedSources(candidate.clues)
   );
+  // A future round may have been generated before a source was blacklisted.
+  // Cancel and regenerate it rather than serving stale Archive.org clues.
   const staleScheduledIds = scheduledCandidates
-    .filter((candidate) => !hasCurrentGeneratedClues(candidate.clues))
+    .filter((candidate) =>
+      !hasCurrentGeneratedClues(candidate.clues) || !hasAllowedSources(candidate.clues)
+    )
     .map((candidate) => candidate.id);
   if (staleScheduledIds.length > 0) {
     await prisma.contest.updateMany({
