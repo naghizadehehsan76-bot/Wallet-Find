@@ -615,7 +615,7 @@ async function fetchConfiguredWebDocument(url: string): Promise<SourceDocument |
 }
 
 function isArchiveHost(hostname: string): boolean {
-  const normalized = hostname.toLowerCase().replace(/\\.$/, "");
+  const normalized = hostname.toLowerCase().replace(/\.$/, "");
   return normalized === "archive.org" || normalized.endsWith(".archive.org");
 }
 
