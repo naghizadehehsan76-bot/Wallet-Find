@@ -5135,3 +5135,102 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 .home-page .home-guide-book {
   transform: translateY(-3cm) !important;
 }
+
+
+/* Desktop homepage layout repair: use a clean two-column grid and keep
+   every section in normal flow so translated cards cannot overlap. */
+@media (min-width: 900px) {
+  .home-shell .home-content .home-page {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    grid-template-rows: auto auto auto auto !important;
+    column-gap: clamp(24px, 3vw, 40px) !important;
+    row-gap: 24px !important;
+    align-items: start !important;
+  }
+
+  .home-page .home-showcase {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    align-self: start !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    transform: none !important;
+  }
+
+  .home-page .home-showcase .home-concept-title,
+  .home-page .home-showcase .home-concept-tagline,
+  .home-page .home-showcase .cta-group {
+    position: relative !important;
+    inset: auto !important;
+    transform: none !important;
+  }
+
+  .home-page .home-showcase .cta-group {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 12px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 18px 0 0 !important;
+  }
+
+  .home-page .home-showcase .cta-group .cta-button {
+    flex: 1 1 200px !important;
+    min-width: 0 !important;
+  }
+
+  .home-page .home-key-grid {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    align-self: start !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    margin: 0 !important;
+    transform: none !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-rows: repeat(3, auto) !important;
+    gap: clamp(8px, 1vw, 14px) !important;
+  }
+
+  .home-page .home-key-tile {
+    width: 100% !important;
+    height: auto !important;
+    min-width: 0 !important;
+    aspect-ratio: 1 / 1 !important;
+  }
+
+  .home-page .home-guide-book {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+    position: relative !important;
+    top: auto !important;
+    align-self: start !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 680px !important;
+    min-height: 680px !important;
+    max-height: 680px !important;
+    margin: 0 !important;
+    transform: none !important;
+    z-index: 2 !important;
+  }
+
+  .home-page .stat-row {
+    grid-column: 1 / -1 !important;
+    grid-row: 3 !important;
+    position: relative !important;
+    margin: 0 !important;
+    transform: none !important;
+    z-index: 1 !important;
+  }
+
+  .home-page .how-section {
+    grid-column: 1 / -1 !important;
+    grid-row: 4 !important;
+    margin: 0 !important;
+    transform: none !important;
+  }
+}
