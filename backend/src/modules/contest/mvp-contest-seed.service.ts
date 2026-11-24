@@ -36,7 +36,10 @@ async function getCachedSourceDocuments(
   if (cached && cached.expiresAt > now) return cached.documents;
   if (cached) sourceDocumentCache.delete(key);
   const documents = await load();
-  if (documents.length > 0) {
+  // Do not preserve a partially populated corpus: one or two pages cannot
+  // satisfy the per-source clue cap and would make every retry reuse a broken
+  // cache entry for twenty minutes.
+  if (documents.length >= 3) {
     sourceDocumentCache.set(key, { expiresAt: now + SOURCE_DOCUMENT_CACHE_TTL_MS, documents });
   }
   for (const [cacheKey, entry] of sourceDocumentCache) {
@@ -438,42 +441,55 @@ async function fetchGutenbergDocument(book: {
   textUrl: string;
   pageUrl: string;
 }): Promise<SourceDocument | null> {
-  try {
-    const response = await fetch(book.textUrl, {
-      headers: { "User-Agent": "WalletFind/1.0 (English word-round generator)" },
-      signal: AbortSignal.timeout(10_000),
-    });
-
-    if (!response.ok) {
-      console.warn("Project Gutenberg source returned a non-success status", {
-        title: book.title,
-        status: response.status,
+  // Gutenberg occasionally returns transient 503 responses. Retry only
+  // transient server failures, with a short bounded delay; do not retry 4xx.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetch(book.textUrl, {
+        headers: { "User-Agent": "WalletFind/1.0 (https://wallet-find.com; English word-round generator)" },
+        signal: AbortSignal.timeout(8_000),
       });
-      return null;
-    }
 
-    let text = await response.text();
-    text = text
-      .replace(/\r/g, "")
-      .replace(/^[\s\S]*?\*\*\* START OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[^\n]*\n/i, "")
-      .replace(/\n\*\*\* END OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[\s\S]*$/i, "");
+      if (!response.ok) {
+        console.warn("Project Gutenberg source returned a non-success status", {
+          title: book.title,
+          status: response.status,
+          attempt: attempt + 1,
+        });
+        if (response.status >= 500 && attempt === 0) {
+          await new Promise<void>((resolve) => setTimeout(resolve, 1_500));
+          continue;
+        }
+        return null;
+      }
 
-    if (text.length < 1000) {
-      console.warn("Project Gutenberg source text was too short", {
+      let text = await response.text();
+      text = text
+        .replace(/\r/g, "")
+        .replace(/^[\s\S]*?\*\*\* START OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[^\n]*\n/i, "")
+        .replace(/\n\*\*\* END OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[\s\S]*$/i, "");
+
+      if (text.length < 1000) {
+        console.warn("Project Gutenberg source text was too short", {
+          title: book.title,
+          textLength: text.length,
+        });
+        return null;
+      }
+
+      return { title: book.title, url: book.pageUrl, text: normalizeSourceText(text) };
+    } catch (error) {
+      console.warn("Project Gutenberg source unavailable", {
         title: book.title,
-        textLength: text.length,
+        attempt: attempt + 1,
+        error: error instanceof Error ? error.message : String(error),
       });
-      return null;
+      if (attempt === 0) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 1_500));
+      }
     }
-
-    return { title: book.title, url: book.pageUrl, text: normalizeSourceText(text) };
-  } catch (error) {
-    console.warn("Project Gutenberg source unavailable", {
-      title: book.title,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return null;
   }
+  return null;
 }
 
 async function fetchWikipediaArticleDocument(parsed: URL): Promise<SourceDocument | null> {
@@ -718,13 +734,13 @@ async function generateMvpRounds(
   const assignedUrls = [...new Set(scheduledAssignments.map((assignment) => assignment.url))];
   const wikiUrl = "https://" + getWikipediaDomain(language) + "/w/api.php";
   const wikipediaDocuments = configuredUrls.includes(wikiUrl)
-    ? await getCachedSourceDocuments(`wikipedia:${language}`, () => fetchWikipediaDocuments(12, language))
+    ? await getCachedSourceDocuments(`wikipedia:${language}`, () => fetchWikipediaDocuments(36, language))
     : [];
   // Always include Wikisource as an independent, language-matched text corpus.
   // Its MediaWiki API returns structured text, not scanned-page OCR.
   const wikisourceDocuments = await getCachedSourceDocuments(
     `wikisource:${language}`,
-    () => fetchWikisourceDocuments(12, language),
+    () => fetchWikisourceDocuments(36, language),
   );
   // Ganjoor is intentionally not used until its reuse rights are explicitly documented.
   const gutenbergResults = language === "en" ? await Promise.all(
