@@ -326,6 +326,41 @@ function HomePage({
           </div>
           <div className="home-guide-book__page">
             <div className="home-guide-book__visual" aria-label={guidePages[guidePage].title}>
+              {guidePage === 0 ? (
+                <div className="home-guide-demo__screen home-guide-walkthrough" dir={isHomeRTL ? "rtl" : "ltr"} aria-label={isPersian ? "نمایش خودکار مراحل حل اولین پاسخ" : "Animated first-answer walkthrough"}>
+                  <div className="home-guide-walkthrough__top"><span className="home-guide-walkthrough__live"><i /> {isPersian ? "نمایش روند چالش" : "CHALLENGE WALKTHROUGH"}</span><span className="home-guide-walkthrough__loop">{isPersian ? "تکرار خودکار" : "AUTO REPLAY"} ↻</span></div>
+                  <div className="home-guide-walkthrough__scene home-guide-walkthrough__scene--start">
+                    <div className="home-guide-walkthrough__browserbar"><span>● ● ●</span><b>Wallet-Find</b><span>⋯</span></div>
+                    <div className="home-guide-walkthrough__start-content"><div className="home-guide-walkthrough__brand">Wallet-<strong>Find</strong></div><b>{isPersian ? "آماده‌ای چالش را شروع کنی؟" : "Ready to start the challenge?"}</b><div className="home-guide-walkthrough__start-button">{isPersian ? "ورود به صفحه چالش" : "Enter Challenge"}</div></div>
+                    <span className="home-guide-walkthrough__caption">{isPersian ? "۱. لمس دکمه شروع چالش" : "1. Tap Start Challenge"}</span>
+                  </div>
+                  <div className="home-guide-walkthrough__scene home-guide-walkthrough__scene--challenge">
+                    <div className="home-guide-walkthrough__browserbar"><span>● ● ●</span><b>Wallet-Find / Challenge</b><span>⋯</span></div>
+                    <div className="home-guide-walkthrough__mini-head"><b>{isPersian ? "چالش فعال" : "ACTIVE CHALLENGE"}</b><span>00:14:52</span></div>
+                    <div className="home-guide-walkthrough__hintbox"><small>{isPersian ? "راهنمای این راند" : "ROUND HINT"}</small><p>{isPersian ? "عبارت نمونه سرنخ" : "the example clue phrase"}</p><span className="home-guide-walkthrough__tap-copy">{isPersian ? "⧉ کپی راهنما" : "⧉ Copy clue"}</span></div>
+                    <div className="home-guide-walkthrough__source-link">↗ {isPersian ? "باز کردن صفحه منبع" : "Open source page"}</div>
+                    <div className="home-guide-walkthrough__tiles">{Array.from({length:12}).map((_,i)=><i key={i} className={i===0?"is-current":""}>{i+1}</i>)}</div>
+                    <span className="home-guide-walkthrough__caption">{isPersian ? "۲. کپی عبارت راهنما و لمس لینک منبع" : "2. Copy the clue and open its source"}</span>
+                  </div>
+                  <div className="home-guide-walkthrough__scene home-guide-walkthrough__scene--source">
+                    <div className="home-guide-walkthrough__browserbar"><span>● ● ●</span><b>example.com/article</b><span>⋯</span></div>
+                    <div className="home-guide-walkthrough__findbar"><span>⌕</span><b>{isPersian ? "عبارت نمونه سرنخ" : "the example clue phrase"}</b><span>×</span></div>
+                    <div className="home-guide-walkthrough__article"><small>ARTICLE · SOURCE PAGE</small><p>{isPersian ? "این یک متن نمونه برای نمایش جستجو در صفحه منبع است. عبارت " : "This is a sample source page. The phrase "}<mark>{isPersian ? "عبارت نمونه سرنخ" : "the example clue phrase"}</mark>{isPersian ? " پاسخ " : " is followed by the answer "}<strong>{isPersian ? "واژه" : "word"}</strong>{isPersian ? " در متن قرار گرفته است." : " in this article."}</p></div>
+                    <div className="home-guide-walkthrough__copy-toast">✓ {isPersian ? "کلمه بعد از عبارت کپی شد" : "Word after the phrase copied"}</div>
+                    <span className="home-guide-walkthrough__caption">{isPersian ? "۳. جستجو در Find in page و کپی کلمه بعد از عبارت" : "3. Find the phrase and copy the next word"}</span>
+                  </div>
+                  <div className="home-guide-walkthrough__scene home-guide-walkthrough__scene--answer">
+                    <div className="home-guide-walkthrough__browserbar"><span>● ● ●</span><b>Wallet-Find / Challenge</b><span>⋯</span></div>
+                    <div className="home-guide-walkthrough__mini-head"><b>{isPersian ? "بازگشت به صفحه چالش" : "BACK TO CHALLENGE"}</b><span>01 / 12</span></div>
+                    <div className="home-guide-walkthrough__answerbox"><small>{isPersian ? "پاسخ خانه ۱" : "ANSWER · BOX 1"}</small><b>{isPersian ? "واژه" : "word"}</b><span>✓</span></div>
+                    <div className="home-guide-walkthrough__submit">{isPersian ? "ثبت پاسخ" : "Submit answer"} <span>➜</span></div>
+                    <div className="home-guide-walkthrough__success">✓ {isPersian ? "پاسخ ثبت شد؛ چرخه دوباره آغاز می‌شود" : "Answer submitted · replaying"}</div>
+                    <span className="home-guide-walkthrough__caption">{isPersian ? "۴. جایگذاری پاسخ و لمس ثبت پاسخ" : "4. Paste the answer and submit"}</span>
+                  </div>
+                  <span className="home-guide-walkthrough__finger" aria-hidden="true">●</span>
+                  <div className="home-guide-walkthrough__timeline"><i /></div>
+                </div>
+              ) : (
               <div className="home-guide-demo__screen" dir={isHomeRTL ? "rtl" : "ltr"}>
                 <div className="home-guide-demo__screen-head">
                   <strong>Wallet-Find</strong>
@@ -364,6 +399,7 @@ function HomePage({
                   {guidePage === 2 ? (isPersian ? "چالش تکمیل شد ✓" : "Challenge completed ✓") : isPersian ? "بررسی کلمه‌ی واردشده" : "Check typed word"}
                 </div>
               </div>
+              )}
             </div>
             <div className="home-guide-book__copy">
               <span className="home-guide-book__step">{localizeDigits(String(guidePage + 1).padStart(2, "0"))}</span>
