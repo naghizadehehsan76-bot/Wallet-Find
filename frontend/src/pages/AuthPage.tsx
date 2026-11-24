@@ -23,7 +23,7 @@ declare global {
         action: string;
         callback: (token: string) => void;
         "expired-callback": () => void;
-        "error-callback": () => void;
+        "error-callback": (errorCode?: string | number) => boolean | void;
       }) => string;
       remove: (widgetId: string) => void;
       reset: () => void;
@@ -59,6 +59,7 @@ function AuthPage({
   const [loading, setLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileErrorCode, setTurnstileErrorCode] = useState<string | number | null>(null);
   const [loginTurnstileRequired, setLoginTurnstileRequired] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
@@ -73,11 +74,17 @@ function AuthPage({
       widgetId = window.turnstile.render(container, {
         sitekey: TURNSTILE_SITE_KEY,
         action: mode === "signup" ? "signup" : "login",
-        callback: (token) => setTurnstileToken(token),
+        callback: (token) => {
+          setTurnstileErrorCode(null);
+          setTurnstileToken(token);
+        },
         "expired-callback": () => setTurnstileToken(""),
-        "error-callback": () => {
+        "error-callback": (errorCode) => {
+          console.error("[Wallet-Find Turnstile] Client error:", errorCode ?? "unknown");
           setTurnstileToken("");
+          setTurnstileErrorCode(errorCode ?? "unknown");
           setError("TURNSTILE_VERIFICATION_FAILED");
+          return false;
         },
       });
     };
@@ -117,6 +124,7 @@ function AuthPage({
     setCode("");
     setPassword("");
     setTurnstileToken("");
+    setTurnstileErrorCode(null);
     setLoginTurnstileRequired(false);
     if (nextMode === "login" || nextMode === "signup") setAcceptedTerms(false);
   }
@@ -326,6 +334,11 @@ function AuthPage({
             <div className="field">
               <label htmlFor="wallet-find-turnstile">{language === "fa" ? "بررسی امنیتی" : "Security verification"}</label>
               <div id="wallet-find-turnstile" aria-label="Cloudflare security verification" />
+              {turnstileErrorCode !== null && (
+                <small role="status">
+                  {language === "fa" ? "کد خطای Cloudflare: " : "Cloudflare error code: "}{turnstileErrorCode}
+                </small>
+              )}
               {!turnstileToken && (
                 <small role="status">{language === "fa" ? "برای ادامه، بررسی امنیتی را کامل کن." : "Complete the security check to continue."}</small>
               )}
