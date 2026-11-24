@@ -9,7 +9,7 @@ import {
 const url = new URL("https://en.wikipedia.org/w/api.php");
 const headers = { "User-Agent": "WalletFind test" };
 
-test("HTTP 429 is returned immediately so the caller can use its independent fallback", async () => {
+test("a long HTTP 429 Retry-After is returned to the caller so it can use its independent fallback", async () => {
   let requests = 0;
   let fallbackRequests = 0;
   const fetchWikipediaResponse = createWikipediaResponseFetcher({
@@ -25,7 +25,7 @@ test("HTTP 429 is returned immediately so the caller can use its independent fal
 
   const response = await fetchWikipediaResponse(url, headers, 1_000);
   assert.equal(response.status, 429);
-  assert.equal(requests, 1, "429 must not be retried or wait for Retry-After");
+  assert.equal(requests, 1, "long Retry-After windows must not block generation");
 
   const primaryDocuments = response.ok ? ["unexpected primary document"] : [];
   const fallbackDocuments = await loadFallbackWhenInsufficient(
@@ -39,6 +39,26 @@ test("HTTP 429 is returned immediately so the caller can use its independent fal
 
   assert.equal(fallbackRequests, 1);
   assert.deepEqual(fallbackDocuments, ["language-matched fallback document"]);
+});
+
+test("short HTTP 429 Retry-After windows are honored before retrying", async () => {
+  let requests = 0;
+  const delays: number[] = [];
+  const fetchWikipediaResponse = createWikipediaResponseFetcher({
+    minimumSpacingMs: 0,
+    wait: async (milliseconds) => { delays.push(milliseconds); },
+    fetchImpl: async () => {
+      requests += 1;
+      return requests === 1
+        ? new Response("rate limited", { status: 429, headers: { "retry-after": "2" } })
+        : new Response("ok", { status: 200 });
+    },
+  });
+
+  const response = await fetchWikipediaResponse(url, headers, 1_000);
+  assert.equal(response.status, 200);
+  assert.equal(requests, 2);
+  assert.deepEqual(delays, [2_000]);
 });
 
 test("a usable primary source avoids unnecessary fallback requests", async () => {

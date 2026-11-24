@@ -5,9 +5,19 @@ type WikipediaFetcherOptions = {
   now?: () => number;
 };
 
+/** Parse Retry-After as seconds or an HTTP date. */
+function getRetryAfterMs(response: Response, now: number): number | null {
+  const value = response.headers.get("retry-after");
+  if (!value) return null;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.ceil(seconds * 1_000);
+  const date = Date.parse(value);
+  return Number.isFinite(date) ? Math.max(0, date - now) : null;
+}
+
 /**
- * Creates a serialized Wikimedia fetcher. A 429 is returned immediately so
- * callers can switch sources instead of holding the shared queue until retry-after.
+ * One process-wide serialized Wikimedia queue. It spaces requests, retries
+ * transient failures, and honors Retry-After without creating parallel bursts.
  */
 export function createWikipediaResponseFetcher(options: WikipediaFetcherOptions = {}) {
   const fetchImpl = options.fetchImpl ?? fetch;
@@ -34,24 +44,29 @@ export function createWikipediaResponseFetcher(options: WikipediaFetcherOptions 
           signal: AbortSignal.timeout(timeoutMs),
         });
         if (response.status === 429) {
-          console.warn("Wikimedia rate limit received; switching to fallback source.", {
-            host: url.hostname,
-            status: response.status,
-            retryAfter: response.headers.get("retry-after"),
+          const retryAfterMs = getRetryAfterMs(response, now());
+          if (attempt === 2 || (retryAfterMs !== null && retryAfterMs >= 60_000)) {
+            console.warn("Wikimedia rate limit received; using fallback source.", {
+              host: url.hostname, status: response.status, retryAfterMs,
+            });
+            return response;
+          }
+          const retryDelay = retryAfterMs ?? 2_000 * (attempt + 1);
+          console.warn("Wikimedia rate limit received; retrying after the requested delay.", {
+            host: url.hostname, status: response.status, retryDelay,
           });
-          return response;
+          await wait(Math.max(1_000, retryDelay));
+          continue;
         }
         if (response.status < 500 || attempt === 2) return response;
 
         const retryDelay = 1_000 * (attempt + 1);
         console.warn("Wikimedia server error; retrying after a short delay.", {
-          host: url.hostname,
-          status: response.status,
-          retryDelay,
+          host: url.hostname, status: response.status, retryDelay,
         });
         await wait(retryDelay);
       }
-      throw new Error("WIKIPEDIA_REQUEST_RETRIES_EXHAUSTED");
+      throw new Error("WIKIMEDIA_REQUEST_RETRIES_EXHAUSTED");
     });
 
     queue = request.then(() => undefined, () => undefined);
