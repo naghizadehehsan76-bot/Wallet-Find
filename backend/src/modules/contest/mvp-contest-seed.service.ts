@@ -1,5 +1,5 @@
 import prisma from "../../config/prisma.js";
-import { createWikipediaResponseFetcher, loadFallbackWhenInsufficient } from "./wikipedia-source-fetch.js";
+import { createWikipediaResponseFetcher } from "./wikipedia-source-fetch.js";
 import { fetchSourceDocuments, readBoundedResponseText, selectBalancedSourceUrls } from "./source-fetch-pool.js";
 import { CHALLENGE_LANGUAGE_NAMES, getWikipediaDomain, isChallengeLanguage, type ChallengeLanguage } from "./supported-languages.js";
 import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
@@ -21,6 +21,29 @@ export type SourceDocument = {
   url: string;
   text: string;
 };
+
+// Successful source documents are reused for 20 minutes so repeated rounds
+// and language scheduler passes do not refetch the same public pages.
+const SOURCE_DOCUMENT_CACHE_TTL_MS = 20 * 60_000;
+const sourceDocumentCache = new Map<string, { expiresAt: number; documents: SourceDocument[] }>();
+
+async function getCachedSourceDocuments(
+  key: string,
+  load: () => Promise<SourceDocument[]>,
+): Promise<SourceDocument[]> {
+  const now = Date.now();
+  const cached = sourceDocumentCache.get(key);
+  if (cached && cached.expiresAt > now) return cached.documents;
+  if (cached) sourceDocumentCache.delete(key);
+  const documents = await load();
+  if (documents.length > 0) {
+    sourceDocumentCache.set(key, { expiresAt: now + SOURCE_DOCUMENT_CACHE_TTL_MS, documents });
+  }
+  for (const [cacheKey, entry] of sourceDocumentCache) {
+    if (entry.expiresAt <= now) sourceDocumentCache.delete(cacheKey);
+  }
+  return documents;
+}
 
 function pinWikipediaRevision(url: string, revisionId?: number): string {
   if (!revisionId || !Number.isInteger(revisionId) || revisionId < 1) return url;
@@ -694,13 +717,15 @@ async function generateMvpRounds(
   const scheduledAssignments = context ? await getScheduledSourceAssignments(language, context) : [];
   const assignedUrls = [...new Set(scheduledAssignments.map((assignment) => assignment.url))];
   const wikiUrl = "https://" + getWikipediaDomain(language) + "/w/api.php";
-  const wikipediaDocuments = configuredUrls.includes(wikiUrl) ? await fetchWikipediaDocuments(12, language) : [];
-  // Wikisource is a secondary text source. Both Wikimedia providers return
-  // extracted plain text through their APIs rather than scanned-page OCR.
-  const shouldUseIndependentFallback = configuredUrls.includes(wikiUrl);
-  const wikisourceDocuments = language !== "fa" && shouldUseIndependentFallback
-    ? await loadFallbackWhenInsufficient(wikipediaDocuments, () => fetchWikisourceDocuments(12, language), 3)
+  const wikipediaDocuments = configuredUrls.includes(wikiUrl)
+    ? await getCachedSourceDocuments(`wikipedia:${language}`, () => fetchWikipediaDocuments(12, language))
     : [];
+  // Always include Wikisource as an independent, language-matched text corpus.
+  // Its MediaWiki API returns structured text, not scanned-page OCR.
+  const wikisourceDocuments = await getCachedSourceDocuments(
+    `wikisource:${language}`,
+    () => fetchWikisourceDocuments(12, language),
+  );
   // Ganjoor is intentionally not used until its reuse rights are explicitly documented.
   const gutenbergResults = language === "en" ? await Promise.all(
     GUTENBERG_BOOKS.filter((book) => configuredUrls.includes(book.textUrl)).map((book) => fetchGutenbergDocument(book)),
@@ -802,14 +827,23 @@ async function generateMvpRounds(
         sourceRoundCount += 1;
       }
     }
+    // Keep the same per-page cap during fallback filling. Previously this
+    // second pass could put every remaining clue on one article and erase
+    // the source diversity achieved by the first pass.
     for (const source of shuffle(availableSources)) {
       let attempts = 0;
-      while (generatedRounds.length < remainingCount && attempts < 40) {
+      let sourceRoundCount = 0;
+      while (
+        generatedRounds.length < remainingCount &&
+        sourceRoundCount < 4 &&
+        attempts < 40
+      ) {
         attempts += 1;
         const round = buildRoundFromSource(source, generatedAnswers, availableOptionWords, language);
         if (!round) continue;
         generatedRounds.push(round);
         generatedAnswers.add(round.correctAnswer);
+        sourceRoundCount += 1;
       }
     }
     return { rounds: generatedRounds, usedAnswers: generatedAnswers };
