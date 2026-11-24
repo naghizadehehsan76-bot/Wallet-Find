@@ -4636,3 +4636,13 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+
+
+/* Desktop Home: tighten vertical spacing so tiles 5–12 sit higher,
+   while preserving the horizontal spacing and square tile shape. */
+@media (min-width: 900px) {
+  .home-page .home-key-grid {
+    row-gap: clamp(4px, 0.45vw, 7px);
+    column-gap: clamp(10px, 1vw, 16px);
+  }
+}
