@@ -4516,3 +4516,163 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
     width: 100%;
   }
 }
+
+
+/* Homepage desktop refinement: balanced canvas, aligned sections and useful shortcuts. */
+@media (min-width: 900px) {
+  .home-shell {
+    width: min(calc(100% - 48px), 1440px);
+    max-width: 1440px;
+    min-height: 100vh;
+    margin-inline: auto;
+    overflow: hidden;
+    border-inline: 1px solid rgba(0, 168, 255, .12);
+    border-radius: 22px;
+  }
+  .home-topbar {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 76px;
+    padding: 14px clamp(28px, 4vw, 64px);
+  }
+  .home-topbar__brand {
+    max-width: 1320px;
+    margin-inline: auto;
+  }
+  .home-content {
+    width: 100%;
+    min-width: 0;
+  }
+  .home-page {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 1320px;
+    margin-inline: auto;
+    padding: clamp(28px, 3.2vw, 52px) clamp(28px, 4vw, 64px) 56px;
+  }
+  .home-shell .home-content .home-page {
+    grid-template-columns: minmax(0, 1.08fr) minmax(360px, .92fr);
+    column-gap: clamp(36px, 5vw, 76px);
+    row-gap: clamp(26px, 2.8vw, 40px);
+  }
+  .home-page .home-showcase {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-self: stretch;
+    text-align: center;
+  }
+  .home-page .home-concept-vector {
+    width: min(100%, 560px);
+    max-height: 410px;
+    object-fit: contain;
+  }
+  .home-page .home-key-grid {
+    align-self: center;
+    max-width: 570px;
+    gap: clamp(12px, 1.4vw, 20px);
+  }
+  .home-page .home-key-tile {
+    border-radius: clamp(15px, 1.4vw, 22px);
+    transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+  }
+  .home-page .home-key-tile:hover {
+    transform: translateY(-3px);
+    border-color: rgba(0, 238, 203, .75);
+  }
+  .home-page .cta-group {
+    max-width: 650px;
+  }
+  .home-page .stat-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+  .home-page .stat-card {
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 112px;
+    justify-content: center;
+    padding: 22px;
+    border-radius: 18px;
+  }
+  .home-page .how-section {
+    min-width: 0;
+  }
+  .home-page .steps {
+    align-items: stretch;
+  }
+  .home-page .step {
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 150px;
+    padding: 22px;
+    border-radius: 18px;
+  }
+  .home-page .home-quick-links {
+    grid-column: 1 / -1;
+    grid-row: 5;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    min-width: 0;
+    margin-top: 2px;
+  }
+  .home-page .home-quick-link {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    min-height: 94px;
+    padding: 18px 20px;
+    border: 1px solid rgba(0, 163, 255, .2);
+    border-radius: 16px;
+    background: linear-gradient(145deg, rgba(5, 29, 51, .92), rgba(3, 17, 32, .96));
+    color: #eaf8ff;
+    text-align: start;
+    cursor: pointer;
+    transition: transform .18s ease, border-color .18s ease, background .18s ease;
+  }
+  .home-page .home-quick-link:hover {
+    transform: translateY(-3px);
+    border-color: rgba(0, 238, 203, .55);
+    background: linear-gradient(145deg, rgba(5, 43, 59, .96), rgba(3, 22, 40, .98));
+  }
+  .home-page .home-quick-link__icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    border: 1px solid rgba(0, 209, 255, .25);
+    border-radius: 13px;
+    background: rgba(0, 143, 255, .1);
+    color: #59c9ff;
+    font-size: 21px;
+  }
+  .home-page .home-quick-link__copy {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+  .home-page .home-quick-link__copy strong {
+    color: #dffaff;
+    font-size: 15px;
+    line-height: 1.4;
+  }
+  .home-page .home-quick-link__copy small {
+    color: #91adc2;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .home-page .home-quick-link__arrow {
+    flex: 0 0 auto;
+    color: #00eecb;
+    font-size: 19px;
+  }
+}
+@media (max-width: 899px) {
+  .home-quick-links { display: none; }
+}
