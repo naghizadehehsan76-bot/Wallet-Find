@@ -5214,7 +5214,7 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
     min-height: 680px !important;
     max-height: 680px !important;
     margin: 0 !important;
-    transform: none !important;
+    transform: translateY(-3cm) !important;
     z-index: 2 !important;
   }
 
