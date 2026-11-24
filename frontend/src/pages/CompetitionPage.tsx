@@ -460,11 +460,14 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           const prizeResult = await getContestPrizePool(contestId);
           if (cancelled) return;
           prizeFinalized = ["PAYOUT_PENDING", "SETTLED"].includes(prizeResult.pool.status);
-          prizeInsufficientFunds =
-            prizeResult.pool.status === "SETTLED" &&
-            ["FUNDING_SHORTFALL_DURING_ROUND", "INSUFFICIENT_AT_SETTLEMENT"].includes(
-              prizeResult.pool.cancellationReason ?? "",
-            );
+          // The server permanently invalidates prize eligibility when the
+          // shared fund is below the minimum round budget at participation.
+          // Never estimate from the global balance after that decision.
+          prizeInsufficientFunds = Boolean(prizeResult.pool.fundingInvalidated) ||
+            (prizeResult.pool.status === "SETTLED" &&
+              ["FUNDING_SHORTFALL_DURING_ROUND", "INSUFFICIENT_AT_SETTLEMENT"].includes(
+                prizeResult.pool.cancellationReason ?? "",
+              ));
           const recordedAward = prizeResult.awards.find(
             (award) => award.username === profile?.username,
           );

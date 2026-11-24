@@ -452,6 +452,7 @@ export type PrizePoolView = {
   unused: string;
   settledAt: string | null;
   cancellationReason?: string | null;
+  fundingInvalidated: boolean;
 };
 
 export type PrizePoolLedgerEntry = {
