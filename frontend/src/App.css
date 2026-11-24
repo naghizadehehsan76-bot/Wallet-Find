@@ -4612,3 +4612,27 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
     min-height: 0;
   }
 }
+
+
+/* Desktop Home: split the available content width evenly between hero and tiles. */
+@media (min-width: 900px) {
+  .home-shell .home-content .home-page {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    column-gap: clamp(20px, 2.5vw, 36px);
+  }
+
+  .home-page .home-showcase,
+  .home-page .cta-group {
+    grid-column: 1;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .home-page .home-key-grid {
+    grid-column: 2;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
