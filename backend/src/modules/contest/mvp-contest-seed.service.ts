@@ -204,7 +204,7 @@ async function fetchWikipediaDocuments(limit: number, language: ChallengeLanguag
   apiUrl.searchParams.set("rnnamespace", "0");
   apiUrl.searchParams.set("rnlimit", String(Math.min(limit, 12)));
   // HTTP header values must be ByteString-safe. Keep localized language names out of User-Agent.
-  const headers = { "User-Agent": "WalletFind/1.0 (multilingual word-round generator)" };
+  const headers = { "User-Agent": "WalletFind/1.0 (https://wallet-find.com; multilingual word-round generator)" };
 
   try {
     const randomResponse = await fetchWikipediaResponse(apiUrl, headers, 5_000);
@@ -299,7 +299,7 @@ async function fetchWikisourceDocuments(limit: number, language: ChallengeLangua
   apiUrl.searchParams.set("rnnamespace", "0");
   apiUrl.searchParams.set("rnlimit", String(Math.min(limit, 12)));
   // HTTP header values must be ByteString-safe. Keep localized language names out of User-Agent.
-  const headers = { "User-Agent": "WalletFind/1.0 (multilingual word-round generator)" };
+  const headers = { "User-Agent": "WalletFind/1.0 (https://wallet-find.com; multilingual word-round generator)" };
 
   try {
     const randomResponse = await fetchWikipediaResponse(apiUrl, headers, 5_000);
@@ -515,7 +515,7 @@ async function fetchWikipediaArticleDocument(parsed: URL): Promise<SourceDocumen
   try {
     const response = await fetchWikipediaResponse(
       apiUrl,
-      { "User-Agent": "WalletFind/1.0 (visible Wikipedia revision clue generator)" },
+      { "User-Agent": "WalletFind/1.0 (https://wallet-find.com; visible Wikipedia revision clue generator)" },
       8_000,
     );
     if (!response.ok) {
