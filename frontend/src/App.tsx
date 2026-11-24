@@ -321,18 +321,58 @@ function HomePage({
           </div>
           <div className="home-guide-book__page">
             <div className="home-guide-book__visual" aria-label={guidePages[guidePage].title}>
-              <div className="home-guide-demo">
-                <div className="home-guide-demo__top"><span>WALLET-FIND</span><span>{guideCopy.hint}</span></div>
-                <div className="home-guide-demo__tiles">
-                  {Array.from({ length: 12 }).map((_, index) => <span key={index} className={index === 0 ? "is-active" : index === 1 ? "is-next" : ""}>{index === 0 ? "?" : index + 1}</span>)}
+              {guidePage === 0 ? (
+                <div className="home-guide-demo__screen" dir={isHomeRTL ? "rtl" : "ltr"}>
+                  <div className="home-guide-demo__screen-head">
+                    <strong>Wallet-Find</strong>
+                    <span>{isPersian ? "چالش فعال" : "ACTIVE CHALLENGE"}</span>
+                  </div>
+                  <div className="home-guide-demo__progress">
+                    <div><b>{isPersian ? "پیشرفت چالش" : "CHALLENGE PROGRESS"}</b><span>{localizeDigits("0")} / {localizeDigits("12")}</span></div>
+                    <i><span /></i>
+                  </div>
+                  <section className="home-guide-demo__hint">
+                    <b>{isPersian ? "راهنمای این راند" : "ROUND HINT"}</b>
+                    <p>{isPersian ? "عبارت زیر را دقیقاً در صفحهٔ منبع پیدا کن؛ پاسخ، نخستین واژه پس از عبارت است." : "Find this exact phrase on the source page. The answer is the first word immediately after it."}</p>
+                    <div className="home-guide-demo__phrase">{isPersian ? "عبارت نمونه سرنخ" : "the example clue phrase"}</div>
+                    <small>{isPersian ? "خود واژه را کامل وارد کن؛ نشانه‌گذاری را ننویس." : "Enter the complete word; omit punctuation."}</small>
+                  </section>
+                  <section className="home-guide-demo__source-card">
+                    <b>{isPersian ? "لینک صفحه‌ی منبع" : "SOURCE PAGE"}</b>
+                    <div><span>↗</span>{isPersian ? "باز کردن لینک منبع" : "Open source link"}</div>
+                    <small dir="ltr">https://example.com/source-page</small>
+                  </section>
+                  <div className="home-guide-demo__grid-title">
+                    <b>{isPersian ? "پاسخ هر راند را در کادر شماره‌ی همان راند تایپ کن" : "TYPE EACH ANSWER IN ITS MATCHING BOX"}</b>
+                    <span>{isPersian ? "کادر راند ۱" : "ROUND BOX 1"}</span>
+                  </div>
+                  <div className="home-guide-demo__answer-grid">
+                    {Array.from({length:12}).map((_,index)=>(
+                      <div key={index} className={"home-guide-demo__answer-cell " + (index===0 ? "is-active" : "is-locked")}>
+                        <b>{localizeDigits(String(index+1))}</b>
+                        {index===0 ? <span>{isPersian ? "کلمه…" : "Type word..."}</span> : <span>🔒</span>}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="home-guide-demo__submit">{isPersian ? "بررسی کلمه‌ی واردشده" : "Check typed word"}</div>
                 </div>
-              </div>
-              <div className="home-guide-demo__source">
-                <span>{guideCopy.source}</span>
-                <p>... <mark>the clue phrase</mark> <strong>answer</strong> continues here ...</p>
-                <small>{guideCopy.answer}: <b>answer</b></small>
-              </div>
-              <div className="home-guide-demo__arrow" aria-hidden="true">←</div>
+              ) : guidePage === 1 ? (
+                <div className="home-guide-demo__screen home-guide-demo__screen--compact">
+                  <div className="home-guide-demo__grid-title"><b>{isPersian ? "پاسخ درست ثبت شد" : "CORRECT ANSWER SAVED"}</b></div>
+                  <div className="home-guide-demo__answer-grid">
+                    {Array.from({length:12}).map((_,index)=><div key={index} className={"home-guide-demo__answer-cell " + (index<2 ? "is-solved" : index===2 ? "is-active" : "is-locked")}><b>{localizeDigits(String(index+1))}</b><span>{index<2 ? "✓" : index===2 ? (isPersian ? "کلمه…" : "Type word...") : "🔒"}</span></div>)}
+                  </div>
+                  <p>{isPersian ? "با ثبت پاسخ صحیح، خانه بعدی فعال می‌شود." : "A correct answer unlocks the next box."}</p>
+                </div>
+              ) : (
+                <div className="home-guide-demo__screen home-guide-demo__screen--compact">
+                  <div className="home-guide-demo__completed">{isPersian ? "چالش تکمیل شد" : "CHALLENGE COMPLETED"} <strong>✓</strong></div>
+                  <div className="home-guide-demo__answer-grid">
+                    {Array.from({length:12}).map((_,index)=><div key={index} className="home-guide-demo__answer-cell is-solved"><b>{localizeDigits(String(index+1))}</b><span>✓</span></div>)}
+                  </div>
+                  <p>{isPersian ? "پس از ثبت پاسخ خانه دوازدهم، نتیجه و رتبه مشخص می‌شود." : "Your result and rank are determined after submitting answer 12."}</p>
+                </div>
+              )}
             </div>
             <div className="home-guide-book__copy">
               <span className="home-guide-book__step">{localizeDigits(String(guidePage + 1).padStart(2, "0"))}</span>
