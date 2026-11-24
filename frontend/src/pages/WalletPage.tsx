@@ -260,8 +260,8 @@ export default function WalletPage({ onNavigate }: Props) {
     fee: fa ? "حداکثر کارمزد رزروشده" : "Maximum network fee reserved",
     actualFeeLabel: fa ? "کارمزد نهایی شبکه" : "Final network fee",
     estimatedFeeLabel: fa ? "برآورد کارمزد (موقت)" : "Estimated fee (temporary)",
-    feePaidInPol: fa ? "این مبلغ موقتاً از موجودی POL رزرو می‌شود. پس از دریافت رسید معتبر شبکه، فقط هزینه واقعی گس از موجودی داخلی شما کسر و در صندوق حسابداری کارمزد Turnkey ثبت می‌شود؛ باقی‌مانده رزرو آزاد خواهد شد. این ثبت، انتقال واقعی POL به کیف پول جداگانه نیست." : "This amount is temporarily reserved from your POL balance. Once a canonical network receipt is available, only the exact gas cost is deducted from your internal balance and recorded in the Turnkey fee ledger; the unused reserve is released. This is not an on-chain POL transfer to a separate wallet.",
-    polGasBalance: fa ? "موجودی دارایی بومی برای کارمزد" : "Native asset available for gas",
+    feePaidInPol: fa ? "کارمزد شبکه در پشت‌صحنه مدیریت می‌شود و نیازی به نگهداری ارز جداگانه برای پرداخت کارمزد ندارید." : "Network fees are managed behind the scenes; you do not need to hold a separate fee token.",
+    polGasBalance: fa ? "وضعیت کارمزد شبکه" : "Network fee handling",
     youReceive: fa ? "مقدار درخواستی" : "Requested amount",
     submitWithdrawal: fa ? "ثبت درخواست برداشت" : "Submit withdrawal request",
     unavailable: fa ? "غیرفعال" : "Disabled",
@@ -369,18 +369,18 @@ export default function WalletPage({ onNavigate }: Props) {
     .filter((network) => network.chainId === 137)
     .map((network) => ({
       ...network,
-      assets: network.assets.filter((asset) => ["POL", "USDT0"].includes(asset.symbol.toUpperCase())),
+      assets: network.assets.filter((asset) => asset.symbol.toUpperCase() === "USDT0"),
     }))
     .filter((network) => network.assets.length > 0);
-  const allAssets = (wallet?.networks ?? []).flatMap((network) => network.assets.map((asset) => ({ ...asset, networkId: network.id, networkName: network.displayName, chainId: network.chainId, nativeAssetSymbol: network.nativeAssetSymbol })));
+  const allAssets = (wallet?.networks ?? []).flatMap((network) => network.assets.filter((asset) => asset.symbol.toUpperCase() === "USDT0").map((asset) => ({ ...asset, networkId: network.id, networkName: network.displayName, chainId: network.chainId, nativeAssetSymbol: network.nativeAssetSymbol })));
   const depositAssets = allAssets.filter((asset) => asset.depositEnabled);
-  const depositOptions = allAssets.filter((asset) => asset.chainId === 137 && ["USDT0", "POL"].includes(asset.symbol.toUpperCase()) && asset.verificationStatus === "VERIFIED");
+  const depositOptions = allAssets.filter((asset) => asset.chainId === 137 && asset.symbol.toUpperCase() === "USDT0" && asset.verificationStatus === "VERIFIED");
   const withdrawalAssets = allAssets.filter((asset) => asset.withdrawalEnabled);
   const selectedDepositAsset = allAssets.find((asset) => asset.id === depositAssetId) ?? null;
   const selectedDepositNetwork = wallet?.networks.find((network) => network.id === depositNetworkId) ?? null;
   const selectedWithdrawAsset = withdrawalAssets.find((asset) => asset.id === withdrawAssetId) ?? null;
   const selectedWithdrawNetwork = wallet?.networks.find((network) => network.id === withdrawNetworkId) ?? null;
-  const feeAsset = selectedWithdrawNetwork?.assets.find((asset) => asset.assetType === "NATIVE" && asset.verificationStatus === "VERIFIED") ?? null;
+  const feeAsset = null;
 
   const fmt = (value: string, decimals = 6) => formatAmount(value, decimals, locale);
   const apiErrorCopy = {
@@ -540,7 +540,7 @@ export default function WalletPage({ onNavigate }: Props) {
     }
   };
 
-const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token", MATIC: "polygon-ecosystem-token", USDT: "tether", USDT0: "tether", USDC: "usd-coin", DAI: "dai", ETH: "ethereum", WETH: "ethereum", BNB: "binancecoin", TRX: "tron", XRP: "ripple", DOGE: "dogecoin", ADA: "cardano", AVAX: "avalanche-2", LINK: "chainlink", LTC: "litecoin", DOT: "polkadot", XLM: "stellar" };
+const priceIdBySymbol: Record<string, string> = { USDT: "tether", USDT0: "tether", USDC: "usd-coin", DAI: "dai", ETH: "ethereum", WETH: "ethereum", BNB: "binancecoin", TRX: "tron", XRP: "ripple", DOGE: "dogecoin", ADA: "cardano", AVAX: "avalanche-2", LINK: "chainlink", LTC: "litecoin", DOT: "polkadot", XLM: "stellar" };
   // USDT0 is a Polygon representation of a USD-pegged stablecoin. Keep its
   // estimated display value available when market-price providers omit Tether;
   // this is display-only and never participates in wallet accounting.
@@ -921,8 +921,8 @@ const priceIdBySymbol: Record<string, string> = { POL: "polygon-ecosystem-token"
             <small>{copy.available}: {fmt(selectedWithdrawAsset.availableBalance, selectedWithdrawAsset.decimals)} {selectedWithdrawAsset.symbol}</small>
           </div>
           <div className="wallet-form-field"><label>{copy.destination}</label><input className="wallet-address-input" value={withdrawAddress} onChange={(event) => { setWithdrawAddress(event.target.value); setWithdrawIdempotencyKey(createIdempotencyKey()); setWithdrawResult(null); }} placeholder="0x..." autoComplete="off" /></div>
-          <div className="wallet-fee-row"><span>{copy.polGasBalance}</span><strong>{fmt(feeAsset?.availableBalance ?? "0", feeAsset?.decimals ?? 18)} {feeAsset?.symbol ?? selectedWithdrawNetwork?.nativeAssetSymbol ?? "—"}</strong></div>
-          <div className="wallet-fee-row"><span>{copy.fee}</span><strong>{withdrawResult?.fee ? formatAtomic(withdrawResult.fee, withdrawResult.feeDecimals ?? 18, locale) + " " + (withdrawResult.feeAsset ?? feeAsset?.symbol ?? "—") : "— " + (feeAsset?.symbol ?? selectedWithdrawNetwork?.nativeAssetSymbol ?? "")}</strong></div>
+          <div className="wallet-fee-row"><span>{copy.polGasBalance}</span><strong>{fa ? "مدیریت خودکار" : "Managed automatically"}</strong></div>
+          <div className="wallet-fee-row"><span>{copy.fee}</span><strong>{withdrawResult?.fee ? (withdrawResult.feeAsset?.toUpperCase() === "USDT0" ? formatAtomic(withdrawResult.fee, withdrawResult.feeDecimals ?? 6, locale) + " USDT" : (fa ? "مدیریت خودکار" : "Managed automatically")) : (fa ? "مدیریت خودکار" : "Managed automatically")}</strong></div>
           <p className="wallet-deposit-minimum">{copy.feePaidInPol}</p>
           {withdrawError && <p className="inline-feedback wallet-error" role="alert">{withdrawError}</p>}
           {withdrawResult && <div className="wallet-warning"><strong>✓ {copy.status}: {withdrawResult.status}</strong><p>{copy.withdrawalSubmitted}</p></div>}
