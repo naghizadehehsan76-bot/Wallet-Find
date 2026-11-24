@@ -5120,3 +5120,10 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
     flex: 1 1 0;
   }
 }
+
+
+/* Move the complete homepage content group upward without changing its internal layout. */
+.home-shell .home-content .home-page {
+  position: relative;
+  top: -3cm;
+}
