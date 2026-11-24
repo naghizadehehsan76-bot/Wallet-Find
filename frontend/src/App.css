@@ -5234,3 +5234,43 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
     transform: none !important;
   }
 }
+
+/* Desktop only: let the two homepage actions use the remaining hero-column
+   height so their bottom edge aligns with the adjacent right-hand content. */
+@media (min-width: 900px) {
+  .home-page .home-showcase {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 680px !important;
+    height: 680px !important;
+    box-sizing: border-box !important;
+  }
+
+  .home-page .home-showcase .cta-group {
+    display: flex !important;
+    flex: 1 1 auto !important;
+    flex-direction: column !important;
+    justify-content: stretch !important;
+    gap: 14px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 18px 0 0 !important;
+    padding: 0 4px !important;
+    box-sizing: border-box !important;
+  }
+
+  .home-page .home-showcase .cta-group .cta-button {
+    display: flex !important;
+    flex: 1 1 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    min-height: 96px !important;
+    padding: 22px 18px !important;
+    box-sizing: border-box !important;
+    font-size: clamp(17px, 1.35vw, 21px) !important;
+    line-height: 1.6 !important;
+    white-space: normal !important;
+  }
+}
+
