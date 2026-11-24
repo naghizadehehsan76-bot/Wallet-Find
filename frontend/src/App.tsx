@@ -321,28 +321,19 @@ function HomePage({
           </div>
           <div className="home-guide-book__page">
             <div className="home-guide-book__visual" aria-label={guidePages[guidePage].title}>
-            {guidePage === 0 ? (
-              <div className="guide-visual">
-                <div className="guide-visual__panel"><span>{guideCopy.hint}</span><strong>“the clue phrase”</strong><i>⌕</i></div>
-                <div className="guide-visual__connector">↓</div>
-                <div className="guide-visual__panel"><span>{guideCopy.source}</span><p>... <mark>the clue phrase</mark> <b>answer</b> continues ...</p><small>{guideCopy.answer}: <b>answer</b></small></div>
+              <div className="home-guide-demo">
+                <div className="home-guide-demo__top"><span>WALLET-FIND</span><span>{guideCopy.hint}</span></div>
+                <div className="home-guide-demo__tiles">
+                  {Array.from({ length: 12 }).map((_, index) => <span key={index} className={index === 0 ? "is-active" : index === 1 ? "is-next" : ""}>{index === 0 ? "?" : index + 1}</span>)}
+                </div>
               </div>
-            ) : guidePage === 1 ? (
-              <div className="guide-visual">
-                <div className="guide-visual__caption">{guideCopy.answer}</div>
-                <div className="guide-visual__answer-box">answer <span>✓</span></div>
-                <div className="guide-visual__connector">↓</div>
-                <div className="guide-visual__unlock"><span className="is-done">1</span><span className="is-done">2</span><span className="is-open">3</span><span className="is-locked">4</span></div>
-                <small className="guide-visual__note">{isPersian ? "پاسخ درست، خانه بعدی را باز می‌کند" : "A correct answer unlocks the next box"}</small>
+              <div className="home-guide-demo__source">
+                <span>{guideCopy.source}</span>
+                <p>... <mark>the clue phrase</mark> <strong>answer</strong> continues here ...</p>
+                <small>{guideCopy.answer}: <b>answer</b></small>
               </div>
-            ) : (
-              <div className="guide-visual">
-                <div className="guide-visual__finish-title">{isPersian ? "چالش تکمیل شد" : "Challenge completed"} <span>✓</span></div>
-                <div className="guide-visual__finish-grid">{Array.from({length:12}).map((_,i)=><span key={i}>{i+1}</span>)}</div>
-                <div className="guide-visual__rank">{isPersian ? "رتبه شما" : "Your rank"} <b>#1</b></div>
-              </div>
-            )}
-          </div>
+              <div className="home-guide-demo__arrow" aria-hidden="true">←</div>
+            </div>
             <div className="home-guide-book__copy">
               <span className="home-guide-book__step">{localizeDigits(String(guidePage + 1).padStart(2, "0"))}</span>
               <h3>{guidePages[guidePage].title}</h3>

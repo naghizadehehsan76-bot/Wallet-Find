@@ -4797,3 +4797,82 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 .home-guide-book button:focus-visible{outline:2px solid var(--verdigris);outline-offset:3px}
 @media(max-width:899px){.home-page .home-guide-book{margin:12px 0 18px;padding:13px}.home-page .home-guide-book__page{grid-template-columns:1fr;gap:10px}.home-page .home-guide-book__visual{min-height:145px}.home-page .home-guide-book__copy h3{font-size:13px}.home-page .home-guide-book__copy p{font-size:11px;line-height:1.85}}
 @media(min-width:900px){.home-page .home-guide-book{grid-column:2;grid-row:1 / span 2;align-self:start;margin:0;padding:18px}.home-page .home-guide-book__page{grid-template-columns:1fr;gap:16px}.home-page .home-guide-book__visual{min-height:220px}.home-page .home-guide-book__copy h3{font-size:15px}.home-page .home-guide-book__copy p{font-size:12px;line-height:1.9}}
+
+
+/* Restore the original, complete guide illustration and keep all page controls visible. */
+.home-page .home-guide-book {
+  position:relative !important;
+  z-index:3 !important;
+  max-height:none !important;
+  height:auto !important;
+  overflow:visible !important;
+  box-sizing:border-box !important;
+}
+.home-page .home-guide-book__page {
+  min-height:0;
+  overflow:visible;
+}
+.home-page .home-guide-book__visual {
+  position:relative;
+  display:grid;
+  align-content:start;
+  gap:8px;
+  min-width:0;
+  min-height:0;
+  padding:10px;
+  overflow:visible;
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:12px;
+  background:rgba(0,0,0,.18);
+}
+.home-page .home-guide-demo {
+  min-width:0;
+  padding:9px;
+  border:1px solid rgba(66,232,212,.22);
+  border-radius:9px;
+  background:rgba(66,232,212,.035);
+}
+.home-page .home-guide-demo__top {display:flex;justify-content:space-between;gap:6px;color:var(--muted);font-size:8px;font-weight:800}
+.home-page .home-guide-demo__tiles {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin-top:8px}
+.home-page .home-guide-demo__tiles span {display:grid;place-items:center;min-height:24px;border:1px solid rgba(255,255,255,.1);border-radius:5px;color:var(--muted);font-size:9px;background:rgba(255,255,255,.025)}
+.home-page .home-guide-demo__tiles span.is-active {border-color:var(--verdigris);color:var(--verdigris);background:rgba(66,232,212,.13)}
+.home-page .home-guide-demo__tiles span.is-next {border-color:rgba(66,232,212,.4)}
+.home-page .home-guide-demo__source {padding:9px;border:1px solid rgba(255,255,255,.08);border-radius:9px;background:rgba(255,255,255,.025)}
+.home-page .home-guide-demo__source>span,.home-page .home-guide-demo__source small {color:var(--muted);font-size:8px}
+.home-page .home-guide-demo__source p {margin:6px 0;color:var(--paper);font-size:9px;line-height:1.7;overflow-wrap:anywhere}
+.home-page .home-guide-demo__source mark {padding:1px 3px;border-radius:3px;background:rgba(66,232,212,.2);color:var(--verdigris)}
+.home-page .home-guide-demo__source strong,.home-page .home-guide-demo__source b {color:#fff}
+.home-page .home-guide-demo__arrow {position:absolute;inset-inline-start:calc(50% - 8px);top:42%;z-index:1;display:grid;place-items:center;width:17px;height:17px;border:1px solid var(--line-cyan);border-radius:50%;background:#102326;color:var(--verdigris);font-size:10px}
+.home-page .home-guide-book__footer {
+  position:relative;
+  z-index:5;
+  display:flex !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  min-height:38px;
+  margin-top:10px;
+  padding-top:8px;
+  overflow:visible;
+}
+.home-page .home-guide-book__footer>button {
+  display:inline-flex !important;
+  align-items:center;
+  justify-content:center;
+  visibility:visible !important;
+  min-width:64px;
+  min-height:34px;
+  white-space:nowrap;
+  opacity:1;
+}
+.home-page .home-guide-book__dots {display:flex !important;align-items:center;justify-content:center;gap:7px;visibility:visible}
+@media (min-width:900px) {
+  .home-page .home-guide-book {grid-column:2 !important;grid-row:1 / span 2 !important;align-self:start;margin:0;padding:14px}
+  .home-page .home-guide-book__page {grid-template-columns:minmax(0,1fr) !important;gap:9px;margin-top:9px}
+  .home-page .home-guide-book__visual {min-height:0}
+  .home-page .home-guide-book__copy h3 {font-size:12px}
+  .home-page .home-guide-book__copy p {font-size:10px;line-height:1.75}
+}
+@media (max-width:899px) {
+  .home-page .home-guide-book__page {grid-template-columns:minmax(0,1fr)}
+  .home-page .home-guide-book__footer>button {min-width:72px}
+}
