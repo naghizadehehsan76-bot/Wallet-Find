@@ -182,7 +182,7 @@ export async function getWallet(userId: string) {
 
     const networkViews = networks.map((network) => {
       const address = network.addresses[0] ?? null;
-      const assets = network.assets.map((asset) => {
+      const assets = network.assets.filter((asset) => asset.symbol.toUpperCase() !== "POL").map((asset) => {
         const key = network.id + "|" + asset.id;
         const balance = balanceMap.get(key) ?? { available: 0n, reserved: 0n };
         const availableBalance = balance.available;
