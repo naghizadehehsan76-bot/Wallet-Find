@@ -4557,3 +4557,27 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
     line-height: 1.15;
   }
 }
+
+
+/* Desktop Home: challenge tiles must remain square, not stretch into rectangles. */
+@media (min-width: 900px) {
+  .home-page .home-key-grid {
+    grid-template-rows: none;
+    grid-auto-rows: auto;
+    height: auto;
+    align-self: center;
+  }
+
+  .home-page .home-key-tile {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    min-height: 0;
+  }
+
+  .home-page .home-key-tile__word {
+    white-space: nowrap;
+    overflow-wrap: normal;
+    word-break: keep-all;
+  }
+}
