@@ -268,6 +268,24 @@ function HomePage({
           ))}
         </section>
 
+        <section className="home-quick-links" aria-label={isPersian ? "دسترسی سریع" : "Quick links"}>
+          <button type="button" className="home-quick-link" onClick={() => onNavigate("leaderboard")}>
+            <span className="home-quick-link__icon" aria-hidden="true">🏆</span>
+            <span className="home-quick-link__copy"><strong>{t.sidebar.leaderboard}</strong></span>
+            <span className="home-quick-link__arrow" aria-hidden="true">↗</span>
+          </button>
+          <button type="button" className="home-quick-link" onClick={() => onNavigate("rewards")}>
+            <span className="home-quick-link__icon" aria-hidden="true">✦</span>
+            <span className="home-quick-link__copy"><strong>{t.sidebar.rewards}</strong></span>
+            <span className="home-quick-link__arrow" aria-hidden="true">↗</span>
+          </button>
+          <button type="button" className="home-quick-link" onClick={() => onNavigate("help")}>
+            <span className="home-quick-link__icon" aria-hidden="true">?</span>
+            <span className="home-quick-link__copy"><strong>{t.sidebar.helpCenter}</strong></span>
+            <span className="home-quick-link__arrow" aria-hidden="true">↗</span>
+          </button>
+        </section>
+
         <section className="how-section">
           <h2 className="section-heading">{homeCopy.howWorks ?? (isPersian ? "چالش چطور کار می‌کند" : "How the challenge works")}</h2>
           <div className="steps">
