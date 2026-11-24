@@ -5128,3 +5128,10 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 .home-page .home-showcase .cta-group {
   transform: translateY(-3cm) !important;
 }
+
+
+/* Raise the complete visual challenge guide card without changing its size
+   or the position of the homepage title, tagline, and action buttons. */
+.home-page .home-guide-book {
+  transform: translateY(-3cm) !important;
+}
