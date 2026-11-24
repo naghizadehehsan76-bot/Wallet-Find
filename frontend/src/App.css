@@ -4638,10 +4638,23 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 }
 
 
-/* Desktop Home: reduce only the vertical distance between tile rows. */
+/* Desktop Home: pack all three square tile rows at the top of the board,
+   leaving the remaining vertical space empty below the 12 tiles. */
 @media (min-width: 900px) {
   .home-page .home-key-grid {
+    grid-template-rows: repeat(3, auto);
+    grid-auto-rows: auto;
+    align-content: start;
+    align-self: start;
+    height: auto;
+    min-height: 0;
     row-gap: 2px;
     column-gap: clamp(10px, 1vw, 16px);
+  }
+
+  .home-page .home-key-tile {
+    height: auto;
+    aspect-ratio: 1 / 1;
+    align-self: start;
   }
 }
