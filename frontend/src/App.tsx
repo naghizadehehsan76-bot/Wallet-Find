@@ -271,17 +271,17 @@ function HomePage({
         <section className="home-quick-links" aria-label={isPersian ? "دسترسی سریع" : "Quick links"}>
           <button type="button" className="home-quick-link" onClick={() => onNavigate("leaderboard")}>
             <span className="home-quick-link__icon" aria-hidden="true">🏆</span>
-            <span className="home-quick-link__copy"><strong>{t.sidebar.leaderboard}</strong><small>{isPersian ? "مشاهده رتبه‌بندی و نتایج دورها" : "Explore rankings and round results"}</small></span>
+            <span className="home-quick-link__copy"><strong>{t.sidebar.leaderboard}</strong></span>
             <span className="home-quick-link__arrow" aria-hidden="true">↗</span>
           </button>
           <button type="button" className="home-quick-link" onClick={() => onNavigate("rewards")}>
             <span className="home-quick-link__icon" aria-hidden="true">✦</span>
-            <span className="home-quick-link__copy"><strong>{t.sidebar.rewards}</strong><small>{isPersian ? "بررسی صندوق و جوایز ثبت‌شده" : "See the prize pool and recorded rewards"}</small></span>
+            <span className="home-quick-link__copy"><strong>{t.sidebar.rewards}</strong></span>
             <span className="home-quick-link__arrow" aria-hidden="true">↗</span>
           </button>
           <button type="button" className="home-quick-link" onClick={() => onNavigate("help")}>
             <span className="home-quick-link__icon" aria-hidden="true">?</span>
-            <span className="home-quick-link__copy"><strong>{t.sidebar.helpCenter}</strong><small>{isPersian ? "پاسخ پرسش‌ها و راهنمای استفاده" : "Find answers and get started"}</small></span>
+            <span className="home-quick-link__copy"><strong>{t.sidebar.helpCenter}</strong></span>
             <span className="home-quick-link__arrow" aria-hidden="true">↗</span>
           </button>
         </section>
