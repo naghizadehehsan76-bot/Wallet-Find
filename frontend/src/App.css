@@ -4658,3 +4658,50 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
     align-self: start;
   }
 }
+
+
+/* Desktop-only flip-through guide in the reserved space beneath the 12 challenge tiles. */
+@media (min-width: 900px) {
+  .home-page .home-guide-book {
+    grid-column: 2;
+    grid-row: 3;
+    align-self: start;
+    width: 100%;
+    min-width: 0;
+    margin-top: 4px;
+    padding: 15px;
+    border: 1px solid rgba(66,232,212,.22);
+    border-radius: 16px;
+    background: linear-gradient(145deg, rgba(14,29,31,.96), rgba(8,15,18,.96));
+    box-shadow: 0 12px 32px rgba(0,0,0,.18), inset 0 1px rgba(255,255,255,.025);
+  }
+  .home-guide-book__heading,.home-guide-book__footer { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .home-guide-book__eyebrow { color:var(--verdigris); font-size:8px; font-weight:850; letter-spacing:1.5px; }
+  .home-guide-book__heading h2 { margin:4px 0 0; color:var(--paper); font-size:15px; line-height:1.5; }
+  .home-guide-book__counter { flex:0 0 auto; color:var(--muted); font-size:10px; white-space:nowrap; }
+  .home-guide-book__page { display:grid; grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr); gap:13px; align-items:center; margin-top:12px; }
+  .home-guide-book__visual { position:relative; display:grid; gap:8px; min-width:0; padding:10px; border:1px solid rgba(255,255,255,.07); border-radius:12px; background:rgba(0,0,0,.18); }
+  .home-guide-demo { padding:8px; border:1px solid rgba(66,232,212,.22); border-radius:9px; background:rgba(66,232,212,.035); }
+  .home-guide-demo__top { display:flex; justify-content:space-between; gap:6px; color:var(--muted); font-size:7px; font-weight:800; }
+  .home-guide-demo__tiles { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:4px; margin-top:8px; }
+  .home-guide-demo__tiles span { display:grid; place-items:center; min-height:23px; border:1px solid rgba(255,255,255,.1); border-radius:5px; color:var(--muted); font-size:8px; background:rgba(255,255,255,.025); }
+  .home-guide-demo__tiles span.is-active { border-color:var(--verdigris); color:var(--verdigris); background:rgba(66,232,212,.13); }
+  .home-guide-demo__tiles span.is-next { border-color:rgba(66,232,212,.4); }
+  .home-guide-demo__source { padding:8px; border:1px solid rgba(255,255,255,.08); border-radius:9px; background:rgba(255,255,255,.025); }
+  .home-guide-demo__source > span,.home-guide-demo__source small { color:var(--muted); font-size:7px; }
+  .home-guide-demo__source p { margin:6px 0; color:var(--paper); font-size:8px; line-height:1.7; }
+  .home-guide-demo__source mark { padding:1px 3px; border-radius:3px; background:rgba(66,232,212,.2); color:var(--verdigris); }
+  .home-guide-demo__source strong,.home-guide-demo__source b { color:#fff; }
+  .home-guide-demo__arrow { position:absolute; inset-inline-start:calc(50% - 8px); top:42%; z-index:1; display:grid; place-items:center; width:17px; height:17px; border:1px solid var(--line-cyan); border-radius:50%; background:#102326; color:var(--verdigris); font-size:10px; }
+  .home-guide-book__copy { min-width:0; }
+  .home-guide-book__step { color:var(--verdigris); font-size:10px; font-weight:900; letter-spacing:1px; }
+  .home-guide-book__copy h3 { margin:4px 0 7px; color:var(--paper); font-size:12px; line-height:1.7; }
+  .home-guide-book__copy p { margin:0; color:var(--muted); font-size:10px; line-height:1.9; }
+  .home-guide-book__footer { margin-top:12px; padding-top:10px; border-top:1px solid rgba(255,255,255,.07); }
+  .home-guide-book__footer > button { min-height:29px; padding:5px 9px; border:1px solid var(--line); border-radius:8px; background:rgba(255,255,255,.035); color:var(--paper); font:inherit; font-size:9px; cursor:pointer; }
+  .home-guide-book__footer > button:disabled { opacity:.35; cursor:not-allowed; }
+  .home-guide-book__dots { display:flex; align-items:center; gap:6px; }
+  .home-guide-book__dots button { width:6px; height:6px; padding:0; border:0; border-radius:50%; background:rgba(255,255,255,.25); cursor:pointer; }
+  .home-guide-book__dots button.is-active { width:17px; border-radius:8px; background:var(--verdigris); }
+  .home-guide-book button:focus-visible { outline:2px solid var(--verdigris); outline-offset:3px; }
+}
