@@ -93,7 +93,7 @@ export async function getPrizePool(contestId: string) {
     returnedToGlobalMicro: 0n,
     settledAt: null,
   };
-  const [ledger, awards] = await Promise.all([
+  const [ledger, awards, cancellationAudit] = await Promise.all([
     prisma.prizeLedger.findMany({
       where: { contestId }, orderBy: { createdAt: "asc" },
       select: { id: true, type: true, amountMicro: true, note: true, createdAt: true },
@@ -102,9 +102,24 @@ export async function getPrizePool(contestId: string) {
       where: { contestId }, orderBy: [{ rank: "asc" }, { createdAt: "asc" }],
       select: { username: true, rank: true, amountMicro: true, status: true, destinationAddress: true, transactionHash: true, broadcastAt: true, confirmedAt: true, failureCode: true },
     }),
+    pool.status === "SETTLED"
+      ? prisma.auditLog.findFirst({
+          where: {
+            entity: "PrizePool",
+            entityId: contestId,
+            action: "PRIZE_POOL_CANCELLED_FUNDING_INVALIDATED",
+          },
+          orderBy: { createdAt: "desc" },
+          select: { metadata: true },
+        })
+      : Promise.resolve(null),
   ]);
+  const cancellationMetadata = cancellationAudit?.metadata as Record<string, unknown> | null;
+  const cancellationReason = typeof cancellationMetadata?.cancellationReason === "string"
+    ? cancellationMetadata.cancellationReason
+    : null;
   return {
-    pool: responsePool(pool),
+    pool: { ...responsePool(pool), cancellationReason },
     ledger: ledger.map((row) => ({ ...row, amount: formatMicro(BigInt(row.amountMicro)), amountMicro: undefined })),
     awards: awards.map((row) => ({ ...row, payoutMode: "INTERNAL_WALLET_LEDGER", amount: formatMicro(BigInt(row.amountMicro)), amountMicro: undefined })),
   };
