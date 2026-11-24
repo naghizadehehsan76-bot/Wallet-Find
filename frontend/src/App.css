@@ -4465,3 +4465,54 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   .admin-wallet-overview__heading { align-items: flex-start; }
   .admin-wallet-overview__refresh { flex-shrink: 0; }
 }
+
+
+/* Keep the General Ledger controls and records inside their panel at every viewport size. */
+.admin-ledger-panel {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+}
+.admin-ledger-filters {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.admin-ledger-filters > *,
+.admin-ledger-filters label,
+.admin-ledger-filters input,
+.admin-ledger-filters select,
+.admin-ledger-filters button {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+.admin-ledger-filters__search {
+  grid-column: 1 / -1;
+}
+.admin-ledger-filters input,
+.admin-ledger-filters select {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-ledger-clear {
+  white-space: normal;
+}
+@media (max-width: 600px) {
+  .admin-ledger-filters {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px;
+    gap: 10px;
+  }
+  .admin-ledger-filters__search {
+    grid-column: auto;
+  }
+  .admin-ledger-filters > label,
+  .admin-ledger-filters > button {
+    width: 100%;
+  }
+}
