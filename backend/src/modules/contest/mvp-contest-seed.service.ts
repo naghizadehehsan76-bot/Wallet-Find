@@ -1,6 +1,5 @@
 import prisma from "../../config/prisma.js";
 import { createWikipediaResponseFetcher, loadFallbackWhenInsufficient } from "./wikipedia-source-fetch.js";
-import { fetchInternetArchiveDocuments } from "./internet-archive-source.js";
 import { fetchSourceDocuments, readBoundedResponseText, selectBalancedSourceUrls } from "./source-fetch-pool.js";
 import { CHALLENGE_LANGUAGE_NAMES, getWikipediaDomain, isChallengeLanguage, type ChallengeLanguage } from "./supported-languages.js";
 import { CONTEST_DURATION_MS, hasCompleteClueSequence } from "./contest.logic.js";
@@ -578,7 +577,7 @@ const MAX_CONFIGURED_SOURCE_BYTES = 1_500_000;
 async function fetchConfiguredWebDocument(url: string): Promise<SourceDocument | null> {
   try {
     const parsed = new URL(url);
-    if (parsed.protocol !== "https:") return null;
+    if (parsed.protocol !== "https:" || isArchiveHost(parsed.hostname)) return null;
 
     // Do not scrape Wikipedia's entire HTML page: navigation, hidden labels and
     // markup boundaries can create phrases that are not searchable in the article.
@@ -615,6 +614,11 @@ async function fetchConfiguredWebDocument(url: string): Promise<SourceDocument |
   }
 }
 
+function isArchiveHost(hostname: string): boolean {
+  const normalized = hostname.toLowerCase().replace(/\\.$/, "");
+  return normalized === "archive.org" || normalized.endsWith(".archive.org");
+}
+
 async function getScheduledSourceAssignments(
   language: ChallengeLanguage,
   context: RoundGenerationContext,
@@ -637,6 +641,7 @@ async function getScheduledSourceAssignments(
         Number.isFinite(assignedStart) &&
         assignedStart === expectedStart &&
         typeof row.url === "string" && row.url.startsWith("https://") && row.url.length <= 500 &&
+        (() => { try { return !isArchiveHost(new URL(row.url).hostname); } catch { return false; } })() &&
         Number.isInteger(row.sequence) && Number(row.sequence) >= 1 && Number(row.sequence) <= 12;
     }).sort((a, b) => a.sequence - b.sequence);
   } catch {
@@ -658,7 +663,10 @@ async function getConfiguredSourceUrls(language: ChallengeLanguage): Promise<str
     const parsed: unknown = JSON.parse(setting.value);
     if (!Array.isArray(parsed)) return defaults;
     const configured = [...new Set(parsed.filter((url): url is string => typeof url === "string")
-      .map((url) => url.trim()).filter((url) => url.startsWith("https://") && url.length <= 500))];
+      .map((url) => url.trim()).filter((url) => {
+        if (!url.startsWith("https://") || url.length > 500) return false;
+        try { return !isArchiveHost(new URL(url).hostname); } catch { return false; }
+      }))];
     // An empty or entirely invalid admin list must not disable every default
     // source for that language and make automatic challenge generation fail.
     return configured.length > 0 ? configured : defaults;
@@ -667,9 +675,9 @@ async function getConfiguredSourceUrls(language: ChallengeLanguage): Promise<str
 
 /**
  * Generate each round from source documents in the selected challenge language.
- * Wikimedia is the live primary source; language-matched public-domain corpora
- * such as Project Gutenberg and Internet Archive provide independent fallbacks
- * when a provider is unavailable or cannot yield enough valid clues.
+ * Wikimedia provides clean, language-matched text through its structured APIs.
+ * Project Gutenberg provides a plain-text fallback for English challenges.
+ * OCR-based archive catalogs are deliberately excluded.
  */
 async function generateMvpRounds(
   language: ChallengeLanguage = "en",
@@ -681,14 +689,13 @@ async function generateMvpRounds(
   const assignedUrls = [...new Set(scheduledAssignments.map((assignment) => assignment.url))];
   const wikiUrl = "https://" + getWikipediaDomain(language) + "/w/api.php";
   const wikipediaDocuments = configuredUrls.includes(wikiUrl) ? await fetchWikipediaDocuments(12, language) : [];
-  // Wikisource is a secondary corpus, but shares Wikimedia infrastructure
-  // with Wikipedia; Internet Archive remains the independently hosted fallback.
+  // Wikisource is a secondary text source. Both Wikimedia providers return
+  // extracted plain text through their APIs rather than scanned-page OCR.
   const shouldUseIndependentFallback = configuredUrls.includes(wikiUrl);
   const wikisourceDocuments = language !== "fa" && shouldUseIndependentFallback
     ? await loadFallbackWhenInsufficient(wikipediaDocuments, () => fetchWikisourceDocuments(12, language), 3)
     : [];
   // Ganjoor is intentionally not used until its reuse rights are explicitly documented.
-  // Persian falls back to Internet Archive only when the source corpus is insufficient.
   const gutenbergResults = language === "en" ? await Promise.all(
     GUTENBERG_BOOKS.filter((book) => configuredUrls.includes(book.textUrl)).map((book) => fetchGutenbergDocument(book)),
   ) : [];
@@ -740,15 +747,6 @@ async function generateMvpRounds(
     ...plannedDocuments.flatMap(({ source }) => source ? [source] : []),
   ];
 
-  // Wikimedia projects share infrastructure and can be rate-limited together.
-  // If the existing language-matched sources are too few, use Internet Archive
-  // OCR/plain-text files under explicit commercial-use licenses as an independent
-  // third-party fallback. The loader caches results for six hours per language.
-  let internetArchiveDocuments: SourceDocument[] = [];
-  if (sources.length < 4) {
-    internetArchiveDocuments = await fetchInternetArchiveDocuments(language, 6);
-    sources = [...sources, ...internetArchiveDocuments];
-  }
 
   const usedAnswers = new Set<string>();
   const getOptionWords = (availableSources: readonly SourceDocument[]) => {
@@ -812,16 +810,6 @@ async function generateMvpRounds(
   };
 
   let generated = generateRemainingRounds(sources, optionWords);
-  // A source may return enough pages but still contain too little usable text.
-  // In that case, fetch the independent corpus once and retry the full build.
-  if (generated.rounds.length < remainingCount && internetArchiveDocuments.length === 0) {
-    internetArchiveDocuments = await fetchInternetArchiveDocuments(language, 6);
-    if (internetArchiveDocuments.length > 0) {
-      sources = [...sources, ...internetArchiveDocuments];
-      optionWords = getOptionWords(sources);
-      generated = generateRemainingRounds(sources, optionWords);
-    }
-  }
   const rounds = generated.rounds;
   for (const answer of generated.usedAnswers) usedAnswers.add(answer);
   console.info("MVP clue generation summary", {
@@ -829,7 +817,6 @@ async function generateMvpRounds(
     wikipediaSourceCount: wikipediaDocuments.length,
     wikisourceSourceCount: wikisourceDocuments.length,
     gutenbergSourceCount: gutenbergResults.filter((source) => source !== null).length,
-    internetArchiveSourceCount: internetArchiveDocuments.length,
     customSourceCount: customDocuments.filter((source) => source !== null).length,
     customSourceCandidateCount: customUrls.length,
     customSourceSelectedCount: selectedCustomUrls.length,
