@@ -451,6 +451,7 @@ export type PrizePoolView = {
   available: string;
   unused: string;
   settledAt: string | null;
+  cancellationReason?: string | null;
 };
 
 export type PrizePoolLedgerEntry = {

@@ -49,7 +49,24 @@ type CompletionSummary = {
   prizeAmount: string | null;
   prizeFinalized: boolean;
   prizeAvailable: boolean;
+  prizeInsufficientFunds: boolean;
 };
+
+function getInsufficientPrizeFundsCopy(language: string) {
+  const copy: Record<string, { label: string; note: string }> = {
+    fa: { label: "جایزه‌ای تعلق نگرفت", note: "به دلیل کافی نبودن موجودی صندوق جوایز، جایزه‌ای به شما تعلق نگرفت." },
+    en: { label: "No prize awarded", note: "No prize was awarded because the prize fund did not have sufficient balance." },
+    de: { label: "Kein Preis vergeben", note: "Aufgrund eines unzureichenden Guthabens im Prämienfonds wurde kein Preis vergeben." },
+    es: { label: "Sin premio", note: "No se otorgó ningún premio porque el fondo de premios no tenía saldo suficiente." },
+    fr: { label: "Aucun prix attribué", note: "Aucun prix ne vous a été attribué, car le fonds de récompenses ne disposait pas d'un solde suffisant." },
+    ar: { label: "لم تُمنح جائزة", note: "لم تُمنح لك جائزة بسبب عدم كفاية الرصيد في صندوق الجوائز." },
+    tr: { label: "Ödül verilmedi", note: "Ödül havuzunda yeterli bakiye bulunmadığı için size ödül verilmedi." },
+    pt: { label: "Nenhum prêmio concedido", note: "Nenhum prêmio foi concedido porque o fundo de prêmios não tinha saldo suficiente." },
+    ru: { label: "Приз не начислен", note: "Приз не был начислен, поскольку в призовом фонде недостаточно средств." },
+    zh: { label: "未发放奖励", note: "由于奖励基金余额不足，本次未向您发放奖励。" },
+  };
+  return copy[language] ?? copy.en;
+}
 
 const PRIZE_BASIS_POINTS = [5_000n, 2_250n, 1_250n] as const;
 const PRIZE_BASIS_POINT_DENOMINATOR = 10_000n;
@@ -438,14 +455,23 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
         let prizeAmount: string | null = null;
         let prizeFinalized = false;
         let prizeAvailable = false;
+        let prizeInsufficientFunds = false;
         try {
           const prizeResult = await getContestPrizePool(contestId);
           if (cancelled) return;
           prizeFinalized = ["PAYOUT_PENDING", "SETTLED"].includes(prizeResult.pool.status);
+          prizeInsufficientFunds =
+            prizeResult.pool.status === "SETTLED" &&
+            ["FUNDING_SHORTFALL_DURING_ROUND", "INSUFFICIENT_AT_SETTLEMENT"].includes(
+              prizeResult.pool.cancellationReason ?? "",
+            );
           const recordedAward = prizeResult.awards.find(
             (award) => award.username === profile?.username,
           );
-          if (prizeFinalized) {
+          if (prizeInsufficientFunds) {
+            prizeAmount = null;
+            prizeFinalized = true;
+          } else if (prizeFinalized) {
             prizeAmount = recordedAward?.amount ?? "0.000000";
           } else {
             // Challenges share one global fund across every language. An active
@@ -467,6 +493,7 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
           prizeAmount,
           prizeFinalized,
           prizeAvailable,
+          prizeInsufficientFunds,
         });
         setCompletionSummaryError(false);
         if (prizeFinalized && refreshTimer !== null) {
@@ -950,28 +977,34 @@ function CompetitionPage({ onNavigate }: CompetitionPageProps) {
                           <strong className="mono challenge-result-card__time">{formatElapsed(completionSummary.elapsedMs)}</strong>
                         </div>
                         <div className="challenge-result-card__metric">
-                          <span>{completionSummary.prizeFinalized
-                            ? (isPersian ? "جایزهٔ ثبت‌شده" : "Recorded prize")
-                            : (isPersian ? "برآورد فعلی جایزه" : "Current prize estimate")}</span>
+                          <span>{completionSummary.prizeInsufficientFunds
+                            ? getInsufficientPrizeFundsCopy(language).label
+                            : completionSummary.prizeFinalized
+                              ? (isPersian ? "جایزهٔ ثبت‌شده" : "Recorded prize")
+                              : (isPersian ? "برآورد فعلی جایزه" : "Current prize estimate")}</span>
                           <strong className="challenge-result-card__amount">
-                            {completionSummary.prizeAmount !== null
-                              ? localizeDigits(Number(completionSummary.prizeAmount).toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 6 }))
-                              : (isPersian ? "در حال بررسی" : "Checking")}
-                            {completionSummary.prizeAmount !== null && <small>USDT</small>}
+                            {completionSummary.prizeInsufficientFunds
+                              ? "—"
+                              : completionSummary.prizeAmount !== null
+                                ? localizeDigits(Number(completionSummary.prizeAmount).toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 6 }))
+                                : (isPersian ? "در حال بررسی" : "Checking")}
+                            {completionSummary.prizeAmount !== null && !completionSummary.prizeInsufficientFunds && <small>USDT</small>}
                           </strong>
                         </div>
                       </div>
                       <p className="challenge-result-card__note">
-                        {!completionSummary.prizeAvailable
-                          ? (isPersian
+                        {completionSummary.prizeInsufficientFunds
+                          ? getInsufficientPrizeFundsCopy(language).note
+                          : !completionSummary.prizeAvailable
+                            ? (isPersian
                               ? "رتبه و زمان تکمیل از سرور دریافت شده‌اند؛ دریافت مبلغ جایزه ناموفق بود و خودکار دوباره بررسی می‌شود."
                               : "Your rank and completion time are from the server. The prize amount could not be loaded and will be retried automatically.")
-                          : completionSummary.prizeFinalized
-                            ? (isPersian
+                            : completionSummary.prizeFinalized
+                              ? (isPersian
                                 ? "این جایزه در تسویهٔ رسمی به موجودی داخلی کیف پول Wallet-Find ثبت می‌شود؛ برداشت آن تابع موجودی قابل‌برداشت و شرایط برداشت است."
                                 : "This prize is credited to your Wallet-Find balance after official settlement; withdrawal remains subject to your available balance and withdrawal requirements.")
-                            : (isPersian
-                                ? "رتبه بر اساس زمان ثبت‌شدهٔ سرور است. مبلغ نمایش‌داده‌شده برآورد سهم تو از صندوق مشترک است و پس از پایان دور و تسویهٔ رسمی نهایی می‌شود. جایزه پس از ثبت تسویه به موجودی داخلی کیف پول Wallet-Find اضافه می‌شود."
+                              : (isPersian
+                                  ? "رتبه بر اساس زمان ثبت‌شدهٔ سرور است. مبلغ نمایش‌داده‌شده برآورد سهم تو از صندوق مشترک است و پس از پایان دور و تسویهٔ رسمی نهایی می‌شود. جایزه پس از ثبت تسویه به موجودی داخلی کیف پول Wallet-Find اضافه می‌شود."
                                 : "Your rank uses server-recorded completion time. This is an estimate from the shared prize fund and is finalized after the round closes and settlement completes. The prize is then credited to your Wallet-Find balance.")}
                       </p>
                     </>
