@@ -329,7 +329,7 @@ function HomePage({
               {guidePage === 0 ? (
                 <div className="home-guide-video" aria-label={isPersian ? "ویدیوی آموزش حل چالش" : "Challenge tutorial video"}>
                   <iframe
-                    src="https://drive.google.com/file/d/1j1b8ITYyilA74BuYw6DC799HjK774WnX/preview"
+                    src="https://www.youtube.com/embed/3SLqyI1U-VM"
                     title={isPersian ? "آموزش حل چالش Wallet-Find" : "Wallet-Find challenge tutorial"}
                     allow="autoplay; fullscreen"
                     allowFullScreen
