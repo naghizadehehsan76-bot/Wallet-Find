@@ -5066,16 +5066,10 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
 }
 
 
-/* Mobile home: keep the primary actions between the hero artwork and guide,
-   where they remain visible and cannot be covered by the guide card. */
+/* Mobile home: preserve the original document order of the guide and
+   statistics; only keep the action buttons above neighboring layers. */
 @media (max-width: 899px) {
-  .home-page {
-    display: flex !important;
-    flex-direction: column !important;
-  }
-  .home-page .home-showcase { order: 1; }
   .home-page .cta-group {
-    order: 2;
     position: relative !important;
     z-index: 5 !important;
     display: flex !important;
@@ -5089,10 +5083,5 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
     position: relative !important;
     z-index: 6 !important;
     width: 100%;
-  }
-  .home-page .home-guide-book {
-    order: 3;
-    position: relative;
-    z-index: 1;
   }
 }
