@@ -196,189 +196,129 @@ function hasCurrentGeneratedClues(clues: readonly StoredGeneratedClue[]): boolea
 // One process-wide queue spaces Wikimedia requests without sleeping through a 429 window.
 const fetchWikipediaResponse = createWikipediaResponseFetcher();
 
-async function fetchWikipediaDocuments(limit: number, language: ChallengeLanguage = "en"): Promise<SourceDocument[]> {
-  // Use at most two API requests (random titles + one batch extract). Never
-  // fan out into individual article requests when Wikipedia rate-limits us.
-  const wikiDomain = getWikipediaDomain(language);
-  const apiUrl = new URL(`https://${wikiDomain}/w/api.php`);
-  apiUrl.searchParams.set("action", "query");
-  apiUrl.searchParams.set("format", "json");
-  apiUrl.searchParams.set("list", "random");
-  apiUrl.searchParams.set("rnnamespace", "0");
-  apiUrl.searchParams.set("rnlimit", String(Math.min(limit, 12)));
-  // HTTP header values must be ByteString-safe. Keep localized language names out of User-Agent.
-  const headers = { "User-Agent": "WalletFind/1.0 (https://wallet-find.com; multilingual word-round generator)" };
-
-  try {
-    const randomResponse = await fetchWikipediaResponse(apiUrl, headers, 5_000);
-    if (!randomResponse.ok) {
-      console.warn("Wikipedia random-page request skipped", { status: randomResponse.status });
-      return [];
-    }
-
-    const randomData = await randomResponse.json() as {
-      query?: { random?: Array<{ title?: string }> };
-      error?: { code?: string; info?: string };
-    };
-    if (randomData.error) {
-      console.warn("Wikipedia random-page API error", randomData.error);
-      return [];
-    }
-
-    const titles = [...new Set(
-      (randomData.query?.random ?? [])
-        .map((page) => page.title)
-        .filter((title): title is string => Boolean(title)),
-    )];
-    if (titles.length === 0) return [];
-
-    const extractUrl = new URL(`https://${wikiDomain}/w/api.php`);
-    extractUrl.searchParams.set("action", "query");
-    extractUrl.searchParams.set("format", "json");
-    extractUrl.searchParams.set("titles", titles.join("|"));
-    extractUrl.searchParams.set("prop", "extracts|info");
-    extractUrl.searchParams.set("inprop", "url");
-    extractUrl.searchParams.set("explaintext", "1");
-    extractUrl.searchParams.set("exchars", "9000");
-    extractUrl.searchParams.set("redirects", "1");
-
-    const extractResponse = await fetchWikipediaResponse(extractUrl, headers, 5_000);
-    if (!extractResponse.ok) {
-      console.warn("Wikipedia batch extract skipped", { status: extractResponse.status });
-      return [];
-    }
-
-    const data = await extractResponse.json() as {
-      query?: { pages?: Record<string, { title?: string; fullurl?: string; extract?: string; lastrevid?: number }> };
-      error?: { code?: string; info?: string };
-    };
-    if (data.error) {
-      console.warn("Wikipedia batch extract API error", data.error);
-      return [];
-    }
-
-    return Object.values(data.query?.pages ?? {})
-      // The link is pinned to the same revision that supplied the extracted
-      // text. If MediaWiki omitted a revision id, skip the page instead of
-      // publishing a link whose contents can drift after generation.
-      .filter((page) =>
-        typeof page.extract === "string" &&
-        page.extract.length > 300 &&
-        Number.isSafeInteger(page.lastrevid) &&
-        Number(page.lastrevid) > 0
-      )
-      .map((page) => {
-        const title = page.title ?? "Wikipedia article";
-        return {
-          title,
-          url: pinWikipediaRevision(
-            page.fullurl ?? `https://${wikiDomain}/wiki/` + encodeURIComponent(title.replace(/ /g, "_")),
-            page.lastrevid,
-          ),
-          text: normalizeSourceText(page.extract ?? ""),
-        };
-      });
-  } catch (error) {
-    console.warn("Wikipedia source unavailable; continuing with public-domain books.", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return [];
-  }
-}
-
 function getWikisourceDomain(language: ChallengeLanguage): string {
   // Wikisource uses the matching base-language subdomain.
   return `${language.split("-")[0]}.wikisource.org`;
 }
 
-async function fetchWikisourceDocuments(limit: number, language: ChallengeLanguage = "en"): Promise<SourceDocument[]> {
-  // Use at most two API requests (random titles + one batch extract). Never
-  // fan out into individual article requests when Wikisource rate-limits us.
-  const wikiDomain = getWikisourceDomain(language);
-  const apiUrl = new URL(`https://${wikiDomain}/w/api.php`);
+/**
+ * Ask MediaWiki for random pages and their extracts in one API request.
+ * The previous two-step list=random + titles query routinely yielded only one
+ * usable page under real production rate limits. generator=random returns the
+ * page metadata and extracts together, and bounded retries collect enough
+ * distinct pages to satisfy the four-clues-per-page limit.
+ */
+export function buildRandomMediaWikiApiUrl(
+  project: "wikipedia" | "wikisource",
+  limit: number,
+  language: ChallengeLanguage,
+): URL {
+  const domain = project === "wikipedia"
+    ? getWikipediaDomain(language)
+    : getWikisourceDomain(language);
+  const apiUrl = new URL(`https://${domain}/w/api.php`);
   apiUrl.searchParams.set("action", "query");
   apiUrl.searchParams.set("format", "json");
-  apiUrl.searchParams.set("list", "random");
-  apiUrl.searchParams.set("rnnamespace", "0");
-  apiUrl.searchParams.set("rnlimit", String(Math.min(limit, 12)));
-  // HTTP header values must be ByteString-safe. Keep localized language names out of User-Agent.
-  const headers = { "User-Agent": "WalletFind/1.0 (https://wallet-find.com; multilingual word-round generator)" };
+  apiUrl.searchParams.set("generator", "random");
+  apiUrl.searchParams.set("grnnamespace", "0");
+  // MediaWiki's normal-client limit is 10. Fetch up to ten pages per request
+  // and make another bounded request only when fewer than three are usable.
+  apiUrl.searchParams.set("grnlimit", String(Math.min(Math.max(Math.floor(limit), 1), 10)));
+  apiUrl.searchParams.set("prop", "extracts|info");
+  apiUrl.searchParams.set("inprop", "url");
+  apiUrl.searchParams.set("explaintext", "1");
+  apiUrl.searchParams.set("exchars", "9000");
+  apiUrl.searchParams.set("redirects", "1");
+  return apiUrl;
+}
 
-  try {
-    const randomResponse = await fetchWikipediaResponse(apiUrl, headers, 5_000);
-    if (!randomResponse.ok) {
-      console.warn("Wikisource random-page request skipped", { status: randomResponse.status });
-      return [];
-    }
+async function fetchRandomMediaWikiDocuments(
+  project: "wikipedia" | "wikisource",
+  limit: number,
+  language: ChallengeLanguage,
+): Promise<SourceDocument[]> {
+  const apiUrl = buildRandomMediaWikiApiUrl(project, limit, language);
+  const domain = apiUrl.hostname;
+  const headers = {
+    "User-Agent": "WalletFind/1.0 (https://wallet-find.com; multilingual word-round generator)",
+  };
+  const documents = new Map<string, SourceDocument>();
 
-    const randomData = await randomResponse.json() as {
-      query?: { random?: Array<{ title?: string }> };
-      error?: { code?: string; info?: string };
-    };
-    if (randomData.error) {
-      console.warn("Wikisource random-page API error", randomData.error);
-      return [];
-    }
+  for (let attempt = 0; attempt < 3 && documents.size < 3; attempt += 1) {
+    try {
+      const response = await fetchWikipediaResponse(apiUrl, headers, 8_000);
+      if (!response.ok) {
+        console.warn(`MediaWiki ${project} random-page request skipped`, {
+          host: domain,
+          status: response.status,
+          attempt: attempt + 1,
+        });
+        continue;
+      }
 
-    const titles = [...new Set(
-      (randomData.query?.random ?? [])
-        .map((page) => page.title)
-        .filter((title): title is string => Boolean(title)),
-    )];
-    if (titles.length === 0) return [];
+      const data = await response.json() as {
+        query?: { pages?: Record<string, {
+          title?: string;
+          fullurl?: string;
+          extract?: string;
+          lastrevid?: number;
+        }> };
+        error?: { code?: string; info?: string };
+      };
+      if (data.error) {
+        console.warn(`MediaWiki ${project} API error`, {
+          host: domain,
+          code: data.error.code,
+          info: data.error.info,
+        });
+        continue;
+      }
 
-    const extractUrl = new URL(`https://${wikiDomain}/w/api.php`);
-    extractUrl.searchParams.set("action", "query");
-    extractUrl.searchParams.set("format", "json");
-    extractUrl.searchParams.set("titles", titles.join("|"));
-    extractUrl.searchParams.set("prop", "extracts|info");
-    extractUrl.searchParams.set("inprop", "url");
-    extractUrl.searchParams.set("explaintext", "1");
-    extractUrl.searchParams.set("exchars", "9000");
-    extractUrl.searchParams.set("redirects", "1");
-
-    const extractResponse = await fetchWikipediaResponse(extractUrl, headers, 5_000);
-    if (!extractResponse.ok) {
-      console.warn("Wikisource batch extract skipped", { status: extractResponse.status });
-      return [];
-    }
-
-    const data = await extractResponse.json() as {
-      query?: { pages?: Record<string, { title?: string; fullurl?: string; extract?: string; lastrevid?: number }> };
-      error?: { code?: string; info?: string };
-    };
-    if (data.error) {
-      console.warn("Wikisource batch extract API error", data.error);
-      return [];
-    }
-
-    return Object.values(data.query?.pages ?? {})
-      // The link is pinned to the same revision that supplied the extracted
-      // text. If MediaWiki omitted a revision id, skip the page instead of
-      // publishing a link whose contents can drift after generation.
-      .filter((page) =>
-        typeof page.extract === "string" &&
-        page.extract.length > 300 &&
-        Number.isSafeInteger(page.lastrevid) &&
-        Number(page.lastrevid) > 0
-      )
-      .map((page) => {
-        const title = page.title ?? "Wikisource page";
-        return {
+      const pages = Object.values(data.query?.pages ?? {});
+      for (const page of pages) {
+        if (
+          typeof page.extract !== "string" ||
+          page.extract.length <= 300 ||
+          !Number.isSafeInteger(page.lastrevid) ||
+          Number(page.lastrevid) < 1
+        ) continue;
+        const title = page.title ?? (project === "wikipedia" ? "Wikipedia article" : "Wikisource page");
+        const url = pinWikipediaRevision(
+          page.fullurl ?? `https://${domain}/wiki/` + encodeURIComponent(title.replace(/ /g, "_")),
+          page.lastrevid,
+        );
+        documents.set(url, {
           title,
-          url: pinWikipediaRevision(
-            page.fullurl ?? `https://${wikiDomain}/wiki/` + encodeURIComponent(title.replace(/ /g, "_")),
-            page.lastrevid,
-          ),
-          text: normalizeSourceText(page.extract ?? ""),
-        };
+          url,
+          text: normalizeSourceText(page.extract),
+        });
+      }
+      if (documents.size < 3) {
+        console.warn(`MediaWiki ${project} returned too few usable pages; requesting another small batch.`, {
+          host: domain,
+          attempt: attempt + 1,
+          returnedPageCount: pages.length,
+          usablePageCount: documents.size,
+        });
+      }
+    } catch (error) {
+      console.warn(`MediaWiki ${project} source unavailable; continuing with fallback sources.`, {
+        host: domain,
+        attempt: attempt + 1,
+        error: error instanceof Error ? error.message : String(error),
       });
-  } catch (error) {
-    console.warn("Wikisource source unavailable; continuing with public-domain books.", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return [];
+    }
   }
+
+  return [...documents.values()];
+}
+
+async function fetchWikipediaDocuments(limit: number, language: ChallengeLanguage = "en"): Promise<SourceDocument[]> {
+  return fetchRandomMediaWikiDocuments("wikipedia", limit, language);
+}
+
+async function fetchWikisourceDocuments(limit: number, language: ChallengeLanguage = "en"): Promise<SourceDocument[]> {
+  return fetchRandomMediaWikiDocuments("wikisource", limit, language);
 }
 
 // Source texts can contain hundreds of thousands of characters. Cache tokenization
@@ -736,12 +676,15 @@ async function generateMvpRounds(
   const wikipediaDocuments = configuredUrls.includes(wikiUrl)
     ? await getCachedSourceDocuments(`wikipedia:${language}`, () => fetchWikipediaDocuments(36, language))
     : [];
-  // Always include Wikisource as an independent, language-matched text corpus.
-  // Its MediaWiki API returns structured text, not scanned-page OCR.
-  const wikisourceDocuments = await getCachedSourceDocuments(
-    `wikisource:${language}`,
-    () => fetchWikisourceDocuments(36, language),
-  );
+  // Prefer Wikipedia's language-matched corpus. Use Wikisource only when
+  // Wikipedia could not supply at least three usable pages (the minimum needed
+  // to produce twelve clues while preserving the four-clues-per-page cap).
+  const wikisourceDocuments = wikipediaDocuments.length >= 3
+    ? []
+    : await getCachedSourceDocuments(
+      `wikisource:${language}`,
+      () => fetchWikisourceDocuments(36, language),
+    );
   // Ganjoor is intentionally not used until its reuse rights are explicitly documented.
   const gutenbergResults = language === "en" ? await Promise.all(
     GUTENBERG_BOOKS.filter((book) => configuredUrls.includes(book.textUrl)).map((book) => fetchGutenbergDocument(book)),

@@ -3,7 +3,11 @@ import test from "node:test";
 
 import { CHALLENGE_LANGUAGES, type ChallengeLanguage } from "./supported-languages.js";
 import { CLUE_GENERATOR_VERSION, getSourceWordMatches, isSearchableClueAnchor } from "./clue-source-text.js";
-import { buildRoundFromSource, type SourceDocument } from "./mvp-contest-seed.service.js";
+import {
+  buildRandomMediaWikiApiUrl,
+  buildRoundFromSource,
+  type SourceDocument,
+} from "./mvp-contest-seed.service.js";
 
 const fixtures: Record<ChallengeLanguage, { prefix: string; markers: string[]; answers: string[] }> = {
   fa: {
@@ -88,6 +92,24 @@ test("every enabled language can build twelve distinct, searchable clues with tw
       assert.equal(new Set(clue.options).size, 12, language + " choices must be unique");
       assert.ok(clue.options.includes(clue.correctAnswer), language + " answer must be one of the choices");
 
+    }
+  }
+});
+
+
+test("MediaWiki source requests use one bounded random-page extract request per language", () => {
+  for (const language of CHALLENGE_LANGUAGES) {
+    const wikipediaUrl = buildRandomMediaWikiApiUrl("wikipedia", 36, language);
+    const wikisourceUrl = buildRandomMediaWikiApiUrl("wikisource", 36, language);
+
+    assert.equal(wikipediaUrl.hostname, language + ".wikipedia.org", language + " Wikipedia host");
+    assert.equal(wikisourceUrl.hostname, language + ".wikisource.org", language + " Wikisource host");
+    for (const url of [wikipediaUrl, wikisourceUrl]) {
+      assert.equal(url.searchParams.get("generator"), "random", language + " random page generator");
+      assert.equal(url.searchParams.get("grnnamespace"), "0", language + " main namespace");
+      assert.equal(url.searchParams.get("grnlimit"), "10", language + " bounded page batch");
+      assert.equal(url.searchParams.get("prop"), "extracts|info", language + " includes text and revision");
+      assert.equal(url.searchParams.get("explaintext"), "1", language + " plain text extract");
     }
   }
 });
