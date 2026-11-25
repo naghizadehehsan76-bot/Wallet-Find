@@ -5406,3 +5406,10 @@ body { background: radial-gradient(ellipse at 50% 0%, rgba(0,133,255,.12), trans
   display: block;
   border: 0;
 }
+
+
+/* Match the selected Leaderboard trophy to the turquoise active navigation state. */
+.bottom-nav .nav-item--active .nav-icon--leaderboard .nav-icon__trophy {
+  filter: grayscale(1) sepia(1) hue-rotate(125deg) saturate(5) brightness(1.1);
+  text-shadow: 0 0 8px rgba(66, 232, 212, .65);
+}
